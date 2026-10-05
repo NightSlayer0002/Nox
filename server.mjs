@@ -88,7 +88,14 @@ export function createAppServer({
           try {
             const audio=await speech({text:input.text.trim(),mode:sanitizeContext({mode:input.mode}).mode},{apiKey:voiceKey,voice:speechVoice,provider:speechProvider});
             response.writeHead(200,{'content-type':speechProvider==='groq'?'audio/wav':'audio/mpeg'}); response.end(audio); return;
-          } catch {return sendJson(response,502,{error:'Natural voice could not respond. Check model access and account limits, or choose Browser voice.'});}
+          } catch(error) {
+            const categories=['terms_required','input_limit','model_permission','quota','credentials','provider_http','invalid_audio_type'];
+            const reason=categories.includes(error.code)?error.code:error.name==='TimeoutError'?'timeout':'other';
+            const status=Number.isInteger(error.providerStatus)?error.providerStatus:'none';
+            const format=['application/octet-stream','application/json','text/html','other'].includes(error.audioType)?error.audioType:'none';
+            console.warn(`[NOX speech] reason=${reason} status=${status} format=${format}`);
+            return sendJson(response,502,{error:reason==='terms_required'?'Groq requires you to review and accept the speech model’s terms in its console before Orpheus can speak. Browser voice remains available.':'Natural voice could not respond. Check model access and account limits, or choose Browser voice.'});
+          }
         }
         if (!input || typeof input.message !== 'string' || !input.message.trim() || input.message.length > 1200) {
           return sendJson(response, 400, { error: 'Message must contain 1–1200 characters.' });

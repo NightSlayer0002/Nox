@@ -14,8 +14,20 @@ export async function requestSpeech({text,mode='companion'}, {apiKey,voice='ceda
     signal:AbortSignal.timeout(20000),
     body:JSON.stringify(groq ? {model:'canopylabs/orpheus-v1-english',voice:['troy','austin','daniel','hannah'].includes(voice)?voice:'troy',input:text.trim(),response_format:'wav'} : {model:'gpt-4o-mini-tts',voice:['cedar','marin'].includes(voice)?voice:'cedar',input:text.trim(),instructions:directions[mode]||directions.companion,response_format:'mp3'}),
   });
-  if (!response.ok) throw new Error(`Speech provider returned HTTP ${response.status}.`);
-  if (!response.headers.get('content-type')?.startsWith('audio/')) throw new Error('Speech provider did not return audio.');
+  if (!response.ok) {
+    let code = response.status === 429 ? 'quota' : response.status === 401 ? 'credentials' : 'provider_http';
+    try {
+      const data = await response.json();
+      const message = typeof data.error?.message === 'string' ? data.error.message : '';
+      if (/terms/i.test(message) && /accept|require/i.test(message)) code = 'terms_required';
+      else if (/200/.test(message) && /character|length/i.test(message)) code = 'input_limit';
+      else if (/permission|enable.*model/i.test(message)) code = 'model_permission';
+    } catch { /* Keep only the HTTP status when the error body is not JSON. */ }
+    // Only constant categories and numeric status survive; never retain upstream messages.
+    throw Object.assign(new Error(`Speech provider returned HTTP ${response.status}.`),{providerStatus:response.status,code});
+  }
+  const contentType=response.headers.get('content-type')?.split(';')[0];
+  if (!contentType?.startsWith('audio/')) throw Object.assign(new Error('Speech provider did not return audio.'),{code:'invalid_audio_type',audioType:['application/octet-stream','application/json','text/html'].includes(contentType)?contentType:'other'});
   if (Number(response.headers.get('content-length')) > MAX_AUDIO) throw new Error('Speech audio is too large.');
   const reader=response.body?.getReader(); if(!reader) throw new Error('Speech provider returned no audio.');
   const chunks=[]; let size=0;

@@ -25,3 +25,12 @@ test('Groq natural voice uses the Orpheus model and WAV with an allowed voice',a
     return new Response(new Uint8Array([82,73,70,70]),{headers:{'content-type':'audio/wav'}});
   }});
 });
+
+test('speech diagnostics classify provider failures without retaining secret error bodies',async()=>{
+  await assert.rejects(requestSpeech({text:'Hi.'},{provider:'groq',apiKey:'test',fetchImpl:async()=>Response.json({error:{message:'Accept the model terms first. private-secret',code:'model_terms_required'}},{status:400})}),error=>{
+    assert.equal(error.providerStatus,400);assert.equal(error.code,'terms_required');assert.doesNotMatch(error.message,/private-secret/);return true;
+  });
+  await assert.rejects(requestSpeech({text:'Hi.'},{provider:'groq',apiKey:'test',fetchImpl:async()=>new Response('not audio',{headers:{'content-type':'application/octet-stream'}})}),error=>{
+    assert.equal(error.code,'invalid_audio_type');return true;
+  });
+});
