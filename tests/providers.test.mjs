@@ -39,3 +39,11 @@ test('provider failures and invented endpoints fail instead of becoming scripted
   await assert.rejects(requestProvider({message:'Hi'},{provider:'groq',apiKey:'test',fetchImpl:async()=>new Response('{}',{status:429})}),/429/);
   await assert.rejects(requestProvider({message:'Hi'},{provider:'gemini',apiKey:'test',fetchImpl:async()=>Response.json({candidates:[{finishReason:'MAX_TOKENS',content:{parts:[]}}]})}),/finish|reply/i);
 });
+
+test('provider diagnostics retain quota or permission categories without retaining private error bodies',async()=>{
+  await assert.rejects(requestProvider({message:'Hi'},{provider:'groq',apiKey:'private-key',fetchImpl:async()=>Response.json({error:{code:'rate_limit_exceeded',message:'PRIVATE BODY'}},{status:429})}),error=>error.code==='quota'&&error.providerStatus===429&&!JSON.stringify(error).includes('PRIVATE BODY'));
+});
+
+test('an error inside a provider SSE stream retains only a safe quota category',async()=>{
+  await assert.rejects(requestProvider({message:'Hi'},{provider:'groq',apiKey:'private-key',onText(){},fetchImpl:async()=>new Response('data: {"error":{"code":"rate_limit_exceeded","message":"PRIVATE BODY"}}\n\n',{headers:{'content-type':'text/event-stream'}})}),error=>error.code==='quota'&&!JSON.stringify(error).includes('PRIVATE BODY'));
+});

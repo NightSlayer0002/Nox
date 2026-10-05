@@ -41,6 +41,14 @@ function readJson(request) {
   });
 }
 
+function chatFailure(error){
+  const categories=['quota','credentials','provider_http','invalid_json','model_access','output_limit','finish_reason'];
+  const reason=categories.includes(error.code)?error.code:error.name==='SyntaxError'?'invalid_json':error.name==='TimeoutError'?'timeout':'other';
+  const code=['json_validate_failed','model_decommissioned','model_not_found','invalid_api_key','rate_limit_exceeded','insufficient_quota','invalid_request_error'].includes(error.providerCode)?error.providerCode:'unknown';
+  console.warn(`[NOX chat] reason=${reason} status=${Number.isInteger(error.providerStatus)?error.providerStatus:'none'} code=${code}`);
+  return {quota:'The AI provider’s free quota is temporarily exhausted. Wait for its limit to reset or choose another configured provider.',credentials:'The AI provider rejected its server key or model access. Check its account settings.',model_access:'The configured AI model is unavailable. Choose an enabled model in server settings.',output_limit:'The AI ran out of reply tokens. Try a shorter question.',invalid_json:'The AI returned an invalid character reply. Please try again.'}[reason]||'NOX could not finish this reply. Check provider access or limits and try again.';
+}
+
 export function createAppServer({
   apiKey = process.env.OPENAI_API_KEY || '', model = process.env.OPENAI_MODEL || 'gpt-4.1-mini', chat = requestNox,
   speech = requestSpeech, naturalVoice = process.env.NOX_NATURAL_VOICE === '1', speechVoice = process.env.NOX_SPEECH_VOICE || 'cedar',
@@ -142,13 +150,13 @@ export function createAppServer({
             try {
               const packet=selected.id==='openai'?await chat(prompt,{apiKey,model:selected.model}):await providerRequest(prompt,{provider:selected.id,apiKey:providerKey(selected.id),model:selected.model,signal:controller.signal,onText:speech=>{if(firstTextMs===null)firstTextMs=Math.round(performance.now()-started);emit('text',speech.startsWith(previousSpeech)?{delta:speech.slice(previousSpeech.length)}:{speech});previousSpeech=speech;}});
               emit('final',{...normalizePacket(packet),metrics:{firstTextMs,totalMs:Math.round(performance.now()-started),provider:selected.name}});
-            }catch {if(!controller.signal.aborted)emit('error',{error:'NOX could not finish this reply. Check provider access or limits and try again.'});}
+            }catch(error) {if(!controller.signal.aborted)emit('error',{error:chatFailure(error)});}
             response.end();return;
           }
           const packet = selected.id==='openai' ? await chat(prompt,{apiKey,model:selected.model}) : await providerRequest(prompt,{provider:selected.id,apiKey:providerKey(selected.id),model:selected.model});
           return sendJson(response, 200, normalizePacket(packet));
-        } catch {
-          return sendJson(response, 502, { error: 'NOX’s AI connection did not respond. Check your key, model access, network, or account limits. Your local scenes still work.' });
+        } catch(error) {
+          return sendJson(response, 502, { error: chatFailure(error) });
         }
       } catch (error) {
         return sendJson(response, error.status || 400, { error: error.status === 413 ? 'Request is too large.' : 'Send valid JSON.' });

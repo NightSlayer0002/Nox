@@ -12,6 +12,15 @@ export function getProviders(env = process.env) {
 }
 export function providerKey(id, env = process.env) { return env[catalog[id]?.key] || ''; }
 
+function providerFailure(status,rawCode){
+  const known=['json_validate_failed','model_decommissioned','model_not_found','invalid_api_key','rate_limit_exceeded','insufficient_quota','invalid_request_error'];
+  const providerCode=known.includes(rawCode)?rawCode:'unknown';
+  let code=status===429||['rate_limit_exceeded','insufficient_quota'].includes(providerCode)?'quota':[401,403].includes(status)||providerCode==='invalid_api_key'?'credentials':'provider_http';
+  if(providerCode==='json_validate_failed')code='invalid_json';
+  if(['model_decommissioned','model_not_found'].includes(providerCode))code='model_access';
+  return Object.assign(new Error(status?`AI provider returned HTTP ${status}.`:'AI provider stream failed.'),{code,providerStatus:Number.isInteger(status)?status:undefined,providerCode});
+}
+
 export async function requestProvider(input, {provider, apiKey, model, fetchImpl = fetch,onText,signal,task='chat'} = {}) {
   if (provider === 'openai') return requestNox(input,{apiKey,model,fetchImpl});
   const spec=catalog[provider];
@@ -37,14 +46,17 @@ export async function requestProvider(input, {provider, apiKey, model, fetchImpl
   }
   const deadline=AbortSignal.timeout(20000);
   const response=await fetchImpl(url,{method:'POST',headers,body:JSON.stringify(body),signal:signal?AbortSignal.any([signal,deadline]):deadline});
-  if(!response.ok) throw new Error(`AI provider returned HTTP ${response.status}.`);
+  if(!response.ok){
+    let code;try{const data=await response.json();code=data.error?.code;}catch{/* Do not retain upstream bodies. */}
+    throw providerFailure(response.status,code);
+  }
   if(onText) {
     let raw='',finished=false,previous='';
     await consumeSSE(response,data=>{
-      if(data.error)throw Error('Provider stream failed.');
+      if(data.error)throw providerFailure(data.error.status,data.error.code);
       const choice=provider==='gemini'?data.candidates?.[0]:data.choices?.[0];
       const reason=provider==='gemini'?choice?.finishReason:choice?.finish_reason;
-      if(reason){if(!['STOP','stop'].includes(reason))throw Error('AI provider did not finish its reply.');finished=true;}
+      if(reason){if(!['STOP','stop'].includes(reason))throw Object.assign(Error('AI provider did not finish its reply.'),{code:['length','MAX_TOKENS'].includes(reason)?'output_limit':'finish_reason'});finished=true;}
       raw+=provider==='gemini'?(choice?.content?.parts||[]).filter(p=>!p.thought).map(p=>p.text||'').join(''):choice?.delta?.content||'';
       const speech=partialSpeech(raw);if(speech&&speech!==previous){previous=speech;onText(speech);}
     },signal);
