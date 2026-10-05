@@ -1,6 +1,6 @@
 # Deploy NOX and understand every step
 
-NOX 0.4 is prepared for GitHub-backed Vercel hosting. The repository is https://github.com/NightSlayer0002/Nox. A successful local build is not proof of a live deployment: the Vercel import, environment settings, and live smoke test still need to happen.
+NOX 0.4 is live at https://nox-iota-lemon.vercel.app with source at https://github.com/NightSlayer0002/Nox. Vercel is linked to main in the Night Hobby team. The Groq defaults and private credentials were entered directly in Vercel. A successful build is not proof of runtime health: the live status and authorization checks described below are separate evidence.
 
 ## The recommended free setup
 
@@ -170,3 +170,13 @@ A function does not listen on port 3000 in Vercel. Vercel invokes its exported h
 ### Why each function has its own package.json
 
 The function bundle includes a minimal `package.json` with `"type": "module"`. This tells Vercel that the shared `.js` contract uses ESM exports. Local Node 24 can infer the module type from source syntax, which initially hid the missing declaration. The first live function invocation revealed the mismatch. The build regression now imports every handler in a separate Node process with automatic module detection disabled, and each bundle declares its module scope explicitly. A successful build is followed by live endpoint checks; it is not sufficient proof of runtime health.
+
+## Live verification record — October 5, 2026
+
+The first live API invocation revealed the ESM-scope issue documented above. Commit `c32e38e` fixed it; pushing main automatically produced a Ready production deployment. The live `/api/status` endpoint returns HTTP 200 with owner-locked metadata. Unauthenticated `/api/chat` and `/api/speech` both return HTTP 401 before any provider invocation. The frontend loads over HTTPS, and Gravity starts then stops on its second click. Real owner-authenticated conversation and speech are tested separately after unlocking the visit.
+
+### Orpheus model terms and long replies
+
+Groq requires a separate acceptance of the speech model terms in the account that owns the API key. The owner completed this in the Orpheus Playground; the live speech endpoint then returned HTTP 200 for a short sample. Orpheus accepts at most 200 characters per request, while NOX captions permit 420. `server/wav.mjs` splits longer speech near whitespace without breaking surrogate pairs. `server/speech.mjs` generates the parts in parallel under one twenty-second deadline and combines compatible audio frames into one WAV with corrected container sizes and a two-megabyte output cap. Long replies therefore use multiple speech requests and consume more of the separate free quota. No reply text is silently cut off to fit one provider request.
+
+Owner-authenticated live conversation was verified with a shadow/stage-fright premise, a distinct follow-up ending, and a short Hello reply using Groq `openai/gpt-oss-20b`. Browser playback and the longer WAV are verified separately. Safe speech diagnostics log only constant failure categories, HTTP status, and a whitelisted format name; they never log API keys, owner tokens, provider error bodies, or conversation text.

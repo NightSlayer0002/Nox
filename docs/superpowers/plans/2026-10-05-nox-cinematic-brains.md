@@ -18,7 +18,7 @@ Execution is inline. The user directly requested continuing implementation and g
 - [x] Write deployment steps and update founder and visual guides.
 - [x] Finish desktop/phone browser verification and rerun final tests/check/build.
 - [x] Commit and push verified source to NightSlayer0002/Nox.
-- [ ] Import into the user's Vercel account and configure Groq key plus owner access token (user sign-in/secret entry required).
+- [x] Import into the user's Vercel account and configure Groq key plus owner access token (user completed private entry).
 - [ ] Verify real deployed URL, actual model replies and natural speech after credentials are configured.
 
 No real model/voice calls have been made during mocked tests. Free tiers have quotas; NVIDIA hosted access is trial use and Vercel Hobby is non-commercial. Cloud memory sync, public accounts, vision, audible exports, and unlimited usage are not part of this release.
@@ -26,3 +26,5 @@ No real model/voice calls have been made during mocked tests. Free tiers have qu
 Final local evidence: 57 tests pass, syntax checked 28 modules, Vercel build succeeds; independent review finding fixed with regression. Desktop and 390px phone layouts checked; compact-rail overflow fixed; browser error log empty. Proof images live in ignored artifacts/. Git was initialized and origin points to the user’s empty Nox repository.
 
 Source published: cbaa1d5 on main. User completed Vercel sign-in; importing the existing repository is in progress. Groq key and private owner-token entry are still pending.
+
+Live deployment: https://nox-iota-lemon.vercel.app, Night Hobby team, main linked. Runtime fix c32e38e redeployed automatically and reached Ready. Public status HTTP 200 / owner locked; unauthorized chat and speech HTTP 401; live scene toggle checked. Real provider checks await owner unlock in the live app.

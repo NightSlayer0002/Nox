@@ -551,3 +551,11 @@ GitHub holds version history. Vercel deploys a specific commit after a push. A f
 ### A deployment lesson: build success versus runtime success
 
 Our first Vercel build passed while its API invocation failed: the function bundle lacked an explicit module scope. The entrypoint was `.mjs`, but its shared dependency was `.js`. Local Node inferred ESM syntax; the hosted runtime treated that file differently, so named exports were unavailable. We added a minimal `package.json` declaring `type: module` inside every function directory and reproduced the hosted error in a subprocess with automatic module detection disabled. This is why integration tests must model the deployed environment and why a live smoke test follows a green build.
+
+### Why a long reply needs WAV assembly
+
+Orpheus accepts 200 characters; NOX can caption 420. The server splits longer speech near spaces, preserves Unicode surrogate pairs, generates the parts in parallel within the same twenty-second timeout, and joins compatible audio frames into one response. This is an API-contract adaptation, not a reason to truncate the character’s thought. Each part uses another speech request, so long replies consume more quota.
+
+A WAV is a RIFF container, not just raw samples. `server/wav.mjs` scans named chunks, reads the `fmt ` format and `data` frames, rejects incompatible formats or unaligned samples, and handles streaming size markers. It writes a new RIFF header and data size for the combined frames. Float audio also gets a `fact` chunk with its frame count. Merely concatenating whole WAV files would leave repeated headers in the audio data. Tests use known PCM samples and deliberately reversed completion order to verify the assembled output, plus malformed/oversized inputs. [Microsoft RIFF format](https://learn.microsoft.com/en-us/windows/win32/xaudio2/resource-interchange-file-format--riff-) and [WAVEFORMATEX](https://learn.microsoft.com/en-us/windows/win32/api/mmreg/ns-mmreg-waveformatex) describe these container and frame fields.
+
+The first voice failure had two independent boundaries: a provider model-term acceptance and the per-request input limit. Safe error categories distinguish terms, quota, credentials, input length, and format failures without retaining the upstream error message. The owner reviews model agreements personally; the code cannot waive them.

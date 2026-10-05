@@ -1,3 +1,5 @@
+import { splitSpeech, joinWav } from './wav.mjs';
+
 const directions = {
   companion: 'Speak as a thoughtful young companion. Warm, conversational, understated, with relaxed pauses and dry humor. Avoid an announcer or assistant cadence.',
   director: 'Speak with casual confidence and a wry smile. Conversational timing, lightly sarcastic, never a formal announcer.',
@@ -9,9 +11,18 @@ export async function requestSpeech({text,mode='companion'}, {apiKey,voice='ceda
   if (typeof text !== 'string' || !text.trim() || text.length > 420) throw new Error('Speech needs 1–420 characters.');
   if(!['openai','groq'].includes(provider)) throw new Error('Unknown speech provider.');
   const groq = provider === 'groq';
+  const signal=AbortSignal.timeout(20000);
+  if(groq && text.trim().length>200) {
+    const clips=await Promise.all(splitSpeech(text).map(chunk=>requestClip(chunk,mode,{apiKey,voice,groq,fetchImpl,signal})));
+    return joinWav(clips,MAX_AUDIO);
+  }
+  return requestClip(text,mode,{apiKey,voice,groq,fetchImpl,signal});
+}
+
+async function requestClip(text,mode,{apiKey,voice,groq,fetchImpl,signal}) {
   const response = await fetchImpl(groq?'https://api.groq.com/openai/v1/audio/speech':'https://api.openai.com/v1/audio/speech', {
     method:'POST', headers:{authorization:`Bearer ${apiKey}`,'content-type':'application/json'},
-    signal:AbortSignal.timeout(20000),
+    signal,
     body:JSON.stringify(groq ? {model:'canopylabs/orpheus-v1-english',voice:['troy','austin','daniel','hannah'].includes(voice)?voice:'troy',input:text.trim(),response_format:'wav'} : {model:'gpt-4o-mini-tts',voice:['cedar','marin'].includes(voice)?voice:'cedar',input:text.trim(),instructions:directions[mode]||directions.companion,response_format:'mp3'}),
   });
   if (!response.ok) {
