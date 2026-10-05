@@ -11,6 +11,7 @@
     "start": "node server.mjs",
     "dev": "node --watch server.mjs",
     "build": "node scripts/build-vercel.mjs",
+    "verify": "node --test && node scripts/check.mjs && node scripts/build-vercel.mjs",
     "test": "node --test",
     "check": "node scripts/check.mjs"
   }

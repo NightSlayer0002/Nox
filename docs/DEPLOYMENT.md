@@ -65,7 +65,7 @@ Before committing, check that `.env`, `.vercel`, `node_modules`, and `artifacts`
 1. Sign into Vercel with GitHub. Complete account terms and GitHub access prompts yourself. You can grant access just to Nox.
 2. Choose **Add New / Project**, import `NightSlayer0002/Nox`, and choose your personal team.
 3. Project root is the repository root. Framework is **Other**. Node is **24.x**.
-4. The committed `vercel.json` sets build to `npm run build` and install to `npm install --ignore-scripts`. Leave the Output Directory override **off**: the build writes the explicit `.vercel/output` format.
+4. The committed `vercel.json` sets build to `npm run verify` (tests, syntax checks, then output packaging) and install to `npm install --ignore-scripts`. Leave the Output Directory override **off**: the build writes the explicit `.vercel/output` format.
 5. Add environment settings below for Production. Add them to Preview only if you want cloud access on preview URLs too.
 6. Deploy. Wait for Vercel to show Ready. Copy the URL it actually assigns; the app does not assume `nox.vercel.app` is available.
 
