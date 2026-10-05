@@ -113,7 +113,7 @@ export class Stage {
   }
   setMode(mode) {
     this.mode = mode; this.character.mode = mode; this.reset();
-    this.character.emotion = mode === 'uncanny' ? 'uncanny' : mode === 'director' ? 'skeptical' : 'curious';
+    this.character.emotion = mode === 'uncanny' ? 'uncanny' : 'curious';
   }
   speak(packet) {
     this.character.emotion = packet.emotion;

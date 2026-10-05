@@ -23,6 +23,18 @@ test('NOX visibly follows the pointer in both directions and keeps his eyes boun
   assert.ok(face.gazeX < -12 && face.gazeX >= -18);
 });
 
+test('companion and director start with matching calm eyes, while explicit skeptical replies still act',()=>{
+  const {stage}=pointerStage();
+  for(const mode of ['companion','director']){
+    stage.setMode(mode);const rest=stage.character.features(stage.time);
+    assert.equal(rest.expression,'curious');assert.equal(rest.eyeStyle,'pill');
+    assert.equal(rest.leftHeight,rest.rightHeight);assert.equal(rest.brows,undefined);
+  }
+  stage.speak({speech:'I have my doubts.',emotion:'skeptical',action:'none'});
+  assert.equal(stage.character.features(stage.time).expression,'skeptical');
+  stage.setMode('uncanny');assert.equal(stage.character.features(stage.time).expression,'uncanny');
+});
+
 test('speech animates the mouth then returns to the selected expression', () => {
   const face = new Face(); face.emotion = 'skeptical'; face.speakingUntil = .5;
   face.update(.2, .016, { x: .5, y: .46 }, false, false);

@@ -1,7 +1,7 @@
 // The expression sheet is drawn as paths, not image swaps. NOX keeps two eyes
 // and one mouth; brows, lids and small marks carry the reference's acting.
 export const EXPRESSIONS = Object.freeze({
-  neutral:{eyes:'pill',heights:[.8,.86]},curious:{eyes:'pill',heights:[.95,1],brows:'curious'},
+  neutral:{eyes:'pill',heights:[1,1]},curious:{eyes:'pill',heights:[1,1]},
   happy:{eyes:'arc',heights:[.73,.73]},content:{eyes:'arc',heights:[.55,.55]},
   skeptical:{eyes:'half',heights:[.44,.83],brows:'skeptical'},annoyed:{eyes:'half',heights:[.3,.3],brows:'angry'},
   sleepy:{eyes:'closed',heights:[.18,.18]},yawning:{eyes:'closed',heights:[.18,.18]},
@@ -16,23 +16,19 @@ export const EXPRESSIONS = Object.freeze({
 
 export function drawBody(ctx,held){
   ctx.fillStyle=held?'#00000035':'#00000065';ctx.shadowColor='#000';ctx.shadowBlur=held?20:12;
-  ctx.beginPath();ctx.ellipse(0,149,109,13,0,0,Math.PI*2);ctx.fill();ctx.shadowBlur=0;
-  // Uneven charcoal silhouette with two tucked feet. No bevel or glossy rim.
-  ctx.beginPath();ctx.moveTo(-111,87);
-  ctx.bezierCurveTo(-136,18,-121,-97,-68,-132);
-  ctx.bezierCurveTo(-31,-161,21,-158,57,-132);
-  ctx.bezierCurveTo(113,-111,135,-26,118,50);
-  ctx.bezierCurveTo(117,89,105,110,94,120);
-  ctx.bezierCurveTo(105,137,87,148,61,143);
-  ctx.quadraticCurveTo(38,143,27,130);ctx.quadraticCurveTo(0,137,-29,130);
-  ctx.bezierCurveTo(-41,146,-75,150,-91,138);
-  ctx.quadraticCurveTo(-105,131,-94,116);ctx.quadraticCurveTo(-109,104,-111,87);ctx.closePath();
-  const matte=ctx.createLinearGradient(-110,-130,115,130);matte.addColorStop(0,'#242e29');matte.addColorStop(1,'#111b17');
+  ctx.beginPath();ctx.ellipse(0,151,140,15,0,0,Math.PI*2);ctx.fill();ctx.shadowBlur=0;
+  // Restore the original continuous blob outline, with a quiet matte finish.
+  ctx.beginPath();ctx.moveTo(-145,126);
+  ctx.bezierCurveTo(-148,52,-141,-61,-102,-106);
+  ctx.bezierCurveTo(-55,-165,67,-165,111,-97);
+  ctx.bezierCurveTo(145,-47,148,59,145,126);
+  ctx.quadraticCurveTo(143,145,124,145);ctx.lineTo(-124,145);
+  ctx.quadraticCurveTo(-145,145,-145,126);ctx.closePath();
+  const matte=ctx.createLinearGradient(-140,-130,145,130);matte.addColorStop(0,'#232924');matte.addColorStop(1,'#0e1512');
   ctx.fillStyle=matte;ctx.fill();ctx.strokeStyle='#61706655';ctx.lineWidth=1.5;ctx.stroke();
   ctx.save();ctx.clip();ctx.fillStyle='#acb6a410';
   for(let i=0;i<55;i++){const x=((i*73)%239)-119,y=((i*109)%291)-146;ctx.fillRect(x,y,1.3,1.3);}
-  ctx.restore();ctx.strokeStyle='#51605750';ctx.lineWidth=1;
-  ctx.beginPath();ctx.moveTo(-77,127);ctx.quadraticCurveTo(-53,133,-36,125);ctx.moveTo(38,126);ctx.quadraticCurveTo(66,135,83,126);ctx.stroke();
+  ctx.restore();
 }
 
 function star(ctx,x,y,r){
@@ -57,7 +53,8 @@ function glossyEye(ctx,x,y,h,gazeX,gazeY){
 export function drawEyes(ctx,f,gazeX,gazeY,time,color,reduceMotion){
   ctx.strokeStyle=color;ctx.fillStyle=color;ctx.lineWidth=5;ctx.lineCap='round';ctx.lineJoin='round';
   for(let side=0;side<2;side++){
-    const x=(side?47:-47)+gazeX,h=(side?f.rightHeight:f.leftHeight)*.82;
+    const classic=['neutral','curious'].includes(f.expression),spacing=classic?57:47,eyeWidth=classic?46:38;
+    const x=(side?spacing:-spacing)+gazeX,h=(side?f.rightHeight:f.leftHeight)*(classic?1:.82);
     if(h<5||f.eyeStyle==='closed'){ctx.beginPath();ctx.moveTo(x-17,gazeY+3);ctx.quadraticCurveTo(x,gazeY+10,x+17,gazeY+3);ctx.stroke();}
     else if(f.eyeStyle==='glossy')glossyEye(ctx,x,gazeY,h,gazeX,gazeY);
     else if(f.eyeStyle==='spiral'){
@@ -68,7 +65,7 @@ export function drawEyes(ctx,f,gazeX,gazeY,time,color,reduceMotion){
     else if(f.eyeStyle==='squeezed'){const d=side?-1:1;ctx.beginPath();ctx.moveTo(x-d*19,gazeY-19);ctx.lineTo(x+d*13,gazeY);ctx.lineTo(x-d*19,gazeY+19);ctx.stroke();}
     else {
       const y=gazeY-h/2+(f.eyeStyle==='half'&&!side?9:0);
-      ctx.beginPath();ctx.roundRect(x-19,y,38,Math.max(3,h),f.eyeStyle==='half'?8:19);
+      ctx.beginPath();ctx.roundRect(x-eyeWidth/2,y,eyeWidth,Math.max(3,h),f.eyeStyle==='half'?8:eyeWidth/2);
       f.eyeStyle==='ring'?ctx.stroke():ctx.fill();
     }
     const browY=gazeY-Math.max(23,h/2)-13;
@@ -107,6 +104,6 @@ export function drawMouth(ctx,f,gazeX,gazeY,color){
   else if(mouth==='yawning'){ctx.ellipse(x,y,15,21,0,0,Math.PI*2);ctx.stroke();return;}
   else if(mouth==='surprised'){ctx.ellipse(x,y,10,14,0,0,Math.PI*2);ctx.fill();return;}
   else if(['rest','uncanny','thinking','sleepy'].includes(mouth)){ctx.moveTo(x-10,y);ctx.lineTo(x+10,y+(mouth==='thinking'?-4:0));}
-  else {ctx.ellipse(x,y,8,5,0,0,Math.PI*2);ctx.fill();return;}
+  else {const classic=['neutral','curious'].includes(mouth);ctx.ellipse(x,y,classic?10:8,classic?6:5,0,0,Math.PI*2);ctx.fill();return;}
   ctx.stroke();
 }

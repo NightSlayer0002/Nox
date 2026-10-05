@@ -186,7 +186,7 @@ async function setMode(next, greet = true) {
   mode = next; memory.setMode(mode); stage.setMode(mode); document.body.dataset.persona = mode;
   $('mood-label').textContent = stage.character.emotion.toUpperCase();
   document.querySelectorAll('[data-mode]').forEach(button => { const active = button.dataset.mode === mode; button.classList.toggle('active', active); button.setAttribute('aria-pressed', active); });
-  if (greet) await perform({ speech: greetings[mode], emotion: mode === 'uncanny' ? 'uncanny' : mode === 'director' ? 'skeptical' : 'curious', action: 'none', memory: '' },false,undefined,version);
+  if (greet) await perform({ speech: greetings[mode], emotion: mode === 'uncanny' ? 'uncanny' : 'curious', action: 'none', memory: '' },false,undefined,version);
 }
 
 document.querySelectorAll('[data-scene]').forEach(button => button.addEventListener('click', () => {

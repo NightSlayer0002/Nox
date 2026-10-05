@@ -679,7 +679,7 @@ Automatic browser voice selection now favors recognized male voice names before 
 
 ### NOX 0.7: character acting and the matte body
 
-The character is now an asymmetrical charcoal silhouette with two tucked feet, a restrained contour and tiny procedural grain. It is Canvas geometry, not a generated face asset. `public/js/face-art.js` owns the body paths, expression proportions, eye shapes, brows, mouth paths and small acting marks. `Face.draw()` combines those paths with the existing pose and audio clock. The home character and corner peek use this same renderer.
+The character uses its original smooth, continuous blob outline, with no feet, a restrained matte contour and tiny procedural grain. It is Canvas geometry, not a generated face asset. `public/js/face-art.js` owns the body paths, expression proportions, eye shapes, brows, mouth paths and small acting marks. `Face.draw()` combines those paths with the existing pose and audio clock. The home character and corner peek use this same renderer.
 
 There are twenty local poses: neutral, curious, happy, content, skeptical, annoyed, sleepy, yawning, uncanny, surprised, shy, worried, dizzy, ouch, excited, mischievous, thinking, listening, confused and a rare cute outrage. The existing model contract still uses its nine validated dialogue emotions. The additional poses come from actual interaction state rather than extra model calls. A character can therefore respond to a mouse gesture immediately, even while its language model is busy.
 
@@ -715,3 +715,10 @@ In an interview, explain the separation this way: input detection decides what h
 `face-art.js` draws the rare pose with large cream eye whites, blue irises, dark pupils, bright catchlights, furrowed brows, a coral anger mark and a small protesting mouth. The iris is clipped inside each oval eye, including during a blink. It is original path geometry inspired by the expression reference, rather than the stock image being placed onto NOX. Ordinary faces keep the minimal luminous eyes.
 
 The pose lasts two seconds after the last qualifying poke. Double-click winks and automatic hover shyness cannot cut it short. Speech still controls mouth opening independently, including closed pauses and reduced motion. Choose **Cute outrage** in Scene Studio to preview it immediately without using up its rare appearance count.
+### Restoring the smooth blob and calm resting face
+
+The body path now uses the original continuous outline from before the feet were introduced. Its base is one smooth edge; there are no toes or foot seams. The quiet matte material and all interaction poses remain.
+
+Companion and Director now start with the same curious resting expression: matching tall luminous eyes and a small oval mouth, using the original eye width and spacing. Director previously selected skeptical by default, which caused the permanent uneven eyes and smirk in the screenshot. A skeptical model reply or an explicitly selected preview still uses that expression. Uncanny keeps its distinct after-dark look. The mode continues to affect conversation independently of the resting geometry.
+
+The regression test covers both normal persona defaults, matching eyes without a brow, explicit skeptical replies and Uncanny. Full verification passes 119 tests, 50 module syntax checks and the Vercel build.
