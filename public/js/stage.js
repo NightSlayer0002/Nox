@@ -74,7 +74,7 @@ export class Stage {
       if (this.dragging) return;
       this.pointer = locate(event);
       if (this.character.hitTest(this.pointer, this.width, this.height)) {
-        this.reset(false); this.dragging = true; this.canvas.setPointerCapture(event.pointerId);
+        this.prepareMove(); this.dragging = true; this.canvas.setPointerCapture(event.pointerId);
         this.activePointer = event.pointerId;
         this.pressPoint = { x: event.clientX, y: event.clientY }; this.dragDistance = 0;
         this.dragOffset = { x: this.character.x - this.pointer.x, y: this.character.y - this.pointer.y };
@@ -93,12 +93,18 @@ export class Stage {
     this.canvas.addEventListener('keydown', event => {
       const step = { ArrowLeft: [-.03, 0], ArrowRight: [.03, 0], ArrowUp: [0, -.03], ArrowDown: [0, .03] }[event.key];
       if (step) {
-        event.preventDefault(); this.reset(false);
+        event.preventDefault(); this.prepareMove();
         this.character.x = clamp(this.character.x + step[0], 0, 1); this.character.y = clamp(this.character.y + step[1], 0, 1);
         this.character.targetX = this.character.x; this.character.targetY = this.character.y;
       }
       if (event.key === ' ') { event.preventDefault(); if (this.form === 'face') this.character.wink(this.time); else this.character.poke(this.time); }
     });
+  }
+  prepareMove() {
+    if (this.scene?.action !== 'gravity') { this.reset(false); return; }
+    this.scene.velocity = 0;
+    this.character.rotation = 0;
+    this.character.setFalling?.(false);
   }
   setMode(mode) {
     this.mode = mode; this.character.mode = mode; this.reset();
@@ -126,6 +132,7 @@ export class Stage {
   }
   reset(recentre = true) {
     this.scene = null; this.character.scale = 1; this.character.rotation = 0;
+    this.character.setFalling?.(false);
     if (recentre) { this.dragging = false; this.character.setHeld?.(false,this.time);this.activePointer = null; this.character.targetX = .5; this.character.targetY = .46; }
     this.onScene?.('none');
   }
@@ -143,15 +150,20 @@ export class Stage {
   animateScene(dt) {
     if (!this.scene) return;
     const age = this.time - this.scene.start;
-    if (age > 10) { this.reset(); return; }
+    if (age > 10 && this.scene.action !== 'gravity') { this.reset(); return; }
     if (this.reduceMotion) return;
     const enter = smooth(clamp(age / 1.3, 0, 1));
-    if (this.scene.action === 'gravity' && !this.dragging) {
+    if (this.scene.action === 'gravity') {
+      if (this.dragging) { this.scene.velocity = 0; this.character.setFalling?.(false); return; }
       this.scene.velocity += dt * 1.6;
       this.character.y += this.scene.velocity * dt;
       // Reserve the caption band below the face, including its speaking mouth.
       const floor = this.form === 'face' ? .74 - this.character.unit(this.width, this.height)*92 / this.height : .93 - this.character.diameter(this.width, this.height) * .38 / this.height;
-      if (this.character.y > floor) { this.character.y = floor; this.scene.velocity = -Math.abs(this.scene.velocity) * .63; }
+      if (this.character.y >= floor) {
+        this.character.y = floor;
+        this.scene.velocity = Math.abs(this.scene.velocity) < .12 ? 0 : -Math.abs(this.scene.velocity) * .63;
+      }
+      this.character.setFalling?.(this.scene.velocity > .03 && this.character.y < floor);
       this.character.targetY = this.character.y;
       this.character.rotation = Math.sin(age * 3.5) * .12 * Math.exp(-age * .4);
     }

@@ -263,7 +263,7 @@ Draw order matters:
 7. Spotlight shade or takeover label.
 8. Caption.
 
-Every action has one start time and expires after ten seconds. Reset replaces the scene state immediately. No pile of delayed scene callbacks keeps running after you press Escape.
+Each action has one start time. Gravity stays enabled until stopped; the other programs expire after ten seconds. Reset replaces the scene state immediately. No pile of delayed scene callbacks keeps running after you press Escape.
 
 ### Gravity
 
@@ -275,6 +275,10 @@ position = position + velocity × dt
 ```
 
 At the floor, NOX's downward velocity becomes an upward velocity multiplied by `.63`. Losing energy on each impact produces smaller bounces. The stage caps `dt` at `.04` seconds so a delayed frame does not create an enormous physics jump.
+
+`Stage.prepareMove()` preserves the active gravity scene when you pick NOX up or move him with an arrow key. It clears velocity so a long hold cannot accumulate a violent release. Dragging controls his position; releasing returns position control to the physics simulation. A small impact below `.12` speed settles him on the floor with zero velocity. Stopping Gravity or resetting clears the scene and the falling reaction.
+
+`Face.falling` is a temporary expression layer, like `held`. Stage sets it only when NOX moves downward above the floor. It widens his eyes and directs his gaze downward without changing his dialogue emotion. When he lands or bounces upward, that layer clears. Reduced motion keeps the enabled scene static.
 
 These are normalised stage units, not metres. This is theatrical physics tailored to the frame.
 

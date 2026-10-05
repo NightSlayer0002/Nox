@@ -11,7 +11,7 @@ export class Face extends OrbSignal {
     this.scale = 1; this.rotation = 0; this.gazeX = 0; this.gazeY = 0;
     this.blinkAt = 2; this.blinkStart = -100; this.winkAt = -100;
     this.pulseAt = -100; this.reactionUntil = 0; this.breath = 0; this.reduceMotion = false;
-    this.held=false;this.liftTilt=0;this.pokes=[];this.squeezeUntil=0;this.reaction='happy';
+    this.held=false;this.falling=false;this.liftTilt=0;this.pokes=[];this.squeezeUntil=0;this.reaction='happy';
     this.signal = this.sample(0, 0);
   }
   say(text, now) { this.speakingUntil = now + Math.min(12, Math.max(2.5, text.length / 18)); }
@@ -23,15 +23,16 @@ export class Face extends OrbSignal {
   }
   wink(now) { if(this.reaction==='annoyed'&&now<this.reactionUntil)return;this.winkAt = now; this.reaction='happy';this.reactionUntil = now + 1.5; this.pulseAt = now; }
   setHeld(value) {this.held=Boolean(value);}
+  setFalling(value) {this.falling=Boolean(value);}
   update(time, dt, pointer, dragging, reduceMotion) {
     const ease = 1 - Math.exp(-Math.min(dt, .05) * 9);
     this.reduceMotion = reduceMotion;
     if (!dragging) { this.x += (this.targetX-this.x)*ease; this.y += (this.targetY-this.y)*ease; }
     if (reduceMotion) { this.gazeX = 0; this.gazeY = 0; this.breath = 0; }
     else {
-      const thinking = this.activity === 'thinking'&&!this.held;
+      const thinking = this.activity === 'thinking'&&!this.held&&!this.falling;
       const gx = thinking ? Math.sin(time*2.7)*13 : clamp((pointer.x-this.x)*50, -18, 18);
-      const gy = this.held?12:thinking ? -8 : clamp((pointer.y-this.y)*35, -12, 12);
+      const gy = this.held||this.falling?12:thinking ? -8 : clamp((pointer.y-this.y)*35, -12, 12);
       this.gazeX += (gx-this.gazeX)*ease; this.gazeY += (gy-this.gazeY)*ease;
       this.breath = Math.sin(time*1.5)*3.5;
       if (time >= this.blinkAt) { this.blinkStart = time; this.blinkAt = time + 2.8 + Math.random()*2.5; }
@@ -41,7 +42,7 @@ export class Face extends OrbSignal {
     this.signal = this.sample(time, dt, reduceMotion);
   }
   features(time) {
-    const emotion = this.held?'surprised':time < this.reactionUntil ? this.reaction : this.emotion;
+    const emotion = this.held||this.falling?'surprised':time < this.reactionUntil ? this.reaction : this.emotion;
     const expression = { happy: [.73,.73], skeptical: [.44,.83], sleepy: [.18,.18], uncanny: [1.06,1.06],annoyed:[.3,.3],surprised:[1.14,1.14],shy:[.6,.6] }[emotion] || [1,1];
     const blinkAge = time-this.blinkStart, winkAge = time-this.winkAt;
     const blink = !this.reduceMotion && blinkAge >= 0 && blinkAge < .18 ? 1-Math.sin(blinkAge/.18*Math.PI)*.97 : 1;
@@ -49,7 +50,7 @@ export class Face extends OrbSignal {
     const level=typeof this.mouthLevel==='number'?clamp(this.mouthLevel,0,1):null;
     const talking = this.signal.status === 'speaking'&&(level===null||level>.015);
     return {
-      eyeStyle:!this.held&&time<this.squeezeUntil?'squeezed':'pill',held:this.held,
+      eyeStyle:!this.held&&!this.falling&&time<this.squeezeUntil?'squeezed':'pill',held:this.held,falling:this.falling,
       leftHeight: 100*expression[0]*blink*wink,
       rightHeight: 100*expression[1]*blink,
       mouth: talking ? 'talking' : this.signal.status==='speaking'&&level!==null&&!this.held?'rest':emotion,

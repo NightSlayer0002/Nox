@@ -184,3 +184,46 @@ test('only the active scene program can toggle itself off', () => {
   assert.equal(stage.stopScene('orbit'), true); assert.equal(stage.scene,null);
   assert.equal(stage.stopScene('orbit'), false);
 });
+
+test('gravity survives pickup and a long hold, then resumes falling on release', () => {
+  const {stage,fire}=pointerStage();stage.reduceMotion=false;stage.run('gravity');
+  stage.scene.velocity=1;fire('pointerdown',290,95);fire('pointermove',350,60);
+  const heldY=stage.character.y;
+  stage.time=25;stage.animateScene(.04);
+  assert.equal(stage.scene?.action,'gravity');assert.equal(stage.scene.velocity,0);
+  assert.equal(stage.character.y,heldY);assert.equal(stage.character.held,true);
+  fire('pointerup',350,60);
+  for(let i=0;i<12;i++){
+    stage.time+=1/60;stage.animateScene(1/60);
+    stage.character.update(stage.time,1/60,{x:.5,y:0},true,false);
+  }
+  assert.ok(stage.character.y>heldY);assert.equal(stage.character.falling,true);
+  assert.ok(stage.character.gazeY>8);assert.equal(stage.character.features(stage.time).mouth,'surprised');
+  assert.equal(stage.character.reactionUntil,0);assert.equal(stage.scene.action,'gravity');
+});
+
+test('persistent gravity settles without a perpetual falling face and toggles off cleanly', () => {
+  const {stage}=pointerStage();stage.reduceMotion=false;stage.run('gravity');
+  for(let i=0;i<1200;i++){stage.time+=1/60;stage.animateScene(1/60);}
+  assert.equal(stage.scene?.action,'gravity');assert.equal(stage.scene.velocity,0);
+  assert.equal(stage.character.falling,false);
+  assert.equal(stage.stopScene('gravity'),true);assert.equal(stage.scene,null);
+  assert.equal(stage.character.falling,false);
+});
+
+test('cancelling a gravity drag drops him, while reset clears the falling reaction', () => {
+  const {stage,fire}=pointerStage();stage.reduceMotion=false;stage.run('gravity');
+  fire('pointerdown',290,95);fire('pointermove',290,50);fire('pointercancel',290,50);
+  stage.time+=.04;stage.animateScene(.04);
+  assert.equal(stage.scene.action,'gravity');assert.equal(stage.character.held,false);
+  assert.equal(stage.character.falling,true);stage.reset();
+  assert.equal(stage.character.falling,false);assert.equal(stage.character.features(stage.time).mouth,'curious');
+});
+
+test('motion off keeps gravity enabled without simulating a fall, while other scenes still expire', () => {
+  const {stage}=pointerStage();stage.reduceMotion=true;stage.run('gravity');
+  const initialY=stage.character.y;stage.time=30;stage.animateScene(.04);
+  assert.equal(stage.scene?.action,'gravity');assert.equal(stage.character.y,initialY);
+  assert.equal(stage.character.falling,false);
+  stage.run('orbit');stage.time=41;stage.animateScene(.04);assert.equal(stage.scene,null);
+});

@@ -263,6 +263,7 @@ setInterval(() => {
   $('stage').dataset.gazeX = (stage.character.gazeX ?? stage.character.focus?.x ?? 0).toFixed(2);
   $('stage').dataset.gazeY = (stage.character.gazeY ?? stage.character.focus?.y ?? 0).toFixed(2);
   $('stage').dataset.expression=stage.character.features?.(stage.time).mouth||stage.character.emotion;
+  $('stage').dataset.falling=String(Boolean(stage.character.falling));
   $('stage').dataset.held=String(Boolean(stage.character.held));$('stage').dataset.mouth=voice.mouthLevel.toFixed(2);$('stage').dataset.mouthTiming=voice.mouthTiming;
 }, 120);
 
