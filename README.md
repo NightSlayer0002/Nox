@@ -2,6 +2,8 @@
 
 A curious mind, a little company. A cinematic interactive character studio with a live ivory face, an evening room, local memory, scene programs, and switchable model-generated conversation. Native JavaScript, Canvas/WebGL, and Node 24; no runtime npm dependencies.
 
+Live website: [nox-iota-lemon.vercel.app](https://nox-iota-lemon.vercel.app/). Source: [NightSlayer0002/Nox](https://github.com/NightSlayer0002/Nox). Pushing `main` automatically starts a Vercel production deployment.
+
 ## Start locally
 
 ```powershell
