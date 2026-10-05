@@ -10,7 +10,7 @@ Live website: [nox-iota-lemon.vercel.app](https://nox-iota-lemon.vercel.app/). S
 npm.cmd start
 ```
 
-Open http://127.0.0.1:3000. Move the cursor, poke him, drag him, or double-click to wink. Presence is the face; Signal is the optional shader core. Motion respects your system preference until you override it. Click any active scene program again to stop it. F enters portrait film mode; Escape resets the scene.
+Open http://127.0.0.1:3000 for the landing page, then enter the workspace at `/app`. NOX follows your cursor across the browser window. Click him, drag him, or double-click to wink. Presence is the face; Signal is the optional shader core. Motion and voice start on; an explicit saved off choice is respected. Browser audio still needs interaction. Scene studio has programs that stop on a second click. F enters portrait film mode; Escape resets the scene.
 
 ## Give him a brain
 
@@ -25,6 +25,10 @@ Free tiers are limited, not unlimited. Stay on a provider's free plan without pa
 Companion, Director, and Uncanny change his persona. Gravity, Spotlight, Orbit, Echo, and Takeover are bounded authored programs the model can also request. A reply packet can choose speech, mood, scene action, and a short explicitly requested memory. It cannot execute arbitrary code.
 
 Camera preview is local and optional; the model receives text, not camera frames. The notebook lives in browser storage and does not sync across devices or from localhost to a hosted domain. Recording exports a silent captioned WebM, capped at 60 seconds. Use OBS or an editor to include his voice.
+
+Explore, Conversation, Scene studio, and Library are distinct workspace views. Conversations persist locally, with search, reopen, export, and delete. The archive holds up to 40 threads with 200 messages each; export important conversations before clearing browser data or changing domains. Full transcripts stay local while cloud context is bounded. Longer conversations can produce a background model summary; failure never deletes the archive.
+
+Chat text streams before the final validated mood/action packet. Stable prompt prefixes support Groq's automatic prompt caching; an expiring, bounded cache reuses identical speech requests in a warm server instance. Neither mechanism promises an instant response or unlimited quota. Preferences offers Browser voice selection and Austin/Troy/Daniel/Hannah for Orpheus, with mood-driven delivery. NVIDIA defaults to `nvidia/nemotron-3-nano-30b-a3b` with thinking disabled, and becomes selectable after `NVIDIA_API_KEY` is configured and deployed.
 
 ## Deploy and learn
 

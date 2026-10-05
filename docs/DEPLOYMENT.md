@@ -1,6 +1,6 @@
 # Deploy NOX and understand every step
 
-NOX 0.4 is live at https://nox-iota-lemon.vercel.app with source at https://github.com/NightSlayer0002/Nox. Vercel is linked to main in the Night Hobby team. The Groq defaults and private credentials were entered directly in Vercel. A successful build is not proof of runtime health: the live status and authorization checks described below are separate evidence.
+NOX's public address is https://nox-iota-lemon.vercel.app with source at https://github.com/NightSlayer0002/Nox. Vercel is linked to main in the Night Hobby team. The Groq defaults and private credentials were entered directly in Vercel. A successful build is not proof of runtime health: the live status and authorization checks described below are separate evidence.
 
 ## The recommended free setup
 
@@ -15,7 +15,7 @@ Sources checked October 5, 2026: [Groq limits](https://console.groq.com/docs/rat
 
 ## 1. What belongs where
 
-GitHub stores source code and version history. Vercel downloads a chosen Git commit, runs the build, hosts static files, and runs three small server functions. Groq/Gemini/NVIDIA run the language model. None of these services replaces the others.
+GitHub stores source code and version history. Vercel downloads a chosen Git commit, runs the build, hosts static files, and runs four small server functions. Groq/Gemini/NVIDIA run the language model. None of these services replaces the others.
 
 Your browser sends text to NOX's same-origin `/api/chat` endpoint. The server adds its secret provider key and forwards a bounded conversation to the chosen model. The browser receives only a validated reply packet. It never downloads the provider key.
 
@@ -85,7 +85,7 @@ Our build uses Vercel's [Build Output API v3](https://vercel.com/docs/build-outp
 | `GEMINI_API_KEY` | Optional Google key; makes Gemini appear in Settings |
 | `GEMINI_MODEL` | Optional; defaults to `gemini-2.5-flash-lite` |
 | `NVIDIA_API_KEY` | Optional NVIDIA key; makes NIM appear in Settings |
-| `NVIDIA_MODEL` | Optional; defaults to `meta/llama-3.3-70b-instruct` |
+| `NVIDIA_MODEL` | Optional; defaults to `nvidia/nemotron-3-nano-30b-a3b` |
 | `NOX_PUBLIC_ORIGIN` | Only for a custom domain, such as `https://nox.example.com` |
 
 Vercel's automatic deployment/production URL variables are used for the normal `.vercel.app` host allowlist. Keep system environment variables exposed (the default). Custom domains need `NOX_PUBLIC_ORIGIN` and a redeployment. Local `PORT` is not needed on Vercel. Leave `OPENAI_API_KEY` blank for this free-only setup.
@@ -156,7 +156,7 @@ A free quota can be reduced, exhausted, or removed. Check the provider dashboard
 | `server.mjs` | Local static server and common API handler, host/origin checks, owner authorization, cloud quota guard |
 | `public/js/app.js` | Provider selection, visit-only owner token, status refresh, authenticated same-origin requests |
 | `public/js/voice.js` | Browser voice selection and cancellation-safe natural audio playback |
-| `scripts/build-vercel.mjs` | Rebuilds static output and three packaged Node function entrypoints |
+| `scripts/build-vercel.mjs` | Rebuilds static output and four packaged Node function entrypoints |
 | `vercel.json` | Vercel install/build configuration |
 | `.env.example` | Configuration names and defaults, without real secrets |
 | `.gitignore` | Excludes secrets and generated output |
@@ -182,3 +182,37 @@ Groq requires a separate acceptance of the speech model terms in the account tha
 Owner-authenticated live conversation was verified with a shadow/stage-fright premise, a distinct follow-up ending, and a short Hello reply using Groq `openai/gpt-oss-20b`. The owner confirmed hearing the natural Hello sample. After commit `c95de44` deployed automatically and reached Ready, a fresh prompt produced a 253-character story. Production logs recorded HTTP 200 for both chat and the assembled speech response, verifying the longer reply path beyond Orpheus's single-request limit. The listening confirmation applies to the short sample; the long reply was verified through the live requests and WAV tests.
 
 Final source verification before that deployment: 62 tests passed, 31 JavaScript modules passed syntax checks, and the Vercel output build succeeded. Safe speech diagnostics log only constant failure categories, HTTP status, and a whitelisted format name; they never log API keys, owner tokens, provider error bodies, or conversation text. The live-site screenshot is saved locally at `artifacts/nox-live.jpg` and is intentionally ignored by Git.
+
+## NOX 0.5: home, workspace, history, and streaming
+
+The home page is `/`; the interactive workspace is `/app`. The build packages `/api/summary` alongside status, chat, and speech. All four are Node 24 functions with explicit ESM scope. Chat streaming uses the existing chat endpoint with `stream: true`; it sends SSE text events and one final normalized packet. A closed or failed stream never becomes a saved assistant reply. Cloud chat, summaries, and speech share the same owner authorization, trusted origin, request-size bounds, and convenience rate limit.
+
+Motion and voice default on for a fresh preference set. Settings persist explicit off choices. Browser voice is the default engine, and audio playback requires browser interaction. Orpheus remains optional: choose Natural, pick a character voice, and use Try this voice. The default selectable character voice is Austin; Troy preserves the earlier voice choice. Supported vocal directions reflect NOX's mood and count toward the 200-character segment budget. These are model directions, so acting quality can vary.
+
+The Library stores conversations in this browser and domain, with search, reopen, export, and delete. It holds up to 40 threads and 200 messages per thread; the oldest entries are bounded rather than an unlimited archive. Export conversations you want to preserve. Web Locks serialize mutations against fresh storage, and storage events update other tabs; browsers without this capability are told to use one workspace tab. If browser storage fails, the UI says that new history lasts for the visit. Cloud requests use a compact summary, recent context, and bounded excerpts of unsummarized old turns while a summary is pending. Full retained transcripts remain available locally. Summarization consumes additional model quota only at its background threshold, and it never replaces or deletes the transcript.
+
+Speech caching is process-local, bounded to 12 entries / 12 MiB and five minutes. Cache keys hash the configured provider credential, voice, persona, emotion, and exact text. Identical in-flight work coalesces; failed requests are not cached. A Vercel cold start or another function instance has its own empty cache. Groq's automatic prompt cache is different: it can reuse an identical prompt prefix on supported models, so the fixed identity/schema precede changing notebook data. No complete conversation replies are cached.
+
+### Enable NVIDIA later
+
+The owner deferred key setup because NVIDIA's site was unavailable. Groq continues to work; NVIDIA has not been verified against that account.
+
+1. Open https://build.nvidia.com/nvidia/nemotron-3-nano-30b-a3b, sign in, review any model/account terms personally, and choose Get API Key.
+2. In https://vercel.com/night-86c7/nox/settings/environment-variables, choose Add Environment Variable → Secret. Enter `NVIDIA_API_KEY`, paste the key privately, select Production, and Save.
+3. Leave `NOX_PROVIDER=groq` for Groq to remain the default. `NVIDIA_MODEL` is optional; the code defaults to `nvidia/nemotron-3-nano-30b-a3b`. Setting `NVIDIA_MODEL=meta/llama-3.3-70b-instruct` selects Llama instead. Nemotron 3 requests disable thinking to reduce unnecessary reasoning for character turns.
+4. Redeploy the latest commit from Vercel, or push the next code update. Existing deployments do not pick up newly saved environment variables.
+5. In `/app`, unlock owner access and choose NVIDIA NIM in Preferences. Send a fresh question and inspect the reply/timing. API Catalog trial access has account and model limits; adding the adapter does not grant access or promise unlimited use.
+
+References: [NVIDIA model](https://build.nvidia.com/nvidia/nemotron-3-nano-30b-a3b), [NVIDIA voice-agent reasoning guidance](https://github.com/NVIDIA-AI-Blueprints/nemotron-voice-agent/blob/main/docs/how-to/configure-llm.md), [Groq prompt caching](https://console.groq.com/docs/prompt-caching), [Orpheus vocal directions](https://console.groq.com/docs/text-to-speech/orpheus).
+
+### Rename the public website link
+
+The project's domain page was inspected: the current `nox-iota-lemon.vercel.app` row has Edit, and its editable Domain field is connected to Production. No name was changed.
+
+1. Open https://vercel.com/night-86c7/nox/settings/domains.
+2. Click Edit next to `nox-iota-lemon.vercel.app`.
+3. Replace Domain with an available name such as `your-nox-name.vercel.app`, keep Connect to an environment → Production, and Save. This example is not an availability claim; Vercel validates it.
+4. In Environment Variables, set `NOX_PUBLIC_ORIGIN=https://your-nox-name.vercel.app` using the actual new name, then redeploy. NOX uses an explicit hostname allowlist for its APIs, so new aliases/custom domains need the correct configured origin. The owner token protection remains in place.
+5. Test the home page, `/app`, and owner-unlocked chat at the new URL. Export chats before moving: local browser history belongs to the old origin and does not automatically follow the rename. Keep the old address as an additional production domain if you still need old links to work, subject to Vercel allowing that alias.
+
+An owned custom domain follows Add Existing and the DNS instructions Vercel shows. Purchasing a domain is separate from renaming a Vercel subdomain and was not requested. Renaming the repository or Project Name is a different setting from editing this production alias. [Vercel domain documentation](https://vercel.com/docs/domains).

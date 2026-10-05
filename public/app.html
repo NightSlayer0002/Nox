@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#080d0c">
+  <meta name="description" content="NOX. A curious mind, a little company. An interactive AI companion and cinematic creation studio.">
+  <title>NOX — A curious mind</title><link rel="icon" href="/icon.svg" type="image/svg+xml">
+  <link rel="preload" href="/fonts/Manrope.ttf" as="font" type="font/ttf" crossorigin><link rel="stylesheet" href="/style.css">
+</head>
+<body class="workspace" data-view="explore" data-persona="companion" data-signal="idle" data-form="face">
+<svg class="svg-library" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><defs>
+<symbol id="i-voice" viewBox="0 0 24 24"><path d="M5 9v6h4l5 4V5L9 9H5Z"/><path d="M18 8c2 2 2 6 0 8"/></symbol>
+<symbol id="i-camera" viewBox="0 0 24 24"><rect x="3" y="6" width="13" height="12" rx="2"/><path d="m16 10 5-3v10l-5-3"/></symbol>
+<symbol id="i-record" viewBox="0 0 24 24"><circle cx="12" cy="12" r="7"/><circle cx="12" cy="12" r="3" class="icon-fill"/></symbol>
+<symbol id="i-reset" viewBox="0 0 24 24"><path d="M5 7a8 8 0 1 1-1 9M5 3v5h5"/></symbol>
+<symbol id="i-expand" viewBox="0 0 24 24"><path d="M14 4h6v6M20 4l-6 6M10 20H4v-6M4 20l6-6"/></symbol>
+<symbol id="i-mic" viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="12" rx="3"/><path d="M6 11v1a6 6 0 0 0 12 0v-1M12 18v3M9 21h6"/></symbol>
+<symbol id="i-arrow" viewBox="0 0 24 24"><path d="M12 19V5m-6 6 6-6 6 6"/></symbol>
+</defs></svg>
+<aside class="sidebar" aria-label="Workspace navigation">
+<a class="brand" href="/" aria-label="NOX home"><span class="brand-mark" aria-hidden="true"><i></i><i></i></span><span>N O X</span></a>
+<button id="new-chat" class="new-chat">＋ New conversation</button>
+<nav><a href="#explore" data-view="explore" class="selected">Explore</a><a href="#conversation" data-view="conversation">Conversation</a><a href="#scenes" data-view="scenes">Scene studio</a><a href="#library" data-view="library">Library</a><button id="settings-button">Settings</button></nav>
+<p class="rail-label">RECENT CONVERSATIONS</p><div id="recent-chats" class="recent-chats"></div>
+<div class="rail-bottom"><p>A curious mind.<br>On your side.</p><a href="/" class="rail-version">← BACK HOME</a></div>
+</aside>
+<div class="shell">
+<header class="header"><span class="eyebrow" id="view-label">YOUR SPACE / EXPLORE</span><div class="header-right"><span id="brain-status" class="status"><i></i> OFFLINE DEMO</span><button id="inside-button" class="quiet-button">Preferences ↗</button></div></header>
+<main>
+<div class="intro"><h1 id="workspace-heading">Think. Build.<br><em>Explore with NOX.</em></h1><p class="intro-note" id="workspace-note">A little room for your next thought.</p></div>
+<div class="studio">
+<section class="stage-column" id="world" aria-label="NOX's world">
+<div class="instrument-heading"><span><i class="live-dot"></i> NOX IS HERE</span><div class="form-switch" role="group" aria-label="NOX appearance"><button data-form="face" aria-pressed="true">Presence</button><button data-form="core" aria-pressed="false">Signal</button></div></div>
+<div class="stage-bezel"><div class="stage-wrap" id="stage-wrap">
+<canvas id="stage" aria-label="Animated NOX face. Move the cursor to look around. Click to make him smile, double-click or press Space to wink. Drag or use arrow keys to move him." tabindex="0"></canvas>
+<div class="room-note" aria-hidden="true"><span>THE EVENING ROOM</span></div>
+<div class="stage-top"><span class="stage-label">A PRESENCE, NOT A PRESET</span><button class="stage-button" id="film-button" aria-pressed="false" title="Portrait film mode (F)"><svg><use href="#i-expand"/></svg><span>Film mode</span></button></div>
+<div class="stage-bottom"><span id="scene-label">MOVE YOUR CURSOR. POKE HIM. DRAG HIM.</span><span id="stage-time">00:00</span></div>
+<button id="exit-film" class="exit-film" hidden>Exit film mode · F</button><button id="film-record" class="film-record">● Record clip</button>
+</div></div>
+<div class="stage-tools"><div class="media-tools">
+<button id="voice-button" class="tool-button" aria-pressed="true"><svg><use href="#i-voice"/></svg><span>Voice on</span><i class="button-led"></i></button>
+<button id="camera-button" class="tool-button" aria-pressed="false"><svg><use href="#i-camera"/></svg><span>Camera</span></button>
+<button id="record-button" class="tool-button" title="Record a silent captioned WebM"><svg><use href="#i-record"/></svg><span>Record clip</span></button>
+</div><button id="reset-button" class="reset-button" title="Reset scene (Escape)"><svg><use href="#i-reset"/></svg><span>Reset</span></button></div>
+<div class="experiments" id="programs"><div class="section-heading"><p class="eyebrow">A LITTLE CREATIVE CONTROL</p><span>Click again to let it go.</span></div><div class="experiment-buttons">
+<button data-scene="gravity" aria-pressed="false"><span class="program-symbol">↓</span><b>Gravity</b><span class="program-detail">Let him fall</span></button>
+<button data-scene="spotlight" aria-pressed="false"><span class="program-symbol">✦</span><b>Spotlight</b><span class="program-detail">Follow the light</span></button>
+<button data-scene="orbit" aria-pressed="false"><span class="program-symbol">◎</span><b>Orbit</b><span class="program-detail">A tiny universe</span></button>
+<button data-scene="echo" aria-pressed="false"><span class="program-symbol">∴</span><b>Echo</b><span class="program-detail">Someone else?</span></button>
+<button data-scene="takeover" aria-pressed="false"><span class="program-symbol">↗</span><b>Takeover</b><span class="program-detail">His moment</span></button>
+</div></div>
+<div class="modulation"><div class="tone-control"><label for="intensity">Glow</label><input id="intensity" type="range" min="0" max="100" value="65"><output id="intensity-value" for="intensity">65</output></div><div class="motion-control"><button id="motion-button" aria-pressed="true"><i></i><span>Motion on</span></button><span id="motion-note">Gaze, blinks, and a little life.</span></div><div class="signal-readout"><span id="signal-state" role="status">IDLE</span><div class="signal-meter" aria-hidden="true"><i id="signal-level"></i></div></div></div>
+</section>
+<aside class="explore-column" data-panel="explore"><div class="day-card"><p class="eyebrow" id="today-label"></p><h2>A new day<br>to explore.</h2><p>Ideas don't have to be perfect.<br>They just have to exist.</p></div><div class="section-heading"><h3>Pick up where you left off</h3><a href="#library">↗</a></div><div id="resume-chats" class="resume-chats"></div><div class="section-heading"><h3>Explore with NOX</h3></div><div class="explore-grid"><button data-start="Imagine a strange premise for a short film, then ask me one question to develop it."><span>01 / IDEAS</span><b>Brainstorm</b><small>Find something worth making.</small></button><button data-start="Give me a thoughtful, unexpected opinion about creativity."><span>02 / CONVERSATION</span><b>A different angle</b><small>Think a little further.</small></button><button data-start="Write a subtle, unsettling opening line for a fictional horror short." data-persona="uncanny"><span>03 / AFTER DARK</span><b>A strange story</b><small>Leave a little room for mystery.</small></button><button data-start="Help me develop a 20-second creative scene for a video, starting with a strong hook." data-persona="director"><span>04 / CREATE</span><b>Make a scene</b><small>Put an idea in the frame.</small></button></div></aside>
+<aside class="library-column" data-panel="library" hidden><p class="eyebrow">YOUR CONVERSATIONS</p><h2>Nothing lost.<br><em>A thread to return to.</em></h2><label class="sr-only" for="history-search">Search conversations</label><input id="history-search" class="history-search" type="search" placeholder="Search your conversations…"><div class="library-toolbar"><span id="history-count"></span><button id="export-history" class="quiet-button">Export all ↓</button></div><div id="history-list" class="history-list"></div><p id="history-storage-note" class="demo-note">Saved in this browser. Export a copy before changing devices or domains.</p></aside>
+<aside class="scene-column" data-panel="scenes" hidden><p class="eyebrow">YOUR LITTLE STUDIO</p><h2>Set the scene.<br><em>Let him play.</em></h2><p>Choose a program under NOX. Click it again to stop. Drag him, change his mood, or enter film mode for a portrait frame.</p><div class="scene-instructions"><span>01</span><p>Choose Presence for NOX's face or Signal for his live shader core.</p><span>02</span><p>Gravity, Spotlight, Orbit, Echo, and Takeover each change the scene for ten seconds.</p><span>03</span><p>Turn on a local camera preview and record the stage. WebM clips include captions; add voice with OBS or an editor.</p></div><a class="outline-button" href="#conversation">Write the next moment ↗</a></aside>
+<aside class="companion-column" id="chat" data-panel="conversation" hidden>
+<div class="connection-heading"><span class="eyebrow">ON THE OTHER SIDE</span><button id="replay-voice" class="quiet-button">Hear that again ↻</button></div><h2 id="chat-title">Let's wander a little.</h2>
+<div class="persona-header"><span>A MOOD FOR THE MOMENT</span><span id="mood-label">CURIOUS</span></div>
+<div class="mode-tabs" role="group" aria-label="NOX persona"><button data-mode="companion" class="active" aria-pressed="true">Companion</button><button data-mode="director" aria-pressed="false">Director</button><button data-mode="uncanny" aria-pressed="false">Uncanny</button></div>
+<div class="conversation" id="conversation" aria-live="polite" aria-label="Conversation with NOX"></div>
+<p id="reply-timing" class="reply-timing" role="status"></p>
+<form id="chat-form" class="composer"><label class="sr-only" for="message">Say something to NOX</label><textarea id="message" placeholder="Put a thought into the room…" maxlength="1200" rows="2"></textarea><div class="composer-bottom"><button id="mic-button" type="button" title="Browser speech recognition"><svg><use href="#i-mic"/></svg><span>Talk</span></button><span>ENTER TO SEND</span><button id="send-button" type="submit" aria-label="Send message"><svg><use href="#i-arrow"/></svg></button></div></form>
+<div class="suggestions"><button data-prompt="Give me a strange idea for a short film">Make something <span>↗</span></button><button data-prompt="What are you curious about today?">Get his opinion <span>↗</span></button></div>
+<div class="notebook" id="notebook"><div class="notebook-head"><span class="eyebrow">A FEW THINGS WORTH KEEPING</span><button id="clear-memory">Clear notebook</button></div><p id="memory-summary">A fresh start. Tell him your name.</p><div id="memory-facts"></div></div>
+<p id="summary-note" class="demo-note"></p><p class="demo-note" id="brain-note">Offline demo. Add a server API key to give NOX model-generated conversation.</p>
+</aside>
+</div>
+<footer><span>CURIOUS. THOUGHTFUL. A LITTLE OPINIONATED.</span><span>Double-click to wink <b>·</b> F to film <b>·</b> Esc to reset</span><span>NOX / 0.5</span></footer>
+</main>
+</div>
+<div id="toast" role="status" hidden></div>
+<dialog id="inside-dialog"><div class="dialog-top"><p class="eyebrow">PREFERENCES</p><button id="close-inside" aria-label="Close">×</button></div><h2>Make yourself at home.</h2>
+<div class="settings-panel"><div class="setting-row"><label for="provider-select">Conversation brain</label><select id="provider-select"><option value="">Offline demo</option></select></div><p id="provider-note">Providers appear once their server keys are configured.</p><div class="setting-row"><label for="voice-engine">Voice</label><select id="voice-engine"><option value="browser">Browser · free</option><option id="natural-option" value="natural" disabled>Natural · Groq Orpheus</option></select></div><p id="voice-note">Browser voice quality depends on the voices installed on your device.</p>
+<form id="owner-form" hidden><label for="owner-token">Owner access</label><div class="unlock-row"><input id="owner-token" type="password" autocomplete="off" placeholder="Your NOX access token"><button type="submit">Unlock</button></div><p>This is your NOX access token, never a provider API key. It lasts for this visit.</p></form><button id="lock-owner" class="quiet-button" hidden>Lock cloud access</button><p id="owner-status" role="status"></p></div>
+<div class="setting-row"><label for="speaker-select">Orpheus character voice</label><select id="speaker-select"><option value="austin">Austin · try a different voice</option><option value="troy">Troy · previous voice</option><option value="daniel">Daniel</option><option value="hannah">Hannah</option></select></div><div class="setting-row"><label for="browser-speaker">Browser voice</label><select id="browser-speaker"><option value="">Automatic</option></select></div><button id="test-voice" class="outline-button">Try this voice ↗</button>
+<details class="provider-setup"><summary>Connect NVIDIA NIM</summary><p>Create an API Catalog key at <a href="https://build.nvidia.com/nvidia/nemotron-3-nano-30b-a3b" target="_blank" rel="noreferrer">NVIDIA ↗</a>, then add NVIDIA_API_KEY in your Vercel project's environment settings and redeploy. Keep your key out of the browser and chat. The default is Nemotron 3 Nano with thinking off.</p></details><details class="developer-inspector"><summary>Developer inspector</summary><p id="inspector-brain"></p><pre id="packet-view"></pre></details></dialog>
+<dialog id="clip-dialog"><div class="dialog-top"><p class="eyebrow">A PERFORMANCE, CAPTURED</p><button id="close-clip" aria-label="Close clip preview">×</button></div><h2>One for the camera.</h2><video id="clip-video" controls playsinline preload="metadata" aria-label="Recorded NOX clip"></video><p id="clip-meta"></p><a id="save-clip" class="save-clip">Save clip ↓</a><p class="dialog-foot">This export is silent. Add NOX's voice in an editor or capture desktop audio with OBS.</p></dialog>
+<script type="module" src="/js/app.js"></script>
+</body></html>

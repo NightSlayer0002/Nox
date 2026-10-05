@@ -30,10 +30,11 @@ Original source stays in the Codex generated-image directory; the project consum
 
 | File | Responsibility |
 |---|---|
-| `public/index.html` | Semantic workspace, working anchor navigation, live stage, conversation and settings dialogs |
+| `public/index.html`, `public/js/landing.js` | Cinematic home page and live character introduction |
+| `public/app.html`, `public/js/navigation.js` | Workspace with functional Explore, Conversation, Scene studio and Library destinations |
 | `public/style.css` | Cinematic composition, type, responsive layout, states and keyboard focus |
 | `public/assets/nox-study.jpg` | Original environment image, with no baked-in character |
-| `public/js/face.js` | Eye/mouth geometry, gaze, blinking, touch response and color |
+| `public/js/face.js` | Shaded body, live eye/mouth geometry, gaze, blinking, touch response and color |
 | `public/js/orb-state.js` | Shared activity, emotion, energy and clock |
 | `public/js/orb-shader.js` | Optional live GLSL material and WebGL lifecycle |
 | `public/js/orb.js` | Shader projection, pointer smoothing and Canvas fallback |
@@ -41,3 +42,9 @@ Original source stays in the Codex generated-image directory; the project consum
 | `public/js/app.js` | Interaction wiring, provider/voice settings, status and owner access |
 
 Manrope is bundled with its OFL license in `public/fonts/OFL.txt`. Georgia uses the user's available system serif. The eye icon and SVG media symbols are original code. No paid GSAP component, Resident Evil asset or premium template source is copied. The user screenshots are mood/composition references; the implementation uses native Canvas and CSS because those keep this small character engine explainable and free of runtime dependencies.
+
+## 0.5 composition
+
+The landing page uses a continuous room with open space for a sans-serif introduction, quiet navigation, and a cream call to action. The workspace uses a thin left rail and a restrained two-column layout, with a live scene on one side and the selected functional panel on the other. No fabricated projects or recent chats are displayed: resume cards come from saved conversations, and an empty archive has an honest empty state. The character's charcoal body is shaded Canvas geometry, with a rim and contact shadow; eyes and mouth remain live. Pointer tracking covers the whole document without obstructing other controls.
+
+At 390 pixels the rail becomes a compact navigation row, the columns stack, and the scene remains usable. Motion defaults on across the two pages while honoring explicit current or legacy off preferences. Screenshots in ignored artifacts are proof of browser checks, not source assets.

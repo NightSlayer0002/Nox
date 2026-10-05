@@ -3,9 +3,10 @@ import { readFile } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-import { normalizePacket, sanitizeContext } from './shared/character.js';
+import { normalizePacket, sanitizeContext, EMOTIONS } from './shared/character.js';
 import { requestNox } from './server/ai.mjs';
-import { getProviders, providerKey, requestProvider } from './server/providers.mjs';
+import { getProviders, providerKey, requestProvider, requestSummary } from './server/providers.mjs';
+import { createCache } from './server/cache.mjs';
 import { requestSpeech } from './server/speech.mjs';
 import { createHash, timingSafeEqual } from 'node:crypto';
 
@@ -43,12 +44,14 @@ export function createAppServer({
   apiKey = process.env.OPENAI_API_KEY || '', model = process.env.OPENAI_MODEL || 'gpt-4.1-mini', chat = requestNox,
   speech = requestSpeech, naturalVoice = process.env.NOX_NATURAL_VOICE === '1', speechVoice = process.env.NOX_SPEECH_VOICE || 'cedar',
   providers = getProviders(), defaultProvider = process.env.NOX_PROVIDER || providers[0]?.id || 'openai', providerRequest = requestProvider,
+  summary = requestSummary,
   speechProvider = process.env.NOX_SPEECH_PROVIDER || 'groq', speechKey = process.env.GROQ_API_KEY || '',
   hosted = Boolean(process.env.VERCEL), accessToken = process.env.NOX_ACCESS_TOKEN || '',
   publicHosts = [process.env.VERCEL_URL, process.env.VERCEL_BRANCH_URL, process.env.VERCEL_PROJECT_PRODUCTION_URL, process.env.NOX_PUBLIC_ORIGIN].filter(Boolean).map(value => new URL(value.startsWith('https://') ? value : `https://${value}`).host),
 } = {}) {
   let windowStart = Date.now();
   let requests = 0;
+  const audioCache=createCache();
   const available = [...providers];
   if(apiKey) available.push({id:'openai',name:'OpenAI',model});
   const preferred = available.find(p=>p.id===defaultProvider) || available[0];
@@ -73,7 +76,7 @@ export function createAppServer({
       voice: voiceKey && !locked && naturalVoice ? 'natural' : 'browser', access: locked ? 'locked' : 'open',
       providers: !locked ? available : [], provider: !locked ? preferred?.id || null : null,
     });
-    if (['/api/chat','/api/speech'].includes(pathname) && request.method === 'POST') {
+    if (['/api/chat','/api/speech','/api/summary'].includes(pathname) && request.method === 'POST') {
       const origin = request.headers.origin;
       if (origin && origin !== `${hosted?'https':'http'}://${host}`) return sendJson(response, 403, { error: 'Use NOX from its own page.' });
       if (locked) return sendJson(response, 401, { error: 'Unlock owner access in Settings before using cloud AI or natural voice.' });
@@ -86,8 +89,11 @@ export function createAppServer({
           if (Date.now()-windowStart>60000) {windowStart=Date.now();requests=0;}
           if(++requests>30) return sendJson(response,429,{error:'Give NOX a moment before requesting more voice.'});
           try {
-            const audio=await speech({text:input.text.trim(),mode:sanitizeContext({mode:input.mode}).mode},{apiKey:voiceKey,voice:speechVoice,provider:speechProvider});
-            response.writeHead(200,{'content-type':speechProvider==='groq'?'audio/wav':'audio/mpeg'}); response.end(audio); return;
+            const voice=speechProvider==='groq'&&['troy','austin','daniel','hannah'].includes(input.voice)?input.voice:speechVoice;
+            const acting={text:input.text.trim(),mode:sanitizeContext({mode:input.mode}).mode,emotion:EMOTIONS.includes(input.emotion)?input.emotion:'neutral'};
+            const key=createHash('sha256').update(JSON.stringify([voiceKey,voice,speechProvider,acting])).digest('hex');
+            const {value:audio,hit}=await audioCache.getOrCreate(key,()=>speech(acting,{apiKey:voiceKey,voice,provider:speechProvider}));
+            response.writeHead(200,{'content-type':speechProvider==='groq'?'audio/wav':'audio/mpeg','x-nox-audio-cache':hit?'hit':'miss'}); response.end(audio); return;
           } catch(error) {
             const categories=['terms_required','input_limit','model_permission','quota','credentials','provider_http','invalid_audio_type'];
             const reason=categories.includes(error.code)?error.code:error.name==='TimeoutError'?'timeout':'other';
@@ -96,6 +102,15 @@ export function createAppServer({
             console.warn(`[NOX speech] reason=${reason} status=${status} format=${format}`);
             return sendJson(response,502,{error:reason==='terms_required'?'Groq requires you to review and accept the speech model’s terms in its console before Orpheus can speak. Browser voice remains available.':'Natural voice could not respond. Check model access and account limits, or choose Browser voice.'});
           }
+        }
+        if(pathname==='/api/summary') {
+          if(!input||!Array.isArray(input.turns)||input.turns.length<1||input.turns.length>24||input.turns.some(t=>!t||!['user','assistant'].includes(t.role)||typeof t.content!=='string'||t.content.length>1200)||typeof input.previous!=='undefined'&&typeof input.previous!=='string')return sendJson(response,400,{error:'Send 1–24 conversation turns and an optional previous summary.'});
+          const selected=input.provider?available.find(p=>p.id===input.provider):preferred;
+          if(!selected||selected.id==='openai')return sendJson(response,400,{error:'Choose a configured Groq, Gemini or NVIDIA provider for summaries.'});
+          if(Date.now()-windowStart>60000){windowStart=Date.now();requests=0;}
+          if(++requests>30)return sendJson(response,429,{error:'Give NOX a moment before summarizing more conversation.'});
+          try {return sendJson(response,200,{summary:await summary(input,{provider:selected.id,apiKey:providerKey(selected.id),model:selected.model})});}
+          catch{return sendJson(response,502,{error:'The conversation summary could not finish. Your saved transcript is unchanged.'});}
         }
         if (!input || typeof input.message !== 'string' || !input.message.trim() || input.message.length > 1200) {
           return sendJson(response, 400, { error: 'Message must contain 1–1200 characters.' });
@@ -107,6 +122,17 @@ export function createAppServer({
         if (++requests > 30) return sendJson(response, 429, { error: 'Thirty turns in a minute. Give NOX a moment.' });
         try {
           const prompt = { message: input.message.trim(), context: sanitizeContext(input.context) };
+          if(input.stream===true) {
+            const controller=new AbortController(),started=performance.now();let firstTextMs=null,previousSpeech='';
+            response.on('close',()=>{if(!response.writableEnded)controller.abort();});
+            response.writeHead(200,{'content-type':'text/event-stream; charset=utf-8','x-accel-buffering':'no'});response.flushHeaders();
+            const emit=(event,data)=>{if(!response.destroyed)response.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);};
+            try {
+              const packet=selected.id==='openai'?await chat(prompt,{apiKey,model:selected.model}):await providerRequest(prompt,{provider:selected.id,apiKey:providerKey(selected.id),model:selected.model,signal:controller.signal,onText:speech=>{if(firstTextMs===null)firstTextMs=Math.round(performance.now()-started);emit('text',speech.startsWith(previousSpeech)?{delta:speech.slice(previousSpeech.length)}:{speech});previousSpeech=speech;}});
+              emit('final',{...normalizePacket(packet),metrics:{firstTextMs,totalMs:Math.round(performance.now()-started),provider:selected.name}});
+            }catch {if(!controller.signal.aborted)emit('error',{error:'NOX could not finish this reply. Check provider access or limits and try again.'});}
+            response.end();return;
+          }
           const packet = selected.id==='openai' ? await chat(prompt,{apiKey,model:selected.model}) : await providerRequest(prompt,{provider:selected.id,apiKey:providerKey(selected.id),model:selected.model});
           return sendJson(response, 200, normalizePacket(packet));
         } catch {
@@ -122,7 +148,7 @@ export function createAppServer({
     let file;
     if (pathname === '/shared/character.js') file = path.join(root, 'shared', 'character.js');
     else {
-      file = path.resolve(publicRoot, pathname === '/' ? 'index.html' : `.${pathname}`);
+      file = path.resolve(publicRoot, pathname === '/' ? 'index.html' : ['/app','/app/'].includes(pathname)?'app.html':`.${pathname}`);
       if (!file.startsWith(publicRoot + path.sep) || pathname.includes('\\') || pathname.split('/').some(part => part.startsWith('.'))) return sendJson(response, 404, { error: 'Not found.' });
     }
     const type = contentTypes[path.extname(file)];

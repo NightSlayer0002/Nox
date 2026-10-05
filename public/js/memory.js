@@ -33,5 +33,6 @@ export function createMemory(storage) {
       save();
     },
     clear() { state = { version: 1, name: '', facts: [], history: [], mode: 'companion' }; save(); },
+    clearHistory() {state.history=[];save();},
   };
 }

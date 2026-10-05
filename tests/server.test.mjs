@@ -24,6 +24,22 @@ async function withServer(options, callback) {
   finally { await new Promise(resolve => server.close(resolve)); }
 }
 
+test('summaries use the same owner gate and selected server model as chat',async()=>{
+  let calls=0;
+  await withServer({providers:[{id:'nvidia',name:'NVIDIA NIM',model:'fixture'}],accessToken:'owner',summary:async(input,options)=>{calls++;assert.equal(options.provider,'nvidia');assert.equal(options.model,'fixture');assert.equal(input.turns.length,2);return 'Saved continuity.';}},async base=>{
+    const body=JSON.stringify({provider:'nvidia',turns:[{role:'user',content:'Hi'},{role:'assistant',content:'Hello'}]});
+    const locked=await fetch(`${base}/api/summary`,{method:'POST',headers:{'content-type':'application/json'},body});assert.equal(locked.status,401);
+    const open=await fetch(`${base}/api/summary`,{method:'POST',headers:{'content-type':'application/json',authorization:'Bearer owner'},body});assert.equal(open.status,200);assert.equal((await open.json()).summary,'Saved continuity.');assert.equal(calls,1);
+  });
+});
+
+test('streaming chat delivers text then a normalized final packet with timings',async()=>{
+  await withServer({providers:[{id:'groq',name:'GroqCloud',model:'fixture'}],providerRequest:async(input,options)=>{options.onText('Hello');return {speech:'Hello world',emotion:'happy',action:'evil',memory:''};}},async base=>{
+    const response=await fetch(`${base}/api/chat`,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({message:'Hi',stream:true})});
+    assert.match(response.headers.get('content-type'),/text\/event-stream/);const text=await response.text();assert.match(text,/event: text/);assert.match(text,/event: final/);assert.match(text,/"action":"none"/);assert.match(text,/totalMs/);
+  });
+});
+
 test('server status describes demo mode without exposing the key', async () => {
   await withServer({ apiKey: '' }, async base => {
     const response = await fetch(`${base}/api/status`);

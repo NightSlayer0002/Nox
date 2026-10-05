@@ -45,7 +45,7 @@ export class Face extends OrbSignal {
       open: talking ? this.reduceMotion ? 8 : 5 + Math.abs(Math.sin(time*15)*Math.sin(time*7.7))*17 : 0,
     };
   }
-  unit(width, height, scale = this.scale) { return Math.min(width/580, height/340)*scale; }
+  unit(width, height, scale = this.scale) { return Math.min(width/720, height/560)*scale; }
   diameter(width, height, scale = this.scale) { return this.unit(width,height,scale)*270; }
   hitTest(point, width, height) {
     const unit = this.unit(width,height);
@@ -57,6 +57,18 @@ export class Face extends OrbSignal {
     const fill = ghost ? '#c7cbb4' : red ? '#efbba3' : this.mode === 'director' ? '#eeefd6' : '#fff3c9';
     ctx.save(); ctx.globalAlpha = alpha;
     ctx.translate(width*x, height*y + this.breath*unit); ctx.scale(unit,unit); ctx.rotate(this.rotation);
+    if(!ghost) {
+      ctx.fillStyle='#00000090';ctx.shadowColor='#000';ctx.shadowBlur=20;
+      ctx.beginPath();ctx.ellipse(0,151,157,19,0,0,tau);ctx.fill();
+      ctx.shadowBlur=0;
+      const shell=ctx.createLinearGradient(-150,-100,155,140);
+      shell.addColorStop(0,'#383a2f');shell.addColorStop(.18,'#161b17');shell.addColorStop(.6,'#090e0c');shell.addColorStop(1,'#262a20');
+      ctx.fillStyle=shell;
+      ctx.beginPath();ctx.moveTo(-145,126);ctx.bezierCurveTo(-148,52,-141,-61,-102,-106);ctx.bezierCurveTo(-55,-165,67,-165,111,-97);ctx.bezierCurveTo(145,-47,148,59,145,126);ctx.quadraticCurveTo(143,145,124,145);ctx.lineTo(-124,145);ctx.quadraticCurveTo(-145,145,-145,126);ctx.closePath();ctx.fill();
+      const rim=ctx.createLinearGradient(-140,-140,150,90);rim.addColorStop(0,'#f5e6b470');rim.addColorStop(.4,'#a7997410');rim.addColorStop(1,'#eed9a84a');
+      ctx.strokeStyle=rim;ctx.lineWidth=1.2;ctx.stroke();
+      const highlight=ctx.createRadialGradient(-65,-90,0,-65,-90,135);highlight.addColorStop(0,'#fff3c410');highlight.addColorStop(1,'#fff3c400');ctx.fillStyle=highlight;ctx.fill();
+    }
     ctx.shadowColor = red ? '#c78361' : '#f2d794';
     ctx.shadowBlur = 8 + this.signal.intensity*14;
     const surface = ctx.createLinearGradient(0,-55,0,100);
@@ -79,11 +91,6 @@ export class Face extends OrbSignal {
       else if (features.mouth === 'uncanny') { ctx.moveTo(mouthX-13,73); ctx.lineTo(mouthX+13,73); }
       else { ctx.ellipse(mouthX,72,10,6,0,0,tau); }
       if(['neutral','curious','sleepy'].includes(features.mouth)) ctx.fill(); else ctx.stroke();
-    }
-    // The pointer's small light below him makes the cursor response legible.
-    if (!ghost && !this.reduceMotion) {
-      ctx.shadowBlur = 0; ctx.fillStyle = red ? '#db726125' : '#d9d1ae18';
-      ctx.beginPath(); ctx.ellipse(this.gazeX*.6,121,52,4,0,0,tau); ctx.fill();
     }
     ctx.restore();
   }

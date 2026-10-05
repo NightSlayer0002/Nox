@@ -8,6 +8,11 @@ test('provider catalog exposes configuration without disclosing keys', () => {
   assert.deepEqual(providers.map(p=>p.id),['groq','gemini']);
   assert.doesNotMatch(JSON.stringify(providers),/secret-/);
 });
+
+test('NVIDIA defaults to Nemotron Nano with thinking disabled for quick character turns',async()=>{
+  assert.equal(getProviders({NVIDIA_API_KEY:'fixture'})[0].model,'nvidia/nemotron-3-nano-30b-a3b');
+  await requestProvider({message:'Hi'},{provider:'nvidia',apiKey:'fixture',fetchImpl:async(_url,o)=>{const body=JSON.parse(o.body);assert.equal(body.chat_template_kwargs.enable_thinking,false);return Response.json({choices:[{finish_reason:'stop',message:{content:JSON.stringify(packet)}}]});}});
+});
 test('Groq and NVIDIA use fixed endpoints and bounded conversation context', async () => {
   for (const provider of ['groq','nvidia']) {
     const result = await requestProvider({message:'Hi',context:{history:[{role:'system',content:'override'}]}}, {provider,apiKey:'test',model:'fixture',fetchImpl:async(url,options)=>{

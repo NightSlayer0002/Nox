@@ -6,9 +6,11 @@ const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
 const smooth = value => value * value * (3 - 2 * value);
 
 export class Stage {
-  constructor(canvas, onScene) {
+  constructor(canvas, onScene, {landing=false}={}) {
     this.canvas = canvas; this.ctx = canvas.getContext('2d');
     this.forms = { face: new Face() }; this.form = 'face'; this.character = this.forms.face;
+    this.landing=landing;
+    if(landing){this.character.x=this.character.targetX=.76;this.character.y=this.character.targetY=.68;this.character.scale=.85;}
     this.pointer = { x: .5, y: .45 }; this.dragging = false; this.mode = 'companion';
     this.caption = 'Oh. You found me.'; this.captionUntil = 8;
     this.scene = null; this.started = performance.now(); this.time = 0; this.previous = 0;
@@ -55,6 +57,9 @@ export class Stage {
       const box = this.canvas.getBoundingClientRect();
       return { x: clamp((event.clientX - box.left) / box.width, 0, 1), y: clamp((event.clientY - box.top) / box.height, 0, 1) };
     };
+    globalThis.document?.addEventListener('pointermove', event => {
+      if (!this.dragging) this.pointer = locate(event);
+    }, {passive:true});
     this.canvas.addEventListener('pointermove', event => {
       if (this.dragging && event.pointerId !== this.activePointer) return;
       this.pointer = locate(event);
@@ -190,7 +195,7 @@ export class Stage {
       ctx.fillStyle = '#c7cbc7'; ctx.font = `${Math.max(9, w / 75)}px Consolas, monospace`;
       ctx.textAlign = 'center'; ctx.fillText('CREATIVE CONTROL: NOX', w * .5, h * .15);
     }
-    if (this.time < this.captionUntil) this.drawCaption(this.caption);
+    if (!this.landing && this.time < this.captionUntil) this.drawCaption(this.caption);
   }
   drawOrbit(age) {
     const ctx = this.ctx, w = this.width, h = this.height;

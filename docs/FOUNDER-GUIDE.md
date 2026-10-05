@@ -559,3 +559,88 @@ Orpheus accepts 200 characters; NOX can caption 420. The server splits longer sp
 A WAV is a RIFF container, not just raw samples. `server/wav.mjs` scans named chunks, reads the `fmt ` format and `data` frames, rejects incompatible formats or unaligned samples, and handles streaming size markers. It writes a new RIFF header and data size for the combined frames. Float audio also gets a `fact` chunk with its frame count. Merely concatenating whole WAV files would leave repeated headers in the audio data. Tests use known PCM samples and deliberately reversed completion order to verify the assembled output, plus malformed/oversized inputs. [Microsoft RIFF format](https://learn.microsoft.com/en-us/windows/win32/xaudio2/resource-interchange-file-format--riff-) and [WAVEFORMATEX](https://learn.microsoft.com/en-us/windows/win32/api/mmreg/ns-mmreg-waveformatex) describe these container and frame fields.
 
 The first voice failure had two independent boundaries: a provider model-term acceptance and the per-request input limit. Safe error categories distinguish terms, quota, credentials, input length, and format failures without retaining the upstream error message. The owner reviews model agreements personally; the code cannot waive them.
+
+## 0.5 — From a single studio to a product
+
+The home page and workspace now have different responsibilities. `public/index.html` introduces NOX with a full-height room, a live character, and direct entry points. `public/app.html` contains the working product: Explore, Conversation, Scene studio, Library, and Preferences. The server and Vercel routes map `/app` to this static document. There is no framework router or build-time rendering dependency. `public/js/navigation.js` interprets the workspace hash and shows the relevant panel, updates the current navigation item, and builds recent/history lists from real saved data.
+
+The background remains the original image asset. NOX's body, lighting, eyes, mouth, gaze, blinks, and reactions are Canvas geometry. `face.js` draws a shaded charcoal shell behind the existing expression geometry; `landing.js` gives the same Stage a different placement and suppresses captions. `stage.js` observes pointer movement on the whole document, while dragging and pointer capture remain attached to the canvas. That distinction lets him look toward a sidebar or composer without intercepting clicks or covering your page with an input layer.
+
+`preferences.js` reads motion from `nox.motion.v2`, falling back to an explicit old `nox.motion.v1` choice. Missing or inaccessible preference storage defaults to on. Both pages use that reader. Voice defaults on in the workspace but Browser remains the default engine; saved off choices and voice selections are preserved. An enabled setting cannot bypass browser autoplay policy: playback still follows user interaction. Camera and microphone remain optional, deliberate controls.
+
+### The file map for this release
+
+| File | Responsibility | Boundary worth defending |
+| --- | --- | --- |
+| `public/index.html`, `public/js/landing.js` | Home page and live introduction | Reuse the renderer; avoid a baked-in character image |
+| `public/app.html`, `public/style.css` | Workspace panels, controls, and responsive visual system | Every navigation destination has visible, useful content |
+| `public/js/navigation.js` | Hash views and real recent/search/export/delete UI | Render chat text with `textContent`, never model HTML |
+| `public/js/history.js` | Local thread archive, migration, serialized writes, context, summaries | Keep the transcript separate from the model's context budget |
+| `public/js/preferences.js` | Shared default/migration rule for motion | A default does not erase an explicit off choice |
+| `public/js/app.js` | Turns, history/UI orchestration, provider/voice choices | Cancel before switching threads; await storage and guard stale callbacks |
+| `public/js/stream.js` | Browser SSE reader | Partial text is a draft; final success is required to persist a reply |
+| `server/providers.mjs` | Provider formats, stable prompts, stream decoding, summaries | Server owns models, keys, and fixed endpoints |
+| `server/stream.mjs` | Bounded provider SSE and partial JSON speech decoding | Never execute a partial mood/action packet |
+| `server/cache.mjs` | Expiring LRU cache and identical-work coalescing | Bound both memory and lifetime; never cache failures |
+| `server/speech.mjs`, `server/wav.mjs` | Acting directions, bounded segments, compatible WAV assembly | Count directions toward provider limits and preserve text |
+| `server.mjs` | Authorization, origin/host validation, API limits, SSE responses | Summary has the same owner gate as chat and speech |
+| `scripts/build-vercel.mjs` | Static output plus four isolated Node functions | Explicit ESM package scope must travel with every function |
+
+### A saved conversation is not the same thing as a prompt
+
+The notebook contains the name and explicitly saved facts. The Library contains separate conversations. A thread has an ID, title from its first user message, persona, ordered user/assistant messages, a continuity summary, and the sequence number that summary covers. Retention is bounded to 40 threads and 200 messages per thread. Creating another blank conversation reuses the empty thread; it does not evict meaningful chats just because New conversation was clicked repeatedly.
+
+`createHistory(storage)` is asynchronous because storage writes are serialized. Modern browsers use an origin-scoped Web Lock called `nox.chat-history.write`. Inside that lock, every mutation reloads the latest disk snapshot, applies its operation to a captured thread ID, then saves. Two tabs cannot each overwrite the other's work using stale snapshots. Appending to a thread deleted elsewhere returns false rather than resurrecting it. Storage events refresh other open workspaces. If the active conversation changed externally, its in-flight turn is canceled and the UI restores the updated transcript; changes to other threads only refresh the lists.
+
+Node tests use an injected storage object and a queue shared by instances using that object. This fallback serializes within one JavaScript process. A browser without Web Locks is told to use one workspace tab because that fallback does not promise cross-tab safety. Storage failure leaves a visit-only archive and a visible explanation. Legacy history is cleared from the old notebook only after the new archive was actually persisted, preventing migration from deleting the only surviving copy.
+
+The cloud prompt sends a compact summary plus recent turns, rather than the entire archive. Up to twelve unsummarized messages remain intact. When there are more, eight recent messages travel with bounded excerpts from older unsummarized turns. That bridge prevents a gap while a background summary is delayed, canceled, or fails. It is an excerpt budget, not perfect or unlimited recall. `sanitizeContext()` bounds the summary to 1200 characters, the bridge to 1600, recent message text to 600, and the full encoded HTTP request to 16 KiB by dropping older context when necessary.
+
+After twelve older messages accumulate outside the recent eight, `summaryWork()` selects at most 24 old messages and keeps the encoded batch below its budget. Three seconds after a successful reply, the app requests `/api/summary` if no new turn has started. The selected provider compresses the previous summary and that old batch into an updated continuity note. Applying it verifies that the thread and covered sequence still exist and that it advances coverage. The retained transcript is untouched. A newer foreground send cancels the browser's pending summary request; that cannot guarantee an already-running upstream model used no quota.
+
+### Streaming changes when you see words
+
+A model request starts with the fixed character identity and JSON schema. Dynamic persona/notebook/summary data comes afterward, followed by recent messages and the current user message. Groq and NVIDIA use their fixed OpenAI-compatible chat endpoints; Gemini uses its streaming generation endpoint. Groq requests low reasoning effort for the current GPT-OSS model. Nemotron 3 requests thinking off for short character turns. These settings are workload choices, not a claim that one model is always faster.
+
+The provider adapter receives JSON text gradually. `partialSpeech()` locates the speech string and decodes complete escapes without displaying an unfinished surrogate pair. It emits text only. The complete response must have a successful provider finish reason, valid JSON, and a normalized character packet before any scene action or saved assistant reply is accepted.
+
+The NOX server emits this small SSE protocol:
+
+```text
+event: text
+data: {"delta":"Oh, "}
+
+event: text
+data: {"delta":"you found me."}
+
+event: final
+data: {"speech":"Oh, you found me.","emotion":"curious","action":"none","memory":"","metrics":{"firstTextMs":350,"totalMs":700,"provider":"GroqCloud"}}
+```
+
+Those numbers are illustrative. The actual UI shows measured server-side first-text and completion times for the request; they exclude work before the server timer begins. An error event or closed stream is a failed draft. The final event replaces the draft and persists one assistant message. Changing thread, persona, provider, or scene cancels the current turn. The turn generation guard prevents a delayed result from animating a different conversation.
+
+Text deltas avoid repeatedly transporting the entire growing reply. The browser still understands the older cumulative speech event format during a deployment transition. Its one-MiB transport limit accommodates a valid 420-character Unicode reply in that older format while bounding invalid responses. Text and final packets remain independently bounded. Captions can appear before completion; spoken audio waits for the validated final packet so NOX does not act on an unfinished answer.
+
+### Three different things people call caching
+
+1. **Provider prompt caching:** Groq can reuse computation for an identical prompt prefix on supported models. Stable identity/schema first improves that opportunity. The provider decides whether a hit occurs; the app neither implements its GPU KV cache nor guarantees a hit. [Groq prompt caching](https://console.groq.com/docs/prompt-caching).
+2. **Speech result caching:** `server/cache.mjs` holds at most twelve audio entries / twelve MiB for five minutes in one warm function process. The key hashes credential, provider, voice, mode, emotion, and exact text. Matching in-flight requests share one job. A failure is removed and a later request can retry. Cold starts and other Vercel instances start empty. The API reports hit/miss in a response header; no credential or text is logged in that key.
+3. **Conversation context compaction:** A summary reduces repeated old text sent to the model. This is memory management, not cached reply generation. It consumes an extra model request and can lose nuance, so the full local transcript is retained independently.
+
+There is no semantic cache of whole character replies. Reusing a response to a vaguely similar prompt would risk stale answers, wrong context, and the repetition the product is intended to avoid. Self-hosted techniques such as GPU KV-cache scheduling and speculative decoding belong to the provider's serving layer; our Vercel app cannot enable them by adding a browser flag.
+
+### Giving voice a mood
+
+`perform()` passes the packet emotion to `voice.speak()`. Browser speech adjusts rate and pitch modestly and offers installed English voice selection. Orpheus supports a small prefix such as `[warm]`, `[deadpan]`, or `[whisper]`, followed by the same caption text. Mode and emotion choose the direction; voice selection chooses Austin, Troy, Daniel, or Hannah. Each directed segment stays within 200 characters. The body still receives the clean caption, so acting tags never appear as dialogue on screen. Delivery is model-dependent and deserves a listening test on the actual device. [Orpheus vocal directions](https://console.groq.com/docs/text-to-speech/orpheus).
+
+### Explaining this in an interview
+
+**Why native JS instead of adding a framework?** This product already has a small static frontend, a renderer, and isolated server endpoints. Separate documents and focused modules meet the navigation/history requirements without introducing an unrelated migration. A framework becomes worthwhile if routing, account state, and component reuse grow enough to justify it.
+
+**What did you do for latency?** Stream first words, preserve a stable cache-friendly prompt prefix, bound and compact context, disable unnecessary long reasoning for companion turns, coalesce identical speech work, and measure the request timings. There is no credible universal speedup percentage without comparable production measurements.
+
+**How do you prevent a stale result from leaking into another chat?** Capture the conversation/turn identity, cancel on a switch, and check the generation after asynchronous work. Storage mutations also capture thread IDs and run against fresh state under a lock. Deleting a thread cannot change the target of an already-queued append.
+
+**Why retain the transcript after summarization?** Summaries are lossy context aids. The transcript is the user's record, supports search/export/reopen, and is never replaced by generated notes.
+
+**Is NVIDIA enabled just because its option appears?** No. Its adapter and tests are in place, but a private server key and model access are required. The owner deferred setup while NVIDIA's site was unavailable. Credentials never belong in client code. The deployment guide contains the exact activation steps.

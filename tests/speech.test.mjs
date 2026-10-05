@@ -1,5 +1,11 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+
+test('Groq uses emotion directions while keeping directed segments under the provider limit',async()=>{
+  const inputs=[];
+  await requestSpeech({text:'word '.repeat(45).trim(),mode:'companion',emotion:'happy'},{provider:'groq',apiKey:'fixture',voice:'austin',fetchImpl:async(_url,o)=>{const body=JSON.parse(o.body);inputs.push(body.input);assert.equal(body.voice,'austin');return new Response(fixtureWav([1]),{headers:{'content-type':'audio/wav'}});}});
+  assert.ok(inputs.every(text=>text.length<=200));assert.match(inputs[0],/^\[warm\]/);
+});
 import { requestSpeech } from '../server/speech.mjs';
 import { fixtureWav } from './helpers/wav.mjs';
 

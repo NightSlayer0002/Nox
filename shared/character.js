@@ -37,15 +37,18 @@ export function sanitizeContext(value = {}) {
     mode: MODES.includes(value.mode) ? value.mode : 'companion',
     name: cleanText(value.name, 40),
     facts: Array.isArray(value.facts) ? value.facts.map(fact => cleanText(fact, 120)).filter(Boolean).slice(-12) : [],
+    ...(cleanText(value.summary,1200) ? {summary:cleanText(value.summary,1200)} : {}),
+    ...(cleanText(value.bridge,1600) ? {bridge:cleanText(value.bridge,1600)} : {}),
     history: Array.isArray(value.history) ? value.history
       .filter(turn => turn && ['user', 'assistant'].includes(turn.role) && typeof turn.content === 'string')
       .slice(-12).map(turn => ({ role: turn.role, content: cleanText(turn.content, 600) })) : [],
   };
 }
 
-export function prepareChatRequest(message, context, provider) {
+export function prepareChatRequest(message, context, provider, stream=false) {
   const body = { message, context: sanitizeContext(context) };
   if(typeof provider === 'string') body.provider = cleanText(provider,20);
+  if(stream)body.stream=true;
   const encoder = new TextEncoder();
   // Keep the latest message. Drop oldest context if multibyte text fills the budget.
   while (encoder.encode(JSON.stringify(body)).byteLength > 16384) {

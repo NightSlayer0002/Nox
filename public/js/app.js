@@ -6,19 +6,27 @@ import { createVoice, createMicrophone } from './voice.js';
 import { createCamera } from './camera.js';
 import { createRecorder } from './recorder.js';
 import { createTurnGate } from './turns.js';
+import { createHistory } from './history.js';
+import { createNavigation } from './navigation.js';
+import { readChatStream } from './stream.js';
+import { readMotionPreference } from './preferences.js';
 
 const $ = id => document.getElementById(id);
 let disk;
 try { disk = localStorage; }
 catch { disk = { getItem() { throw new Error('Storage unavailable'); }, setItem() { throw new Error('Storage unavailable'); } }; }
 const memory = createMemory(disk);
-let mode = memory.snapshot().mode;
+const history = await createHistory(disk,memory.snapshot().history);
+if(history.persistent)memory.clearHistory();
+let mode = history.active().mode;
+let navigation,summaryController,summaryTimer,pendingDraft;
 let brain = 'demo'; let busy = false;
 let ownerToken = '', selectedProvider = '', connectionVersion = 0, connection = {};
 const apiHeaders = (token = ownerToken) => ({'content-type':'application/json',...(token ? {authorization:`Bearer ${token}`} : {})});
 const turns = createTurnGate();
 let lastPacket = { speech: 'Oh. You found me.', emotion: 'curious', action: 'none', memory: '' };
 let toastTimer;
+let preferredEngine='browser';
 
 function toast(text) {
   $('toast').textContent = text; $('toast').hidden = false;
@@ -39,23 +47,22 @@ function showMotion(enabled) {
   $('motion-note').textContent = enabled ? 'Gaze, blinks, and a little life.' : 'Still expressions. Dragging stays on.';
 }
 stage.onMotionChange = showMotion;
-try {
-  const savedMotion = disk.getItem('nox.motion.v1');
-  if (savedMotion === 'on' || savedMotion === 'off') stage.setMotion(savedMotion === 'on');
-} catch { /* A preference still works for this visit if storage is unavailable. */ }
+stage.setMotion(readMotionPreference(disk));
 showMotion(!stage.reduceMotion);
 $('motion-button').addEventListener('click', () => {
   stage.setMotion(stage.reduceMotion); showMotion(!stage.reduceMotion);
-  try { disk.setItem('nox.motion.v1', stage.reduceMotion ? 'off' : 'on'); } catch { /* Visit-only preference. */ }
+  try { disk.setItem('nox.motion.v2', stage.reduceMotion ? 'off' : 'on'); } catch { /* Visit-only preference. */ }
 });
 const voice = createVoice({
   onStart: () => { stage.character.speakingUntil = Infinity; },
   onEnd: () => { stage.character.speakingUntil = stage.time; }, onError: toast,
-  requestAudio: async (text,mode,signal) => {
-    const response = await fetch('/api/speech',{method:'POST',headers:apiHeaders(),body:JSON.stringify({text,mode}),signal});
+  requestAudio: async (text,mode,signal,emotion,speaker) => {
+    const start=performance.now();
+    const response = await fetch('/api/speech',{method:'POST',headers:apiHeaders(),body:JSON.stringify({text,mode,emotion,voice:speaker}),signal});
     if(!response.ok) {const error=await response.json();throw new Error(error.error||'Natural voice is unavailable.');}
     if(!response.headers.get('content-type')?.startsWith('audio/')) throw new Error('Natural voice did not return audio.');
     const blob=await response.blob(); if(!blob.size || blob.size>2*1024*1024) throw new Error('Natural voice returned invalid audio.');
+    if(!signal.aborted){$('reply-timing').textContent+=` · voice ${Math.round(performance.now()-start)} ms`;$('reply-timing').dataset.audioCache=response.headers.get('x-nox-audio-cache')||'unknown';}
     return blob;
   },
 });
@@ -87,8 +94,8 @@ function addMessage(speaker, text) {
   const label = document.createElement('p'); label.className = 'speaker'; label.textContent = speaker === 'nox' ? 'NOX /' : speaker === 'user' ? 'YOU /' : 'CONNECTION /';
   const content = document.createElement('p'); content.textContent = text;
   message.append(label, content); $('conversation').append(message);
-  while ($('conversation').children.length > 32) $('conversation').firstChild.remove();
   $('conversation').scrollTop = $('conversation').scrollHeight;
+  return message;
 }
 
 function updateMemory() {
@@ -99,13 +106,15 @@ function updateMemory() {
   if (!memory.persistent) $('memory-summary').textContent += ' Storage is unavailable; this notebook lasts for this visit.';
 }
 
-function perform(value, save = true) {
+async function perform(value, save = true, draft, version) {
   const packet = normalizePacket(value); lastPacket = packet;
   if (packet.memory) memory.remember(packet.memory);
-  if (save) memory.addTurn('assistant', packet.speech);
-  addMessage('nox', packet.speech); stage.speak(packet); voice.speak(packet.speech, mode);
+  if (save && !await history.append('assistant', packet.speech)) return;
+  if(version!==undefined&&!turns.isCurrent(version))return;
+  if(draft){draft.classList.remove('draft');draft.lastChild.textContent=packet.speech;}else addMessage('nox', packet.speech);
+  stage.speak(packet);voice.speak(packet.speech, mode, packet.emotion);
   $('mood-label').textContent = packet.emotion.toUpperCase();
-  $('packet-view').textContent = JSON.stringify(packet, null, 2); updateMemory();
+  $('packet-view').textContent = JSON.stringify(packet, null, 2); updateMemory();navigation?.render();
 }
 
 function setBusy(value) {
@@ -116,28 +125,34 @@ function setBusy(value) {
 async function send(raw) {
   const text = raw.trim(); if (!text || busy) return;
   const version = turns.begin();
+  summaryController?.abort();clearTimeout(summaryTimer);
   const name = text.match(/(?:my name is|call me|i am called)\s+([\p{L}\p{N}_ -]{1,40})/iu);
   if (name) memory.setName(name[1].trim());
-  const context = { ...memory.snapshot(), mode };
-  memory.addTurn('user', text); addMessage('user', text); $('message').value = ''; updateMemory();
+  const context = { ...memory.snapshot(), ...history.context(), mode };
+  setBusy(true);
+  if(!await history.append('user',text)){cancelConversation();await restoreConversation();toast('This conversation changed in another tab. Start a new thought.');return;}
+  if(!turns.isCurrent(version))return;
+  addMessage('user', text); $('message').value = ''; updateMemory();navigation?.render();
+  $('reply-timing').textContent=brain==='live'?'NOX is thinking…':'Offline demo';
   setBusy(true); voice.stop(); microphone.stop(); stage.character.emotion = 'curious';
   try {
     let packet;
     if (brain === 'live') {
       const requestController = new AbortController();
       turns.attach(version, requestController);
-      const response = await fetch('/api/chat', { method: 'POST', headers: apiHeaders(), body: JSON.stringify(prepareChatRequest(text, context, selectedProvider)), signal: requestController.signal });
-      const result = await response.json();
-      if (!response.ok) throw new Error(result.error || 'The AI connection did not respond.');
+      const draft=addMessage('nox','');draft.classList.add('draft');pendingDraft=draft;
+      const response = await fetch('/api/chat', { method: 'POST', headers: apiHeaders(), body: JSON.stringify(prepareChatRequest(text, context, selectedProvider,true)), signal: requestController.signal });
+      if(!response.ok){const error=await response.json();throw new Error(error.error||'The AI connection did not respond.');}
+      const result = await readChatStream(response,speech=>{if(turns.isCurrent(version)){draft.lastChild.textContent=speech;$('conversation').scrollTop=$('conversation').scrollHeight;}});
       packet = result;
-      if (turns.isCurrent(version)) $('brain-status').lastChild.textContent = ' AI CONNECTED';
+      if (turns.isCurrent(version)) {$('brain-status').lastChild.textContent = ' AI CONNECTED';const timing=result.metrics;$('reply-timing').textContent=timing?`${timing.firstTextMs===null?'Reply':`First words ${timing.firstTextMs} ms · reply`} ${timing.totalMs} ms · ${timing.provider}`:'Reply received';}
     } else {
       await new Promise(resolve => setTimeout(resolve, 350));
       packet = demoReply(text, context);
     }
-    if (turns.isCurrent(version)) perform(packet);
+    if (turns.isCurrent(version)) {await perform(packet,true,pendingDraft,version);if(turns.isCurrent(version)){pendingDraft=null;scheduleSummary();}}
   } catch (error) {
-    if (error.name !== 'AbortError' && turns.isCurrent(version)) { if (brain === 'live') $('brain-status').lastChild.textContent = ' AI ERROR'; addMessage('system', error.message); toast(error.message); }
+    if (turns.isCurrent(version)){pendingDraft?.remove();pendingDraft=null;if(error.name!=='AbortError'){if (brain === 'live') $('brain-status').lastChild.textContent = ' AI ERROR'; addMessage('system', error.message); toast(error.message);$('reply-timing').textContent='Reply interrupted. Your sent message is saved.';}}
   } finally { if (turns.isCurrent(version)) { setBusy(false); $('message').focus(); } }
 }
 
@@ -146,12 +161,13 @@ const greetings = {
   director: 'The lighting is good. The mysterious little character needs more screen time. I’ll handle that.',
   uncanny: 'Leave a little room in the frame. We might need it later.',
 };
-function setMode(next, greet = true) {
-  turns.cancel(); setBusy(false); voice.stop(); microphone.stop();
+async function setMode(next, greet = true) {
+  cancelConversation();
+  const version=turns.begin();if(!await history.setMode(next)||!turns.isCurrent(version))return;
   mode = next; memory.setMode(mode); stage.setMode(mode); document.body.dataset.persona = mode;
   $('mood-label').textContent = stage.character.emotion.toUpperCase();
   document.querySelectorAll('[data-mode]').forEach(button => { const active = button.dataset.mode === mode; button.classList.toggle('active', active); button.setAttribute('aria-pressed', active); });
-  if (greet) perform({ speech: greetings[mode], emotion: mode === 'uncanny' ? 'uncanny' : mode === 'director' ? 'skeptical' : 'curious', action: 'none', memory: '' });
+  if (greet) await perform({ speech: greetings[mode], emotion: mode === 'uncanny' ? 'uncanny' : mode === 'director' ? 'skeptical' : 'curious', action: 'none', memory: '' },false,undefined,version);
 }
 
 const experiments = {
@@ -163,9 +179,9 @@ const experiments = {
 };
 document.querySelectorAll('[data-scene]').forEach(button => button.addEventListener('click', () => {
   // Scene buttons are authored performances in either brain mode.
-  turns.cancel(); setBusy(false); voice.stop(); microphone.stop();
+  cancelConversation();
   if (stage.stopScene(button.dataset.scene)) return;
-  perform({ ...experiments[button.dataset.scene], action: button.dataset.scene, memory: '' });
+  const version=turns.begin();void perform({ ...experiments[button.dataset.scene], action: button.dataset.scene, memory: '' },false,undefined,version);
 }));
 document.querySelectorAll('[data-mode]').forEach(button => button.addEventListener('click', () => setMode(button.dataset.mode)));
 document.querySelectorAll('button[data-form]').forEach(button => button.addEventListener('click', () => {
@@ -179,7 +195,8 @@ $('message').addEventListener('keydown', event => { if (event.key === 'Enter' &&
 $('voice-button').addEventListener('click', () => {
   const enabled = voice.setEnabled(!voice.enabled);
   showVoice();
-  if (enabled) voice.speak(lastPacket.speech, mode);
+  try{disk.setItem('nox.voice.v2',enabled?'on':'off');}catch{}
+  if (enabled) voice.speak(lastPacket.speech, mode,lastPacket.emotion);
   else if (!voice.supported) toast('Speech synthesis is unavailable in this browser. You can read NOX’s captions.');
 });
 $('mic-button').addEventListener('click', () => { if (busy) { toast('Let NOX finish this thought first.'); return; } voice.stop(); microphone.start(); });
@@ -193,7 +210,7 @@ $('camera-button').addEventListener('click', async () => {
   } catch (error) { toast(error.message); }
   finally { button.disabled = false; }
 });
-function resetScene() { turns.cancel(); setBusy(false); microphone.stop(); voice.stop(); stage.reset(); }
+function resetScene() { cancelConversation();stage.reset(); }
 $('reset-button').addEventListener('click', resetScene);
 $('intensity').addEventListener('input', event => {
   const value = Number(event.currentTarget.value);
@@ -215,10 +232,8 @@ function toggleRecording() {
 $('record-button').addEventListener('click', toggleRecording);
 $('film-record').addEventListener('click', toggleRecording);
 $('clear-memory').addEventListener('click', () => {
-  turns.cancel(); setBusy(false); voice.stop(); memory.clear();
-  $('conversation').replaceChildren(); setMode('companion', false); updateMemory();
-  perform({ speech: 'A fresh page. Same strange presence. Where do we begin?', emotion: 'curious', action: 'none', memory: '' }, false);
-  toast('NOX’s saved name, facts, and conversation have been cleared.');
+  cancelConversation();memory.clear();
+  updateMemory();toast('The saved name and notebook facts are cleared. Conversations remain in your Library.');
 });
 $('inside-button').addEventListener('click', () => { $('packet-view').textContent = JSON.stringify(lastPacket, null, 2); $('inside-dialog').showModal(); });
 $('settings-button').addEventListener('click', () => $('inside-dialog').showModal());
@@ -246,16 +261,21 @@ setInterval(() => {
   $('stage').dataset.gazeY = (stage.character.gazeY ?? stage.character.focus?.y ?? 0).toFixed(2);
 }, 120);
 
-// Restore a small visible history. Memory never needs to hydrate the entire UI.
-setMode(mode, false);
-const saved = memory.snapshot();
-if (saved.history.length) {
-  saved.history.slice(-6).forEach(turn => addMessage(turn.role === 'user' ? 'user' : 'nox', turn.content));
-  const lastReply = saved.history.findLast(turn => turn.role === 'assistant');
-  if (lastReply) { lastPacket = { speech: lastReply.content, emotion: stage.character.emotion, action: 'none', memory: '' }; stage.caption = lastReply.content; }
+function cancelConversation(){turns.cancel();setBusy(false);voice.stop();microphone.stop();summaryController?.abort();clearTimeout(summaryTimer);pendingDraft?.remove();pendingDraft=null;}
+async function restoreConversation(){cancelConversation();const thread=history.active();await setMode(thread.mode,false);if(history.active().id!==thread.id)return;$('conversation').replaceChildren();$('chat-title').textContent=thread.title==='New conversation'?"Let's wander a little.":thread.title;
+  thread.turns.forEach(turn=>addMessage(turn.role==='user'?'user':'nox',turn.content));
+  const last=thread.turns.findLast(t=>t.role==='assistant');lastPacket={speech:last?.content||greetings[mode],emotion:stage.character.emotion,action:'none',memory:''};if(last){stage.caption=last.content;stage.captionUntil=stage.time+8;}else{addMessage('nox',greetings[mode]);stage.caption='A fresh thought. I’m listening.';stage.captionUntil=stage.time+8;}
+  $('reply-timing').textContent='';$('summary-note').textContent=thread.summary?'Older context is summarized. Your full transcript is kept in the Library.':'';navigation?.render();updateMemory();
 }
-else perform({ speech: greetings[mode], emotion: mode === 'uncanny' ? 'uncanny' : mode === 'director' ? 'skeptical' : 'curious', action: 'none', memory: '' }, false);
-updateMemory();
+function scheduleSummary(){clearTimeout(summaryTimer);if(brain!=='live'||!history.summaryWork()||selectedProvider==='openai')return;summaryTimer=setTimeout(async()=>{
+  const work=history.summaryWork();if(!work||busy)return;const controller=new AbortController();summaryController=controller;
+  try{const response=await fetch('/api/summary',{method:'POST',headers:apiHeaders(),body:JSON.stringify({previous:work.previous,turns:work.turns,provider:selectedProvider}),signal:controller.signal});if(!response.ok)throw Error('summary');const result=await response.json();if(!controller.signal.aborted&&await history.applySummary(work.id,work.through,result.summary)&&history.active().id===work.id)$('summary-note').textContent='Older context is summarized. Your full transcript is kept in the Library.';}
+  catch(error){if(error.name!=='AbortError'&&history.active().id===work.id)$('summary-note').textContent='Summary will retry after a later turn. The full transcript is still saved.';}
+  finally{if(summaryController===controller)summaryController=null;}
+},3000);}
+navigation=createNavigation({history,onOpen:async id=>{cancelConversation();const selected=await history.select(id);await restoreConversation();if(!selected)toast('That conversation was removed in another tab.');},onNew:async()=>{cancelConversation();await history.create();await restoreConversation();},onStart:async(text,persona)=>{await setMode(persona,false);await send(text);}});
+history.subscribe(({currentChanged})=>{if(currentChanged)void restoreConversation();else navigation.render();});
+await restoreConversation();
 
 function showVoice() {
   $('voice-button').setAttribute('aria-pressed',voice.enabled);
@@ -279,19 +299,22 @@ async function refreshConnection(token = ownerToken) {
   if(version!==connectionVersion) return false;
   if(token && status.access==='locked') throw new Error('The owner token was not accepted.');
   ownerToken=token; connection=status;
-  const choices=[{id:'',name:'Offline demo'},...(status.providers||[])];
-  $('provider-select').replaceChildren(...choices.map(p=>{const option=document.createElement('option');option.value=p.id;option.textContent=p.name;return option;}));
+  const configured=status.providers||[];
+  const choices=[{id:'',name:'Offline demo'},...['groq','nvidia','gemini'].map(id=>configured.find(p=>p.id===id)||{id,name:({groq:'GroqCloud',nvidia:'NVIDIA NIM',gemini:'Google Gemini'}[id])+` · ${status.access==='locked'?'unlock first':'add key'}`,disabled:true}),...configured.filter(p=>!['groq','nvidia','gemini'].includes(p.id))];
+  $('provider-select').replaceChildren(...choices.map(p=>{const option=document.createElement('option');option.value=p.id;option.textContent=p.name;option.disabled=!!p.disabled;return option;}));
   if(!status.providers?.some(p=>p.id===selectedProvider)) selectedProvider=status.provider||'';
   $('provider-select').value=selectedProvider;
   $('provider-note').textContent=status.providers?.length?'Switch between configured providers. Models can still reach their free-tier limits.':'Configure GROQ_API_KEY, GEMINI_API_KEY, or NVIDIA_API_KEY on the server. Keys never belong in this page.';
   voice.configureNatural(status.voice==='natural'); $('natural-option').disabled=status.voice!=='natural';
+  voice.setEngine(preferredEngine);
+  try{voice.setEnabled(disk.getItem('nox.voice.v2')!=='off');}catch{voice.setEnabled(true);}
   $('owner-form').hidden=status.access!=='locked'; $('lock-owner').hidden=!ownerToken;
   showConnection();showVoice(); return true;
 }
 $('provider-select').addEventListener('change',event=>{
-  turns.cancel();setBusy(false);voice.stop();microphone.stop();selectedProvider=event.target.value;showConnection();
+  cancelConversation();selectedProvider=event.target.value;showConnection();
 });
-$('voice-engine').addEventListener('change',event=>{voice.setEngine(event.target.value);showVoice();});
+$('voice-engine').addEventListener('change',event=>{preferredEngine=event.target.value;voice.setEngine(preferredEngine);try{disk.setItem('nox.voice.engine.v1',preferredEngine);}catch{}showVoice();});
 $('owner-form').addEventListener('submit',async event=>{
   event.preventDefault();const token=$('owner-token').value.trim();$('owner-token').value='';
   if(!token) return;
@@ -301,11 +324,20 @@ $('owner-form').addEventListener('submit',async event=>{
   finally {button.disabled=false;}
 });
 $('lock-owner').addEventListener('click',async()=>{
-  turns.cancel();setBusy(false);voice.stop();microphone.stop();ownerToken='';selectedProvider='';
+  cancelConversation();ownerToken='';selectedProvider='';
   connectionVersion++;connection={access:'locked',providers:[]};voice.configureNatural(false);showConnection();showVoice();
   $('provider-select').replaceChildren(new Option('Offline demo',''));$('natural-option').disabled=true;
   $('owner-form').hidden=false;$('lock-owner').hidden=true;$('owner-status').textContent='Cloud access is locked.';
   try {await refreshConnection();}catch{toast('Cloud access is locked. Server status is unavailable.');}
 });
+function browserVoices(){const voices=globalThis.speechSynthesis?.getVoices().filter(v=>v.lang?.startsWith('en'))||[];const selected=$('browser-speaker').value;$('browser-speaker').replaceChildren(new Option('Automatic',''),...voices.map(v=>new Option(v.name,v.name)));$('browser-speaker').value=selected||savedBrowserVoice;}
+let savedBrowserVoice='';
+try{preferredEngine=disk.getItem('nox.voice.engine.v1')||'browser';$('speaker-select').value=disk.getItem('nox.voice.speaker.v1')||'austin';savedBrowserVoice=disk.getItem('nox.voice.browser.v1')||'';}catch{}
+voice.setSpeaker($('speaker-select').value);voice.setBrowserVoice(savedBrowserVoice);browserVoices();globalThis.speechSynthesis?.addEventListener('voiceschanged',browserVoices);
+$('speaker-select').addEventListener('change',e=>{voice.setSpeaker(e.target.value);try{disk.setItem('nox.voice.speaker.v1',e.target.value);}catch{}});
+$('browser-speaker').addEventListener('change',e=>{savedBrowserVoice=e.target.value;voice.setBrowserVoice(savedBrowserVoice);try{disk.setItem('nox.voice.browser.v1',savedBrowserVoice);}catch{}});
+$('replay-voice').addEventListener('click',()=>{if(!voice.enabled)toast('Turn Voice on to hear this reply.');else voice.speak(lastPacket.speech,mode,lastPacket.emotion);});
+$('test-voice').addEventListener('click',()=>{voice.setEnabled(true);showVoice();voice.speak('Oh, you found me. I was just thinking about something strange. Want to hear it?',mode,mode==='uncanny'?'uncanny':'happy');});
+try{voice.setEnabled(disk.getItem('nox.voice.v2')!=='off');}catch{voice.setEnabled(true);}showVoice();
 try {await refreshConnection();}
 catch {toast('Server status is unavailable. NOX’s offline demo is still here.');}

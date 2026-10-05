@@ -22,7 +22,7 @@ export async function buildVercel(destination = path.join(root,'.vercel/output')
   await cp(path.join(root,'public'),path.join(output,'static'),{recursive:true});
   await mkdir(path.join(output,'static/shared'),{recursive:true});
   await cp(path.join(root,'shared/character.js'),path.join(output,'static/shared/character.js'));
-  for (const endpoint of ['status','chat','speech']) {
+  for (const endpoint of ['status','chat','speech','summary']) {
     const folder = path.join(output,`functions/api/${endpoint}.func`);
     await mkdir(folder,{recursive:true});
     await cp(path.join(root,'server.mjs'),path.join(folder,'server.mjs'));
@@ -36,6 +36,7 @@ export async function buildVercel(destination = path.join(root,'.vercel/output')
   await writeFile(path.join(output,'config.json'),JSON.stringify({version:3,routes:[
     {src:'/(.*)',headers:securityHeaders,continue:true},
     {src:'/',dest:'/index.html'},
+    {src:'/app/?',dest:'/app.html'},
     {handle:'filesystem'},
     {src:'/(.*)',status:404},
   ]},null,2));

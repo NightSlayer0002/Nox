@@ -3,6 +3,17 @@ import assert from 'node:assert/strict';
 import { Face } from '../public/js/face.js';
 import { Stage } from '../public/js/stage.js';
 
+test('pointer movement outside the canvas updates NOX gaze',()=>{
+  const oldDocument=globalThis.document;
+  const page=new EventTarget(), canvas=new EventTarget();
+  canvas.getBoundingClientRect=()=>({left:200,top:100,width:400,height:300});
+  const stage=Object.create(Stage.prototype);Object.assign(stage,{canvas,pointer:{x:.5,y:.5},dragging:false});
+  globalThis.document=page;
+  try {stage.bindPointer();const event=new Event('pointermove');Object.assign(event,{clientX:1100,clientY:20});page.dispatchEvent(event);
+    assert.ok(stage.pointer.x>.9);assert.ok(stage.pointer.y<.1);
+  }finally{globalThis.document=oldDocument;}
+});
+
 test('NOX visibly follows the pointer in both directions and keeps his eyes bounded', () => {
   const face = new Face();
   for (let frame = 0; frame < 30; frame++) face.update(frame / 60, 1/60, { x: 1, y: .9 }, false, false);

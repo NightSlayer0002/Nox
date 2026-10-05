@@ -7,16 +7,17 @@ const directions = {
 };
 const MAX_AUDIO = 2*1024*1024;
 
-export async function requestSpeech({text,mode='companion'}, {apiKey,voice='cedar',provider='openai',fetchImpl=fetch}={}) {
+export async function requestSpeech({text,mode='companion',emotion}, {apiKey,voice='cedar',provider='openai',fetchImpl=fetch}={}) {
   if (typeof text !== 'string' || !text.trim() || text.length > 420) throw new Error('Speech needs 1–420 characters.');
   if(!['openai','groq'].includes(provider)) throw new Error('Unknown speech provider.');
   const groq = provider === 'groq';
   const signal=AbortSignal.timeout(20000);
-  if(groq && text.trim().length>200) {
-    const clips=await Promise.all(splitSpeech(text).map(chunk=>requestClip(chunk,mode,{apiKey,voice,groq,fetchImpl,signal})));
+  const direction=groq&&emotion?({happy:'[warm] ',skeptical:'[deadpan] ',sleepy:'[softly] ',uncanny:'[whisper] ',curious:'[friendly] ',neutral:mode==='uncanny'?'[whisper] ':'[casual] '}[emotion]||''):'';
+  if(groq && text.trim().length+direction.length>200) {
+    const clips=await Promise.all(splitSpeech(text,200-direction.length).map(chunk=>requestClip(direction+chunk,mode,{apiKey,voice,groq,fetchImpl,signal})));
     return joinWav(clips,MAX_AUDIO);
   }
-  return requestClip(text,mode,{apiKey,voice,groq,fetchImpl,signal});
+  return requestClip(direction+text,mode,{apiKey,voice,groq,fetchImpl,signal});
 }
 
 async function requestClip(text,mode,{apiKey,voice,groq,fetchImpl,signal}) {
