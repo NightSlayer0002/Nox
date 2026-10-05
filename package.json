@@ -1,0 +1,17 @@
+{
+  "name": "nox-first-contact",
+  "version": "0.4.0",
+  "private": true,
+  "type": "module",
+  "description": "NOX: a small character with control over his own frame.",
+  "engines": {
+    "node": "24.x"
+  },
+  "scripts": {
+    "start": "node server.mjs",
+    "dev": "node --watch server.mjs",
+    "build": "node scripts/build-vercel.mjs",
+    "test": "node --test",
+    "check": "node scripts/check.mjs"
+  }
+}
