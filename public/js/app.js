@@ -11,6 +11,7 @@ import { createNavigation } from './navigation.js';
 import { readChatStream } from './stream.js';
 import { readMotionPreference } from './preferences.js';
 import { connectionState } from './connection.js';
+import { EXPRESSIONS } from './face-art.js';
 
 const $ = id => document.getElementById(id);
 let disk;
@@ -42,6 +43,14 @@ const stage = new Stage($('stage'), action => {
     button.classList.toggle('active', active); button.setAttribute('aria-pressed', active);
   });
 });
+for(const expression of Object.keys(EXPRESSIONS)){
+  const option=document.createElement('option');option.value=expression;option.textContent=expression[0].toUpperCase()+expression.slice(1);$('expression-preview').append(option);
+}
+$('preview-expression').addEventListener('click',()=>{
+  if(stage.form!=='face'){toast('Choose Presence to try his expressions.');return;}
+  stage.character.preview($('expression-preview').value,stage.time);
+  stage.canvas.scrollIntoView({behavior:stage.reduceMotion?'instant':'smooth',block:'center'});
+});
 function showMotion(enabled) {
   $('motion-button').setAttribute('aria-pressed', enabled);
   $('motion-button').querySelector('span').textContent = enabled ? 'Motion on' : 'Motion off';
@@ -71,6 +80,7 @@ stage.onBeforeFrame=()=>{stage.character.mouthLevel=voice.mouthLevel;};
 const camera = createCamera();
 const recorder = createRecorder($('stage'), (active, clip) => {
   stage.lockRecording(active);
+  stage.character.react?.(active?'excited':'content',stage.time,2);
   $('record-button').classList.toggle('recording', active);
   $('record-button').querySelector('span').textContent = active ? 'Stop & save' : 'Record clip';
   $('film-record').textContent = active ? '● Stop & save' : '● Record clip';
@@ -161,7 +171,7 @@ async function send(raw) {
     }
     if (turns.isCurrent(version)) {if(takeover)packet={...packet,action:'takeover'};await perform(packet,true,pendingDraft,version);if(turns.isCurrent(version)){pendingDraft=null;scheduleSummary();}}
   } catch (error) {
-    if (turns.isCurrent(version)){pendingDraft?.remove();pendingDraft=null;if(error.name!=='AbortError'){if (brain === 'live') $('brain-status').lastChild.textContent = ' AI ERROR'; addMessage('system', error.message); toast(error.message);$('reply-timing').textContent='Reply interrupted. Your sent message is saved.';}}
+    if (turns.isCurrent(version)){pendingDraft?.remove();pendingDraft=null;if(error.name!=='AbortError'){stage.character.react?.('worried',stage.time,2);if (brain === 'live') $('brain-status').lastChild.textContent = ' AI ERROR'; addMessage('system', error.message); toast(error.message);$('reply-timing').textContent='Reply interrupted. Your sent message is saved.';}}
   } finally { if (turns.isCurrent(version)) { setBusy(false); $('message').focus(); } }
 }
 
@@ -190,7 +200,7 @@ document.querySelectorAll('[data-mode]').forEach(button => button.addEventListen
 document.querySelectorAll('button[data-form]').forEach(button => button.addEventListener('click', () => {
   stage.dragging = false; document.body.dataset.form = button.dataset.form; stage.setForm(button.dataset.form);
   document.querySelectorAll('button[data-form]').forEach(control => control.setAttribute('aria-pressed', control.dataset.form === stage.form));
-  $('stage').setAttribute('aria-label', stage.form === 'face' ? 'Animated NOX face. Move the cursor to look around. Click to make him smile, double-click or press Space to wink. Drag or use arrow keys to move him.' : 'Animated NOX signal core. Move the cursor for parallax, click or press Space for a pulse. Drag or use arrow keys to move the core.');
+  $('stage').setAttribute('aria-label', stage.form === 'face' ? 'Animated NOX face. Move the cursor to look around. Click to make him smile, double-click or press Space to wink. Drag or use arrow keys to move him. Shake quickly while holding him for spiral eyes.' : 'Animated NOX signal core. Move the cursor for parallax, click or press Space for a pulse. Drag or use arrow keys to move the core.');
 }));
 document.querySelectorAll('[data-prompt]').forEach(button => button.addEventListener('click', () => send(button.dataset.prompt)));
 $('chat-form').addEventListener('submit', event => { event.preventDefault(); send($('message').value); });
@@ -209,6 +219,7 @@ $('camera-button').addEventListener('click', async () => {
     if (camera.active) { camera.stop(); stage.camera = null; }
     else { stage.camera = await camera.start(); toast('Camera preview is local. NOX’s model receives your text, not these frames.'); }
     button.setAttribute('aria-pressed', camera.active);
+    stage.character.react?.(camera.active?'shy':'content',stage.time,2);
     button.querySelector('span').textContent = camera.active ? 'Camera on' : 'Camera';
   } catch (error) { toast(error.message); }
   finally { button.disabled = false; }
@@ -224,6 +235,7 @@ function toggleFilm() {
   const active = document.body.classList.toggle('film');
   $('exit-film').hidden = !active; $('film-button').setAttribute('aria-pressed', active);
   stage.resize();
+  stage.character.react?.(active?'mischievous':'content',stage.time,2);
 }
 $('film-button').addEventListener('click', toggleFilm); $('exit-film').addEventListener('click', toggleFilm);
 function toggleRecording() {
@@ -262,7 +274,8 @@ setInterval(() => {
   $('stage').dataset.form = stage.form;
   $('stage').dataset.gazeX = (stage.character.gazeX ?? stage.character.focus?.x ?? 0).toFixed(2);
   $('stage').dataset.gazeY = (stage.character.gazeY ?? stage.character.focus?.y ?? 0).toFixed(2);
-  $('stage').dataset.expression=stage.character.features?.(stage.time).mouth||stage.character.emotion;
+  $('stage').dataset.expression=stage.character.features?.(stage.time).expression||stage.character.emotion;
+  $('stage').dataset.eyes=stage.character.features?.(stage.time).eyeStyle||'signal';
   $('stage').dataset.falling=String(Boolean(stage.character.falling));
   $('stage').dataset.held=String(Boolean(stage.character.held));$('stage').dataset.mouth=voice.mouthLevel.toFixed(2);$('stage').dataset.mouthTiming=voice.mouthTiming;
 }, 120);

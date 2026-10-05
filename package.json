@@ -1,6 +1,6 @@
 {
   "name": "nox-first-contact",
-  "version": "0.6.0",
+  "version": "0.7.0",
   "private": true,
   "type": "module",
   "description": "NOX: a small character with control over his own frame.",

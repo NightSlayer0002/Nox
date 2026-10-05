@@ -68,3 +68,12 @@ dialog{background:#101713;color:var(--ink);border:1px solid #dce1c731;border-rad
 .nox-peek canvas{display:block;width:100%;height:100%}
 .landing-details footer{padding-right:125px;flex-wrap:wrap}
 @media(max-width:650px){.nox-peek{width:124px;height:140px}.landing-details footer{padding-right:90px}}
+/* A small acting bench inside Scene Studio, sharing its quiet typography. */
+.expression-lab{margin:2.5rem 0;padding:1.5rem 0;border-top:1px solid #d9dfbf22;border-bottom:1px solid #d9dfbf22}
+.expression-lab label{display:block;font-size:.85rem;margin:.8rem 0;color:var(--muted,#909b88)}
+.expression-controls{display:flex;gap:.75rem;align-items:center}
+.expression-controls select{min-width:0;flex:1;padding:.8rem 1rem;border:1px solid #d9dfbf33;border-radius:6px;background:#111a15;color:#eee9cf;font:inherit}
+.expression-controls button{white-space:nowrap;margin:0}
+.reaction-guide{margin-top:1.5rem;font-size:.86rem;line-height:1.6;color:#9eaa96}
+.reaction-guide summary{cursor:pointer;color:#e3e2c8}
+.reaction-guide dl{margin:1.2rem 0 0}.reaction-guide dt{color:#e3e2c8;margin-top:1rem}.reaction-guide dd{margin:.25rem 0 0}

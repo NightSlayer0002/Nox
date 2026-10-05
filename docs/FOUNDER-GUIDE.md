@@ -676,3 +676,35 @@ Face touch behavior is a separate temporary layer over dialogue emotion. Four po
 Browser speech uses separate sentence utterances and a short closed-mouth gap. Where available, word-boundary events correct the mouth pulses; otherwise text length estimates them. Those events are not universally supported, so browser timing is less exact than measured WAV playback. Cancellation clears pending sentence timers, audio blobs and old callbacks. See [MDN boundary events](https://developer.mozilla.org/en-US/docs/Web/API/SpeechSynthesisUtterance/boundary_event).
 
 Automatic browser voice selection now favors recognized male voice names before natural-voice quality, with modest boyish pitch. Orpheus starts with male Troy and slightly raised playback speed/pitch; Austin and Daniel remain male alternatives. The v2 speaker preferences reset older selections for this requested default, then preserve new manual choices. The result is still generated speech; its subjective character needs a listening check. [Groq's voice and direction documentation](https://console.groq.com/docs/text-to-speech/orpheus).
+
+### NOX 0.7: character acting and the matte body
+
+The character is now an asymmetrical charcoal silhouette with two tucked feet, a restrained contour and tiny procedural grain. It is Canvas geometry, not a generated face asset. `public/js/face-art.js` owns the body paths, expression proportions, eye shapes, brows, mouth paths and small acting marks. `Face.draw()` combines those paths with the existing pose and audio clock. The home character and corner peek use this same renderer.
+
+There are nineteen local poses: neutral, curious, happy, content, skeptical, annoyed, sleepy, yawning, uncanny, surprised, shy, worried, dizzy, ouch, excited, mischievous, thinking, listening and confused. The existing model contract still uses its nine validated dialogue emotions. The additional poses come from actual interaction state rather than extra model calls. A character can therefore respond to a mouse gesture immediately, even while its language model is busy.
+
+| Trigger | Acting |
+| --- | --- |
+| Gentle poke / alternating gentle pokes | Smile / brief squeezed >< eyes |
+| Four pokes inside 1.2 seconds | Narrow annoyed eyes and angled brows |
+| Pickup / hold longer than 2.5 seconds | Surprise looking down / worried brows |
+| Fast held shaking | Spiral eyes, a wavy mouth, little stars and a gentle dazed tilt |
+| Gentle release without gravity | A brief relieved, content smile |
+| Gravity release / hard landing / settling | Surprise / ouch and squash / relief |
+| Cursor lingers near his face | Shy arcs and cheek marks |
+| No interaction for 24 seconds | A yawn, then sleepy lids; movement wakes him |
+| Model thinking / waiting over seven seconds | An uneven thinking face / confusion |
+| Microphone listening | Raised, attentive eyes |
+| Orbit / Takeover / Echo | Starry excitement / a mischievous smirk / worry |
+| Film mode / camera preview / recording | A smirk / shyness / excitement |
+| Failed AI reply | Temporary worry, with the existing visible connection error |
+
+Shake detection uses raw CSS pointer positions and a monotonic event clock; canvas device-pixel resolution does not change its sensitivity. Motion samples accumulate until they span eight pixels. Each fast half-stroke must cover at least 24 pixels, at over 450 pixels per second; three opposing turns within half a second trigger dizziness. Fine pointer events accumulate into a sweep, while ten-pixel back-and-forth jitter does not qualify. A slow drag and a single fast relocation remain ordinary pickups. Dizziness lasts three seconds after the last qualifying shake and survives release; another pointer cannot steal the gesture.
+
+The temporary expression priority is explicit preview, dizzy/ouch, held, falling, other touch reactions, activity, idle acting, then dialogue emotion. It never overwrites the model's emotion. Mouth speech timing remains independent: a dizzy NOX can have spiral eyes while his mouth closes during an audio pause. Reduced motion keeps the expression but removes the dazed tilt, squash, breath and eye drift.
+
+`Stage` supplies pointer events, scene starts and impact velocity. `Face.land()` turns a strong impact into a short squash and ouch. `Face.noticePointer()` measures from the last accepted attention position so many small cursor movements still wake him. `Face.clearTouch()` cancels previews and gestures on reset. On the landing page, a poke now preserves the smaller home scale.
+
+Scene Studio has an expression preview and a “His little tells” guide. Preview is a separate four-second display override, so switching from Dizzy to Happy is immediate. Picking him up cancels that override. These controls make it possible to inspect and record faces without paying for a model request.
+
+In an interview, explain the separation this way: input detection decides what happened; character state decides which expression wins; the renderer converts that expression into paths; audio controls only mouth opening. Gesture tests use realistic timestamps and fine movement samples, which caught two issues that large coordinate jumps would have hidden.

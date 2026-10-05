@@ -90,11 +90,11 @@ test('changing form preserves the current conversation state and resets its scen
 });
 
 test('a wink closes only one eye and returns to his normal expression', () => {
-  const face = new Face(); face.wink(1);
+  const face = new Face(); const normal=face.features(0);face.wink(1);
   face.update(1.21, .016, { x: .5, y: .46 }, false, false);
   assert.ok(face.features(1.21).leftHeight < face.features(1.21).rightHeight*.1);
   face.update(3, .016, { x: .5, y: .46 }, false, false);
-  assert.equal(face.features(3).leftHeight, face.features(3).rightHeight);
+  assert.equal(face.features(3).leftHeight,normal.leftHeight);assert.equal(face.features(3).rightHeight,normal.rightHeight);
 });
 
 function pointerStage() {
@@ -125,7 +125,7 @@ test('a drag preserves his grab offset and does not trigger a poke on release', 
   fire('pointerdown', 305, 156); fire('pointermove', 390, 210); fire('pointerup', 390, 210);
   assert.ok(stage.character.x > .64); assert.ok(stage.character.y > .61);
   assert.equal(stage.character.x, stage.character.targetX);
-  assert.equal(stage.character.reactionUntil, 0);
+  assert.equal(stage.character.pokes.length,0);assert.equal(stage.character.features(stage.time).expression,'content');
 });
 
 test('a real drag activates the picked-up expression and cancellation releases it',()=>{
@@ -226,4 +226,101 @@ test('motion off keeps gravity enabled without simulating a fall, while other sc
   assert.equal(stage.scene?.action,'gravity');assert.equal(stage.character.y,initialY);
   assert.equal(stage.character.falling,false);
   stage.run('orbit');stage.time=41;stage.animateScene(.04);assert.equal(stage.scene,null);
+});
+
+test('fast alternating held drags produce spiral eyes, preserve gravity, then recover',()=>{
+  const {stage,fire}=pointerStage();stage.reduceMotion=false;stage.run('gravity');
+  fire('pointerdown',290,95);
+  for(let i=0;i<8;i++){stage.time+=.045;fire('pointermove',i%2?360:220,110);}
+  assert.equal(stage.character.features(stage.time).eyeStyle,'spiral');
+  assert.equal(stage.character.features(stage.time).expression,'dizzy');
+  assert.equal(stage.scene.action,'gravity');fire('pointerup',360,110);
+  assert.equal(stage.character.features(stage.time+.2).expression,'dizzy');
+  assert.equal(stage.character.features(stage.time+4).expression,'curious');
+});
+
+test('slow drags and a single fast relocation never trigger dizziness',()=>{
+  const {stage,fire}=pointerStage();fire('pointerdown');
+  for(let i=0;i<8;i++){stage.time+=.6;fire('pointermove',i%2?360:220,110);}
+  assert.notEqual(stage.character.features(stage.time).eyeStyle,'spiral');
+  fire('pointerup',360,110);stage.reset();fire('pointerdown',360,110);
+  stage.time+=.03;fire('pointermove',220,110);
+  assert.notEqual(stage.character.features(stage.time).eyeStyle,'spiral');
+});
+
+test('vertical shaking works, while unrelated second-pointer movement does not',()=>{
+  const {stage,fire}=pointerStage();fire('pointerdown');
+  for(let i=0;i<8;i++){stage.time+=.045;fire('pointermove',290,i%2?220:95,2);}
+  assert.notEqual(stage.character.features(stage.time).eyeStyle,'spiral');
+  for(let i=0;i<8;i++){stage.time+=.045;fire('pointermove',290,i%2?220:95);}
+  assert.equal(stage.character.features(stage.time).eyeStyle,'spiral');
+});
+
+test('fine high-frequency pointer samples accumulate into a violent shake, tiny jitter does not',()=>{
+  const {stage,fire}=pointerStage();fire('pointerdown');
+  let x=290;
+  for(let stroke=0;stroke<5;stroke++)for(let sample=0;sample<5;sample++){
+    x+=stroke%2?-10:10;stage.time+=.01;fire('pointermove',x,156);
+  }
+  assert.equal(stage.character.features(stage.time).eyeStyle,'spiral');
+  const calm=pointerStage();calm.fire('pointerdown');
+  for(let i=0;i<20;i++){calm.stage.time+=.01;calm.fire('pointermove',i%2?300:290,156);}
+  assert.notEqual(calm.stage.character.features(calm.stage.time).eyeStyle,'spiral');
+});
+
+test('a long hold becomes worried and a gentle release briefly looks relieved',()=>{
+  const face=new Face();face.setHeld(true,1);face.update(5,.016,{x:.5,y:0},true,false);
+  assert.equal(face.features(5).expression,'worried');
+  face.setHeld(false,5);face.release(5,{cancelled:false,gravity:false});
+  assert.equal(face.features(5.1).expression,'content');
+  assert.equal(face.features(7).expression,'curious');
+});
+
+test('dizzy eyes can coexist with a closed speech mouth and reduced motion',()=>{
+  const face=new Face();face.react('dizzy',1,2);face.mouthLevel=0;face.speakingUntil=Infinity;
+  face.update(1.2,.016,{x:1,y:1},false,true);
+  assert.equal(face.features(1.2).eyeStyle,'spiral');assert.equal(face.features(1.2).mouth,'rest');
+  assert.equal(face.features(1.2).open,0);assert.equal(face.gazeX,0);
+  assert.equal(face.features(1.2).bodyTilt,0);
+});
+
+test('hard landings squish with an ouch face without corrupting dialogue emotion',()=>{
+  const face=new Face();face.emotion='skeptical';face.land(.9,2);
+  assert.equal(face.features(2.1).expression,'ouch');assert.equal(face.features(2.1).eyeStyle,'squeezed');
+  assert.ok(face.features(2.1).squash>0);
+  assert.equal(face.features(4).expression,'skeptical');assert.equal(face.emotion,'skeptical');
+});
+
+test('idle yawns wake on interaction and never replace an active thought or speech',()=>{
+  const face=new Face();face.update(26,.016,{x:.5,y:.46},false,false);
+  assert.equal(face.features(26).expression,'yawning');
+  face.noticePointer({x:.7,y:.46},26);face.update(26.1,.016,{x:.7,y:.46},false,false);
+  assert.equal(face.features(26.1).expression,'curious');
+  face.activity='thinking';face.update(80,.016,{x:.5,y:.46},false,false);
+  assert.equal(face.features(80).expression,'thinking');
+  face.activity='listening';face.update(80.1,.016,{x:.5,y:.46},false,false);
+  assert.equal(face.features(80.1).expression,'listening');
+});
+
+test('fine cursor movement wakes him once the total travel crosses his attention threshold',()=>{
+  const face=new Face();face.noticePointer({x:.1,y:.46},0);face.update(26,.016,{x:.1,y:.46},false,false);
+  assert.equal(face.features(26).expression,'yawning');
+  for(let i=1;i<=100;i++)face.noticePointer({x:.1+i*.001,y:.46},26+i*.01);
+  face.update(27,.016,{x:.2,y:.46},false,false);
+  assert.equal(face.features(27).expression,'curious');
+});
+
+test('explicit expression previews switch immediately and a real pickup cancels the preview',()=>{
+  const face=new Face();face.preview('dizzy',1);assert.equal(face.features(1.1).expression,'dizzy');
+  face.preview('happy',1.2);assert.equal(face.features(1.3).expression,'happy');
+  assert.equal(face.emotion,'curious');
+  face.beginDrag({x:0,y:0},1.4);face.setHeld(true,1.4);
+  assert.equal(face.features(1.5).expression,'surprised');
+});
+
+test('scene personality reactions do not replace dialogue state',()=>{
+  const {stage}=pointerStage();stage.character.emotion='skeptical';stage.run('orbit');
+  assert.equal(stage.character.features(stage.time+.1).expression,'excited');
+  assert.equal(stage.character.emotion,'skeptical');
+  stage.run('takeover');assert.equal(stage.character.features(stage.time+.1).expression,'mischievous');
 });

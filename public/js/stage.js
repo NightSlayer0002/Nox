@@ -53,12 +53,13 @@ export class Stage {
     return true;
   }
   bindPointer() {
+    const eventTime=()=>Number.isFinite(this.started)?(performance.now()-this.started)/1000:this.time;
     const locate = event => {
       const box = this.canvas.getBoundingClientRect();
       return { x: clamp((event.clientX - box.left) / box.width, 0, 1), y: clamp((event.clientY - box.top) / box.height, 0, 1) };
     };
     globalThis.document?.addEventListener('pointermove', event => {
-      if (!this.dragging) this.pointer = locate(event);
+      if (!this.dragging) { this.pointer = locate(event);this.character?.noticePointer?.(this.pointer,this.time); }
     }, {passive:true});
     this.canvas.addEventListener('pointermove', event => {
       if (this.dragging && event.pointerId !== this.activePointer) return;
@@ -66,6 +67,7 @@ export class Stage {
       if (this.dragging) {
         this.dragDistance = Math.max(this.dragDistance, Math.hypot(event.clientX-this.pressPoint.x, event.clientY-this.pressPoint.y));
         if(this.dragDistance>=6)this.character.setHeld?.(true,this.time);
+        this.character.moveDrag?.({x:event.clientX,y:event.clientY},eventTime());
         this.character.x = clamp(this.pointer.x + this.dragOffset.x, 0, 1); this.character.y = clamp(this.pointer.y + this.dragOffset.y, 0, 1);
         this.character.targetX = this.character.x; this.character.targetY = this.character.y;
       }
@@ -76,6 +78,7 @@ export class Stage {
       if (this.character.hitTest(this.pointer, this.width, this.height)) {
         this.prepareMove(); this.dragging = true; this.canvas.setPointerCapture(event.pointerId);
         this.activePointer = event.pointerId;
+        this.character.beginDrag?.({x:event.clientX,y:event.clientY},eventTime());
         this.pressPoint = { x: event.clientX, y: event.clientY }; this.dragDistance = 0;
         this.dragOffset = { x: this.character.x - this.pointer.x, y: this.character.y - this.pointer.y };
       }
@@ -84,6 +87,7 @@ export class Stage {
       if (!this.dragging || event.pointerId !== this.activePointer) return;
       if (this.dragging && event.type === 'pointerup' && this.dragDistance < 6) this.character.poke(this.time);
       this.character.setHeld?.(false,this.time);
+      if(this.dragDistance>=6)this.character.release?.(this.time,{cancelled:event.type!=='pointerup',gravity:this.scene?.action==='gravity'});
       this.dragging = false; this.activePointer = null; this.character.targetX = this.character.x; this.character.targetY = this.character.y;
     };
     this.canvas.addEventListener('pointerup', release);
@@ -94,6 +98,7 @@ export class Stage {
       const step = { ArrowLeft: [-.03, 0], ArrowRight: [.03, 0], ArrowUp: [0, -.03], ArrowDown: [0, .03] }[event.key];
       if (step) {
         event.preventDefault(); this.prepareMove();
+        this.character.react?.('curious',this.time,.7);
         this.character.x = clamp(this.character.x + step[0], 0, 1); this.character.y = clamp(this.character.y + step[1], 0, 1);
         this.character.targetX = this.character.x; this.character.targetY = this.character.y;
       }
@@ -101,7 +106,7 @@ export class Stage {
     });
   }
   prepareMove() {
-    if (this.scene?.action !== 'gravity') { this.reset(false); return; }
+    if (this.scene?.action !== 'gravity') { const scale=this.character.scale;this.reset(false);if(this.landing)this.character.scale=scale;return; }
     this.scene.velocity = 0;
     this.character.rotation = 0;
     this.character.setFalling?.(false);
@@ -125,6 +130,8 @@ export class Stage {
       this.character.y = .28; this.character.targetY = .28; this.character.scale = .9;
     }
     this.onScene?.(action);
+    const reaction={orbit:'excited',takeover:'mischievous',echo:'worried',spotlight:'curious'}[action];
+    if(reaction)this.character.react?.(reaction,this.time,2);
   }
   stopScene(action) {
     if (this.scene?.action !== action) return false;
@@ -133,7 +140,7 @@ export class Stage {
   reset(recentre = true) {
     this.scene = null; this.character.scale = 1; this.character.rotation = 0;
     this.character.setFalling?.(false);
-    if (recentre) { this.dragging = false; this.character.setHeld?.(false,this.time);this.activePointer = null; this.character.targetX = .5; this.character.targetY = .46; }
+    if (recentre) { this.dragging = false; this.character.setHeld?.(false,this.time);this.character.clearTouch?.();this.activePointer = null; this.character.targetX = .5; this.character.targetY = .46; }
     this.onScene?.('none');
   }
   frame(timestamp) {
@@ -160,6 +167,7 @@ export class Stage {
       // Reserve the caption band below the face, including its speaking mouth.
       const floor = this.form === 'face' ? .74 - this.character.unit(this.width, this.height)*92 / this.height : .93 - this.character.diameter(this.width, this.height) * .38 / this.height;
       if (this.character.y >= floor) {
+        this.character.land?.(Math.abs(this.scene.velocity),this.time);
         this.character.y = floor;
         this.scene.velocity = Math.abs(this.scene.velocity) < .12 ? 0 : -Math.abs(this.scene.velocity) * .63;
       }
