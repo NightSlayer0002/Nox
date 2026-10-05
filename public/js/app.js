@@ -44,7 +44,7 @@ const stage = new Stage($('stage'), action => {
   });
 });
 for(const expression of Object.keys(EXPRESSIONS)){
-  const option=document.createElement('option');option.value=expression;option.textContent=expression[0].toUpperCase()+expression.slice(1);$('expression-preview').append(option);
+  const option=document.createElement('option');option.value=expression;option.textContent=expression==='pout'?'Cute outrage':expression[0].toUpperCase()+expression.slice(1);$('expression-preview').append(option);
 }
 $('preview-expression').addEventListener('click',()=>{
   if(stage.form!=='face'){toast('Choose Presence to try his expressions.');return;}

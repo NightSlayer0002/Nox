@@ -16,19 +16,25 @@ export class Face extends OrbSignal {
     this.dragPrevious=null;this.dragVector=null;this.dragStroke=0;this.reversals=[];this.impactAt=-100;this.impactStrength=0;this.bounced=false;
     this.previousActivity='idle';this.activitySince=0;
     this.previewUntil=0;this.previewExpression='neutral';
+    this.annoyanceEpisodes=0;this.inAnnoyanceBurst=false;this.annoyancePose='annoyed';
     this.signal = this.sample(0, 0);
   }
   say(text, now) { this.speakingUntil = now + Math.min(12, Math.max(2.5, text.length / 18)); }
   poke(now) {
     this.previewUntil=0;
     this.lastInteraction=now;
-    this.pokes=this.pokes.filter(time=>now-time<1.2);this.pokes.push(now);
+    this.pokes=this.pokes.filter(time=>now-time<1.2);
+    if(!this.pokes.length)this.inAnnoyanceBurst=false;
+    this.pokes.push(now);
     if(this.reaction==='dizzy'&&now<this.reactionUntil)return;
-    this.reaction=this.pokes.length>=4?'annoyed':'happy';
-    this.squeezeUntil=this.pokes.length%2===0&&this.reaction!=='annoyed'?now+.28:0;
-    this.blinkStart=now;this.reactionUntil=now+(this.reaction==='annoyed'?2:1.5);this.pulseAt=now;
+    if(this.pokes.length>=4){
+      if(!this.inAnnoyanceBurst){this.inAnnoyanceBurst=true;this.annoyanceEpisodes=(this.annoyanceEpisodes+1)%7;this.annoyancePose=this.annoyanceEpisodes===0?'pout':'annoyed';}
+      this.reaction=this.annoyancePose;
+    }else this.reaction='happy';
+    this.squeezeUntil=this.pokes.length%2===0&&this.reaction==='happy'?now+.28:0;
+    this.blinkStart=this.reaction==='pout'?-100:now;this.reactionUntil=now+(this.reaction==='happy'?1.5:2);this.pulseAt=now;
   }
-  wink(now) { this.lastInteraction=now;if(['annoyed','dizzy'].includes(this.reaction)&&now<this.reactionUntil)return;this.winkAt = now; this.reaction='happy';this.reactionUntil = now + 1.5; this.pulseAt = now; }
+  wink(now) { this.lastInteraction=now;if(['annoyed','pout','dizzy'].includes(this.reaction)&&now<this.reactionUntil)return;this.winkAt = now; this.reaction='happy';this.reactionUntil = now + 1.5; this.pulseAt = now; }
   react(expression,now,duration=1.5){
     if(!EXPRESSIONS[expression]||!Number.isFinite(now))return;
     this.lastInteraction=now;
@@ -75,7 +81,7 @@ export class Face extends OrbSignal {
     this.reduceMotion = reduceMotion;
     if(this.activity!==this.previousActivity){this.previousActivity=this.activity;this.activitySince=time;this.lastInteraction=time;}
     if(this.activity!=='idle'||time<this.speakingUntil)this.lastInteraction=time;
-    if(this.nearAt!==null&&!this.nearReacted&&!this.held&&time-this.nearAt>.85){this.nearReacted=true;this.react('shy',time,1.4);}
+    if(this.nearAt!==null&&!this.nearReacted&&!this.held&&time>=this.reactionUntil&&time-this.nearAt>.85){this.nearReacted=true;this.react('shy',time,1.4);}
     if (!dragging) { this.x += (this.targetX-this.x)*ease; this.y += (this.targetY-this.y)*ease; }
     if (reduceMotion) { this.gazeX = 0; this.gazeY = 0; this.breath = 0; }
     else {

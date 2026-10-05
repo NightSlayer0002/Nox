@@ -50,6 +50,46 @@ test('rapid pokes squeeze his eyes then annoy him, without changing dialogue emo
   assert.equal(face.features(5).mouth,'curious');
 });
 
+test('every seventh separate annoyance burst produces rare big-eyed outrage',()=>{
+  const face=new Face();face.emotion='skeptical';
+  for(let episode=1;episode<=14;episode++){
+    const start=episode*4;
+    for(let poke=0;poke<4;poke++)face.poke(start+poke*.15);
+    const expression=face.features(start+.55);
+    assert.equal(expression.expression,episode%7===0?'pout':'annoyed');
+    assert.equal(expression.eyeStyle,episode%7===0?'glossy':'half');
+    assert.equal(face.emotion,'skeptical');
+    assert.equal(face.features(start+3).expression,'skeptical');
+  }
+});
+
+test('one continuous spam burst counts once and double-click cannot replace the rare face',()=>{
+  const face=new Face();
+  for(let episode=1;episode<=6;episode++)for(let poke=0;poke<4;poke++)face.poke(episode*4+poke*.15);
+  for(let poke=0;poke<50;poke++)face.poke(28+poke*.1);
+  assert.equal(face.features(33).expression,'pout');face.wink(33.01);
+  assert.equal(face.features(33.02).expression,'pout');
+  for(let poke=0;poke<4;poke++)face.poke(36+poke*.15);
+  assert.equal(face.features(36.6).expression,'annoyed');
+});
+
+test('previews and dizzy pokes do not spend the rare annoyance cadence; speech still closes its mouth',()=>{
+  const face=new Face();
+  for(let i=0;i<10;i++){face.preview('pout',i);face.preview('annoyed',i+.1);}
+  face.react('dizzy',15,3);for(let poke=0;poke<12;poke++)face.poke(15+poke*.1);
+  for(let episode=1;episode<=7;episode++)for(let poke=0;poke<4;poke++)face.poke(20+episode*4+poke*.15);
+  face.speakingUntil=Infinity;face.mouthLevel=0;face.update(48.6,.016,{x:.5,y:.46},false,true);
+  assert.equal(face.features(48.6).expression,'pout');assert.equal(face.features(48.6).eyeStyle,'glossy');
+  assert.equal(face.features(48.6).mouth,'rest');assert.equal(face.features(48.6).open,0);
+});
+
+test('hover shyness cannot interrupt the rare protest before it finishes',()=>{
+  const face=new Face();
+  for(let episode=1;episode<=7;episode++)for(let poke=0;poke<4;poke++)face.poke(episode*4+poke*.15);
+  face.noticePointer({x:.5,y:.46},28.5);face.update(29.4,.016,{x:.5,y:.46},false,false);
+  assert.equal(face.features(29.4).expression,'pout');
+});
+
 test('a held character looks below his hand and releases back to his normal expression',()=>{
   const face=new Face();face.emotion='skeptical';face.setHeld(true,1);
   for(let i=0;i<30;i++)face.update(1+i/60,1/60,{x:.8,y:.2},true,false);

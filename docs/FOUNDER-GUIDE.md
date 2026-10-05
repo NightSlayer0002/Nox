@@ -681,7 +681,7 @@ Automatic browser voice selection now favors recognized male voice names before 
 
 The character is now an asymmetrical charcoal silhouette with two tucked feet, a restrained contour and tiny procedural grain. It is Canvas geometry, not a generated face asset. `public/js/face-art.js` owns the body paths, expression proportions, eye shapes, brows, mouth paths and small acting marks. `Face.draw()` combines those paths with the existing pose and audio clock. The home character and corner peek use this same renderer.
 
-There are nineteen local poses: neutral, curious, happy, content, skeptical, annoyed, sleepy, yawning, uncanny, surprised, shy, worried, dizzy, ouch, excited, mischievous, thinking, listening and confused. The existing model contract still uses its nine validated dialogue emotions. The additional poses come from actual interaction state rather than extra model calls. A character can therefore respond to a mouse gesture immediately, even while its language model is busy.
+There are twenty local poses: neutral, curious, happy, content, skeptical, annoyed, sleepy, yawning, uncanny, surprised, shy, worried, dizzy, ouch, excited, mischievous, thinking, listening, confused and a rare cute outrage. The existing model contract still uses its nine validated dialogue emotions. The additional poses come from actual interaction state rather than extra model calls. A character can therefore respond to a mouse gesture immediately, even while its language model is busy.
 
 | Trigger | Acting |
 | --- | --- |
@@ -708,3 +708,10 @@ The temporary expression priority is explicit preview, dizzy/ouch, held, falling
 Scene Studio has an expression preview and a “His little tells” guide. Preview is a separate four-second display override, so switching from Dizzy to Happy is immediate. Picking him up cancels that override. These controls make it possible to inspect and record faces without paying for a model request.
 
 In an interview, explain the separation this way: input detection decides what happened; character state decides which expression wins; the renderer converts that expression into paths; audio controls only mouth opening. Gesture tests use realistic timestamps and fine movement samples, which caught two issues that large coordinate jumps would have hidden.
+### The rare cute outrage
+
+`Face.poke()` counts qualifying annoyance episodes rather than individual clicks. A burst becomes annoyed after four pokes inside 1.2 seconds; a pause of at least 1.2 seconds starts a new burst. The modulo-seven counter produces six ordinary annoyed episodes, then `pout` on the seventh. Continuing to spam-click keeps that same episode; it does not advance the counter repeatedly. This state lasts for the current Face instance, so a page reload starts its cadence again. Previews and pokes during dizziness do not spend an episode.
+
+`face-art.js` draws the rare pose with large cream eye whites, blue irises, dark pupils, bright catchlights, furrowed brows, a coral anger mark and a small protesting mouth. The iris is clipped inside each oval eye, including during a blink. It is original path geometry inspired by the expression reference, rather than the stock image being placed onto NOX. Ordinary faces keep the minimal luminous eyes.
+
+The pose lasts two seconds after the last qualifying poke. Double-click winks and automatic hover shyness cannot cut it short. Speech still controls mouth opening independently, including closed pauses and reduced motion. Choose **Cute outrage** in Scene Studio to preview it immediately without using up its rare appearance count.
