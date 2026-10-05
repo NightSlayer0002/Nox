@@ -24,6 +24,22 @@ async function withServer(options, callback) {
   finally { await new Promise(resolve => server.close(resolve)); }
 }
 
+test('owner unlock issues an HttpOnly session that survives a page reload and logout clears it',async()=>{
+  await withServer({hosted:true,publicHosts:['nox.example'],apiKey:'fixture',accessToken:'owner-test',chat:async()=>({speech:'A real guarded response.',emotion:'curious',action:'none',memory:''})},async base=>{
+    const headers={host:'nox.example',origin:'https://nox.example',authorization:'Bearer owner-test'};
+    const foreign=await hostedRequest(`${base}/api/session`,{method:'POST',headers:{...headers,origin:'https://foreign.example'}});assert.equal(foreign.status,403);
+    const wrong=await hostedRequest(`${base}/api/session`,{method:'POST',headers:{...headers,authorization:'Bearer wrong'}});assert.equal(wrong.status,401);
+    const unlock=await hostedRequest(`${base}/api/session`,{method:'POST',headers});assert.equal(unlock.status,200);
+    const setCookie=unlock.headers.get('set-cookie');assert.match(setCookie,/HttpOnly/);assert.match(setCookie,/SameSite=Strict/);assert.match(setCookie,/Secure/);assert.doesNotMatch(setCookie,/owner-test/);
+    const cookie=setCookie.split(';')[0];
+    const reload=await hostedRequest(`${base}/api/status`,{headers:{host:'nox.example',cookie}});assert.equal((await reload.json()).brain,'live');
+    const cookieChat=await hostedRequest(`${base}/api/chat`,{method:'POST',headers:{host:'nox.example',origin:'https://nox.example',cookie,'content-type':'application/json'},body:JSON.stringify({message:'Hi'})});assert.equal(cookieChat.status,200);assert.match((await cookieChat.json()).speech,/guarded response/);
+    const tampered=await hostedRequest(`${base}/api/status`,{headers:{host:'nox.example',cookie:cookie+'x'}});assert.equal((await tampered.json()).access,'locked');
+    const logout=await hostedRequest(`${base}/api/session`,{method:'DELETE',headers:{host:'nox.example',origin:'https://nox.example',cookie}});assert.equal(logout.status,200);assert.match(logout.headers.get('set-cookie'),/Max-Age=0/);
+    const locked=await hostedRequest(`${base}/api/status`,{headers:{host:'nox.example'}});assert.equal((await locked.json()).access,'locked');
+  });
+});
+
 test('summaries use the same owner gate and selected server model as chat',async()=>{
   let calls=0;
   await withServer({providers:[{id:'nvidia',name:'NVIDIA NIM',model:'fixture'}],accessToken:'owner',summary:async(input,options)=>{calls++;assert.equal(options.provider,'nvidia');assert.equal(options.model,'fixture');assert.equal(input.turns.length,2);return 'Saved continuity.';}},async base=>{

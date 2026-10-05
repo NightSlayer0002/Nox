@@ -9,6 +9,7 @@ import { getProviders, providerKey, requestProvider, requestSummary } from './se
 import { createCache } from './server/cache.mjs';
 import { requestSpeech } from './server/speech.mjs';
 import { createHash, timingSafeEqual } from 'node:crypto';
+import { mintSession, validSession, sessionFromCookie, sessionCookie } from './server/session.mjs';
 
 const root = path.dirname(fileURLToPath(import.meta.url));
 const publicRoot = path.join(root, 'public');
@@ -70,7 +71,18 @@ export function createAppServer({
 
     const suppliedToken = request.headers.authorization?.startsWith('Bearer ') ? request.headers.authorization.slice(7) : '';
     const digest = value => createHash('sha256').update(value).digest();
-    const locked = Boolean(hasCloud && (hosted || accessToken) && !(accessToken && suppliedToken && timingSafeEqual(digest(suppliedToken),digest(accessToken))));
+    const bearerAccepted=Boolean(accessToken&&suppliedToken&&timingSafeEqual(digest(suppliedToken),digest(accessToken)));
+    const authorized=suppliedToken?bearerAccepted:validSession(sessionFromCookie(request.headers.cookie,hosted),accessToken,host);
+    const locked = Boolean(hasCloud && (hosted || accessToken) && !authorized);
+    if(pathname==='/api/session'&&['POST','DELETE'].includes(request.method)){
+      if(request.headers.origin!==`${hosted?'https':'http'}://${host}`)return sendJson(response,403,{error:'Unlock from NOX’s own page.'});
+      if(request.method==='DELETE'){
+        response.setHeader('set-cookie',sessionCookie('',hosted));return sendJson(response,200,{access:'locked'});
+      }
+      if(!bearerAccepted)return sendJson(response,401,{error:'The owner token was not accepted.'});
+      response.setHeader('set-cookie',sessionCookie(mintSession(accessToken,host),hosted));
+      return sendJson(response,200,{access:'open'});
+    }
     if (pathname === '/api/status' && request.method === 'GET') return sendJson(response, 200, {
       brain: preferred && !locked ? 'live' : 'demo', model: preferred && !locked ? preferred.model : null,
       voice: voiceKey && !locked && naturalVoice ? 'natural' : 'browser', access: locked ? 'locked' : 'open',

@@ -514,7 +514,7 @@ The offline demo is intentionally still available. It is labeled as such and cho
 ### Trace one cloud turn
 
 1. `app.js` obtains the selected provider and a memory snapshot, adds the new user turn, and begins a generation in `turns.js`.
-2. `prepareChatRequest` bounds the multibyte JSON request. `app.js` adds the provider ID and the visit-only bearer token to the same-origin request.
+2. `prepareChatRequest` bounds the multibyte JSON request. `app.js` adds the provider ID; the browser includes its protected owner-session cookie on the same-origin request.
 3. `server.mjs` checks the trusted host, origin, owner access, JSON type, body size, and text length. It chooses a configured provider and enforces the process-local request limit.
 4. `providers.mjs` sends the prompt/context to a fixed external endpoint with a twenty-second timeout. Provider keys exist only at this boundary.
 5. The reply is parsed and normalized. The frontend discards it if its generation is obsolete.
@@ -522,7 +522,7 @@ The offline demo is intentionally still available. It is labeled as such and cho
 
 ### Why is the owner token separate?
 
-A provider key grants broad access to an external API account. Giving that key to every visitor would expose it in browser source and network tools. An owner token grants only access to this app's guarded endpoints. The frontend keeps it in memory for a visit; the API verifies it through constant-length SHA-256 digests using `timingSafeEqual`. Cloud requests fail closed if the token is missing or the deployment has no configured owner token. It is prototype authentication, not user accounts, and is not appropriate to distribute to a public audience.
+A provider key grants broad access to an external API account. Giving that key to every visitor would expose it in browser source and network tools. An owner token grants only access to this app's guarded endpoints. The API verifies the entered token through constant-length SHA-256 digests using `timingSafeEqual`, then issues a signed HttpOnly session cookie (see the connection repair section below). Cloud requests fail closed if neither a valid session nor an accepted bearer is present, or the deployment has no configured owner token. It is prototype authentication, not user accounts, and is not appropriate to distribute to a public audience.
 
 ### How does voice cancellation work?
 
@@ -584,7 +584,7 @@ The background remains the original image asset. NOX's body, lighting, eyes, mou
 | `server/cache.mjs` | Expiring LRU cache and identical-work coalescing | Bound both memory and lifetime; never cache failures |
 | `server/speech.mjs`, `server/wav.mjs` | Acting directions, bounded segments, compatible WAV assembly | Count directions toward provider limits and preserve text |
 | `server.mjs` | Authorization, origin/host validation, API limits, SSE responses | Summary has the same owner gate as chat and speech |
-| `scripts/build-vercel.mjs` | Static output plus four isolated Node functions | Explicit ESM package scope must travel with every function |
+| `scripts/build-vercel.mjs` | Static output plus five isolated Node functions | Explicit ESM package scope must travel with every function |
 
 ### A saved conversation is not the same thing as a prompt
 
@@ -654,3 +654,17 @@ There is no semantic cache of whole character replies. Reusing a response to a v
 `attachPeek()` supplies two optional Stage frame hooks. Before the character update it measures the room, selects the presence, and translates the real viewport cursor relative to the corner face. After the frame it projects the same character into the corner canvas. His original position stays intact, including a position changed by dragging. Returning fades the corner away while restoring the body in the room. A pointer entering the corner earns one wink per entry. The room stops drawing while completely off-screen, but the single animation clock keeps the corner alive. `tests/peek.test.mjs` verifies the boundary hysteresis, restored scroll positions, motion-off transitions and gaze direction.
 
 **How would you explain this interaction in an interview?** Character state belongs to the simulation; location belongs to the view. One character can have two temporary projections without two independent animation loops or conflicting eyes. Scroll state selects the view, and pointer coordinates are converted into that view's frame of reference.
+
+### Connection repair and a more expressive character
+
+The repeated replies were coming from `brain.js`, the scripted demonstration, rather than Groq. Previously, reloading removed the visit-only owner token and silently selected that demo. `connection.js` now distinguishes loading, locked, unconfigured, live and explicitly selected demo states. A locked send keeps the typed thought and opens Preferences; it does not archive a fake assistant answer. Unlock chooses the configured model automatically. A failed cloud request stays an error instead of becoming a scripted success. Scene controls remain usable without AI and no longer speak the same fixed line each time.
+
+`server/session.mjs` mints a twelve-hour session containing an expiry and random nonce, signed using HMAC-SHA256 with the server's owner token. The signature binds the session to its host. `/api/session` POST requires the correct bearer and exact same origin, then returns a host-only HttpOnly cookie, SameSite=Strict and Secure on Vercel. Normal requests use the cookie, whose contents page JavaScript cannot read. DELETE clears it. The server rejects expired, altered, wrong-host and wrong-key sessions. Changing the owner token invalidates all signatures. This stateless prototype cannot revoke one copied session individually; clearing the browser cookie signs out that browser, while key rotation signs out all sessions.
+
+Face touch behavior is a separate temporary layer over dialogue emotion. Four pokes inside 1.2 seconds make him annoyed for two seconds; alternating gentle pokes briefly squeeze his eyes into `><`. A real drag, after six pixels of movement, sets `held`, widens his eyes, looks down and gives a small body tilt. Releasing, canceling or resetting clears it. These gestures never change the model's saved emotion. Annoyed, surprised and shy are also supported structured model emotions. Takeover enlarges NOX to fit the available stage and moves the scene into view; it never takes operating-system permissions. Clicking the active scene again stops it.
+
+`speech-envelope.js` measures 20-millisecond RMS windows from PCM16 WAV audio locally. Quiet windows become zero. `voice.mouthLevel` samples that envelope at the audio player's actual playback time. The existing Stage frame transfers the level to Face, so no second animation clock is needed. During a speaking pause Face draws a closed line; during speech its opening follows amplitude. This is sound-energy animation, not phoneme recognition or exact lip-reading. Unsupported audio formats fall back to estimated text timing.
+
+Browser speech uses separate sentence utterances and a short closed-mouth gap. Where available, word-boundary events correct the mouth pulses; otherwise text length estimates them. Those events are not universally supported, so browser timing is less exact than measured WAV playback. Cancellation clears pending sentence timers, audio blobs and old callbacks. See [MDN boundary events](https://developer.mozilla.org/en-US/docs/Web/API/SpeechSynthesisUtterance/boundary_event).
+
+Automatic browser voice selection now favors recognized male voice names before natural-voice quality, with modest boyish pitch. Orpheus starts with male Troy and slightly raised playback speed/pitch; Austin and Daniel remain male alternatives. The v2 speaker preferences reset older selections for this requested default, then preserve new manual choices. The result is still generated speech; its subjective character needs a listening check. [Groq's voice and direction documentation](https://console.groq.com/docs/text-to-speech/orpheus).

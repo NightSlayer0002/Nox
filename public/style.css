@@ -61,6 +61,9 @@ dialog{background:#101713;color:var(--ink);border:1px solid #dce1c731;border-rad
 @media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}button{transition:none}}
 
 /* A quiet corner cameo. This layer never intercepts links, clicks, or touch scroll. */
+.connection-help{display:flex;align-items:center;gap:1.25rem;padding:1rem 0;border-top:1px solid var(--line);color:var(--muted);font-size:.8rem;line-height:1.6}
+.connection-help p{margin:0;flex:1}.connection-help button{white-space:nowrap;color:var(--accent)}
+.connection-help[hidden]{display:none}
 .nox-peek{position:fixed;right:0;bottom:0;width:144px;height:156px;overflow:hidden;pointer-events:none;z-index:12}
 .nox-peek canvas{display:block;width:100%;height:100%}
 .landing-details footer{padding-right:125px;flex-wrap:wrap}

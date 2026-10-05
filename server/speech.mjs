@@ -12,7 +12,7 @@ export async function requestSpeech({text,mode='companion',emotion}, {apiKey,voi
   if(!['openai','groq'].includes(provider)) throw new Error('Unknown speech provider.');
   const groq = provider === 'groq';
   const signal=AbortSignal.timeout(20000);
-  const direction=groq&&emotion?({happy:'[warm] ',skeptical:'[deadpan] ',sleepy:'[softly] ',uncanny:'[whisper] ',curious:'[friendly] ',neutral:mode==='uncanny'?'[whisper] ':'[casual] '}[emotion]||''):'';
+  const direction=groq&&emotion?({happy:'[warm] ',skeptical:'[deadpan] ',sleepy:'[softly] ',uncanny:'[whisper] ',curious:'[friendly] ',annoyed:'[sarcastic] ',surprised:'[excited] ',shy:'[softly] ',neutral:mode==='uncanny'?'[whisper] ':'[casual] '}[emotion]||''):'';
   if(groq && text.trim().length+direction.length>200) {
     const clips=await Promise.all(splitSpeech(text,200-direction.length).map(chunk=>requestClip(direction+chunk,mode,{apiKey,voice,groq,fetchImpl,signal})));
     return joinWav(clips,MAX_AUDIO);

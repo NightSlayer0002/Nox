@@ -42,6 +42,29 @@ test('a poke gives a temporary smile without overwriting dialogue emotion', () =
   assert.equal(face.features(4).mouth, 'skeptical');
 });
 
+test('rapid pokes squeeze his eyes then annoy him, without changing dialogue emotion',()=>{
+  const face=new Face();face.emotion='curious';face.poke(1);face.poke(1.2);
+  assert.equal(face.features(1.25).eyeStyle,'squeezed');
+  face.poke(1.4);face.poke(1.6);face.wink(1.61);
+  assert.equal(face.features(1.8).mouth,'annoyed');assert.equal(face.emotion,'curious');
+  assert.equal(face.features(5).mouth,'curious');
+});
+
+test('a held character looks below his hand and releases back to his normal expression',()=>{
+  const face=new Face();face.emotion='skeptical';face.setHeld(true,1);
+  for(let i=0;i<30;i++)face.update(1+i/60,1/60,{x:.8,y:.2},true,false);
+  assert.ok(face.gazeY>10);assert.equal(face.features(1.5).mouth,'surprised');
+  face.setHeld(false,2);face.update(3,1/60,{x:.5,y:.46},false,false);
+  assert.equal(face.features(3).mouth,'skeptical');
+});
+
+test('audio-controlled mouth closes during a silent speaking interval',()=>{
+  const face=new Face();face.speakingUntil=Infinity;face.mouthLevel=0;
+  face.update(1,.016,{x:.5,y:.46},false,false);assert.equal(face.features(1).open,0);assert.equal(face.features(1).mouth,'rest');
+  face.mouthLevel=.7;assert.ok(face.features(1).open>0);
+  face.mouthLevel=0;assert.equal(face.features(1.1).open,0);
+});
+
 test('reduced motion preserves expressions while removing gaze drift and rhythmic movement', () => {
   const face = new Face(); face.speakingUntil = Infinity;
   face.update(1, .04, { x: 1, y: 1 }, false, true);
@@ -103,6 +126,17 @@ test('a drag preserves his grab offset and does not trigger a poke on release', 
   assert.ok(stage.character.x > .64); assert.ok(stage.character.y > .61);
   assert.equal(stage.character.x, stage.character.targetX);
   assert.equal(stage.character.reactionUntil, 0);
+});
+
+test('a real drag activates the picked-up expression and cancellation releases it',()=>{
+  const {stage,fire}=pointerStage();fire('pointerdown');fire('pointermove',350,200);
+  assert.equal(stage.character.held,true);fire('pointercancel',350,200);assert.equal(stage.character.held,false);
+});
+
+test('takeover visibly fills more of the stage, including with motion disabled',()=>{
+  const {stage}=pointerStage();stage.reduceMotion=true;stage.run('takeover');
+  assert.ok(stage.character.scale>1.5);assert.equal(stage.scene.action,'takeover');
+  stage.stopScene('takeover');assert.equal(stage.character.scale,1);
 });
 
 test('Escape reset cancels a drag and a blank release cannot undo recentering', () => {

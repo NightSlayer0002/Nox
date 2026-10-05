@@ -15,11 +15,11 @@ Sources checked October 5, 2026: [Groq limits](https://console.groq.com/docs/rat
 
 ## 1. What belongs where
 
-GitHub stores source code and version history. Vercel downloads a chosen Git commit, runs the build, hosts static files, and runs four small server functions. Groq/Gemini/NVIDIA run the language model. None of these services replaces the others.
+GitHub stores source code and version history. Vercel downloads a chosen Git commit, runs the build, hosts static files, and runs five small server functions: status, chat, speech, summary and session. Groq/Gemini/NVIDIA run the language model. None of these services replaces the others.
 
 Your browser sends text to NOX's same-origin `/api/chat` endpoint. The server adds its secret provider key and forwards a bounded conversation to the chosen model. The browser receives only a validated reply packet. It never downloads the provider key.
 
-The NOX owner access token is a different secret. It unlocks cloud requests in Settings for one visit. It is sent only to your own NOX server, kept in JavaScript memory, cleared from the input immediately, and never saved in browser storage. Treat it as private; it grants use of your configured quotas. This lightweight gate is for an owner prototype, not a multi-user account system.
+The NOX owner access token is a different secret. Enter it once in Preferences → Owner access. It is sent only to your own NOX server, cleared from the input immediately, and never saved in localStorage. The server issues a signed, HttpOnly, SameSite=Strict cookie for up to twelve hours; production also requires Secure. Reloads and new tabs on the same host can reuse that session. Lock cloud access clears this browser cookie. Changing NOX_ACCESS_TOKEN invalidates every existing session. Treat both access and your token as private; this lightweight gate protects an owner prototype, not a public multi-user service.
 
 ## 2. Local keys, if you want the brain on this computer too
 
@@ -154,9 +154,9 @@ A free quota can be reduced, exhausted, or removed. Check the provider dashboard
 | `server/ai.mjs` | Shared NOX identity and legacy OpenAI Responses adapter |
 | `server/speech.mjs` | Fixed Groq Orpheus or legacy OpenAI speech request, text/audio bounds, timeouts |
 | `server.mjs` | Local static server and common API handler, host/origin checks, owner authorization, cloud quota guard |
-| `public/js/app.js` | Provider selection, visit-only owner token, status refresh, authenticated same-origin requests |
+| `public/js/app.js`, `public/js/connection.js` | Provider selection, explicit connection states, unlock/session requests, same-origin cloud requests |
 | `public/js/voice.js` | Browser voice selection and cancellation-safe natural audio playback |
-| `scripts/build-vercel.mjs` | Rebuilds static output and four packaged Node function entrypoints |
+| `scripts/build-vercel.mjs` | Rebuilds static output and five packaged Node function entrypoints |
 | `vercel.json` | Vercel install/build configuration |
 | `.env.example` | Configuration names and defaults, without real secrets |
 | `.gitignore` | Excludes secrets and generated output |
@@ -184,6 +184,10 @@ Owner-authenticated live conversation was verified with a shadow/stage-fright pr
 Final source verification before that deployment: 62 tests passed, 31 JavaScript modules passed syntax checks, and the Vercel output build succeeded. Safe speech diagnostics log only constant failure categories, HTTP status, and a whitelisted format name; they never log API keys, owner tokens, provider error bodies, or conversation text. The live-site screenshot is saved locally at `artifacts/nox-live.jpg` and is intentionally ignored by Git.
 
 ## NOX 0.5: home, workspace, history, and streaming
+
+The current connection repair adds a fifth `/api/session` function. If you see **Unlock AI**, enter your existing NOX access token in Preferences → Owner access. No new Groq key is needed. Unlock automatically selects your configured provider and lasts up to twelve hours on this browser/domain. A reload should still show GroqCloud. **Scripted demo** is now an explicit provider choice; locked or failed AI never silently substitutes scripted replies. A browser blocking the session cookie receives an actionable error rather than a false success message.
+
+Voice defaults to a recognized male browser voice, or male Troy when Natural is selected. New speaker selections use v2 preferences; prior speaker defaults reset once for this requested change. Natural PCM WAV mouth animation measures audio amplitude and closes through silence. Browser speech has explicit sentence gaps and uses word events where supported; its timing remains approximate. Test with “Hello. Give me a moment. Now I’m back.” and watch the pause between sentences. Subjective timbre still needs your own listening check.
 
 The home page is `/`; the interactive workspace is `/app`. The build packages `/api/summary` alongside status, chat, and speech. All four are Node 24 functions with explicit ESM scope. Chat streaming uses the existing chat endpoint with `stream: true`; it sends SSE text events and one final normalized packet. A closed or failed stream never becomes a saved assistant reply. Cloud chat, summaries, and speech share the same owner authorization, trusted origin, request-size bounds, and convenience rate limit.
 

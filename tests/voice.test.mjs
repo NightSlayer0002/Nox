@@ -10,6 +10,22 @@ test('natural browser voices outrank legacy voices without distorting normal pit
   assert.equal(selectBrowserVoice([]),undefined);
 });
 
+test('automatic character voice prefers a male voice over a female natural default',()=>{
+  const female={name:'Microsoft Jenny Online (Natural)',lang:'en-US',localService:false},male={name:'Microsoft David',lang:'en-US',localService:true};
+  assert.equal(selectBrowserVoice([female,male]),male);
+});
+
+test('sentence endings and stale boundaries cannot leave the mouth open',async()=>{
+  const oldSynth=globalThis.speechSynthesis,oldUtterance=globalThis.SpeechSynthesisUtterance,spoken=[];
+  globalThis.SpeechSynthesisUtterance=class{constructor(text){this.text=text;}};
+  globalThis.speechSynthesis={cancel(){},getVoices:()=>[],speak:u=>spoken.push(u)};
+  try{
+    const voice=createVoice();voice.setEnabled(true);await voice.speak('Hello. Next thought.');spoken[0].onstart();spoken[0].onboundary({name:'word',charIndex:0});assert.ok(voice.mouthLevel>0);
+    spoken[0].onend();assert.equal(voice.mouthLevel,0);voice.stop();spoken[0].onboundary({name:'word',charIndex:0});assert.equal(voice.mouthLevel,0);
+    assert.equal(spoken[0].text,'Hello.');
+  }finally{if(oldSynth===undefined)delete globalThis.speechSynthesis;else globalThis.speechSynthesis=oldSynth;if(oldUtterance===undefined)delete globalThis.SpeechSynthesisUtterance;else globalThis.SpeechSynthesisUtterance=oldUtterance;}
+});
+
 test('obsolete speech events cannot end or start a newer performance', () => {
   const previousSynth = globalThis.speechSynthesis, previousUtterance = globalThis.SpeechSynthesisUtterance;
   const spoken = [];

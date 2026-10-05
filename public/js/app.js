@@ -10,6 +10,7 @@ import { createHistory } from './history.js';
 import { createNavigation } from './navigation.js';
 import { readChatStream } from './stream.js';
 import { readMotionPreference } from './preferences.js';
+import { connectionState } from './connection.js';
 
 const $ = id => document.getElementById(id);
 let disk;
@@ -20,7 +21,7 @@ const history = await createHistory(disk,memory.snapshot().history);
 if(history.persistent)memory.clearHistory();
 let mode = history.active().mode;
 let navigation,summaryController,summaryTimer,pendingDraft;
-let brain = 'demo'; let busy = false;
+let brain = 'loading'; let busy = false;
 let ownerToken = '', selectedProvider = '', connectionVersion = 0, connection = {};
 const apiHeaders = (token = ownerToken) => ({'content-type':'application/json',...(token ? {authorization:`Bearer ${token}`} : {})});
 const turns = createTurnGate();
@@ -66,6 +67,7 @@ const voice = createVoice({
     return blob;
   },
 });
+stage.onBeforeFrame=()=>{stage.character.mouthLevel=voice.mouthLevel;};
 const camera = createCamera();
 const recorder = createRecorder($('stage'), (active, clip) => {
   stage.lockRecording(active);
@@ -113,6 +115,7 @@ async function perform(value, save = true, draft, version) {
   if(version!==undefined&&!turns.isCurrent(version))return;
   if(draft){draft.classList.remove('draft');draft.lastChild.textContent=packet.speech;}else addMessage('nox', packet.speech);
   stage.speak(packet);voice.speak(packet.speech, mode, packet.emotion);
+  if(packet.action==='takeover')stage.canvas.scrollIntoView({behavior:stage.reduceMotion?'instant':'smooth',block:'center'});
   $('mood-label').textContent = packet.emotion.toUpperCase();
   $('packet-view').textContent = JSON.stringify(packet, null, 2); updateMemory();navigation?.render();
 }
@@ -124,6 +127,12 @@ function setBusy(value) {
 
 async function send(raw) {
   const text = raw.trim(); if (!text || busy) return;
+  const takeover=/^(?:please\s+)?(?:take\s*over(?:\s+(?:the\s+)?(?:screen|stage))?|takeover)[.!]?$/i.test(text);
+  if(!['live','demo'].includes(brain)){
+    if(takeover)stage.run('takeover');
+    toast(brain==='locked'?'Unlock AI in Preferences to talk with NOX. Your thought is still here.':'NOX’s AI connection is not ready. Check Preferences; your thought is still here.');
+    $('inside-dialog').showModal();if(brain==='locked')$('owner-token').focus();return;
+  }
   const version = turns.begin();
   summaryController?.abort();clearTimeout(summaryTimer);
   const name = text.match(/(?:my name is|call me|i am called)\s+([\p{L}\p{N}_ -]{1,40})/iu);
@@ -133,7 +142,7 @@ async function send(raw) {
   if(!await history.append('user',text)){cancelConversation();await restoreConversation();toast('This conversation changed in another tab. Start a new thought.');return;}
   if(!turns.isCurrent(version))return;
   addMessage('user', text); $('message').value = ''; updateMemory();navigation?.render();
-  $('reply-timing').textContent=brain==='live'?'NOX is thinking…':'Offline demo';
+  $('reply-timing').textContent=brain==='live'?'NOX is thinking…':'Scripted demo · no AI request';
   setBusy(true); voice.stop(); microphone.stop(); stage.character.emotion = 'curious';
   try {
     let packet;
@@ -142,7 +151,7 @@ async function send(raw) {
       turns.attach(version, requestController);
       const draft=addMessage('nox','');draft.classList.add('draft');pendingDraft=draft;
       const response = await fetch('/api/chat', { method: 'POST', headers: apiHeaders(), body: JSON.stringify(prepareChatRequest(text, context, selectedProvider,true)), signal: requestController.signal });
-      if(!response.ok){const error=await response.json();throw new Error(error.error||'The AI connection did not respond.');}
+      if(!response.ok){const error=await response.json();if(response.status===401){await refreshConnection();}throw new Error(error.error||'The AI connection did not respond.');}
       const result = await readChatStream(response,speech=>{if(turns.isCurrent(version)){draft.lastChild.textContent=speech;$('conversation').scrollTop=$('conversation').scrollHeight;}});
       packet = result;
       if (turns.isCurrent(version)) {$('brain-status').lastChild.textContent = ' AI CONNECTED';const timing=result.metrics;$('reply-timing').textContent=timing?`${timing.firstTextMs===null?'Reply':`First words ${timing.firstTextMs} ms · reply`} ${timing.totalMs} ms · ${timing.provider}`:'Reply received';}
@@ -150,7 +159,7 @@ async function send(raw) {
       await new Promise(resolve => setTimeout(resolve, 350));
       packet = demoReply(text, context);
     }
-    if (turns.isCurrent(version)) {await perform(packet,true,pendingDraft,version);if(turns.isCurrent(version)){pendingDraft=null;scheduleSummary();}}
+    if (turns.isCurrent(version)) {if(takeover)packet={...packet,action:'takeover'};await perform(packet,true,pendingDraft,version);if(turns.isCurrent(version)){pendingDraft=null;scheduleSummary();}}
   } catch (error) {
     if (turns.isCurrent(version)){pendingDraft?.remove();pendingDraft=null;if(error.name!=='AbortError'){if (brain === 'live') $('brain-status').lastChild.textContent = ' AI ERROR'; addMessage('system', error.message); toast(error.message);$('reply-timing').textContent='Reply interrupted. Your sent message is saved.';}}
   } finally { if (turns.isCurrent(version)) { setBusy(false); $('message').focus(); } }
@@ -170,18 +179,12 @@ async function setMode(next, greet = true) {
   if (greet) await perform({ speech: greetings[mode], emotion: mode === 'uncanny' ? 'uncanny' : mode === 'director' ? 'skeptical' : 'curious', action: 'none', memory: '' },false,undefined,version);
 }
 
-const experiments = {
-  gravity: { speech: 'You gave me gravity. An ambitious way to lower my expectations.', emotion: 'skeptical' },
-  spotlight: { speech: 'Let me try something. You move the light. I’ll make an entrance.', emotion: 'curious' },
-  orbit: { speech: 'One small universe. I’m keeping the centre seat.', emotion: 'happy' },
-  echo: { speech: 'There is only supposed to be one signal. Let’s leave the other one alone.', emotion: 'uncanny' },
-  takeover: { speech: 'You still have permissions. I find that very generous of me.', emotion: 'skeptical' },
-};
 document.querySelectorAll('[data-scene]').forEach(button => button.addEventListener('click', () => {
-  // Scene buttons are authored performances in either brain mode.
+  // Scene controls are immediate physical effects, independent of cloud access.
   cancelConversation();
   if (stage.stopScene(button.dataset.scene)) return;
-  const version=turns.begin();void perform({ ...experiments[button.dataset.scene], action: button.dataset.scene, memory: '' },false,undefined,version);
+  stage.run(button.dataset.scene);stage.captionUntil=0;
+  stage.canvas.scrollIntoView({behavior:stage.reduceMotion?'instant':'smooth',block:'center'});
 }));
 document.querySelectorAll('[data-mode]').forEach(button => button.addEventListener('click', () => setMode(button.dataset.mode)));
 document.querySelectorAll('button[data-form]').forEach(button => button.addEventListener('click', () => {
@@ -259,6 +262,8 @@ setInterval(() => {
   $('stage').dataset.form = stage.form;
   $('stage').dataset.gazeX = (stage.character.gazeX ?? stage.character.focus?.x ?? 0).toFixed(2);
   $('stage').dataset.gazeY = (stage.character.gazeY ?? stage.character.focus?.y ?? 0).toFixed(2);
+  $('stage').dataset.expression=stage.character.features?.(stage.time).mouth||stage.character.emotion;
+  $('stage').dataset.held=String(Boolean(stage.character.held));$('stage').dataset.mouth=voice.mouthLevel.toFixed(2);$('stage').dataset.mouthTiming=voice.mouthTiming;
 }, 120);
 
 function cancelConversation(){turns.cancel();setBusy(false);voice.stop();microphone.stop();summaryController?.abort();clearTimeout(summaryTimer);pendingDraft?.remove();pendingDraft=null;}
@@ -284,12 +289,14 @@ function showVoice() {
   $('voice-note').textContent=voice.engine==='natural'?'This is an AI-generated voice. Each reply uses your configured speech provider’s quota.':'Browser voice is free. Quality depends on the voices available on your device.';
 }
 function showConnection() {
-  const provider=connection.providers?.find(p=>p.id===selectedProvider);
-  brain=provider && connection.brain==='live'?'live':'demo';
-  $('brain-status').lastChild.textContent=brain==='live'?` ${provider.name.toUpperCase()}`:connection.access==='locked'?' OWNER LOCKED':' OFFLINE DEMO';
-  $('brain-status').title=brain==='live'?`Configured model: ${provider.model}. Send a message to exercise the connection.`:'This is a scripted offline demo until a server key is configured and cloud access is unlocked.';
-  $('brain-note').textContent=brain==='live'?`Model-generated replies · ${provider.name}. Your name, notebook, and recent conversation are sent with each turn. Camera stays local.`:connection.access==='locked'?'Cloud AI is owner-protected. Unlock it in Settings; the offline demo and scenes remain available.':'Offline demo. Add a server API key to give NOX fresh, model-generated conversation.';
-  $('inspector-brain').textContent=brain==='live'?`${provider.model} · providers.mjs`:'Offline demo · brain.js';
+  const state=connectionState(connection,selectedProvider),provider=state.provider;brain=state.kind;
+  const labels={locked:'UNLOCK AI',loading:'CHECKING CONNECTION',unconfigured:'AI NOT CONFIGURED',demo:'SCRIPTED DEMO'};
+  $('brain-status').lastChild.textContent=brain==='live'?` ${provider.name.toUpperCase()}`:` ${labels[brain]}`;
+  const note=brain==='live'?`Model-generated replies · ${provider.name}. Your name, notebook, and conversation context travel with each turn. Camera stays local.`:brain==='locked'?'Your AI brain is locked. Unlock it once in Preferences; access lasts up to 12 hours in this browser. Scenes and touch still work.':brain==='demo'?'You selected the scripted demo. Switch to a configured AI provider for fresh conversation.':brain==='loading'?'Checking the AI connection…':'No AI provider is configured. Add a server key to enable conversation; scenes and touch still work.';
+  $('brain-status').title=note;$('brain-note').textContent=note;
+  $('connection-message').textContent=note;$('connection-help').hidden=brain==='live';$('unlock-ai').hidden=brain==='demo';
+  $('unlock-ai').textContent=brain==='locked'?'Unlock AI ↗':'Connection settings ↗';
+  $('inspector-brain').textContent=brain==='live'?`${provider.model} · providers.mjs`:labels[brain];
 }
 async function refreshConnection(token = ownerToken) {
   const version=++connectionVersion;
@@ -298,17 +305,17 @@ async function refreshConnection(token = ownerToken) {
   const status=await response.json();
   if(version!==connectionVersion) return false;
   if(token && status.access==='locked') throw new Error('The owner token was not accepted.');
-  ownerToken=token; connection=status;
+  ownerToken=''; connection=status;
   const configured=status.providers||[];
-  const choices=[{id:'',name:'Offline demo'},...['groq','nvidia','gemini'].map(id=>configured.find(p=>p.id===id)||{id,name:({groq:'GroqCloud',nvidia:'NVIDIA NIM',gemini:'Google Gemini'}[id])+` · ${status.access==='locked'?'unlock first':'add key'}`,disabled:true}),...configured.filter(p=>!['groq','nvidia','gemini'].includes(p.id))];
+  const choices=[{id:'',name:status.access==='locked'?'AI · unlock to connect':'Automatic AI'},{id:'demo',name:'Scripted demo · offline'},...['groq','nvidia','gemini'].map(id=>configured.find(p=>p.id===id)||{id,name:({groq:'GroqCloud',nvidia:'NVIDIA NIM',gemini:'Google Gemini'}[id])+` · ${status.access==='locked'?'unlock first':'add key'}`,disabled:true}),...configured.filter(p=>!['groq','nvidia','gemini'].includes(p.id))];
   $('provider-select').replaceChildren(...choices.map(p=>{const option=document.createElement('option');option.value=p.id;option.textContent=p.name;option.disabled=!!p.disabled;return option;}));
-  if(!status.providers?.some(p=>p.id===selectedProvider)) selectedProvider=status.provider||'';
+  if(selectedProvider!=='demo'&&!status.providers?.some(p=>p.id===selectedProvider)) selectedProvider=status.provider||'';
   $('provider-select').value=selectedProvider;
   $('provider-note').textContent=status.providers?.length?'Switch between configured providers. Models can still reach their free-tier limits.':'Configure GROQ_API_KEY, GEMINI_API_KEY, or NVIDIA_API_KEY on the server. Keys never belong in this page.';
   voice.configureNatural(status.voice==='natural'); $('natural-option').disabled=status.voice!=='natural';
   voice.setEngine(preferredEngine);
   try{voice.setEnabled(disk.getItem('nox.voice.v2')!=='off');}catch{voice.setEnabled(true);}
-  $('owner-form').hidden=status.access!=='locked'; $('lock-owner').hidden=!ownerToken;
+  $('owner-form').hidden=status.access!=='locked'; $('lock-owner').hidden=status.access==='locked'||!configured.length;
   showConnection();showVoice(); return true;
 }
 $('provider-select').addEventListener('change',event=>{
@@ -319,25 +326,37 @@ $('owner-form').addEventListener('submit',async event=>{
   event.preventDefault();const token=$('owner-token').value.trim();$('owner-token').value='';
   if(!token) return;
   const button=event.currentTarget.querySelector('button');button.disabled=true;
-  try {if(await refreshConnection(token)) $('owner-status').textContent='Cloud access is unlocked for this visit.';}
+  try {
+    const response=await fetch('/api/session',{method:'POST',headers:apiHeaders(token)});
+    if(!response.ok){const error=await response.json();throw Error(error.error||'Could not unlock AI.');}
+    selectedProvider='';
+    if(await refreshConnection()){
+      if(connection.access!=='open')throw Error('This browser could not keep the AI session. Allow cookies for NOX, then unlock again.');
+      if(brain!=='live')throw Error('Owner access is unlocked, but no AI provider is configured. Add its server key first.');
+      $('owner-status').textContent='AI unlocked for up to 12 hours. Reloading keeps this browser connected.';
+      $('inside-dialog').close();toast('NOX’s AI brain is connected.');
+    }
+  }
   catch(error){$('owner-status').textContent=error.message;}
   finally {button.disabled=false;}
 });
 $('lock-owner').addEventListener('click',async()=>{
   cancelConversation();ownerToken='';selectedProvider='';
+  try{const response=await fetch('/api/session',{method:'DELETE'});if(!response.ok)throw Error('lock');}catch{toast('Could not end the browser session. Try Lock again.');return;}
   connectionVersion++;connection={access:'locked',providers:[]};voice.configureNatural(false);showConnection();showVoice();
-  $('provider-select').replaceChildren(new Option('Offline demo',''));$('natural-option').disabled=true;
+  $('provider-select').replaceChildren(new Option('AI · unlock to connect',''));$('natural-option').disabled=true;
   $('owner-form').hidden=false;$('lock-owner').hidden=true;$('owner-status').textContent='Cloud access is locked.';
   try {await refreshConnection();}catch{toast('Cloud access is locked. Server status is unavailable.');}
 });
-function browserVoices(){const voices=globalThis.speechSynthesis?.getVoices().filter(v=>v.lang?.startsWith('en'))||[];const selected=$('browser-speaker').value;$('browser-speaker').replaceChildren(new Option('Automatic',''),...voices.map(v=>new Option(v.name,v.name)));$('browser-speaker').value=selected||savedBrowserVoice;}
+$('unlock-ai').addEventListener('click',()=>{$('inside-dialog').showModal();if(brain==='locked')$('owner-token').focus();});
+function browserVoices(){const voices=globalThis.speechSynthesis?.getVoices().filter(v=>v.lang?.startsWith('en'))||[];const selected=$('browser-speaker').value;$('browser-speaker').replaceChildren(new Option('Automatic · prefer male',''),...voices.map(v=>new Option(v.name,v.name)));$('browser-speaker').value=selected||savedBrowserVoice;}
 let savedBrowserVoice='';
-try{preferredEngine=disk.getItem('nox.voice.engine.v1')||'browser';$('speaker-select').value=disk.getItem('nox.voice.speaker.v1')||'austin';savedBrowserVoice=disk.getItem('nox.voice.browser.v1')||'';}catch{}
+try{preferredEngine=disk.getItem('nox.voice.engine.v1')||'browser';$('speaker-select').value=disk.getItem('nox.voice.speaker.v2')||'troy';savedBrowserVoice=disk.getItem('nox.voice.browser.v2')||'';}catch{}
 voice.setSpeaker($('speaker-select').value);voice.setBrowserVoice(savedBrowserVoice);browserVoices();globalThis.speechSynthesis?.addEventListener('voiceschanged',browserVoices);
-$('speaker-select').addEventListener('change',e=>{voice.setSpeaker(e.target.value);try{disk.setItem('nox.voice.speaker.v1',e.target.value);}catch{}});
-$('browser-speaker').addEventListener('change',e=>{savedBrowserVoice=e.target.value;voice.setBrowserVoice(savedBrowserVoice);try{disk.setItem('nox.voice.browser.v1',savedBrowserVoice);}catch{}});
+$('speaker-select').addEventListener('change',e=>{voice.setSpeaker(e.target.value);try{disk.setItem('nox.voice.speaker.v2',e.target.value);}catch{}});
+$('browser-speaker').addEventListener('change',e=>{savedBrowserVoice=e.target.value;voice.setBrowserVoice(savedBrowserVoice);try{disk.setItem('nox.voice.browser.v2',savedBrowserVoice);}catch{}});
 $('replay-voice').addEventListener('click',()=>{if(!voice.enabled)toast('Turn Voice on to hear this reply.');else voice.speak(lastPacket.speech,mode,lastPacket.emotion);});
 $('test-voice').addEventListener('click',()=>{voice.setEnabled(true);showVoice();voice.speak('Oh, you found me. I was just thinking about something strange. Want to hear it?',mode,mode==='uncanny'?'uncanny':'happy');});
 try{voice.setEnabled(disk.getItem('nox.voice.v2')!=='off');}catch{voice.setEnabled(true);}showVoice();
 try {await refreshConnection();}
-catch {toast('Server status is unavailable. NOX’s offline demo is still here.');}
+catch {connection={};showConnection();$('connection-message').textContent='Could not reach the AI server. Reload to retry. Scenes and touch still work.';toast('The AI server could not be reached. No scripted reply was substituted.');}

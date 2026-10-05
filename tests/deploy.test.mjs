@@ -17,7 +17,7 @@ test('Vercel build contains static module dependencies and all bounded API handl
     assert.match(await readFile(path.join(output,'static/shared/character.js'),'utf8'), /normalizePacket/);
     const files = await readdir(path.join(output,'static'));
     for (const secret of ['.env','.git','server.mjs','docs','artifacts']) assert.ok(!files.includes(secret));
-    for (const endpoint of ['status','chat','speech','summary']) {
+    for (const endpoint of ['status','chat','speech','summary','session']) {
       const folder = path.join(output,`functions/api/${endpoint}.func`);
       const config = JSON.parse(await readFile(path.join(folder,'.vc-config.json'),'utf8'));
       assert.equal(config.runtime,'nodejs24.x'); assert.equal(config.handler,'index.mjs');

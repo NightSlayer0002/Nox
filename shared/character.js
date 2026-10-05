@@ -1,6 +1,6 @@
 // The contract between a brain and NOX's body. Neither brain can invent powers.
 export const MODES = Object.freeze(['companion', 'director', 'uncanny']);
-export const EMOTIONS = Object.freeze(['neutral', 'happy', 'curious', 'skeptical', 'sleepy', 'uncanny']);
+export const EMOTIONS = Object.freeze(['neutral', 'happy', 'curious', 'skeptical', 'sleepy', 'uncanny','annoyed','surprised','shy']);
 export const ACTIONS = Object.freeze(['none', 'gravity', 'spotlight', 'orbit', 'echo', 'takeover']);
 
 export const PACKET_SCHEMA = {

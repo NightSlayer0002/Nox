@@ -65,6 +65,7 @@ export class Stage {
       this.pointer = locate(event);
       if (this.dragging) {
         this.dragDistance = Math.max(this.dragDistance, Math.hypot(event.clientX-this.pressPoint.x, event.clientY-this.pressPoint.y));
+        if(this.dragDistance>=6)this.character.setHeld?.(true,this.time);
         this.character.x = clamp(this.pointer.x + this.dragOffset.x, 0, 1); this.character.y = clamp(this.pointer.y + this.dragOffset.y, 0, 1);
         this.character.targetX = this.character.x; this.character.targetY = this.character.y;
       }
@@ -82,6 +83,7 @@ export class Stage {
     const release = event => {
       if (!this.dragging || event.pointerId !== this.activePointer) return;
       if (this.dragging && event.type === 'pointerup' && this.dragDistance < 6) this.character.poke(this.time);
+      this.character.setHeld?.(false,this.time);
       this.dragging = false; this.activePointer = null; this.character.targetX = this.character.x; this.character.targetY = this.character.y;
     };
     this.canvas.addEventListener('pointerup', release);
@@ -112,6 +114,7 @@ export class Stage {
     if (!ACTIONS.includes(action) || action === 'none') return;
     this.reset();
     this.scene = { action, start: this.time, velocity: 0 };
+    if(action==='takeover'&&this.reduceMotion)this.takeoverPose(1);
     if (action === 'gravity' && this.form === 'face' && !this.reduceMotion) {
       this.character.y = .28; this.character.targetY = .28; this.character.scale = .9;
     }
@@ -123,7 +126,7 @@ export class Stage {
   }
   reset(recentre = true) {
     this.scene = null; this.character.scale = 1; this.character.rotation = 0;
-    if (recentre) { this.dragging = false; this.activePointer = null; this.character.targetX = .5; this.character.targetY = .46; }
+    if (recentre) { this.dragging = false; this.character.setHeld?.(false,this.time);this.activePointer = null; this.character.targetX = .5; this.character.targetY = .46; }
     this.onScene?.('none');
   }
   frame(timestamp) {
@@ -152,11 +155,14 @@ export class Stage {
       this.character.targetY = this.character.y;
       this.character.rotation = Math.sin(age * 3.5) * .12 * Math.exp(-age * .4);
     }
-    if (this.scene.action === 'takeover') {
-      this.character.scale = 1 + enter * (this.form === 'face' ? .35 : .75);
-      if (this.form === 'face') this.character.targetY = .46 - enter*.05;
-    }
+    if (this.scene.action === 'takeover') this.takeoverPose(enter);
     if (this.scene.action === 'orbit') this.character.rotation = Math.sin(age * .5) * .04;
+  }
+  takeoverPose(enter){
+    const unit=this.character.unit?.(this.width,this.height,1);
+    const scale=this.form==='face'?Math.min(1.9,.82*this.height/(290*unit),.9*this.width/(300*unit)):1.75;
+    this.character.scale=1+enter*(scale-1);
+    if(this.form==='face'){this.character.targetY=.46-enter*.06;if(this.reduceMotion)this.character.y=this.character.targetY;}
   }
   render() {
     const ctx = this.ctx, w = this.width, h = this.height;
@@ -213,7 +219,7 @@ export class Stage {
   }
   drawCamera(action, age) {
     const ctx = this.ctx, w = this.width, h = this.height;
-    const shrink = action === 'takeover' && !this.reduceMotion ? 1 - smooth(clamp(age / 1.3, 0, 1)) * .55 : 1;
+    const shrink = action === 'takeover' ? 1 - (this.reduceMotion?1:smooth(clamp(age / 1.3, 0, 1))) * .55 : 1;
     const cw = w * .25 * shrink, ch = cw * .75, x = w * .035, y = h * .13;
     ctx.save(); ctx.beginPath(); ctx.roundRect(x, y, cw, ch, 10); ctx.clip();
     ctx.translate(x + cw, y); ctx.scale(-1, 1);
