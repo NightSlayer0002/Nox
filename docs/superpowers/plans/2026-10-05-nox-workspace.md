@@ -34,7 +34,7 @@ Interface: hash routes within /app select real views; starting/selecting/deletin
 
 - [x] Update founder/deployment guides with architecture, storage limits, cache scope, summaries, NVIDIA setup and Vercel domain editing instructions.
 - [x] Run npm.cmd run verify; independent review and fix material findings. Commit/push the verified update to main under the existing deployment authorization.
-- [ ] Confirm Ready production source, landing/workspace/API health. Configure/test NVIDIA only after owner enters its private key; report any credential dependency precisely.
+- [x] Confirm Ready production source, landing/workspace/API health. NVIDIA setup was explicitly deferred by the owner; the adapter is ready but its account connection is unverified.
 
 Review focus: aborted streams must not persist partial replies; thread switches must not cross-contaminate context; failed summaries must not discard full history; speech directions must fit Orpheus's 200-character limit; custom domains must be allowlisted without weakening authentication.
 
@@ -45,3 +45,5 @@ Ruling: independent review found four P2 cases; each was reproduced with a faili
 Final local verification after the fixes: 80 tests passed, 41 JavaScript modules passed syntax checks, and the Vercel output build succeeded. NVIDIA credential setup was explicitly deferred by the owner because its site was unavailable; no live NVIDIA account claim is made. Vercel's actual Domains/Edit form was inspected without changing the public alias.
 
 Post-review browser evidence: two real same-origin workspace tabs each created a different conversation while replies streamed. The Library and downloaded `nox-conversations-2026-10-05.json` both contained the two complete two-message threads. The download event waiter timed out, but the exported file itself was located and parsed to verify the result. The preview model was explicitly labeled Local test fixture; these checks are browser integration evidence, not live Groq/NVIDIA measurements.
+
+Production evidence: commit `aef0fb8` automatically deployed and reached Ready at https://nox-iota-lemon.vercel.app. Home and /app loaded the new product. Public status returned HTTP 200 / owner locked; anonymous chat, speech and summary returned HTTP 401. After the owner unlocked a live workspace, Groq correctly recalled the earlier shadow character and generated a new line about its home. The second turn measured first words at 413 ms and completion at 414 ms (server timer); natural audio was received in 2908 ms. The background summary completed and the retained transcript still contained all 21 messages. Browser voice was restored as the selected default after the natural-voice test. These are individual request measurements, not a comparative latency benchmark.
