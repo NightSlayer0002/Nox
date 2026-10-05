@@ -166,3 +166,7 @@ A free quota can be reduced, exhausted, or removed. Check the provider dashboard
 | `tests/deploy.test.mjs` | Static/private separation, stale asset removal, packaged handler execution |
 
 A function does not listen on port 3000 in Vercel. Vercel invokes its exported handler. We take the existing HTTP server's request listener and export it, preserving the same validation in local and cloud execution. Each function folder includes its backend module dependencies and `.vc-config.json`, whose runtime is Node 24. Static files are copied separately; no `.env` file enters either output.
+
+### Why each function has its own package.json
+
+The function bundle includes a minimal `package.json` with `"type": "module"`. This tells Vercel that the shared `.js` contract uses ESM exports. Local Node 24 can infer the module type from source syntax, which initially hid the missing declaration. The first live function invocation revealed the mismatch. The build regression now imports every handler in a separate Node process with automatic module detection disabled, and each bundle declares its module scope explicitly. A successful build is followed by live endpoint checks; it is not sufficient proof of runtime health.

@@ -547,3 +547,7 @@ GitHub holds version history. Vercel deploys a specific commit after a push. A f
 **Is the rate limit a global cost cap?** No. Vercel can have multiple function processes, each with its own memory. Durable per-user quotas need shared storage and authentication. This version protects the personal cloud endpoints with owner access and relies on provider Free plan enforcement.
 
 **Can NOX see me?** No. Camera preview is local Canvas composition. Vision requires a deliberate image pipeline and consent; nothing in this release sends camera frames to the model.
+
+### A deployment lesson: build success versus runtime success
+
+Our first Vercel build passed while its API invocation failed: the function bundle lacked an explicit module scope. The entrypoint was `.mjs`, but its shared dependency was `.js`. Local Node inferred ESM syntax; the hosted runtime treated that file differently, so named exports were unavailable. We added a minimal `package.json` declaring `type: module` inside every function directory and reproduced the hosted error in a subprocess with automatic module detection disabled. This is why integration tests must model the deployed environment and why a live smoke test follows a green build.

@@ -28,6 +28,8 @@ export async function buildVercel(destination = path.join(root,'.vercel/output')
     await cp(path.join(root,'server.mjs'),path.join(folder,'server.mjs'));
     await cp(path.join(root,'server'),path.join(folder,'server'),{recursive:true});
     await cp(path.join(root,'shared'),path.join(folder,'shared'),{recursive:true});
+    // Keep shared .js modules unambiguously ESM in the isolated function bundle.
+    await writeFile(path.join(folder,'package.json'),JSON.stringify({private:true,type:'module'},null,2));
     await writeFile(path.join(folder,'index.mjs'),`import { createAppServer } from './server.mjs';\nconst handler = createAppServer({ hosted: true }).listeners('request')[0];\nexport default function(request, response) { request.url = '/api/${endpoint}'; return handler(request, response); }\n`);
     await writeFile(path.join(folder,'.vc-config.json'),JSON.stringify({runtime:'nodejs24.x',handler:'index.mjs',launcherType:'Nodejs',shouldAddHelpers:false,maxDuration:30},null,2));
   }
