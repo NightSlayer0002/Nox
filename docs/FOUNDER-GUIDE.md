@@ -644,3 +644,13 @@ There is no semantic cache of whole character replies. Reusing a response to a v
 **Why retain the transcript after summarization?** Summaries are lossy context aids. The transcript is the user's record, supports search/export/reopen, and is never replaced by generated notes.
 
 **Is NVIDIA enabled just because its option appears?** No. Its adapter and tests are in place, but a private server key and model access are required. The owner deferred setup while NVIDIA's site was unavailable. Credentials never belong in client code. The deployment guide contains the exact activation steps.
+
+### The character who follows you down the page
+
+`public/js/peek.js` adds the home-page corner cameo. It does not create another character. The existing `Stage` updates one Face's gaze, blink, mood and clock; the room canvas and a small transparent corner canvas draw that same state. The corner tilts his body slightly and crops it against the viewport edge so he appears to peek rather than occupy another panel. Its CSS uses `pointer-events:none`, so the links beneath remain clickable.
+
+`createPeekState()` separates the scroll decision from drawing. It docks after the character's original bottom edge passes 12 pixels above the viewport, and returns once that edge reaches 64 pixels inside it. Different enter/return thresholds are hysteresis: tiny scroll changes around a boundary cannot repeatedly flip the state. The transition approaches its target using `1 - exp(-12 * dt)`, making the speed depend on elapsed time instead of frame count. A saved motion-off preference snaps directly to the target.
+
+`attachPeek()` supplies two optional Stage frame hooks. Before the character update it measures the room, selects the presence, and translates the real viewport cursor relative to the corner face. After the frame it projects the same character into the corner canvas. His original position stays intact, including a position changed by dragging. Returning fades the corner away while restoring the body in the room. A pointer entering the corner earns one wink per entry. The room stops drawing while completely off-screen, but the single animation clock keeps the corner alive. `tests/peek.test.mjs` verifies the boundary hysteresis, restored scroll positions, motion-off transitions and gaze direction.
+
+**How would you explain this interaction in an interview?** Character state belongs to the simulation; location belongs to the view. One character can have two temporary projections without two independent animation loops or conflicting eyes. Scroll state selects the view, and pointer coordinates are converted into that view's frame of reference.

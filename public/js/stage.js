@@ -130,9 +130,11 @@ export class Stage {
     this.time = (timestamp - this.started) / 1000;
     const dt = Math.min(.04, Math.max(0, (timestamp - (this.previous || timestamp)) / 1000));
     this.previous = timestamp;
+    this.onBeforeFrame?.(this.time,dt);
     this.animateScene(dt);
     this.character.update(this.time, dt, this.pointer, this.dragging || this.scene?.action === 'gravity', this.reduceMotion);
-    this.render();
+    if(this.renderEnabled!==false)this.render();
+    this.onAfterFrame?.();
     requestAnimationFrame(next => this.frame(next));
   }
   animateScene(dt) {
@@ -182,7 +184,7 @@ export class Stage {
       const appearance = this.reduceMotion ? .18 : smooth(clamp((age - 1) / 3, 0, 1)) * .22;
       this.character.draw(ctx, w, h, this.time, { x: .75, y: .29, scale: .56, alpha: appearance, ghost: true });
     }
-    this.character.draw(ctx, w, h, this.time);
+    if(this.characterAlpha!==0)this.character.draw(ctx, w, h, this.time,{alpha:this.characterAlpha??1});
     if (action === 'spotlight') {
       const radius = Math.min(w, h) * .32;
       const px = this.reduceMotion ? w * .5 : this.pointer.x * w;
