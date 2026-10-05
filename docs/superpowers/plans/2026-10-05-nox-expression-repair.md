@@ -29,7 +29,7 @@
 - [x] Stop the temporary local preview after QA.
 
 ## Follow-up: persistent gravity and identity
-- [ ] Preserve gravity across pickup, cancellation, release and the ten-second scene timeout; pause velocity while held, then fall and settle on release.
-- [ ] Add a transient falling expression and downward gaze; reset/toggle-off clears it and reduced motion remains static.
-- [ ] Clarify NOX's identity independently of its inference provider, then check a real Groq identity reply in production.
-- [ ] Verify the drag/release loop, update the founder guide, review, push and confirm the automatic production deployment.
+- [x] Preserve gravity across pickup, cancellation, release and the ten-second scene timeout; pause velocity while held, then fall and settle on release.
+- [x] Add a transient falling expression and downward gaze; reset/toggle-off clears it and reduced motion remains static.
+- [x] Clarify NOX's identity independently of its inference provider, then check a real Groq identity reply in production.
+- [x] Verify the drag/release loop, update the founder guide, review, push and confirm the automatic production deployment.
