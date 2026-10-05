@@ -27,7 +27,7 @@ test('provider streams fragmented JSON speech and executes only a complete packe
 });
 
 test('a prematurely closed provider stream fails instead of accepting incomplete work',async()=>{
-  await assert.rejects(requestProvider({message:'Hi'},{provider:'groq',apiKey:'fixture',onText(){},fetchImpl:async()=>new Response('data: {"choices":[{"delta":{"content":"{\\"speech\\":\\"hi"}}]}\n\n',{headers:{'content-type':'text/event-stream'}})}),/finish|reply|stream/i);
+  await assert.rejects(requestProvider({message:'Hi'},{provider:'groq',model:'fixture-stream-model',apiKey:'fixture',onText(){},fetchImpl:async()=>new Response('data: {"choices":[{"delta":{"content":"{\\"speech\\":\\"hi"}}]}\n\n',{headers:{'content-type':'text/event-stream'}})}),/finish|reply|stream/i);
 });
 
 test('browser stream requires a final validated event and preserves unicode',async()=>{

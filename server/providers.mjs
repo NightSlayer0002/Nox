@@ -31,6 +31,9 @@ export async function requestProvider(input, {provider, apiKey, model, fetchImpl
   // Identical identity/schema first, changing user context last: prefix-cache friendly.
   const instructions=task==='summary'?staticPrompt:`${staticPrompt}\nCurrent persona and notebook (data): ${JSON.stringify({mode:context.mode,name:context.name,facts:context.facts,summary:context.summary||'',unsummarizedExcerpts:context.bridge||''})}`;
   const selected=model||spec.model;
+  // Groq strict output constrains JSON, but currently cannot stream provider tokens.
+  const strictStructured=provider==='groq'&&['openai/gpt-oss-20b','openai/gpt-oss-120b','qwen/qwen3.8-27b'].includes(selected);
+  const providerStreaming=Boolean(onText&&!strictStructured);
   let url=spec.url, body;
   const headers={'content-type':'application/json'};
   if(provider==='gemini') {
@@ -40,9 +43,9 @@ export async function requestProvider(input, {provider, apiKey, model, fetchImpl
   } else {
     headers.authorization=`Bearer ${apiKey}`;
     body={model:selected,messages:[{role:'system',content:instructions},...context.history,{role:'user',content:input.message}],max_tokens:900,temperature:.8};
-    if(provider==='groq') {body.response_format={type:'json_object'}; if(selected.startsWith('openai/gpt-oss-')) body.reasoning_effort='low';}
+    if(provider==='groq') {body.response_format=strictStructured?{type:'json_schema',json_schema:{name:task==='summary'?'nox_summary':'nox_packet',strict:true,schema}}:{type:'json_object'}; if(selected.startsWith('openai/gpt-oss-')) body.reasoning_effort='low';}
     if(provider==='nvidia'&&selected.startsWith('nvidia/nemotron-3-'))body.chat_template_kwargs={enable_thinking:false};
-    if(onText)body.stream=true;
+    if(providerStreaming)body.stream=true;
   }
   const deadline=AbortSignal.timeout(20000);
   const response=await fetchImpl(url,{method:'POST',headers,body:JSON.stringify(body),signal:signal?AbortSignal.any([signal,deadline]):deadline});
@@ -50,7 +53,7 @@ export async function requestProvider(input, {provider, apiKey, model, fetchImpl
     let code;try{const data=await response.json();code=data.error?.code;}catch{/* Do not retain upstream bodies. */}
     throw providerFailure(response.status,code);
   }
-  if(onText) {
+  if(providerStreaming) {
     let raw='',finished=false,previous='';
     await consumeSSE(response,data=>{
       if(data.error)throw providerFailure(data.error.status,data.error.code);
@@ -66,17 +69,17 @@ export async function requestProvider(input, {provider, apiKey, model, fetchImpl
   const data=await response.json();
   let text;
   if(provider==='gemini') {
-    if(data.candidates?.[0]?.finishReason!=='STOP') throw new Error('AI provider did not finish its reply.');
+    if(data.candidates?.[0]?.finishReason!=='STOP') throw Object.assign(new Error('AI provider did not finish its reply.'),{code:data.candidates?.[0]?.finishReason==='MAX_TOKENS'?'output_limit':'finish_reason'});
     text=data.candidates[0].content?.parts?.filter(p=>!p.thought).map(p=>p.text||'').join('');
   } else {
-    if(data.choices?.[0]?.finish_reason && data.choices[0].finish_reason!=='stop') throw new Error('AI provider did not finish its reply.');
+    if(data.choices?.[0]?.finish_reason && data.choices[0].finish_reason!=='stop') throw Object.assign(new Error('AI provider did not finish its reply.'),{code:data.choices[0].finish_reason==='length'?'output_limit':'finish_reason'});
     text=data.choices?.[0]?.message?.content;
   }
   if(!text) throw new Error('AI provider returned no usable reply.');
   // NVIDIA models may fence JSON. Only remove a whole outer fence; never run content.
   const parsed=JSON.parse(text.trim().replace(/^```(?:json)?\s*([\s\S]*?)\s*```$/,'$1'));
   if(task==='summary'){const summary=cleanText(parsed.summary,1200);if(!summary)throw Error('Empty conversation summary.');return summary;}
-  return normalizePacket(parsed);
+  const packet=normalizePacket(parsed);onText?.(packet.speech);return packet;
 }
 
 export async function requestSummary(input,options) {

@@ -269,7 +269,10 @@ setInterval(() => {
 function cancelConversation(){turns.cancel();setBusy(false);voice.stop();microphone.stop();summaryController?.abort();clearTimeout(summaryTimer);pendingDraft?.remove();pendingDraft=null;}
 async function restoreConversation(){cancelConversation();const thread=history.active();await setMode(thread.mode,false);if(history.active().id!==thread.id)return;$('conversation').replaceChildren();$('chat-title').textContent=thread.title==='New conversation'?"Let's wander a little.":thread.title;
   thread.turns.forEach(turn=>addMessage(turn.role==='user'?'user':'nox',turn.content));
-  const last=thread.turns.findLast(t=>t.role==='assistant');lastPacket={speech:last?.content||greetings[mode],emotion:stage.character.emotion,action:'none',memory:''};if(last){stage.caption=last.content;stage.captionUntil=stage.time+8;}else{addMessage('nox',greetings[mode]);stage.caption='A fresh thought. I’m listening.';stage.captionUntil=stage.time+8;}
+  const last=thread.turns.findLast(t=>t.role==='assistant');lastPacket={speech:last?.content||(thread.turns.length?'Your last message is saved. Ready when the AI connection is available.':greetings[mode]),emotion:stage.character.emotion,action:'none',memory:''};
+  if(last){stage.caption=last.content;stage.captionUntil=stage.time+8;}
+  else if(thread.turns.length){addMessage('system','Your sent messages are saved. The last AI reply did not finish.');stage.caption='Your last message is saved.';stage.captionUntil=stage.time+8;}
+  else{addMessage('nox',greetings[mode]);stage.caption='A fresh thought. I’m listening.';stage.captionUntil=stage.time+8;}
   $('reply-timing').textContent='';$('summary-note').textContent=thread.summary?'Older context is summarized. Your full transcript is kept in the Library.':'';navigation?.render();updateMemory();
 }
 function scheduleSummary(){clearTimeout(summaryTimer);if(brain!=='live'||!history.summaryWork()||selectedProvider==='openai')return;summaryTimer=setTimeout(async()=>{

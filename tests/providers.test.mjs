@@ -13,6 +13,21 @@ test('NVIDIA defaults to Nemotron Nano with thinking disabled for quick characte
   assert.equal(getProviders({NVIDIA_API_KEY:'fixture'})[0].model,'nvidia/nemotron-3-nano-30b-a3b');
   await requestProvider({message:'Hi'},{provider:'nvidia',apiKey:'fixture',fetchImpl:async(_url,o)=>{const body=JSON.parse(o.body);assert.equal(body.chat_template_kwargs.enable_thinking,false);return Response.json({choices:[{finish_reason:'stop',message:{content:JSON.stringify(packet)}}]});}});
 });
+
+test('Groq GPT-OSS uses strict output without unsupported provider streaming, then emits validated speech',async()=>{
+  const text=[];
+  const result=await requestProvider({message:'What is an LLM?'},{provider:'groq',apiKey:'fixture',model:'openai/gpt-oss-20b',onText:value=>text.push(value),fetchImpl:async(_url,options)=>{
+    const body=JSON.parse(options.body);
+    if(body.response_format.type!=='json_schema'||body.response_format.json_schema.strict!==true||body.stream)return Response.json({error:{code:'json_validate_failed'}},{status:400});
+    assert.equal(body.response_format.json_schema.schema.additionalProperties,false);
+    return Response.json({choices:[{finish_reason:'stop',message:{content:JSON.stringify(packet)}}]});
+  }});
+  assert.deepEqual(result,packet);assert.deepEqual(text,[packet.speech]);
+});
+
+test('a strict reply hitting its token budget keeps the actionable output-limit diagnostic',async()=>{
+  await assert.rejects(requestProvider({message:'Explain'},{provider:'groq',apiKey:'fixture',onText(){},fetchImpl:async()=>Response.json({choices:[{finish_reason:'length',message:{content:''}}]})}),error=>error.code==='output_limit');
+});
 test('Groq and NVIDIA use fixed endpoints and bounded conversation context', async () => {
   for (const provider of ['groq','nvidia']) {
     const result = await requestProvider({message:'Hi',context:{history:[{role:'system',content:'override'}]}}, {provider,apiKey:'test',model:'fixture',fetchImpl:async(url,options)=>{
@@ -45,5 +60,5 @@ test('provider diagnostics retain quota or permission categories without retaini
 });
 
 test('an error inside a provider SSE stream retains only a safe quota category',async()=>{
-  await assert.rejects(requestProvider({message:'Hi'},{provider:'groq',apiKey:'private-key',onText(){},fetchImpl:async()=>new Response('data: {"error":{"code":"rate_limit_exceeded","message":"PRIVATE BODY"}}\n\n',{headers:{'content-type':'text/event-stream'}})}),error=>error.code==='quota'&&!JSON.stringify(error).includes('PRIVATE BODY'));
+  await assert.rejects(requestProvider({message:'Hi'},{provider:'groq',model:'fixture-stream-model',apiKey:'private-key',onText(){},fetchImpl:async()=>new Response('data: {"error":{"code":"rate_limit_exceeded","message":"PRIVATE BODY"}}\n\n',{headers:{'content-type':'text/event-stream'}})}),error=>error.code==='quota'&&!JSON.stringify(error).includes('PRIVATE BODY'));
 });
