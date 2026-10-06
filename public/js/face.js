@@ -111,7 +111,7 @@ export class Face extends OrbSignal {
     const impactAge=time-this.impactAt;
     const squash=this.reduceMotion?0:impactAge>=0&&impactAge<.32?Math.sin(impactAge/.32*Math.PI)*this.impactStrength*.22:0;
     return {
-      expression:emotion,brows:expression.brows,marks:expression.marks,squash,
+      expression:emotion,brows:expression.brows,marks:expression.marks==='sleep'&&this.signal.status==='speaking'?undefined:expression.marks,squash,
       bodyTilt:this.reduceMotion?0:emotion==='dizzy'?Math.sin(time*3)*.07:this.liftTilt,
       eyeStyle:!this.held&&!this.falling&&time<this.squeezeUntil&&emotion!=='dizzy'?'squeezed':expression.eyes,held:this.held,falling:this.falling,
       leftHeight: 100*expression.heights[0]*blink*wink,

@@ -722,3 +722,6 @@ The body path now uses the original continuous outline from before the feet were
 Companion and Director now start with the same curious resting expression: matching tall luminous eyes and a small oval mouth, using the original eye width and spacing. Director previously selected skeptical by default, which caused the permanent uneven eyes and smirk in the screenshot. A skeptical model reply or an explicitly selected preview still uses that expression. Uncanny keeps its distinct after-dark look. The mode continues to affect conversation independently of the resting geometry.
 
 The regression test covers both normal persona defaults, matching eyes without a brow, explicit skeptical replies and Uncanny. Full verification passes 119 tests, 50 module syntax checks and the Vercel build.
+### Sleep marks
+
+The sleepy pose now has three warm, floating lowercase z marks above the head. `drawEyes()` draws them with staggered rise and opacity using the existing Stage time, so no extra timer or animation loop runs. With motion disabled they stay still. Canvas save/restore preserves opacity for the main character, echo and corner peek. Waking removes the marks; they are also suppressed while he is speaking, even if his dialogue emotion is sleepy. Scene Studio's Sleepy preview displays them immediately.

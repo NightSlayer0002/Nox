@@ -354,6 +354,17 @@ test('idle yawns wake on interaction and never replace an active thought or spee
   assert.equal(face.features(80.1).expression,'listening');
 });
 
+test('sleep zzz marks disappear on waking or speaking and remain available without motion',()=>{
+  const face=new Face();face.update(28,.016,{x:.5,y:.46},false,false);
+  assert.equal(face.features(28).marks,'sleep');
+  face.noticePointer({x:.8,y:.46},28);face.update(28.1,.016,{x:.8,y:.46},false,false);
+  assert.notEqual(face.features(28.1).marks,'sleep');
+  face.preview('sleepy',29);face.update(29.1,.016,{x:.8,y:.46},false,true);
+  assert.equal(face.features(29.1).marks,'sleep');
+  face.speakingUntil=Infinity;face.update(29.2,.016,{x:.8,y:.46},false,true);
+  assert.notEqual(face.features(29.2).marks,'sleep');
+});
+
 test('fine cursor movement wakes him once the total travel crosses his attention threshold',()=>{
   const face=new Face();face.noticePointer({x:.1,y:.46},0);face.update(26,.016,{x:.1,y:.46},false,false);
   assert.equal(face.features(26).expression,'yawning');

@@ -4,7 +4,7 @@ export const EXPRESSIONS = Object.freeze({
   neutral:{eyes:'pill',heights:[1,1]},curious:{eyes:'pill',heights:[1,1]},
   happy:{eyes:'arc',heights:[.73,.73]},content:{eyes:'arc',heights:[.55,.55]},
   skeptical:{eyes:'half',heights:[.44,.83],brows:'skeptical'},annoyed:{eyes:'half',heights:[.3,.3],brows:'angry'},
-  sleepy:{eyes:'closed',heights:[.18,.18]},yawning:{eyes:'closed',heights:[.18,.18]},
+  sleepy:{eyes:'closed',heights:[.18,.18],marks:'sleep'},yawning:{eyes:'closed',heights:[.18,.18]},
   uncanny:{eyes:'pill',heights:[1.06,1.06]},surprised:{eyes:'ring',heights:[1.14,1.14],brows:'raised'},
   shy:{eyes:'arc',heights:[.6,.6],marks:'blush'},worried:{eyes:'pill',heights:[.6,.64],brows:'worried',marks:'sweat'},
   dizzy:{eyes:'spiral',heights:[.8,.8],marks:'stars'},ouch:{eyes:'squeezed',heights:[.5,.5]},
@@ -84,6 +84,16 @@ export function drawEyes(ctx,f,gazeX,gazeY,time,color,reduceMotion){
   if(f.marks==='stars'){for(const [x,y,r] of [[-78,-150,5],[10,-169,4],[83,-142,5]])star(ctx,x,y,r);}
   if(f.marks==='question'){ctx.font='24px Manrope, sans-serif';ctx.fillText('?',85,-80);}
   if(f.marks==='sweat'){ctx.beginPath();ctx.moveTo(91,-32);ctx.quadraticCurveTo(81,-11,91,-12);ctx.quadraticCurveTo(99,-13,91,-32);ctx.stroke();}
+  if(f.marks==='sleep'){
+    ctx.save();const opacity=ctx.globalAlpha;ctx.fillStyle=color;ctx.shadowBlur=3;ctx.textAlign='center';
+    for(let i=0;i<3;i++){
+      const phase=reduceMotion?0:(time*.32+i/3)%1;
+      ctx.globalAlpha=opacity*(reduceMotion ? .8 : .25+.75*Math.sin(phase*Math.PI));
+      ctx.font=`500 ${14+i*4}px Manrope, sans-serif`;
+      ctx.fillText('z',69+i*15+phase*12,-129-i*14-phase*23);
+    }
+    ctx.restore();
+  }
   if(f.marks==='anger'){
     ctx.save();ctx.translate(88,-111);ctx.strokeStyle='#f07c68';ctx.shadowColor='#d85440';ctx.shadowBlur=3;ctx.lineWidth=4;
     for(let i=0;i<4;i++){ctx.beginPath();ctx.moveTo(5,-5);ctx.lineTo(5,-16);ctx.lineTo(16,-16);ctx.stroke();ctx.rotate(Math.PI/2);}ctx.restore();
