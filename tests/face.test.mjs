@@ -2,6 +2,12 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { Face } from '../public/js/face.js';
 import { Stage } from '../public/js/stage.js';
+test('a stage with no deliberate motion choice follows the current OS preference',()=>{
+  const stage=Object.create(Stage.prototype);stage.reset=()=>{};stage.motionQuery={matches:true};
+  stage.setMotion(null);assert.equal(stage.reduceMotion,true);assert.equal(stage.motionOverride,null);
+  stage.motionQuery.matches=false;stage.setMotion(null);assert.equal(stage.reduceMotion,false);assert.equal(stage.motionOverride,null);
+  stage.setMotion(false);assert.equal(stage.motionOverride,false);assert.equal(stage.reduceMotion,true);
+});
 
 test('pointer movement outside the canvas updates NOX gaze',()=>{
   const oldDocument=globalThis.document;

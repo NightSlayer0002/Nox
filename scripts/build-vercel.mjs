@@ -2,16 +2,18 @@ import { cp, mkdir, writeFile, rm } from 'node:fs/promises';
 import path from 'node:path';
 import os from 'node:os';
 import { fileURLToPath, pathToFileURL } from 'node:url';
+import { buildClient } from './build-client.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const securityHeaders = {
   'X-Content-Type-Options': 'nosniff',
   'Referrer-Policy': 'no-referrer',
   'Cache-Control': 'no-store',
-  'Content-Security-Policy': "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; media-src 'self' blob:; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'",
+  'Content-Security-Policy': "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; media-src 'self' blob:; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; object-src 'none'; form-action 'self'",
 };
 
 export async function buildVercel(destination = path.join(root,'.vercel/output')) {
+  await buildClient();
   const output = path.resolve(destination);
   const defaultOutput = path.join(root,'.vercel/output');
   const temporary = path.dirname(output) === path.resolve(os.tmpdir()) && path.basename(output).startsWith('nox-build-');
@@ -35,6 +37,7 @@ export async function buildVercel(destination = path.join(root,'.vercel/output')
   }
   await writeFile(path.join(output,'config.json'),JSON.stringify({version:3,routes:[
     {src:'/(.*)',headers:securityHeaders,continue:true},
+    {src:'/dist/chunks/(.*)-[A-Z0-9]{8}\\.js',headers:{'Cache-Control':'public, max-age=31536000, immutable'},continue:true},
     {src:'/',dest:'/index.html'},
     {src:'/app/?',dest:'/app.html'},
     {handle:'filesystem'},

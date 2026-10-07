@@ -1,14 +1,14 @@
-export async function consumeSSE(response,onData,signal) {
+export async function consumeSSE(response,onData,signal,maxBytes=128000) {
   const reader=response.body?.getReader();if(!reader)throw Error('Provider returned no stream.');
   const decoder=new TextDecoder();let buffer='',size=0;
   const line=value=>{if(value.startsWith('data:')){const data=value.slice(5).trim();if(data&&data!=='[DONE]')onData(JSON.parse(data));}};
   try {
-    while(true){signal?.throwIfAborted();const {done,value}=await reader.read();if(done)break;size+=value.byteLength;if(size>128000)throw Error('Provider stream is too large.');buffer+=decoder.decode(value,{stream:true});let index;while((index=buffer.indexOf('\n'))>=0){line(buffer.slice(0,index).replace(/\r$/,''));buffer=buffer.slice(index+1);}}
+    while(true){signal?.throwIfAborted();const {done,value}=await reader.read();if(done)break;size+=value.byteLength;if(size>maxBytes)throw Error('Provider stream is too large.');buffer+=decoder.decode(value,{stream:true});let index;while((index=buffer.indexOf('\n'))>=0){line(buffer.slice(0,index).replace(/\r$/,''));buffer=buffer.slice(index+1);}}
     buffer+=decoder.decode();if(buffer.trim())line(buffer.trim());
   }finally{await reader.cancel().catch(()=>{});}
 }
 
-export function partialSpeech(raw) {
+export function partialSpeech(raw, limit=420) {
   const match=/"speech"\s*:\s*"/.exec(raw);if(!match)return '';
   let output='',i=match.index+match[0].length;
   for(;i<raw.length;i++) {
@@ -19,5 +19,5 @@ export function partialSpeech(raw) {
     else output+=({n:' ',r:' ',t:' ',b:' ',f:' ', '"':'"','\\':'\\','/':'/'}[next]||'');
   }
   // Do not expose a half surrogate pair while the next chunk is pending.
-  return output.replace(/[\uD800-\uDBFF]$/,'').slice(0,420);
+  return output.replace(/[\uD800-\uDBFF]$/,'').slice(0,Math.min(6000,limit));
 }

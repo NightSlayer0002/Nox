@@ -1,15 +1,16 @@
 import http from 'node:http';
+import { isIP } from 'node:net';
 import { readFile } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-import { normalizePacket, sanitizeContext, EMOTIONS } from './shared/character.js';
-import { requestNox } from './server/ai.mjs';
-import { getProviders, providerKey, requestProvider, requestSummary } from './server/providers.mjs';
+import { normalizePacket, sanitizeContext, answerDepth, EMOTIONS } from './shared/character.js';
+import { requestNox, explicitMemoryRequest } from './server/ai.mjs';
+import { getProviders, providerKey, requestProvider, requestSummary, modelForDepth } from './server/providers.mjs';
 import { createCache } from './server/cache.mjs';
 import { requestSpeech } from './server/speech.mjs';
 import { createHash, timingSafeEqual } from 'node:crypto';
-import { mintSession, validSession, sessionFromCookie, sessionCookie } from './server/session.mjs';
+import { mintSession, validSession, sessionFromCookie, sessionCookie, createUnlockThrottle } from './server/session.mjs';
 
 const root = path.dirname(fileURLToPath(import.meta.url));
 const publicRoot = path.join(root, 'public');
@@ -56,11 +57,13 @@ export function createAppServer({
   summary = requestSummary,
   speechProvider = process.env.NOX_SPEECH_PROVIDER || 'groq', speechKey = process.env.GROQ_API_KEY || '',
   hosted = Boolean(process.env.VERCEL), accessToken = process.env.NOX_ACCESS_TOKEN || '',
+  groqDeepModel = process.env.GROQ_DEEP_MODEL || 'openai/gpt-oss-120b', now = Date.now,
   publicHosts = [process.env.VERCEL_URL, process.env.VERCEL_BRANCH_URL, process.env.VERCEL_PROJECT_PRODUCTION_URL, process.env.NOX_PUBLIC_ORIGIN].filter(Boolean).map(value => new URL(value.startsWith('https://') ? value : `https://${value}`).host),
 } = {}) {
   let windowStart = Date.now();
   let requests = 0;
   const audioCache=createCache();
+  const unlockThrottle=createUnlockThrottle({now});
   const available = [...providers];
   if(apiKey) available.push({id:'openai',name:'OpenAI',model});
   const preferred = available.find(p=>p.id===defaultProvider) || available[0];
@@ -70,7 +73,7 @@ export function createAppServer({
     response.setHeader('x-content-type-options', 'nosniff');
     response.setHeader('cache-control', 'no-store');
     response.setHeader('referrer-policy', 'no-referrer');
-    response.setHeader('content-security-policy', "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; media-src 'self' blob:; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'");
+    response.setHeader('content-security-policy', "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; media-src 'self' blob:; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; object-src 'none'; form-action 'self'");
     const host = request.headers.host || '';
     if (hosted ? !publicHosts.includes(host) : !/^(127\.0\.0\.1|localhost)(:\d+)?$/.test(host)) return sendJson(response, 403, { error: 'Use NOX from its configured address.' });
     let pathname;
@@ -78,17 +81,26 @@ export function createAppServer({
     catch { return sendJson(response, 400, { error: 'Invalid URL.' }); }
 
     const suppliedToken = request.headers.authorization?.startsWith('Bearer ') ? request.headers.authorization.slice(7) : '';
+    // Vercel supplies this header at its ingress. A standalone/local server
+    // uses the socket address and never trusts a caller's forwarded headers.
+    const forwarded=hosted&&process.env.VERCEL?request.headers['x-vercel-forwarded-for']:'';
+    const clientIP=typeof forwarded==='string'&&isIP(forwarded.trim())?forwarded.trim():request.socket.remoteAddress||'unknown';
+    const bearerAttempt=Boolean(suppliedToken&&pathname.startsWith('/api/'));
+    const unlockAttempt=pathname==='/api/session'&&request.method==='POST';
+    const retryAfter=bearerAttempt||unlockAttempt?unlockThrottle.retryAfter(clientIP):0;
+    if(retryAfter){response.setHeader('retry-after',retryAfter);return sendJson(response,429,{error:'Too many unsuccessful unlocks. Wait a few minutes and try again.'});}
     const digest = value => createHash('sha256').update(value).digest();
     const bearerAccepted=Boolean(accessToken&&suppliedToken&&timingSafeEqual(digest(suppliedToken),digest(accessToken)));
-    const authorized=suppliedToken?bearerAccepted:validSession(sessionFromCookie(request.headers.cookie,hosted),accessToken,host);
+    if(bearerAttempt){if(bearerAccepted)unlockThrottle.clear(clientIP);else unlockThrottle.fail(clientIP);}
+    const authorized=suppliedToken?bearerAccepted:validSession(sessionFromCookie(request.headers.cookie,hosted),accessToken,host,now());
     const locked = Boolean(hasCloud && (hosted || accessToken) && !authorized);
     if(pathname==='/api/session'&&['POST','DELETE'].includes(request.method)){
       if(request.headers.origin!==`${hosted?'https':'http'}://${host}`)return sendJson(response,403,{error:'Unlock from NOX’s own page.'});
       if(request.method==='DELETE'){
         response.setHeader('set-cookie',sessionCookie('',hosted));return sendJson(response,200,{access:'locked'});
       }
-      if(!bearerAccepted)return sendJson(response,401,{error:'The owner token was not accepted.'});
-      response.setHeader('set-cookie',sessionCookie(mintSession(accessToken,host),hosted));
+      if(!bearerAccepted){if(!bearerAttempt)unlockThrottle.fail(clientIP);return sendJson(response,401,{error:'The owner token was not accepted.'});}
+      response.setHeader('set-cookie',sessionCookie(mintSession(accessToken,host,now()),hosted));
       return sendJson(response,200,{access:'open'});
     }
     if (pathname === '/api/status' && request.method === 'GET') return sendJson(response, 200, {
@@ -142,19 +154,38 @@ export function createAppServer({
         if (++requests > 30) return sendJson(response, 429, { error: 'Thirty turns in a minute. Give NOX a moment.' });
         try {
           const prompt = { message: input.message.trim(), context: sanitizeContext(input.context) };
+          prompt.context.depth=answerDepth(prompt.context.depth);
+          const selectedModel=modelForDepth(selected.id,selected.model,prompt.context.depth,groqDeepModel);
+          const controller=new AbortController(),started=performance.now();
+          response.on('close',()=>{if(!response.writableEnded)controller.abort();});
+          const options={apiKey:selected.id==='openai'?apiKey:providerKey(selected.id),model:selectedModel,signal:controller.signal,provider:selected.id,deepModel:groqDeepModel};
+          const finish=packet=>{
+            const result=normalizePacket(packet,prompt.context.depth);
+            if(!explicitMemoryRequest(prompt.message))result.memory='';
+            return result;
+          };
+          const metrics=firstTextMs=>({firstTextMs,totalMs:Math.round(performance.now()-started),provider:selected.name,model:selectedModel,depth:prompt.context.depth});
           if(input.stream===true) {
-            const controller=new AbortController(),started=performance.now();let firstTextMs=null,previousSpeech='';
-            response.on('close',()=>{if(!response.writableEnded)controller.abort();});
+            let firstTextMs=null,previousSpeech='';
             response.writeHead(200,{'content-type':'text/event-stream; charset=utf-8','x-accel-buffering':'no'});response.flushHeaders();
             const emit=(event,data)=>{if(!response.destroyed)response.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);};
+            const onText=value=>{
+              if(typeof value!=='string'||!value.trim())return;
+              const speech=normalizePacket({speech:value},prompt.context.depth).speech;
+              if(speech===previousSpeech)return;
+              if(firstTextMs===null)firstTextMs=Math.round(performance.now()-started);
+              emit('text',speech.startsWith(previousSpeech)?{delta:speech.slice(previousSpeech.length)}:{speech});previousSpeech=speech;
+            };
             try {
-              const packet=selected.id==='openai'?await chat(prompt,{apiKey,model:selected.model}):await providerRequest(prompt,{provider:selected.id,apiKey:providerKey(selected.id),model:selected.model,signal:controller.signal,onText:speech=>{if(firstTextMs===null)firstTextMs=Math.round(performance.now()-started);emit('text',speech.startsWith(previousSpeech)?{delta:speech.slice(previousSpeech.length)}:{speech});previousSpeech=speech;}});
-              emit('final',{...normalizePacket(packet),metrics:{firstTextMs,totalMs:Math.round(performance.now()-started),provider:selected.name}});
+              const packet=finish(selected.id==='openai'?await chat(prompt,options):await providerRequest(prompt,{...options,onText}));
+              onText(packet.speech);
+              emit('final',{...packet,metrics:metrics(firstTextMs)});
             }catch(error) {if(!controller.signal.aborted)emit('error',{error:chatFailure(error)});}
             response.end();return;
           }
-          const packet = selected.id==='openai' ? await chat(prompt,{apiKey,model:selected.model}) : await providerRequest(prompt,{provider:selected.id,apiKey:providerKey(selected.id),model:selected.model});
-          return sendJson(response, 200, normalizePacket(packet));
+          const packet = selected.id==='openai' ? await chat(prompt,options) : await providerRequest(prompt,options);
+          if(controller.signal.aborted)return;
+          return sendJson(response, 200, {...finish(packet),metrics:metrics(Math.round(performance.now()-started))});
         } catch(error) {
           return sendJson(response, 502, { error: chatFailure(error) });
         }
@@ -175,6 +206,7 @@ export function createAppServer({
     if (!type) return sendJson(response, 404, { error: 'Not found.' });
     try {
       const content = await readFile(file);
+      if(/^\/dist\/chunks\/[\w-]+-[A-Z0-9]{8}\.js$/.test(pathname))response.setHeader('cache-control','public, max-age=31536000, immutable');
       response.writeHead(200, { 'content-type': type });
       response.end(request.method === 'HEAD' ? undefined : content);
     } catch { sendJson(response, 404, { error: 'Not found.' }); }

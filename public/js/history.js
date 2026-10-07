@@ -1,6 +1,7 @@
 import { cleanText, MODES } from '../../shared/character.js';
 
 const KEY='nox.chats.v1',queues=new WeakMap();
+const turnText=(value,role)=>typeof value==='string'?value.replace(/\r\n?/g,'\n').replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/g,' ').trim().slice(0,role==='assistant'?6000:1200):'';
 const newThread=()=>({id:crypto.randomUUID(),title:'New conversation',updated:Date.now(),mode:'companion',turns:[],summary:'',summaryThrough:0,next:1});
 async function serialize(storage,action){
   if(globalThis.navigator?.locks?.request)return navigator.locks.request('nox.chat-history.write',action);
@@ -13,7 +14,7 @@ function parseState(raw){
   const threads=saved.threads.slice(-40).filter(t=>t&&typeof t.id==='string'&&!seen.has(t.id)&&seen.add(t.id)).map(t=>({
     id:cleanText(t.id,60),title:cleanText(t.title,60)||'Conversation',updated:Number(t.updated)||0,mode:MODES.includes(t.mode)?t.mode:'companion',
     summary:cleanText(t.summary,1200),summaryThrough:Math.max(0,Number(t.summaryThrough)||0),
-    turns:(Array.isArray(t.turns)?t.turns:[]).filter(v=>v&&['user','assistant'].includes(v.role)&&typeof v.content==='string').slice(-200).map((v,i)=>({role:v.role,content:cleanText(v.content,1200),seq:Number(v.seq)||i+1})),
+    turns:(Array.isArray(t.turns)?t.turns:[]).filter(v=>v&&['user','assistant'].includes(v.role)&&typeof v.content==='string').slice(-200).map((v,i)=>({role:v.role,content:turnText(v.content,v.role),seq:Number(v.seq)||i+1})),
   }));
   threads.forEach(t=>{t.next=Math.max(t.summaryThrough,...t.turns.map(v=>v.seq),0)+1;});
   return {version:1,active:cleanText(saved.active,60),threads};
@@ -40,7 +41,7 @@ export async function createHistory(storage,legacy=[]){
     create(){return write(()=>{if(active()&&!active().turns.length)return structuredClone(active());const t=newThread();state.threads.push(t);state.threads=state.threads.sort((a,b)=>a.updated-b.updated).slice(-40);currentId=t.id;return structuredClone(t);});},
     select(id){return write(()=>{if(!state.threads.some(t=>t.id===id))return false;currentId=id;return true;});},
     setMode(mode){const id=currentId;return write(()=>{const t=state.threads.find(t=>t.id===id);if(!t)return false;t.mode=MODES.includes(mode)?mode:'companion';return true;});},
-    append(role,content){const id=currentId,text=cleanText(content,1200);return write(()=>{if(!['user','assistant'].includes(role)||!text)return false;const t=state.threads.find(t=>t.id===id);if(!t)return false;t.turns.push({role,content:text,seq:t.next++});t.turns=t.turns.slice(-200);t.updated=Date.now();if(role==='user'&&t.title==='New conversation')t.title=cleanText(text,60);return true;});},
+    append(role,content){const id=currentId,text=turnText(content,role);return write(()=>{if(!['user','assistant'].includes(role)||!text)return false;const t=state.threads.find(t=>t.id===id);if(!t)return false;t.turns.push({role,content:text,seq:t.next++});t.turns=t.turns.slice(-200);t.updated=Date.now();if(role==='user'&&t.title==='New conversation')t.title=cleanText(text,60);return true;});},
     remove(id){return write(()=>{state.threads=state.threads.filter(t=>t.id!==id);});},
     context(){const t=active(),pending=t.turns.filter(v=>v.seq>t.summaryThrough);if(pending.length<=12)return {summary:t.summary,history:pending.map(({role,content})=>({role,content}))};
       const recent=t.turns.slice(-8),older=pending.filter(v=>v.seq<recent[0].seq);const excerpts=older.length<=10?older:[...older.slice(0,6),...older.slice(-4)];

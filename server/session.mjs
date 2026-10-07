@@ -22,3 +22,28 @@ export function sessionFromCookie(header,hosted){
 export function sessionCookie(value,hosted){
   return `${hosted?'__Host-nox_session':'nox_session'}=${value}; Path=/; HttpOnly; SameSite=Strict; Max-Age=${value?lifetime/1000:0}${hosted?'; Secure':''}`;
 }
+
+// A bounded, process-local guard. Serverless instances do not share this map;
+// the owner token and signed session remain the actual authorization boundary.
+export function createUnlockThrottle({now=Date.now,maxFailures=8,windowMs=5*60*1000,maxEntries=512}={}){
+  const failures=new Map();
+  const retryAfter=ip=>{
+    const time=now();
+    for(const [key,value] of failures)if(value.expires<=time)failures.delete(key);
+    const entry=failures.get(ip);
+    return entry?.count>=maxFailures?Math.max(1,Math.ceil((entry.expires-time)/1000)):0;
+  };
+  return {
+    retryAfter,
+    fail(ip){
+      retryAfter(ip);
+      let entry=failures.get(ip);
+      if(!entry){
+        if(failures.size>=maxEntries)failures.delete(failures.keys().next().value);
+        entry={count:0,expires:now()+windowMs};failures.set(ip,entry);
+      }
+      entry.count++;
+    },
+    clear:ip=>failures.delete(ip),
+  };
+}

@@ -1,4 +1,4 @@
-import { normalizePacket, prepareChatRequest } from '../../shared/character.js';
+import { normalizePacket, prepareChatRequest,explicitMemoryRequest } from '../../shared/character.js';
 import { demoReply } from './brain.js';
 import { createMemory } from './memory.js';
 import { Stage } from './stage.js';
@@ -9,9 +9,11 @@ import { createTurnGate } from './turns.js';
 import { createHistory } from './history.js';
 import { createNavigation } from './navigation.js';
 import { readChatStream } from './stream.js';
-import { readMotionPreference } from './preferences.js';
+import { readMotionChoice } from './preferences.js';
 import { connectionState } from './connection.js';
 import { EXPRESSIONS } from './face-art.js';
+import { knowledge,readDepth,saveDepth } from './workbench.js';
+import { spokenPreview } from './reply.js';
 
 const $ = id => document.getElementById(id);
 let disk;
@@ -57,7 +59,7 @@ function showMotion(enabled) {
   $('motion-note').textContent = enabled ? 'Gaze, blinks, and a little life.' : 'Still expressions. Dragging stays on.';
 }
 stage.onMotionChange = showMotion;
-stage.setMotion(readMotionPreference(disk));
+stage.setMotion(readMotionChoice(disk));
 showMotion(!stage.reduceMotion);
 $('motion-button').addEventListener('click', () => {
   stage.setMotion(stage.reduceMotion); showMotion(!stage.reduceMotion);
@@ -118,13 +120,13 @@ function updateMemory() {
   if (!memory.persistent) $('memory-summary').textContent += ' Storage is unavailable; this notebook lasts for this visit.';
 }
 
-async function perform(value, save = true, draft, version) {
-  const packet = normalizePacket(value); lastPacket = packet;
-  if (packet.memory) memory.remember(packet.memory);
+async function perform(value, save = true, draft, version, depth='quick',rememberAllowed=false) {
+  const packet = normalizePacket(value,depth); lastPacket = packet;
+  if (packet.memory&&rememberAllowed) memory.remember(packet.memory);
   if (save && !await history.append('assistant', packet.speech)) return;
   if(version!==undefined&&!turns.isCurrent(version))return;
   if(draft){draft.classList.remove('draft');draft.lastChild.textContent=packet.speech;}else addMessage('nox', packet.speech);
-  stage.speak(packet);voice.speak(packet.speech, mode, packet.emotion);
+  const spoken=spokenPreview(packet.speech);stage.speak({...packet,speech:spoken});voice.speak(spoken, mode, packet.emotion);
   if(packet.action==='takeover')stage.canvas.scrollIntoView({behavior:stage.reduceMotion?'instant':'smooth',block:'center'});
   $('mood-label').textContent = packet.emotion.toUpperCase();
   $('packet-view').textContent = JSON.stringify(packet, null, 2); updateMemory();navigation?.render();
@@ -132,6 +134,7 @@ async function perform(value, save = true, draft, version) {
 
 function setBusy(value) {
   busy = value; $('send-button').disabled = value; $('chat-form').setAttribute('aria-busy', value);
+  $('cancel-reply').hidden=!value;$('reply-depth').disabled=value;
   stage.character.activity = value ? 'thinking' : 'idle';
 }
 
@@ -147,11 +150,13 @@ async function send(raw) {
   summaryController?.abort();clearTimeout(summaryTimer);
   const name = text.match(/(?:my name is|call me|i am called)\s+([\p{L}\p{N}_ -]{1,40})/iu);
   if (name) memory.setName(name[1].trim());
-  const context = { ...memory.snapshot(), ...history.context(), mode };
+  const depth=$('reply-depth').value;
+  const context = { ...memory.snapshot(), ...history.context(), mode,depth,knowledge:knowledge.context(text) };
+  const request=prepareChatRequest(text,context,selectedProvider,true);
   setBusy(true);
   if(!await history.append('user',text)){cancelConversation();await restoreConversation();toast('This conversation changed in another tab. Start a new thought.');return;}
   if(!turns.isCurrent(version))return;
-  addMessage('user', text); $('message').value = ''; updateMemory();navigation?.render();
+  addMessage('user', text); $('message').value = ''; contextPreview();updateMemory();navigation?.render();
   $('reply-timing').textContent=brain==='live'?'NOX is thinking…':'Scripted demo · no AI request';
   setBusy(true); voice.stop(); microphone.stop(); stage.character.emotion = 'curious';
   try {
@@ -160,7 +165,7 @@ async function send(raw) {
       const requestController = new AbortController();
       turns.attach(version, requestController);
       const draft=addMessage('nox','');draft.classList.add('draft');pendingDraft=draft;
-      const response = await fetch('/api/chat', { method: 'POST', headers: apiHeaders(), body: JSON.stringify(prepareChatRequest(text, context, selectedProvider,true)), signal: requestController.signal });
+      const response = await fetch('/api/chat', { method: 'POST', headers: apiHeaders(), body: JSON.stringify(request), signal: requestController.signal });
       if(!response.ok){const error=await response.json();if(response.status===401){await refreshConnection();}throw new Error(error.error||'The AI connection did not respond.');}
       const result = await readChatStream(response,speech=>{if(turns.isCurrent(version)){draft.lastChild.textContent=speech;$('conversation').scrollTop=$('conversation').scrollHeight;}});
       packet = result;
@@ -169,7 +174,7 @@ async function send(raw) {
       await new Promise(resolve => setTimeout(resolve, 350));
       packet = demoReply(text, context);
     }
-    if (turns.isCurrent(version)) {if(takeover)packet={...packet,action:'takeover'};await perform(packet,true,pendingDraft,version);if(turns.isCurrent(version)){pendingDraft=null;scheduleSummary();}}
+    if (turns.isCurrent(version)) {if(takeover)packet={...packet,action:'takeover'};const draft=pendingDraft;await perform(packet,true,draft,version,depth,explicitMemoryRequest(text));if(turns.isCurrent(version)){if(brain==='live'&&request.context.knowledge?.length&&draft){const sources=document.createElement('p');sources.className='knowledge-sources';sources.textContent='Context included: '+request.context.knowledge.map(n=>`[${n.id}] ${n.title}`).join(' · ');draft.append(sources);}pendingDraft=null;scheduleSummary();}}
   } catch (error) {
     if (turns.isCurrent(version)){pendingDraft?.remove();pendingDraft=null;if(error.name!=='AbortError'){stage.character.react?.('worried',stage.time,2);if (brain === 'live') $('brain-status').lastChild.textContent = ' AI ERROR'; addMessage('system', error.message); toast(error.message);$('reply-timing').textContent='Reply interrupted. Your sent message is saved.';}}
   } finally { if (turns.isCurrent(version)) { setBusy(false); $('message').focus(); } }
@@ -205,6 +210,13 @@ document.querySelectorAll('button[data-form]').forEach(button => button.addEvent
 document.querySelectorAll('[data-prompt]').forEach(button => button.addEventListener('click', () => send(button.dataset.prompt)));
 $('chat-form').addEventListener('submit', event => { event.preventDefault(); send($('message').value); });
 $('message').addEventListener('keydown', event => { if (event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); send(event.currentTarget.value); } });
+$('cancel-reply').addEventListener('click',()=>{cancelConversation();$('reply-timing').textContent='Reply stopped. Your sent message is saved.';});
+function contextPreview(){const notes=knowledge.context($('message').value);$('knowledge-context').hidden=!notes.length;$('knowledge-context').textContent=notes.length?'Relevant context for this thought: '+notes.map(n=>`[${n.id}] ${n.title}`).join(' · '):'';}
+function depthNote(){const depth=$('reply-depth').value;$('depth-note').textContent=depth==='deep'?'Deep uses more time and quota. Groq uses a larger model; other providers use their configured model. Voice reads a concise opening.':depth==='quick'?'Quick keeps the response brief and uses less quota.':'Balanced gives a fuller answer. Voice reads a concise opening.';}
+$('reply-depth').value=readDepth();depthNote();
+$('reply-depth').addEventListener('change',()=>{saveDepth($('reply-depth').value);depthNote();});
+$('message').addEventListener('input',contextPreview);window.addEventListener('nox:knowledge',contextPreview);window.addEventListener('storage',contextPreview);
+document.querySelector('.skip-link')?.addEventListener('click',event=>{event.preventDefault();$('workspace-main').focus();});
 $('voice-button').addEventListener('click', () => {
   const enabled = voice.setEnabled(!voice.enabled);
   showVoice();
@@ -256,9 +268,9 @@ $('close-inside').addEventListener('click', () => $('inside-dialog').close());
 $('close-clip').addEventListener('click', () => { $('clip-video').pause(); $('clip-dialog').close(); });
 $('inside-dialog').addEventListener('click', event => { if (event.target === $('inside-dialog')) { const rect = event.target.getBoundingClientRect(); if (event.clientX < rect.left || event.clientX > rect.right || event.clientY < rect.top || event.clientY > rect.bottom) event.target.close(); } });
 document.addEventListener('keydown', event => {
+  if(event.defaultPrevented||event.ctrlKey||event.metaKey||event.altKey||document.querySelector('dialog[open]')||event.target.isContentEditable||['INPUT','TEXTAREA','SELECT'].includes(event.target.tagName))return;
   if ($('inside-dialog').open || $('clip-dialog').open) return;
   if (event.key === 'Escape') { resetScene(); if (document.body.classList.contains('film') && !recorder.active) toggleFilm(); return; }
-  if (['INPUT', 'TEXTAREA'].includes(event.target.tagName)) return;
   if (event.key.toLowerCase() === 'f') toggleFilm();
   if (event.key.toLowerCase() === 'r') toggleRecording();
 });
@@ -372,7 +384,7 @@ try{preferredEngine=disk.getItem('nox.voice.engine.v1')||'browser';$('speaker-se
 voice.setSpeaker($('speaker-select').value);voice.setBrowserVoice(savedBrowserVoice);browserVoices();globalThis.speechSynthesis?.addEventListener('voiceschanged',browserVoices);
 $('speaker-select').addEventListener('change',e=>{voice.setSpeaker(e.target.value);try{disk.setItem('nox.voice.speaker.v2',e.target.value);}catch{}});
 $('browser-speaker').addEventListener('change',e=>{savedBrowserVoice=e.target.value;voice.setBrowserVoice(savedBrowserVoice);try{disk.setItem('nox.voice.browser.v2',savedBrowserVoice);}catch{}});
-$('replay-voice').addEventListener('click',()=>{if(!voice.enabled)toast('Turn Voice on to hear this reply.');else voice.speak(lastPacket.speech,mode,lastPacket.emotion);});
+$('replay-voice').addEventListener('click',()=>{if(!voice.enabled)toast('Turn Voice on to hear this reply.');else voice.speak(spokenPreview(lastPacket.speech),mode,lastPacket.emotion);});
 $('test-voice').addEventListener('click',()=>{voice.setEnabled(true);showVoice();voice.speak('Oh, you found me. I was just thinking about something strange. Want to hear it?',mode,mode==='uncanny'?'uncanny':'happy');});
 try{voice.setEnabled(disk.getItem('nox.voice.v2')!=='off');}catch{voice.setEnabled(true);}showVoice();
 try {await refreshConnection();}

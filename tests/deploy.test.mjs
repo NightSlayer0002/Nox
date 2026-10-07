@@ -12,7 +12,14 @@ test('Vercel build contains static module dependencies and all bounded API handl
   const output = await mkdtemp(path.join(os.tmpdir(), 'nox-build-'));
   try {
     await buildVercel(output);
-    assert.equal(JSON.parse(await readFile(path.join(output,'config.json'),'utf8')).version, 3);
+    const routing=JSON.parse(await readFile(path.join(output,'config.json'),'utf8'));
+    assert.equal(routing.version, 3);
+    assert.match(routing.routes[0].headers['Content-Security-Policy'],/form-action 'self'/);
+    assert.ok(routing.routes.some(route=>route.src.startsWith('/dist/chunks/')&&route.headers?.['Cache-Control'].includes('immutable')));
+    const homeBundle=await readFile(path.join(output,'static/dist/home.js'),'utf8');
+    const workspaceBundle=await readFile(path.join(output,'static/dist/workspace.js'),'utf8');
+    assert.match(homeBundle,/\.\/chunks\/sculpture-/);assert.match(workspaceBundle,/\/js\/workbench\.js/);
+    assert.ok((await readdir(path.join(output,'static/dist/chunks'))).some(file=>/^sculpture-.*\.js$/.test(file)));
     assert.match(await readFile(path.join(output,'static/index.html'),'utf8'), /NOX/);
     assert.match(await readFile(path.join(output,'static/shared/character.js'),'utf8'), /normalizePacket/);
     const files = await readdir(path.join(output,'static'));

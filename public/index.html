@@ -1,27 +1,18 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#080d0c">
-  <meta name="description" content="Meet NOX. A curious AI companion with a little personality and a world of his own.">
-  <title>NOX — A curious mind that talks with you</title><link rel="icon" href="/icon.svg" type="image/svg+xml">
-  <link rel="preload" href="/fonts/Manrope.ttf" as="font" type="font/ttf" crossorigin><link rel="preload" href="/assets/nox-study.jpg" as="image"><link rel="stylesheet" href="/style.css">
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#f4f3e9">
+  <meta name="description" content="Meet NOX: an expressive AI companion for conversation, creative experiments and things worth making. A small presence with a curious mind.">
+  <title>NOX — A small presence. A wider imagination.</title><link rel="icon" href="/icon.svg" type="image/svg+xml">
+  <link rel="preload" href="/fonts/Manrope.ttf" as="font" type="font/ttf" crossorigin>
+  <link rel="stylesheet" href="/style.css"><link rel="stylesheet" href="/design.css"><link rel="stylesheet" href="/home.css">
 </head>
-<body class="landing">
-<section class="landing-hero" id="home">
-  <canvas id="landing-stage" aria-label="NOX follows your cursor. Click his face to make him smile." tabindex="0"></canvas>
-  <header class="landing-header">
-    <a class="brand" href="/" aria-label="NOX home"><span class="brand-mark" aria-hidden="true"><i></i><i></i></span><span>N O X</span></a>
-    <nav aria-label="Main navigation"><a class="current" href="#home">Home</a><a href="#features">Features</a><a href="#about">About</a></nav>
-    <a class="cream-button small" href="/app" data-greet>Get started <span>↗</span></a>
-  </header>
-  <div class="landing-copy"><p class="eyebrow">A LITTLE PRESENCE. A BIG IMAGINATION.</p><h1>A curious mind<br>that talks <em>with you.</em></h1><p class="landing-description">Someone to think out loud with.<br>Explore an idea, make something strange,<br>or just see where the night goes.</p><div class="landing-actions"><a class="cream-button" href="/app#conversation" data-greet>Chat with NOX <span>↗</span></a><a class="outline-button" href="#features">Meet your companion</a></div><p class="landing-traits">Curious <span>·</span> Thoughtful <span>·</span> A little opinionated</p></div>
-  <div class="hero-foot"><span>YOUR CURSOR CAUGHT HIS ATTENTION.</span><a href="#features">A little more about him ↓</a><span>01 / FIRST CONTACT</span></div>
-</section>
-<main class="landing-details">
-  <section class="feature-section" id="features"><div><p class="eyebrow">MORE THAN A CHAT BOX</p><h2>A conversation.<br><em>A small adventure.</em></h2></div><div class="feature-list"><article><span>01</span><div><h3>Think together</h3><p>Fresh model-generated conversation, with room for an opinion. Pick up an idea where you left it.</p></div></article><article><span>02</span><div><h3>Give the moment a mood</h3><p>Warm company, a confident director, or a quiet voice after dark. His expression and delivery follow along.</p></div></article><article><span>03</span><div><h3>Make him part of the frame</h3><p>A live character that follows your cursor, reacts to touch, and plays inside a scene you can capture.</p></div></article></div></section>
-  <section class="about-section" id="about"><p class="eyebrow">SMALL BY DESIGN</p><h2>He has opinions.<br>You have the last word.</h2><p>NOX is a fictional AI companion with an expressive face and a world of his own. Built for conversations, curious detours, and things worth making. Your chats stay in this browser; connected models receive the conversation context you send. The camera preview stays local.</p><a class="cream-button" href="/app" data-greet>Come on in <span>↗</span></a></section>
-  <footer><a class="brand" href="/"><span class="brand-mark" aria-hidden="true"><i></i><i></i></span><span>N O X</span></a><span>A curious mind. On your side.</span><a href="/app">Open workspace ↗</a></footer>
-</main>
-<div id="nox-peek" class="nox-peek" aria-hidden="true" hidden><canvas id="peek-stage"></canvas></div>
-<script type="module" src="/js/landing.js"></script>
-</body></html>
+<body class="landing laboratory-home">
+  <div id="home-root"><div class="home-page home-first-paint">
+    <header class="home-nav"><a class="home-brand" href="/" aria-label="NOX home"><span class="home-brand-face" aria-hidden="true"><i></i><i></i></span><span>NOX<span class="brand-registration"> / LABORATORY</span></span></a><a class="home-nav-action" href="/app">Enter the laboratory <span aria-hidden="true">↗</span></a></header>
+    <main><section class="home-hero"><div class="hero-copy"><p class="home-kicker"><span class="signal-dot" aria-hidden="true"></span>A CURIOUS PRESENCE. BUILT TO EXPLORE.</p><h1>A small presence.<br>A wider<br><em>imagination.</em></h1><p class="hero-description">Meet NOX. A curious AI companion for thinking out loud, making something strange, and finding the next good idea.</p><div class="home-hero-actions"><a href="/app#conversation" class="home-primary">Meet your companion <span aria-hidden="true">↗</span></a></div><p class="hero-fineprint">Expressive by design. Yours to direct.</p></div><div class="hero-object" aria-hidden="true"><div class="sculpture-fallback"><i></i><i></i><i></i><i></i></div><div class="first-paint-blob"><i></i><i></i><b></b></div></div></section></main>
+  </div></div>
+  <noscript><p class="home-noscript">JavaScript powers NOX’s live character and workspace. The laboratory above shows where to begin.</p></noscript>
+  <script type="module" src="/dist/home.js"></script>
+</body>
+</html>

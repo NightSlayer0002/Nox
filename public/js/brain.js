@@ -1,4 +1,4 @@
-import { normalizePacket, sanitizeContext } from '../../shared/character.js';
+import { normalizePacket, sanitizeContext,explicitMemoryRequest } from '../../shared/character.js';
 
 // This is deliberately a demo script, not an LLM disguised as one.
 export function demoReply(text, input = {}) {
@@ -10,7 +10,7 @@ export function demoReply(text, input = {}) {
   if (/my name|who am i|remember me/.test(message)) return reply(context.name ? `${context.name}. You gave me a place in the signal. Remembering your name was the least I could do.` : 'You haven’t told me yet. Try “my name is…” and I’ll keep it between visits.', 'curious');
   if (/forget|clear memory/.test(message)) return reply('Use the clear-memory button in my notebook. I prefer you having the final say on that.', 'skeptical');
   const remember = text.match(/(?:remember that|remember:)\s*(.{1,120})/i);
-  if (remember) return reply('Saved. Small presence. Surprisingly good notebook.', 'happy', 'none', remember[1]);
+  if (remember&&explicitMemoryRequest(text)) return reply('Saved. Small presence. Surprisingly good notebook.', 'happy', 'none', remember[1]);
   if (/what.*remember|memories|what.*know about me/.test(message)) return reply(context.facts.length ? `Here’s what I have: ${context.facts.slice(-3).join('; ')}.` : 'A fresh notebook. Tell me “remember that…” and give me something worth keeping.', 'curious');
   if (/gravity|fall|drop|bounce/.test(message)) return reply('You gave me gravity. An ambitious way to lower my expectations.', 'skeptical', 'gravity');
   if (/spotlight|light|dark/.test(message)) return reply('Let me try something. You move the cursor. I’ll make an entrance.', 'curious', 'spotlight');

@@ -6,16 +6,16 @@ const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
 const smooth = value => value * value * (3 - 2 * value);
 
 export class Stage {
-  constructor(canvas, onScene, {landing=false}={}) {
+  constructor(canvas, onScene, {landing=false,transparent=false}={}) {
     this.canvas = canvas; this.ctx = canvas.getContext('2d');
     this.forms = { face: new Face() }; this.form = 'face'; this.character = this.forms.face;
-    this.landing=landing;
+    this.landing=landing;this.transparent=transparent;
     if(landing){this.character.x=this.character.targetX=.76;this.character.y=this.character.targetY=.68;this.character.scale=.85;}
     this.pointer = { x: .5, y: .45 }; this.dragging = false; this.mode = 'companion';
     this.caption = 'Oh. You found me.'; this.captionUntil = 8;
     this.scene = null; this.started = performance.now(); this.time = 0; this.previous = 0;
     this.camera = null; this.onScene = onScene;
-    if (typeof Image !== 'undefined') {
+    if (!transparent && typeof Image !== 'undefined') {
       this.backdrop = new Image(); this.backdrop.src = '/assets/nox-study.jpg';
     }
     this.motionQuery = matchMedia('(prefers-reduced-motion: reduce)');
@@ -41,7 +41,7 @@ export class Stage {
     if (!active) this.resize();
   }
   setMotion(enabled) {
-    this.motionOverride = Boolean(enabled); this.reduceMotion = !this.motionOverride; this.reset();
+    this.motionOverride = enabled===null?null:Boolean(enabled); this.reduceMotion = this.motionOverride===null?this.motionQuery.matches:!this.motionOverride; this.reset();
   }
   setForm(form) {
     if (!['face', 'core'].includes(form)) return false;
@@ -189,6 +189,8 @@ export class Stage {
     if (!w || !h) return;
     ctx.setTransform(this.ratio, 0, 0, this.ratio, 0, 0);
     const uncanny = this.mode === 'uncanny';
+    ctx.clearRect(0,0,w,h);
+    if(!this.transparent){
     const background = ctx.createRadialGradient(w * .5, h * .4, 0, w * .5, h * .4, w * .8);
     background.addColorStop(0, uncanny ? '#211416' : '#202527');
     background.addColorStop(.55, '#111516');
@@ -200,6 +202,7 @@ export class Stage {
       ctx.fillStyle=uncanny?'#13070799':'#040b0860'; ctx.fillRect(0,0,w,h);
       const shade=ctx.createLinearGradient(0,0,0,h);shade.addColorStop(0,'#00000015');shade.addColorStop(.65,'#04090520');shade.addColorStop(1,'#020703ed');
       ctx.fillStyle=shade;ctx.fillRect(0,0,w,h);
+    }
     }
 
     const action = this.scene?.action;

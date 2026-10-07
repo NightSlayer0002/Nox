@@ -1,5 +1,7 @@
 # Understand NOX: a founder and interview guide
 
+**NOX 0.8 readers:** start with [the current system manual](NOX-SYSTEM-MANUAL.md). It explains the new React interface islands, real Three.js sculpture, answer depths, retrieval notebook, consent guards and current security boundaries. This guide also preserves the earlier implementation history; limits described in older release sections belong to those releases.
+
 This guide is a tour of the actual application in this folder. Read it with the app open. Use the Inside NOX button while trying a scene: the reply packet connects the explanation to what you see.
 
 ## 1. Explain the product in one sentence
@@ -176,7 +178,7 @@ The JSON schema asks the model for exactly four properties. `additionalPropertie
 
 The runtime validator is still needed. A network response can fail, a provider can refuse, tests can use fixtures, and future integrations may not honour the schema.
 
-`normalizePacket()` requires non-empty string speech, bounds it to 420 characters, bounds a memory to 120 characters, and converts unknown actions/emotions to safe defaults. A model cannot introduce a `delete_files` action: it becomes `none`.
+`normalizePacket()` requires non-empty string speech, bounds it to 420/2,400/6,000 characters at Quick/Balanced/Deep depth, bounds a memory to 120 characters, and converts unknown actions/emotions to safe defaults. A model cannot introduce a `delete_files` action: it becomes `none`.
 
 `sanitizeContext()` keeps only the mode, name, facts, and allowed conversational roles. It discards unexpected fields and bounds the history sent to the model to twelve turns.
 

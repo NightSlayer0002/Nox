@@ -2,11 +2,12 @@
 <html lang="en">
 <head>
   <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#080d0c">
-  <meta name="description" content="NOX. A curious mind, a little company. An interactive AI companion and cinematic creation studio.">
+  <meta name="description" content="NOX Laboratory. An expressive AI companion, your knowledge notebook, and a creative scene studio.">
   <title>NOX — A curious mind</title><link rel="icon" href="/icon.svg" type="image/svg+xml">
-  <link rel="preload" href="/fonts/Manrope.ttf" as="font" type="font/ttf" crossorigin><link rel="stylesheet" href="/style.css">
+  <link rel="preload" href="/fonts/Manrope.ttf" as="font" type="font/ttf" crossorigin><link rel="stylesheet" href="/style.css"><link rel="stylesheet" href="/design.css"><link rel="stylesheet" href="/workspace.css">
 </head>
 <body class="workspace" data-view="explore" data-persona="companion" data-signal="idle" data-form="face">
+<a class="skip-link" href="#workspace-main">Skip to workspace</a>
 <svg class="svg-library" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><defs>
 <symbol id="i-voice" viewBox="0 0 24 24"><path d="M5 9v6h4l5 4V5L9 9H5Z"/><path d="M18 8c2 2 2 6 0 8"/></symbol>
 <symbol id="i-camera" viewBox="0 0 24 24"><rect x="3" y="6" width="13" height="12" rx="2"/><path d="m16 10 5-3v10l-5-3"/></symbol>
@@ -19,13 +20,13 @@
 <aside class="sidebar" aria-label="Workspace navigation">
 <a class="brand" href="/" aria-label="NOX home"><span class="brand-mark" aria-hidden="true"><i></i><i></i></span><span>N O X</span></a>
 <button id="new-chat" class="new-chat">＋ New conversation</button>
-<nav><a href="#explore" data-view="explore" class="selected">Explore</a><a href="#conversation" data-view="conversation">Conversation</a><a href="#scenes" data-view="scenes">Scene studio</a><a href="#library" data-view="library">Library</a><button id="settings-button">Settings</button></nav>
+<nav aria-label="Workspace"><a href="#explore" data-view="explore" class="selected">Explore</a><a href="#conversation" data-view="conversation">Conversation</a><a href="#scenes" data-view="scenes">Scene studio</a><a href="#library" data-view="library">Library</a><button id="knowledge-button">Knowledge</button><button id="settings-button">Settings</button></nav>
 <p class="rail-label">RECENT CONVERSATIONS</p><div id="recent-chats" class="recent-chats"></div>
 <div class="rail-bottom"><p>A curious mind.<br>On your side.</p><a href="/" class="rail-version">← BACK HOME</a></div>
 </aside>
 <div class="shell">
-<header class="header"><span class="eyebrow" id="view-label">YOUR SPACE / EXPLORE</span><div class="header-right"><span id="brain-status" class="status"><i></i> CHECKING CONNECTION</span><button id="inside-button" class="quiet-button">Preferences ↗</button></div></header>
-<main>
+<header class="header"><span class="eyebrow" id="view-label">YOUR SPACE / EXPLORE</span><div class="header-right"><span id="brain-status" class="status"><i></i> CHECKING CONNECTION</span><div id="workspace-controls"></div><button id="inside-button" class="quiet-button">Preferences ↗</button></div></header>
+<main id="workspace-main" tabindex="-1">
 <div class="intro"><h1 id="workspace-heading">Think. Build.<br><em>Explore with NOX.</em></h1><p class="intro-note" id="workspace-note">A little room for your next thought.</p></div>
 <div class="studio">
 <section class="stage-column" id="world" aria-label="NOX's world">
@@ -60,13 +61,15 @@
 <div class="mode-tabs" role="group" aria-label="NOX persona"><button data-mode="companion" class="active" aria-pressed="true">Companion</button><button data-mode="director" aria-pressed="false">Director</button><button data-mode="uncanny" aria-pressed="false">Uncanny</button></div>
 <div class="conversation" id="conversation" aria-live="polite" aria-label="Conversation with NOX"></div>
 <p id="reply-timing" class="reply-timing" role="status"></p><div id="connection-help" class="connection-help"><p id="connection-message">Checking the AI connection…</p><button id="unlock-ai" class="quiet-button">Connect AI ↗</button></div>
-<form id="chat-form" class="composer"><label class="sr-only" for="message">Say something to NOX</label><textarea id="message" placeholder="Put a thought into the room…" maxlength="1200" rows="2"></textarea><div class="composer-bottom"><button id="mic-button" type="button" title="Browser speech recognition"><svg><use href="#i-mic"/></svg><span>Talk</span></button><span>ENTER TO SEND</span><button id="send-button" type="submit" aria-label="Send message"><svg><use href="#i-arrow"/></svg></button></div></form>
+<div class="answer-controls"><label for="reply-depth">Answer depth</label><select id="reply-depth"><option value="quick">Quick · a short thought</option><option value="balanced" selected>Balanced · more detail</option><option value="deep">Deep · more reasoning</option></select><button class="quiet-button" id="knowledge-chat-button">Notes ↗</button></div>
+<form id="chat-form" class="composer"><label class="sr-only" for="message">Say something to NOX</label><textarea id="message" placeholder="Put a thought into the room…" maxlength="1200" rows="2"></textarea><div class="composer-bottom"><button id="mic-button" type="button" title="Browser speech recognition"><svg><use href="#i-mic"/></svg><span>Talk</span></button><span>ENTER TO SEND</span><button id="cancel-reply" type="button" class="quiet-button" hidden>Stop</button><button id="send-button" type="submit" aria-label="Send message"><svg><use href="#i-arrow"/></svg></button></div></form>
+<p class="lab-note" id="depth-note">Balanced answers take a little more time. Voice reads a concise opening.</p><p class="knowledge-sources" id="knowledge-context" hidden></p>
 <div class="suggestions"><button data-prompt="Give me a strange idea for a short film">Make something <span>↗</span></button><button data-prompt="What are you curious about today?">Get his opinion <span>↗</span></button></div>
 <div class="notebook" id="notebook"><div class="notebook-head"><span class="eyebrow">A FEW THINGS WORTH KEEPING</span><button id="clear-memory">Clear notebook</button></div><p id="memory-summary">A fresh start. Tell him your name.</p><div id="memory-facts"></div></div>
 <p id="summary-note" class="demo-note"></p><p class="demo-note" id="brain-note">Checking the AI connection…</p>
 </aside>
 </div>
-<footer><span>CURIOUS. THOUGHTFUL. A LITTLE OPINIONATED.</span><span>Double-click to wink <b>·</b> F to film <b>·</b> Esc to reset</span><span>NOX / 0.7</span></footer>
+<footer><span>SMALL PRESENCE / EXPANSIVE POSSIBILITIES</span><span>Double-click to wink <b>·</b> F to film <b>·</b> Esc to reset</span><span>NOX / 0.8</span></footer>
 </main>
 </div>
 <div id="toast" role="status" hidden></div>
@@ -77,4 +80,5 @@
 <details class="provider-setup"><summary>Connect NVIDIA NIM</summary><p>Create an API Catalog key at <a href="https://build.nvidia.com/nvidia/nemotron-3-nano-30b-a3b" target="_blank" rel="noreferrer">NVIDIA ↗</a>, then add NVIDIA_API_KEY in your Vercel project's environment settings and redeploy. Keep your key out of the browser and chat. The default is Nemotron 3 Nano with thinking off.</p></details><details class="developer-inspector"><summary>Developer inspector</summary><p id="inspector-brain"></p><pre id="packet-view"></pre></details></dialog>
 <dialog id="clip-dialog"><div class="dialog-top"><p class="eyebrow">A PERFORMANCE, CAPTURED</p><button id="close-clip" aria-label="Close clip preview">×</button></div><h2>One for the camera.</h2><video id="clip-video" controls playsinline preload="metadata" aria-label="Recorded NOX clip"></video><p id="clip-meta"></p><a id="save-clip" class="save-clip">Save clip ↓</a><p class="dialog-foot">This export is silent. Add NOX's voice in an editor or capture desktop audio with OBS.</p></dialog>
 <script type="module" src="/js/app.js"></script>
+<script type="module" src="/dist/workspace.js"></script>
 </body></html>

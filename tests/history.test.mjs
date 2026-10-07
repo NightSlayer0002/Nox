@@ -2,6 +2,13 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createHistory } from '../public/js/history.js';
 const storage=()=>{const map=new Map();return {getItem:key=>map.get(key)||null,setItem:(key,value)=>map.set(key,value)};};
+test('deep answers keep their text and paragraphs after save, export and reload',async()=>{
+  const disk=storage(),history=await createHistory(disk),text='First paragraph.\n\n'+ 'A detailed explanation. '.repeat(230)+'\nFinal conclusion.';
+  await history.append('assistant',text);
+  assert.equal(history.active().turns[0].content,text);
+  assert.equal((await createHistory(disk)).active().turns[0].content,text);
+  assert.equal(JSON.parse(history.export()).threads[0].turns[0].content,text);
+});
 test('threads restore independently and search message content',async()=>{
   const disk=storage(), history=await createHistory(disk);
   const first=history.active().id;await history.append('user','My blue lighthouse');await history.append('assistant','Keep the light.');
