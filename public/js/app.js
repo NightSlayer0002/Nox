@@ -129,7 +129,7 @@ async function perform(value, save = true, draft, version, depth='quick',remembe
   const spoken=spokenPreview(packet.speech);stage.speak({...packet,speech:spoken});voice.speak(spoken, mode, packet.emotion);
   if(packet.action==='takeover')stage.canvas.scrollIntoView({behavior:stage.reduceMotion?'instant':'smooth',block:'center'});
   $('mood-label').textContent = packet.emotion.toUpperCase();
-  $('packet-view').textContent = JSON.stringify(packet, null, 2); updateMemory();navigation?.render();
+  $('packet-view').textContent = JSON.stringify(value.metrics?{...packet,metrics:value.metrics}:packet, null, 2); updateMemory();navigation?.render();
 }
 
 function setBusy(value) {
@@ -169,7 +169,7 @@ async function send(raw) {
       if(!response.ok){const error=await response.json();if(response.status===401){await refreshConnection();}throw new Error(error.error||'The AI connection did not respond.');}
       const result = await readChatStream(response,speech=>{if(turns.isCurrent(version)){draft.lastChild.textContent=speech;$('conversation').scrollTop=$('conversation').scrollHeight;}});
       packet = result;
-      if (turns.isCurrent(version)) {$('brain-status').lastChild.textContent = ' AI CONNECTED';const timing=result.metrics;$('reply-timing').textContent=timing?`${timing.firstTextMs===null?'Reply':`First words ${timing.firstTextMs} ms · reply`} ${timing.totalMs} ms · ${timing.provider}`:'Reply received';}
+      if (turns.isCurrent(version)) {$('brain-status').lastChild.textContent = ' AI CONNECTED';const timing=result.metrics;$('reply-timing').textContent=timing?`${timing.firstTextMs===null?'Reply':`First words ${timing.firstTextMs} ms · reply`} ${timing.totalMs} ms · ${timing.provider}`:'Reply received';if(timing){$('reply-timing').dataset.model=timing.model||'';$('reply-timing').dataset.depth=timing.depth||depth;$('inspector-brain').textContent=`${timing.model||'Configured model'} · ${timing.depth||depth} · ${timing.provider}`;}}
     } else {
       await new Promise(resolve => setTimeout(resolve, 350));
       packet = demoReply(text, context);

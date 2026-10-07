@@ -14,16 +14,16 @@ Free tiers only. Preserve `/`, `/app` and workspace hashes. Keep the legless blo
 
 ## Tasks
 
-- [ ] Bundle locally pinned dependencies before development/production builds; verify JSX and preserve server function packaging.
-- [ ] Build homepage sculpture, responsive editorial sections, menu/demonstrator and scroll peek. Preserve native keyboard/touch, static fallback and reduced motion.
-- [ ] Add shared tokens and redesign every workspace panel, preferences, composer, scene controls and recording preview without changing controller IDs.
-- [ ] Add React command palette and local knowledge notebook with accessible native dialogs, bounded text import, delete/export/enable controls and retrieval source display.
-- [ ] Test retrieval relevance, long-document tail, irrelevant queries, quotas and persistence errors; implement deterministic local retrieval.
-- [ ] Test and implement answer-depth sanitization/provider budgets, untrusted knowledge context, explicit memory consent, failed-unlock throttling.
-- [ ] Integrate depth and retrieved context into send path, preserve full written answer/history while bounding speech separately; fix reduced-motion and shortcut handling.
-- [ ] Write founder manual and update deployment/security documentation with actual limitations and primary sources.
-- [ ] Run complete verification, dependency audit, independent review, browser routes/forms/desktop/mobile/3D/keyboard checks; fix findings.
-- [ ] Commit and push authorized changes; verify production update and report evidence.
+- [x] Bundle locally pinned dependencies before development/production builds; verify JSX and preserve server function packaging.
+- [x] Build homepage sculpture, responsive editorial sections, menu/demonstrator and scroll peek. Preserve native keyboard/touch, static fallback and reduced motion.
+- [x] Add shared tokens and redesign every workspace panel, preferences, composer, scene controls and recording preview without changing controller IDs.
+- [x] Add React command palette and local knowledge notebook with accessible native dialogs, bounded text import, delete/export/enable controls and retrieval source display.
+- [x] Test retrieval relevance, long-document tail, irrelevant queries, quotas and persistence errors; implement deterministic local retrieval.
+- [x] Test and implement answer-depth sanitization/provider budgets, untrusted knowledge context, explicit memory consent, failed-unlock throttling.
+- [x] Integrate depth and retrieved context into send path, preserve full written answer/history while bounding speech separately; fix reduced-motion and shortcut handling.
+- [x] Write founder manual and update deployment/security documentation with actual limitations and primary sources.
+- [x] Run complete verification, dependency audit, independent review, browser routes/forms/desktop/mobile/3D/keyboard checks; fix findings.
+- [x] Commit and push authorized changes; verify production update and report evidence.
 
 ## Review focus
 
