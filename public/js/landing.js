@@ -6,9 +6,7 @@ const canvas=document.getElementById('landing-stage');
 if(canvas){
   const stage=new Stage(canvas,null,{landing:true,transparent:true});
   function placeHome(){stage.character.x=stage.character.targetX=.5;stage.character.y=stage.character.targetY=.51;stage.character.scale=1.78;}
-  const systemMotion=matchMedia('(prefers-reduced-motion: reduce)');
-  function applyMotion(){stage.setMotion(readMotionPreference()&&!systemMotion.matches);placeHome();}
-  applyMotion();systemMotion.addEventListener('change',applyMotion);
+  stage.setMotion(readMotionPreference());placeHome();
   attachPeek(stage,document.getElementById('nox-peek'),document.getElementById('peek-stage'));
   document.querySelectorAll('[data-greet]').forEach(link=>link.addEventListener('pointerenter',()=>stage.character.poke(stage.time)));
   const previous=stage.onAfterFrame;
