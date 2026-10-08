@@ -1,9 +1,12 @@
-import React,{useEffect,useRef,useState} from 'react';
+import React,{Suspense,lazy,useCallback,useEffect,useRef,useState} from 'react';
 import {createRoot} from 'react-dom/client';
 import {AnimatePresence,motion,useReducedMotion} from 'motion/react';
 import {knowledge,knowledgeChanged,downloadText} from '/js/workbench.js';
 import {readTheme,saveTheme,applyTheme} from '/js/preferences.js';
 applyTheme(readTheme());
+const SourceScene=lazy(()=>import('./source-scene.jsx'));
+function Background(){const connect=useCallback(canvas=>document.dispatchEvent(new CustomEvent('nox:background',{detail:canvas})),[]);return <Suspense fallback={<div className="source-fallback"/>}><SourceScene onCanvas={connect}/></Suspense>;}
+const background=document.getElementById('workspace-background');if(background)createRoot(background).render(<Background/>);
 
 const commands=[
   ['Explore','Open your workspace','#explore'],['Conversation','Talk with NOX','#conversation'],['Scene studio','Gravity, expressions and filming','#scenes'],['Library','Search saved conversations','#library'],

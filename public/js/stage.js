@@ -15,9 +15,6 @@ export class Stage {
     this.caption = 'Oh. You found me.'; this.captionUntil = 8;
     this.scene = null; this.started = performance.now(); this.time = 0; this.previous = 0;
     this.camera = null; this.onScene = onScene;
-    if (!transparent && typeof Image !== 'undefined') {
-      this.backdrop = new Image(); this.backdrop.src = '/assets/nox-study.jpg';
-    }
     this.motionQuery = matchMedia('(prefers-reduced-motion: reduce)');
     this.reduceMotion = this.motionQuery.matches; this.motionOverride = null;
     this.motionQuery.addEventListener('change', event => {
@@ -51,6 +48,11 @@ export class Stage {
     for (const key of ['mode','emotion','activity','speakingUntil','intensity']) next[key] = current[key];
     this.character = next; this.form = form; this.reset();
     return true;
+  }
+  setBackgroundSource(canvas){this.backgroundSource=canvas;}
+  drawBackground(ctx,w,h){
+    if(this.backgroundSource?.width&&this.backgroundSource?.height)ctx.drawImage(this.backgroundSource,0,0,w,h);
+    else {ctx.fillStyle='#080e11';ctx.fillRect(0,0,w,h);}
   }
   bindPointer() {
     const eventTime=()=>Number.isFinite(this.started)?(performance.now()-this.started)/1000:this.time;
@@ -190,20 +192,7 @@ export class Stage {
     ctx.setTransform(this.ratio, 0, 0, this.ratio, 0, 0);
     const uncanny = this.mode === 'uncanny';
     ctx.clearRect(0,0,w,h);
-    if(!this.transparent){
-    const background = ctx.createRadialGradient(w * .5, h * .4, 0, w * .5, h * .4, w * .8);
-    background.addColorStop(0, uncanny ? '#211416' : '#202527');
-    background.addColorStop(.55, '#111516');
-    background.addColorStop(1, '#090c0d');
-    ctx.fillStyle = background; ctx.fillRect(0, 0, w, h);
-    if(this.backdrop?.complete && this.backdrop.naturalWidth && this.form === 'face') {
-      const image=this.backdrop, fit=Math.max(w/image.naturalWidth,h/image.naturalHeight);
-      ctx.drawImage(image,(w-image.naturalWidth*fit)/2,(h-image.naturalHeight*fit)/2,image.naturalWidth*fit,image.naturalHeight*fit);
-      ctx.fillStyle=uncanny?'#13070799':'#040b0860'; ctx.fillRect(0,0,w,h);
-      const shade=ctx.createLinearGradient(0,0,0,h);shade.addColorStop(0,'#00000015');shade.addColorStop(.65,'#04090520');shade.addColorStop(1,'#020703ed');
-      ctx.fillStyle=shade;ctx.fillRect(0,0,w,h);
-    }
-    }
+    if(!this.transparent)this.drawBackground(ctx,w,h);
 
     const action = this.scene?.action;
     const age = this.scene ? this.time - this.scene.start : 0;

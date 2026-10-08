@@ -44,6 +44,7 @@ const stage = new Stage($('stage'), action => {
     button.classList.toggle('active', active); button.setAttribute('aria-pressed', active);
   });
 });
+document.addEventListener('nox:background',event=>stage.setBackgroundSource(event.detail));
 for(const expression of Object.keys(EXPRESSIONS)){
   const option=document.createElement('option');option.value=expression;option.textContent=expression==='pout'?'Cute outrage':expression[0].toUpperCase()+expression.slice(1);$('expression-preview').append(option);
 }

@@ -4,10 +4,10 @@
   <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#080d0c">
   <meta name="description" content="NOX Laboratory. An expressive AI companion, your knowledge notebook, and a creative scene studio.">
   <title>NOX — A curious mind</title><link rel="icon" href="/icon.svg" type="image/svg+xml">
-  <link rel="preload" href="/fonts/Manrope.ttf" as="font" type="font/ttf" crossorigin><link rel="stylesheet" href="/vendor/liquid-glass-js/glass.css"><link rel="stylesheet" href="/source-ui.css"><link rel="stylesheet" href="/workspace.css"><link rel="stylesheet" href="/conversation.css">
+  <link rel="preload" href="/fonts/Manrope.ttf" as="font" type="font/ttf" crossorigin><link rel="stylesheet" href="/vendor/liquid-glass-js/glass.css"><link rel="stylesheet" href="/source-ui.css"><link rel="stylesheet" href="/workspace.css"><link rel="stylesheet" href="/conversation.css"><link rel="stylesheet" href="/studio.css">
 </head>
 <body class="workspace" data-view="explore" data-persona="companion" data-signal="idle" data-form="face">
-<a class="skip-link" href="#workspace-main">Skip to workspace</a>
+<a class="skip-link" href="#workspace-main">Skip to workspace</a><div id="workspace-background" class="workspace-background" aria-hidden="true"></div>
 <svg class="svg-library" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><defs>
 <symbol id="i-voice" viewBox="0 0 24 24"><path d="M5 9v6h4l5 4V5L9 9H5Z"/><path d="M18 8c2 2 2 6 0 8"/></symbol>
 <symbol id="i-camera" viewBox="0 0 24 24"><rect x="3" y="6" width="13" height="12" rx="2"/><path d="m16 10 5-3v10l-5-3"/></symbol>
@@ -33,7 +33,7 @@
 <div class="instrument-heading"><span><i class="live-dot"></i> NOX IS HERE</span><div class="form-switch" role="group" aria-label="NOX appearance"><button data-form="face" aria-pressed="true">Presence</button><button data-form="core" aria-pressed="false">Signal</button></div></div>
 <div class="stage-bezel"><div class="stage-wrap" id="stage-wrap">
 <canvas id="stage" aria-label="Animated NOX face. Move the cursor to look around. Click to make him smile, double-click or press Space to wink. Drag or use arrow keys to move him. Shake quickly while holding him for spiral eyes." tabindex="0"></canvas>
-<div class="room-note" aria-hidden="true"><span>THE EVENING ROOM</span></div>
+<div class="room-note" aria-hidden="true"><span>THE FLUID ROOM</span></div>
 <div class="stage-top"><span class="stage-label">A PRESENCE, NOT A PRESET</span><button class="stage-button" id="film-button" aria-pressed="false" title="Portrait film mode (F)"><svg><use href="#i-expand"/></svg><span>Film mode</span></button></div>
 <div class="stage-bottom"><span id="scene-label">MOVE YOUR CURSOR. POKE HIM. DRAG HIM.</span><span id="stage-time">00:00</span></div>
 <button id="exit-film" class="exit-film" hidden>Exit film mode · F</button><button id="film-record" class="film-record">● Record clip</button>
