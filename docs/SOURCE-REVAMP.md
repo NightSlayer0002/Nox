@@ -72,3 +72,11 @@ No new image generation, custom decorative shader, or panel sculpture is used.
   adaptation; replace generated decorative assets and theme/sculpture/core code.
 - Ruling: use native system typography and text glyph controls from the source
   demos’ approach, removing old custom font loading and SVG control artwork.
+
+### Additional sourced 3D stage
+
+The owner requested a visible 3D element beside NOX after the first seven stages
+were pushed. The upstream Pensive icosahedron preset now sits in the hero. NOX
+remains the same draggable character in front. React Spring controls bounded
+rotation of the actual mesh, rather than a flat image. Both source canvases
+pause when hidden/offscreen and draw at most 30 FPS.

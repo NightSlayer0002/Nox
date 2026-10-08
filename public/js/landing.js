@@ -5,7 +5,7 @@ import { attachPeek } from './peek.js';
 const canvas=document.getElementById('landing-stage');
 if(canvas){
   const stage=new Stage(canvas,null,{landing:true,transparent:true});
-  function placeHome(){stage.character.x=stage.character.targetX=.5;stage.character.y=stage.character.targetY=.51;stage.character.scale=1.78;}
+  function placeHome(){stage.character.x=stage.character.targetX=.78;stage.character.y=stage.character.targetY=.62;stage.character.scale=.83;}
   stage.setMotion(readMotionPreference());placeHome();
   document.addEventListener('nox:material',event=>stage.setForm(event.detail));
   attachPeek(stage,document.getElementById('nox-peek'),document.getElementById('peek-stage'));

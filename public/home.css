@@ -379,3 +379,6 @@
 
 /* Public effect tint keeps muted HTML text legible over every shader frame. */
 .source-scroll::after{content:"";position:absolute;inset:0;background:rgba(8,14,17,.64);pointer-events:none}
+
+/*! Pensive sphere: ruucm/shadergradient preset; placed behind existing NOX brand. */
+.hero-sphere{position:absolute;inset:0 0 65px 0;pointer-events:none}.hero-sphere .source-fallback{background:none}.hero-sphere .source-scene{overflow:visible}.hero-presence #landing-stage{z-index:1}.hero-presence .DemoPanel,.hero-material{z-index:2}
