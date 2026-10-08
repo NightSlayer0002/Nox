@@ -1,15 +1,36 @@
 import { Stage } from './stage.js';
-import { readMotionPreference } from './preferences.js';
-import { attachPeek } from './peek.js';
 
-const canvas=document.getElementById('landing-stage');
-if(canvas){
-  const stage=new Stage(canvas,null,{landing:true,transparent:true});
-  function placeHome(){const small=matchMedia('(max-width:650px)').matches;stage.character.x=stage.character.targetX=small?.7:.78;stage.character.y=stage.character.targetY=.62;stage.character.scale=small?.74:.83;}
-  stage.setMotion(readMotionPreference());placeHome();
-  document.addEventListener('nox:material',event=>stage.setForm(event.detail));
-  attachPeek(stage,document.getElementById('nox-peek'),document.getElementById('peek-stage'));
-  document.querySelectorAll('[data-greet]').forEach(link=>link.addEventListener('pointerenter',()=>stage.character.poke(stage.time)));
-  const previous=stage.onAfterFrame;
-  stage.onAfterFrame=()=>{previous?.();canvas.dataset.gazeX=stage.character.gazeX.toFixed(2);canvas.dataset.gazeY=stage.character.gazeY.toFixed(2);canvas.dataset.expression=stage.character.features(stage.time).expression;};
+// Scroll supplies pose targets; Stage retains gesture, gravity and material physics.
+export function createLanding(canvas,{onDiscover,onExpression,onScene}={}){
+  const stage=new Stage(canvas,onScene,{landing:true,transparent:true});
+  stage.setMotion(true);
+  const pose={x:.7,y:.53,size:.34};
+  let manual=false,expression='';
+  stage.character.x=stage.character.targetX=pose.x;
+  stage.character.y=stage.character.targetY=pose.y;
+  stage.onGesture=kind=>{if(kind==='drag')manual=true;onDiscover?.(kind);};
+  stage.onBeforeFrame=()=>{
+    if(stage.dragging&&stage.dragDistance>=6)manual=true;
+    if(!manual&&!stage.dragging&&!stage.scene){
+      stage.character.targetX=pose.x;stage.character.targetY=pose.y;
+      const size=Math.min(460,stage.width*pose.size);
+      stage.character.scale=size/(270*Math.min(stage.width/720,stage.height/560));
+    }
+  };
+  stage.onAfterFrame=()=>{
+    const next=stage.character.features(stage.time).expression;
+    canvas.dataset.gazeX=stage.character.gazeX.toFixed(2);
+    canvas.dataset.gazeY=stage.character.gazeY.toFixed(2);
+    canvas.dataset.expression=next;canvas.dataset.material=stage.form;
+    if(next!==expression){expression=next;onExpression?.(next);if(next==='dizzy')onDiscover?.('shake');if(next==='pout')onDiscover?.('pout');}
+  };
+  return {
+    stage,pose,
+    chapter(){if(!stage.dragging&&stage.scene?.action!=='gravity')manual=false;},
+    poke(){stage.character.poke(stage.time);onDiscover?.('poke');},
+    material(metal){stage.setForm(metal?'liquid':'face');if(metal)onDiscover?.('liquid');},
+    run(action){manual=false;if(stage.scene?.action===action){stage.stopScene(action);return;}stage.run(action);onDiscover?.(action);},
+    home(){manual=false;stage.reset();},
+    dispose(){stage.dispose();}
+  };
 }
