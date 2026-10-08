@@ -9,12 +9,13 @@ required source files and license notices ship with NOX.
 | collidingScopes/liquid-logo | Original vertex/fragment shaders; Chrome preset | Existing NOX silhouette / logo texture, reusable renderer lifecycle, bounded resolution |
 | ruucm/shadergradient | Published React renderer; Mint water-plane preset and Vite example | Charcoal/teal palette, orientation, no external environment map |
 | dashersw/liquid-glass-js | Original Container shader, glass/demo/controls CSS | Native accessible HTML controls; public gradient texture instead of body screenshots |
-| pmndrs/react-three-fiber | Published renderer; Page and DemoPanel example layout | NOX content, responsive page chapters, scroll integration |
+| pmndrs/react-three-fiber | Published renderer; Page/DemoPanel and model/gesture demo patterns | Responsive chapters; existing NOX SVG adapted into a separate 3D emblem |
 
 Shader source files are unmodified. Adaptation modules and CSS explicitly identify
 their upstream source. No upstream sample company logo is represented as NOX's
-brand. NOX's established face/body remain the character asset the owner asked to
-adapt. No new bitmap, shader, sculpture, or decorative shape is generated.
+brand. NOX's established face/body/icon remain the brand assets the owner asked
+to adapt. The 3D emblem extrudes that existing icon; it introduces no new
+decorative artwork, bitmap, stock model or shader.
 
 The original demos do not provide chat/history/authentication pages. Integration
 code maps their components to NOX's existing semantic HTML and controller IDs.

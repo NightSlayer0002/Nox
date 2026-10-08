@@ -78,10 +78,10 @@ heavy scene chunk fails to download.
 
 | Owner | Responsibility |
 | --- | --- |
-| GSAP | Hero entrance, chapter reveals, scroll wrapper scale/position |
+| GSAP | Hero entrance, sourced letter reveals, pinned chapter and outer emblem rotation |
 | Lenis | Desktop wheel scrolling; one GSAP ticker drives its clock |
 | Motion | React mobile menu and existing workbench/dialog transitions |
-| React Spring | Selected pointer tilt on a separate source-scene wrapper |
+| React Spring | Bounded drag/hover rotation of the inner emblem group |
 | ShaderGradient / R3F / Three | Source geometry/material time and GPU rendering |
 | Stage / Face | NOX gaze, drag, gravity, expression, material blend and mouth |
 
@@ -118,18 +118,91 @@ Licenses remain in `public/vendor`; attribution links also appear on the homepag
 ## The additional scroll assets
 
 The owner requested a visible 3D element and repository-sourced scroll effects.
-The Pensive icosahedron preset now renders beside NOX in the hero, with a
-contained camera framing and bounded Spring rotation on the actual Three mesh.
-It animates without clicks, and pauses offscreen as well as when hidden.
+The owner rejected the Pensive background sphere. It is removed from the
+homepage. NOX is small again, with original corner peeking. A separate 3D emblem
+adapts the existing NOX icon; it does not enlarge the character or bob vertically.
 
 Codrops’ `OnScrollTypographyAnimations` was cloned. `client/codrops-scroll.js`
 adapts its effect 6: letters turn forward in perspective and rise into place as
 their headings enter the viewport. React creates the expected word/character
 wrappers in `scroll-title.jsx`; screen readers receive each complete heading
-once. Demo stock images and external fonts are not loaded.
+once. Effect 26 supplies a short pinned material chapter on desktop, with readable letters and explicit pin spacing. Touch uses a perspective entrance without pinning. Demo stock images and external fonts are not loaded. Vendored effect-26 source has only whitespace normalized.
 
 The official Lenis repository was also cloned. Its source CSS and documented
 GSAP integration are used: Lenis emits scroll updates, GSAP’s ticker supplies
 one clock, and lag smoothing is disabled. Native touch scrolling is retained.
 Both new upstream commits and licenses are in `public/vendor/`. The existing
 GSAP context owns and disposes the scroll typography effects.
+
+
+## Small NOX, peeking and the real 3D emblem
+
+The homepage keeps an interactive character and a three-dimensional brand
+emblem separate. The emblem is not a second AI character.
+
+| File | Responsibility |
+| --- | --- |
+| client/home.jsx | Accessible sections, theme, controls and one Lenis/GSAP scroll clock |
+| public/js/landing.js | Mount/dispose one Stage; keep NOX small; connect reactions to HTML |
+| public/js/peek.js | Draw that same character at the corner after leaving the hero; return when scrolling up |
+| client/source-logo.jsx | Existing SVG to real Three geometry; source Chrome texture; rendering and cleanup |
+| public/js/logo-interaction.js | Bounded pointer targets; exclusive pointer; keyboard controls; readiness during context loss |
+| client/hold-button.jsx | 900ms pointer hold, cancellation and immediate keyboard equivalent |
+| public/js/first-contact.js | Pure hold gate and local experiment helpers, not model memory |
+| client/codrops-scroll.js | Scoped adaptations of cloned effects 6 and 26 |
+
+### One character, two draw locations
+
+Stage owns one Face instance and animation clock. While the hero is visible,
+it draws into the small hero canvas. attachPeek checks the actual character's
+bottom edge in viewport pixels, including user-dragged positions. Past the top
+edge, a short transition draws him into the corner and stops painting the
+hidden hero. Scrolling back reverses the handoff. Different enter/return
+thresholds prevent flicker near the edge.
+
+Both drawings share expressions, material and time. Cursor coordinates are
+converted relative to the visible corner face, so his gaze points at the
+cursor anywhere in the window. Clicking the corner gives a real poke.
+Callbacks compose with landing reactions. Stage's AbortController owns the
+pointer listeners and dispose releases them. Keyboard relocation now tells
+landing that the user moved him, so the home pose cannot undo arrow-key moves.
+
+### What makes the emblem three-dimensional
+
+The model uses /icon.svg, the existing NOX brand. SVGLoader reads its rounded
+eye shapes; ExtrudeGeometry gives them physical depth and bevels. The mouth
+path becomes a thin tube. The original background square is excluded. This is
+brand adaptation, not a new decorative model. No stock model, font, bitmap or
+proprietary Why Zero artwork is used.
+
+The icon's 64-unit coordinate system is scaled into Three world coordinates
+and its Y direction flipped. R3F's cloned model/gesture demo patterns provide
+the scene and interactions. The original liquid-logo Chrome shader renders
+into a bounded 512px source canvas; CanvasTexture maps its moving surface onto
+the brand geometry. A separate lit side material makes depth visible as it
+turns. The emblem has no vertical bobbing loop.
+
+Two nested groups keep animation ownership explicit: GSAP turns the outer
+group with scroll; Spring rotates the inner group from drag/hover targets.
+The gesture controller clamps rotation, ignores unrelated pointers and invalid
+coordinates, and applies the same bounds to keyboard turns. Reset releases
+pointer capture and returns the emblem's view without moving NOX.
+
+### Budget, fallbacks and scope
+
+The emblem draws at most 30 FPS at pixel density 1. A monotonic budget survives
+R3F clock resets. Intersection/visibility observers pause rendering offscreen
+or hidden. Geometry, textures, shader renderer and listeners belong to the
+mounted component and are disposed on exit; late async results release too.
+
+Resource readiness and primary GPU context health are independent. If the
+context disappears while icon/shader loading is pending, finishing those
+requests cannot remove the static preview. Restoration resumes from actual
+loading, solid or metal readiness. Missing 3D never gates chat. The fallback
+uses the existing icon. Solid 3D remains available if only Chrome fails.
+
+These graphics and gestures call no AI endpoint and receive no owner token,
+private chat, notebook or camera texture. Public gradient canvases supply the
+glass button textures. Connected chat, voice, auth and quotas remain separate
+systems in the system manual. This update changes no authentication or data
+storage policy, and adds no sentience, model training or unlimited quotas.

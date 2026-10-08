@@ -96,3 +96,18 @@ pause when hidden/offscreen and draw at most 30 FPS.
   and the Vercel production output built successfully. Browser checks confirmed
   sourced 3D rendering, actual mesh pointer rotation, complete scroll headings,
   corner peeking, mobile layout bounds and Liquid Metal initialization.
+
+### Small character and separate emblem correction
+
+The owner rejected the enlarged NOX and floating Pensive background sphere.
+Commit 9d0cc8f restores a small hero character, original corner peeking and
+return-to-hero behavior, with chained callbacks and owned pointer listeners.
+The following stage adapts the established icon into a real 3D chrome emblem,
+using cloned R3F gesture/model patterns and original liquid-logo shaders.
+GSAP owns outer scroll rotation and Spring inner pointer rotation.
+No bobbing loop, new decorative shader, bitmap or stock model is introduced.
+
+Read-only review reproduced a GPU recovery race: async load completion could
+remove the preview while the primary renderer remained paused after context
+loss. Resource readiness is now separated from visible context health; two
+regression cases cover completion during loss and restoration before loading.
