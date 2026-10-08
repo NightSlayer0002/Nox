@@ -7,6 +7,7 @@ if(canvas){
   const stage=new Stage(canvas,null,{landing:true,transparent:true});
   function placeHome(){stage.character.x=stage.character.targetX=.5;stage.character.y=stage.character.targetY=.51;stage.character.scale=1.78;}
   stage.setMotion(readMotionPreference());placeHome();
+  document.addEventListener('nox:material',event=>stage.setForm(event.detail));
   attachPeek(stage,document.getElementById('nox-peek'),document.getElementById('peek-stage'));
   document.querySelectorAll('[data-greet]').forEach(link=>link.addEventListener('pointerenter',()=>stage.character.poke(stage.time)));
   const previous=stage.onAfterFrame;

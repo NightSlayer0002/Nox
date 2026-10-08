@@ -49,7 +49,7 @@ export function attachPeek(stage,host,canvas){
     if(canvas.width!==width||canvas.height!==height){canvas.width=width;canvas.height=height;}
     ctx.setTransform(ratio,0,0,ratio,0,0);ctx.clearRect(0,0,box.width,box.height);
     ctx.save();ctx.translate(x+dx,y+dy);ctx.rotate(-.18);ctx.translate(-x,-y);
-    stage.character.draw(ctx,box.width,box.height,stage.time,{x:x/box.width,y:y/box.height,scale:unit/stage.character.unit(box.width,box.height,1),alpha:progress});
+    stage.character.draw(ctx,box.width,box.height,stage.time,{x:x/box.width,y:y/box.height,scale:unit/stage.character.unit(box.width,box.height,1),alpha:progress,bodyTexture:stage.liquidRenderer?.canvas,materialBlend:stage.materialBlend??0});
     ctx.restore();canvas.dataset.gazeX=stage.character.gazeX.toFixed(2);canvas.dataset.gazeY=stage.character.gazeY.toFixed(2);
   };
   return state;

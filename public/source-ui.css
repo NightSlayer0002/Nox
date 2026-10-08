@@ -1,7 +1,255 @@
-/* Shared adaptation of dashersw/liquid-glass-js glass.css + controls.css.
-   Originals and MIT notices ship in /vendor. Native controls replace demo
-   div-buttons; no generated bitmap, custom shader, or decorative asset. */
-@font-face{font-family:Manrope;src:url('/fonts/Manrope.ttf') format('truetype');font-display:swap}
-:root{color-scheme:dark;--bg:#080e11;--surface:#101c21;--glass:rgba(14,27,32,.72);--glass-hover:rgba(49,91,94,.45);--text:#eef0e9;--muted:#abbcbf;--accent:#8bdfcf;--line:rgba(199,233,230,.18);--radius:20px}
-:root[data-theme=light]{color-scheme:light;--bg:#eaf0ed;--surface:#f4f8f4;--glass:rgba(239,247,240,.84);--glass-hover:rgba(153,210,197,.45);--text:#142328;--muted:#475d61;--accent:#146b60;--line:rgba(32,79,77,.2)}
-*{box-sizing:border-box}html{scroll-padding-top:30px}body{margin:0;background:var(--bg);color:var(--text);font-family:Manrope,system-ui,sans-serif;font-size:14px;line-height:1.6}button,input,textarea,select{font:inherit;color:inherit}a{color:inherit;text-decoration:none}button{cursor:pointer}button,a,input,textarea,select{outline-offset:5px}button:focus-visible,a:focus-visible,input:focus-visible,textarea:focus-visible,select:focus-visible,canvas:focus-visible{outline:2px solid var(--accent)}button{background:transparent;border:1px solid var(--line);border-radius:99px;padding:10px 16px;transition:background .16s,border-color .16s,opacity .16s}button:hover{background:var(--glass-hover);border-color:var(--accent)}button:active{background:var(--surface)}button:disabled{opacity:.45;cursor:not-allowed}button[aria-pressed=true],button.active{background:var(--glass-hover);border-color:var(--accent);color:var(--text)}input,textarea,select{background:var(--glass);border:1px solid var(--line);border-radius:12px;padding:12px 14px;max-width:100%}input[type=range]{accent-color:var(--accent);padding:0;border:0;background:transparent}input[type=checkbox]{accent-color:var(--accent)}textarea{resize:vertical}svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.5}.icon-fill{fill:currentColor}.svg-library{position:absolute;width:0;height:0;overflow:hidden}.sr-only{position:absolute!important;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap}.skip-link{position:fixed;top:10px;left:10px;z-index:999;background:var(--surface);padding:14px;transform:translateY(-180%)}.skip-link:focus{transform:none}[hidden]{display:none!important}.eyebrow{font-size:10px;letter-spacing:.16em;font-weight:500;color:var(--muted)}.brand{display:flex;align-items:center;gap:12px;font-size:17px;letter-spacing:.2em}.brand img{width:36px;height:36px;border-radius:10px}.brand-mark{display:none}.brand-mark+span{letter-spacing:.3em}.brand-mark+span:before{content:'';display:inline-block;width:30px;height:30px;background:url('/icon.svg') center/contain no-repeat;vertical-align:middle;margin-right:12px}.glass-container{position:relative;display:flex;align-items:center;justify-content:center;gap:20px;box-sizing:border-box}.liquid-button{isolation:isolate;position:relative;display:inline-flex;align-items:center;justify-content:center;min-height:52px;gap:16px;padding:14px 28px;border:1px solid var(--line);border-radius:99px;background:var(--glass);backdrop-filter:blur(16px);font-size:14px;color:var(--text);box-shadow:0 12px 35px rgba(0,0,0,.15);overflow:hidden}.liquid-button canvas{position:absolute;inset:0;width:100%;height:100%;z-index:-1;pointer-events:none}.liquid-button>span{position:relative;display:flex;gap:28px;align-items:center}.liquid-button:hover{background:var(--glass-hover);border-color:var(--accent)}.empty-state,.lab-note,.demo-note{color:var(--muted);font-size:12px;line-height:1.8}.error{color:#ffa49b}.source-fallback{position:absolute;inset:0;background:linear-gradient(45deg,#07171b,#3c8d88)}
+/*! NOX adaptation of Liquid Glass demo/control styles. Sources and MIT notices: /vendor/README.md. */
+:root {
+  color-scheme: dark;
+  --bg:#080e11;
+  --surface:#101c21;
+  --glass:rgba(14,27,32,.72);
+  --glass-hover:rgba(49,91,94,.45);
+  --text:#eef0e9;
+  --muted:#abbcbf;
+  --accent:#8bdfcf;
+  --line:rgba(199,233,230,.18);
+  --radius:20px;
+}
+:root[data-theme=light] {
+  color-scheme: light;
+  --bg:#eaf0ed;
+  --surface:#f4f8f4;
+  --glass:rgba(239,247,240,.84);
+  --glass-hover:rgba(153,210,197,.45);
+  --text:#142328;
+  --muted:#475d61;
+  --accent:#146b60;
+  --line:rgba(32,79,77,.2);
+}
+* {
+  box-sizing: border-box;
+}
+html {
+  scroll-padding-top: 30px;
+}
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family:
+    system-ui,
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    sans-serif;
+  font-size: 14px;
+  line-height: 1.6;
+}
+button,
+input,
+textarea,
+select {
+  font: inherit;
+  color: inherit;
+}
+a {
+  color: inherit;
+  text-decoration: none;
+}
+button {
+  cursor: pointer;
+}
+button,
+a,
+input,
+textarea,
+select {
+  outline-offset: 5px;
+}
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible,
+canvas:focus-visible {
+  outline: 2px solid var(--accent);
+}
+button {
+  background: transparent;
+  border: 1px solid var(--line);
+  border-radius: 99px;
+  padding: 10px 16px;
+  transition:
+    background .16s,
+    border-color .16s,
+    opacity .16s;
+}
+button:hover {
+  background: var(--glass-hover);
+  border-color: var(--accent);
+}
+button:active {
+  background: var(--surface);
+}
+button:disabled {
+  opacity: .45;
+  cursor: not-allowed;
+}
+button[aria-pressed=true],
+button.active {
+  background: var(--glass-hover);
+  border-color: var(--accent);
+  color: var(--text);
+}
+input,
+textarea,
+select {
+  background: var(--glass);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 12px 14px;
+  max-width: 100%;
+}
+input[type=range] {
+  accent-color: var(--accent);
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
+input[type=checkbox] {
+  accent-color: var(--accent);
+}
+textarea {
+  resize: vertical;
+}
+svg {
+  width: 20px;
+  height: 20px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.5;
+}
+.icon-fill {
+  fill: currentColor;
+}
+.svg-library {
+  position: absolute;
+  width: 0;
+  height: 0;
+  overflow: hidden;
+}
+.sr-only {
+  position: absolute !important;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+}
+.skip-link {
+  position: fixed;
+  top: 10px;
+  left: 10px;
+  z-index: 999;
+  background: var(--surface);
+  padding: 14px;
+  transform: translateY(-180%);
+}
+.skip-link:focus {
+  transform: none;
+}
+[hidden] {
+  display: none !important;
+}
+.eyebrow {
+  font-size: 10px;
+  letter-spacing: .16em;
+  font-weight: 500;
+  color: var(--muted);
+}
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 17px;
+  letter-spacing: .2em;
+}
+.brand img {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+}
+.brand-mark {
+  display: none;
+}
+.brand-mark + span {
+  letter-spacing: .3em;
+}
+.brand-mark + span:before {
+  content: "";
+  display: inline-block;
+  width: 30px;
+  height: 30px;
+  background: url(/icon.svg) center/contain no-repeat;
+  vertical-align: middle;
+  margin-right: 12px;
+}
+.glass-container {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 20px;
+  box-sizing: border-box;
+}
+.liquid-button {
+  isolation: isolate;
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 52px;
+  gap: 16px;
+  padding: 14px 28px;
+  border: 1px solid var(--line);
+  border-radius: 99px;
+  background: var(--glass);
+  backdrop-filter: blur(16px);
+  font-size: 14px;
+  color: var(--text);
+  box-shadow: 0 12px 35px rgba(0, 0, 0, .15);
+  overflow: hidden;
+}
+.liquid-button canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: -1;
+  pointer-events: none;
+}
+.liquid-button > span {
+  position: relative;
+  display: flex;
+  gap: 28px;
+  align-items: center;
+}
+.liquid-button:hover {
+  background: var(--glass-hover);
+  border-color: var(--accent);
+}
+.empty-state,
+.lab-note,
+.demo-note {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.8;
+}
+.error {
+  color: #ffa49b;
+}
+.source-fallback {
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(
+      45deg,
+      #07171b,
+      #3c8d88);
+}

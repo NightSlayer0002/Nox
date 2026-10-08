@@ -1,4 +1,172 @@
-/* Explore / library adapt Liquid Glass's controls-content and demo-row.
-   Real saved data, empty/search states and existing routes are preserved. */
-.day-card{padding:2px 0 26px;border-bottom:1px solid var(--line);margin-bottom:24px}.day-card h2{font-size:37px!important;letter-spacing:-.04em}.day-card>p:last-child{font-size:13px;color:var(--muted);line-height:1.8}.resume-chats{margin:15px 0 26px}.resume-row{display:flex;align-items:center;gap:14px;width:100%;text-align:left;border-radius:12px;border:0;border-bottom:1px solid var(--line);padding:14px 8px}.resume-row>span:nth-child(2){flex:1;min-width:0}.resume-row b{display:block;font-size:12px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.resume-row small{display:block;font-size:10px;color:var(--muted);margin-top:5px}.resume-row>span:first-child{color:var(--accent);font-size:18px}.explore-grid{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-top:18px}.explore-grid button{background:var(--glass);border-radius:16px;text-align:left;padding:20px 16px;display:flex;flex-direction:column;gap:8px;min-height:145px}.explore-grid button>span{font-size:8px;letter-spacing:.07em;color:var(--accent)}.explore-grid button>b{font-weight:500;font-size:17px;letter-spacing:-.02em}.explore-grid button>small{font-size:10px;color:var(--muted);line-height:1.7}.history-search{width:100%;margin:6px 0 18px}.library-toolbar{display:flex;align-items:center;justify-content:space-between;gap:12px;font-size:10px;color:var(--muted);padding-bottom:18px;border-bottom:1px solid var(--line)}.history-list{margin-top:12px;max-height:550px;overflow:auto;overscroll-behavior:contain;scrollbar-width:thin}.history-item{display:flex;gap:10px;align-items:center;border-bottom:1px solid var(--line);padding:5px 0}.history-open{border:0;border-radius:12px;flex:1;min-width:0;text-align:left;display:flex;flex-direction:column;gap:7px;padding:17px 9px}.history-open b{font-size:13px;font-weight:500}.history-open>span{font-size:11px;color:var(--muted);white-space:nowrap;text-overflow:ellipsis;overflow:hidden;max-width:100%}.history-open small{font-size:9px;color:var(--muted)}.delete-chat{width:30px;height:30px;padding:0;font-size:18px;flex-shrink:0}.delete-chat:hover{border-color:#ffa49b;color:#ffa49b}.library-column .demo-note{margin-top:24px}
-@media(max-width:480px){.explore-grid button{padding:18px 13px;min-height:130px}.explore-grid button>b{font-size:15px}.day-card h2{font-size:34px!important}.history-list{max-height:470px}.history-open b{font-size:12px}.library-toolbar{font-size:9px}}
+/*! NOX adaptation of Liquid Glass demo/control styles. Sources and MIT notices: /vendor/README.md. */
+.day-card {
+  padding: 2px 0 26px;
+  border-bottom: 1px solid var(--line);
+  margin-bottom: 24px;
+}
+.day-card h2 {
+  font-size: 37px !important;
+  letter-spacing: -.04em;
+}
+.day-card > p:last-child {
+  font-size: 13px;
+  color: var(--muted);
+  line-height: 1.8;
+}
+.resume-chats {
+  margin: 15px 0 26px;
+}
+.resume-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+  text-align: left;
+  border-radius: 12px;
+  border: 0;
+  border-bottom: 1px solid var(--line);
+  padding: 14px 8px;
+}
+.resume-row > span:nth-child(2) {
+  flex: 1;
+  min-width: 0;
+}
+.resume-row b {
+  display: block;
+  font-size: 12px;
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.resume-row small {
+  display: block;
+  font-size: 10px;
+  color: var(--muted);
+  margin-top: 5px;
+}
+.resume-row > span:first-child {
+  color: var(--accent);
+  font-size: 18px;
+}
+.explore-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 9px;
+  margin-top: 18px;
+}
+.explore-grid button {
+  background: var(--glass);
+  border-radius: 16px;
+  text-align: left;
+  padding: 20px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-height: 145px;
+}
+.explore-grid button > span {
+  font-size: 8px;
+  letter-spacing: .07em;
+  color: var(--accent);
+}
+.explore-grid button > b {
+  font-weight: 500;
+  font-size: 17px;
+  letter-spacing: -.02em;
+}
+.explore-grid button > small {
+  font-size: 10px;
+  color: var(--muted);
+  line-height: 1.7;
+}
+.history-search {
+  width: 100%;
+  margin: 6px 0 18px;
+}
+.library-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 10px;
+  color: var(--muted);
+  padding-bottom: 18px;
+  border-bottom: 1px solid var(--line);
+}
+.history-list {
+  margin-top: 12px;
+  max-height: 550px;
+  overflow: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+}
+.history-item {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  border-bottom: 1px solid var(--line);
+  padding: 5px 0;
+}
+.history-open {
+  border: 0;
+  border-radius: 12px;
+  flex: 1;
+  min-width: 0;
+  text-align: left;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  padding: 17px 9px;
+}
+.history-open b {
+  font-size: 13px;
+  font-weight: 500;
+}
+.history-open > span {
+  font-size: 11px;
+  color: var(--muted);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  overflow: hidden;
+  max-width: 100%;
+}
+.history-open small {
+  font-size: 9px;
+  color: var(--muted);
+}
+.delete-chat {
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  font-size: 18px;
+  flex-shrink: 0;
+}
+.delete-chat:hover {
+  border-color: #ffa49b;
+  color: #ffa49b;
+}
+.library-column .demo-note {
+  margin-top: 24px;
+}
+@media (max-width: 480px) {
+  .explore-grid button {
+    padding: 18px 13px;
+    min-height: 130px;
+  }
+  .explore-grid button > b {
+    font-size: 15px;
+  }
+  .day-card h2 {
+    font-size: 34px !important;
+  }
+  .history-list {
+    max-height: 470px;
+  }
+  .history-open b {
+    font-size: 12px;
+  }
+  .library-toolbar {
+    font-size: 9px;
+  }
+}

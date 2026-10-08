@@ -16,7 +16,7 @@ function Budget({onCanvas}){
     onCanvas?.(gl.domElement);
     const visibility=()=>{setFrameloop(document.hidden?'never':'always');if(!document.hidden)invalidate();};
     document.addEventListener('visibilitychange',visibility);visibility();
-    return()=>document.removeEventListener('visibilitychange',visibility);
+    return()=>{document.removeEventListener('visibilitychange',visibility);onCanvas?.(null);};
   },[gl,setFrameloop,invalidate,onCanvas]);
   useFrame(({gl,scene,camera,clock})=>{if(clock.elapsedTime-last.current<1/30)return;last.current=clock.elapsedTime;gl.render(scene,camera);gl.domElement.dataset.source='shadergradient';gl.domElement.dataset.frame=String(Math.round(clock.elapsedTime*30));},1);
   return null;

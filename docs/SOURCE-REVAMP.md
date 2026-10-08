@@ -51,3 +51,24 @@ No new image generation, custom decorative shader, or panel sculpture is used.
   html2canvas screenshots of conversations, passwords, owner tokens or camera.
 - Keep motion preferences overridden only inside NOX, as the owner requested.
 - Commit actual finished stages; do not alter timestamps or create empty commits.
+
+### Completed stages and review
+
+- `2248f71`: pinned source foundation and always-on defaults.
+- `f714eb6`: sourced homepage, glass CTA and scroll chapters.
+- `6d984d0`: conversation and shared workspace control system.
+- `76f145b`: frame/play scene and capture composition; generated room removed.
+- `bab51f7`: Explore and Library.
+- `1ea2a64`: Preferences and Knowledge.
+- Liquid Metal: sourced Chrome body and faceless core; previous generated
+  Signal shader removed. Existing brand and reactions retained.
+- Independent review identified four Important issues. A missing lazy scene
+  download was reproduced in the browser (blank page), then protected by an
+  outer boundary (navigation and CTA remain). Signal context loss/Glow and
+  late background readiness regressions were reproduced with failing tests,
+  then fixed. Source shaders match upstream; no private body capture.
+- Final minor documentation mismatch for scroll wrapper name corrected.
+- Ruling: preserve the established NOX face/silhouette/icon as the owner’s brand
+  adaptation; replace generated decorative assets and theme/sculpture/core code.
+- Ruling: use native system typography and text glyph controls from the source
+  demos’ approach, removing old custom font loading and SVG control artwork.

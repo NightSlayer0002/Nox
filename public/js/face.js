@@ -126,14 +126,14 @@ export class Face extends OrbSignal {
     const unit = this.unit(width,height);
     return ((point.x-this.x)*width/(128*unit))**2+((point.y-this.y)*height/(149*unit))**2<1.1;
   }
-  draw(ctx, width, height, time, { alpha = 1, x = this.x, y = this.y, scale = this.scale, ghost = false } = {}) {
+  draw(ctx, width, height, time, { alpha = 1, x = this.x, y = this.y, scale = this.scale, ghost = false,bodyTexture=null,materialBlend=1 } = {}) {
     const unit=this.unit(width,height,scale),features=this.features(time);
     const red=this.mode==='uncanny'||this.emotion==='uncanny';
     const color=ghost?'#c7cbb4':red?'#efbba3':this.mode==='director'?'#eeefd6':'#fff3c9';
     ctx.save();ctx.globalAlpha=alpha;
     ctx.translate(width*x,height*y+(this.breath-(this.held&&!this.reduceMotion?7:0)+features.squash*80)*unit);
     ctx.scale(unit*(1+features.squash),unit*(1-features.squash*.6));ctx.rotate(this.rotation+features.bodyTilt);
-    if(!ghost)drawBody(ctx,this.held);
+    if(!ghost){drawBody(ctx,this.held);if(bodyTexture&&materialBlend>0){ctx.save();ctx.globalAlpha*=materialBlend;ctx.drawImage(bodyTexture,-256/1.4,-256/1.4,512/1.4,512/1.4);ctx.restore();}}
     ctx.shadowColor=red?'#c78361':'#f2d794';ctx.shadowBlur=3+this.signal.intensity*6;
     drawEyes(ctx,features,this.gazeX,this.gazeY,time,color,this.reduceMotion);
     ctx.shadowBlur=2;drawMouth(ctx,features,this.gazeX,this.gazeY,color);ctx.restore();

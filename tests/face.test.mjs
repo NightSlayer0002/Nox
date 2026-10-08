@@ -155,6 +155,14 @@ test('a wink closes only one eye and returns to his normal expression', () => {
   assert.equal(face.features(3).leftHeight,normal.leftHeight);assert.equal(face.features(3).rightHeight,normal.rightHeight);
 });
 
+test('liquid metal changes material without discarding NOX reactions or gravity',()=>{
+  const stage=Object.create(Stage.prototype),face=new Face();Object.assign(stage,{canvas:{dataset:{}},forms:{face},character:face,form:'face',liquidRenderer:{canvas:{}},scene:{action:'gravity',velocity:.2},time:3});
+  face.x=.7;face.y=.3;face.react('dizzy',3,3);face.annoyanceEpisodes=6;
+  assert.equal(stage.setForm('liquid'),true);assert.equal(stage.character,face);assert.equal(stage.scene.action,'gravity');assert.equal(face.features(3.1).expression,'dizzy');
+  assert.equal(face.x,.7);assert.equal(face.annoyanceEpisodes,6);
+  assert.equal(stage.setForm('face'),true);assert.equal(stage.character,face);assert.equal(stage.scene.action,'gravity');
+});
+
 function pointerStage() {
   const handlers = new Map(), stage = Object.create(Stage.prototype);
   stage.canvas = {

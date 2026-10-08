@@ -1,6 +1,6 @@
 # NOX / Laboratory
 
-A curious mind, a little company. An expressive AI companion with a live blob, a 3D editorial homepage, a knowledge notebook, adjustable answer depth, and a creation studio. React interface islands coexist with the original Canvas/WebGL character engine and Node 24 server. All libraries are pinned and bundled locally.
+A curious mind, a little company. An expressive AI companion with a live blob, a source-based fluid homepage, a knowledge notebook, adjustable answer depth, and a creation studio. React interface islands coexist with the original Canvas/WebGL character engine and Node 24 server. All libraries are pinned and bundled locally.
 
 Live website: [nox-iota-lemon.vercel.app](https://nox-iota-lemon.vercel.app/). Source: [NightSlayer0002/Nox](https://github.com/NightSlayer0002/Nox). Pushing `main` automatically starts a Vercel production deployment.
 
@@ -11,7 +11,7 @@ npm.cmd ci --ignore-scripts
 npm.cmd start
 ```
 
-Open http://127.0.0.1:3000 for the landing page, then enter the workspace at `/app`. NOX follows your cursor across the browser window. Click him, drag him, or double-click to wink. Presence is the face; Signal is the optional shader core. Motion and voice start on; an explicit saved off choice is respected. Browser audio still needs interaction. Scene studio has programs that stop on a second click. F enters portrait film mode; Escape resets the scene.
+Open http://127.0.0.1:3000 for the landing page, then enter the workspace at `/app`. Dark is the default; a deliberate new Light choice can be saved. NOX follows your cursor across the browser window. Click him, drag him, or double-click to wink. Presence is the soft blob; Liquid Metal applies liquid-logo’s flowing Chrome shader to that same character. Signal is a faceless liquid core. NOX motion stays on with no website switch, including when the browser requests reduced motion as explicitly requested by the owner. ShaderGradient’s Mint water-plane scene animates automatically; GPU drawing is capped at 30 FPS and stops when the page is hidden. Voice starts on and preserves a saved off choice; browser audio still needs interaction. Scene programs stop on a second click. F enters portrait film mode; Escape resets the scene.
 
 ## Give him a brain
 
@@ -32,6 +32,10 @@ Explore, Conversation, Scene studio, and Library are distinct workspace views. C
 Quick, Balanced and Deep retain up to 420, 2,400 and 6,000 written characters. Groq Deep uses GPT-OSS 120B with more reasoning; normal conversation uses the configured model. Voice reads a concise opening independently. Add text/Markdown to Knowledge for local ranked retrieval; inspect relevant source titles before sending. Notes are plaintext browser storage, with no cloud sync.
 
 NVIDIA/Gemini can stream text before the validated mood/action packet. Strict Groq output arrives as a complete packet. Stable prompt prefixes support Groq's automatic prompt caching; a bounded cache reuses identical speech in a warm instance, and hashed frontend chunks can be cached immutably. Neither mechanism guarantees a speed or unlimited quota. NVIDIA defaults to `nvidia/nemotron-3-nano-30b-a3b` with thinking disabled and stays unavailable until a key is configured. Its hosted trial terms require your own review before production use.
+
+## Visual sources
+
+The four requested repositories were cloned and their licenses preserved. The previous generated panel sculpture, custom Signal shader, room bitmap and visual styles have been replaced. Source shaders remain unmodified; NOX branding, colors, orientation, native controls and lifecycle code are explicit adaptations. See [the source guide](docs/SOURCE-ASSETS-GUIDE.md), [the pinned source record](public/vendor/sources.json), and [the stage-by-stage plan](docs/SOURCE-REVAMP.md).
 
 ## Deploy and learn
 

@@ -18,8 +18,9 @@ test('Vercel build contains static module dependencies and all bounded API handl
     assert.ok(routing.routes.some(route=>route.src.startsWith('/dist/chunks/')&&route.headers?.['Cache-Control'].includes('immutable')));
     const homeBundle=await readFile(path.join(output,'static/dist/home.js'),'utf8');
     const workspaceBundle=await readFile(path.join(output,'static/dist/workspace.js'),'utf8');
-    assert.match(homeBundle,/\.\/chunks\/sculpture-/);assert.match(workspaceBundle,/\/js\/workbench\.js/);
-    assert.ok((await readdir(path.join(output,'static/dist/chunks'))).some(file=>/^sculpture-.*\.js$/.test(file)));
+    assert.match(homeBundle,/\.\/chunks\/source-scene-/);assert.match(workspaceBundle,/\/js\/workbench\.js/);
+    assert.ok((await readdir(path.join(output,'static/dist/chunks'))).some(file=>/^source-scene-.*\.js$/.test(file)));
+    for(const source of ['liquid-logo/fragment-shader.glsl','liquid-glass-js/glass.frag','sources.json'])assert.ok((await readFile(path.join(output,'static/vendor',source),'utf8')).length>0);
     assert.match(await readFile(path.join(output,'static/index.html'),'utf8'), /NOX/);
     assert.match(await readFile(path.join(output,'static/shared/character.js'),'utf8'), /normalizePacket/);
     const files = await readdir(path.join(output,'static'));

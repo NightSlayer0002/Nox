@@ -14,22 +14,26 @@ export const EXPRESSIONS = Object.freeze({
   pout:{eyes:'glossy',heights:[1.12,1.12],brows:'furrowed',marks:'anger'},
 });
 
-export function drawBody(ctx,held){
-  ctx.fillStyle=held?'#00000035':'#00000065';ctx.shadowColor='#000';ctx.shadowBlur=held?20:12;
-  ctx.beginPath();ctx.ellipse(0,151,140,15,0,0,Math.PI*2);ctx.fill();ctx.shadowBlur=0;
-  // Restore the original continuous blob outline, with a quiet matte finish.
+// Existing NOX brand silhouette, reused as the uploaded liquid-logo mask.
+export function blobPath(ctx){
   ctx.beginPath();ctx.moveTo(-145,126);
   ctx.bezierCurveTo(-148,52,-141,-61,-102,-106);
   ctx.bezierCurveTo(-55,-165,67,-165,111,-97);
   ctx.bezierCurveTo(145,-47,148,59,145,126);
   ctx.quadraticCurveTo(143,145,124,145);ctx.lineTo(-124,145);
   ctx.quadraticCurveTo(-145,145,-145,126);ctx.closePath();
+}
+export function drawBody(ctx,held){
+  ctx.fillStyle=held?'#00000035':'#00000065';ctx.shadowColor='#000';ctx.shadowBlur=held?20:12;
+  ctx.beginPath();ctx.ellipse(0,151,140,15,0,0,Math.PI*2);ctx.fill();ctx.shadowBlur=0;
+  blobPath(ctx);
   const matte=ctx.createLinearGradient(-140,-130,145,130);matte.addColorStop(0,'#232924');matte.addColorStop(1,'#0e1512');
   ctx.fillStyle=matte;ctx.fill();ctx.strokeStyle='#61706655';ctx.lineWidth=1.5;ctx.stroke();
   ctx.save();ctx.clip();ctx.fillStyle='#acb6a410';
   for(let i=0;i<55;i++){const x=((i*73)%239)-119,y=((i*109)%291)-146;ctx.fillRect(x,y,1.3,1.3);}
   ctx.restore();
 }
+export function createBlobMask(){const mask=document.createElement('canvas');mask.width=mask.height=512;const ctx=mask.getContext('2d');ctx.translate(256,256);ctx.scale(1.4,1.4);blobPath(ctx);ctx.fillStyle='#fff';ctx.fill();return mask;}
 
 function star(ctx,x,y,r){
   ctx.beginPath();for(let i=0;i<10;i++){const a=-Math.PI/2+i*Math.PI/5,rr=i%2?r*.44:r;const px=x+Math.cos(a)*rr,py=y+Math.sin(a)*rr;i?ctx.lineTo(px,py):ctx.moveTo(px,py);}ctx.closePath();ctx.fill();
@@ -82,14 +86,14 @@ export function drawEyes(ctx,f,gazeX,gazeY,time,color,reduceMotion){
   ctx.lineWidth=2.5;ctx.shadowBlur=2;
   if(f.marks==='blush')for(const side of [-1,1])for(let i=0;i<3;i++){ctx.beginPath();ctx.moveTo(side*77+i*5,40);ctx.lineTo(side*77+i*5-3,49);ctx.stroke();}
   if(f.marks==='stars'){for(const [x,y,r] of [[-78,-150,5],[10,-169,4],[83,-142,5]])star(ctx,x,y,r);}
-  if(f.marks==='question'){ctx.font='24px Manrope, sans-serif';ctx.fillText('?',85,-80);}
+  if(f.marks==='question'){ctx.font='24px system-ui, sans-serif';ctx.fillText('?',85,-80);}
   if(f.marks==='sweat'){ctx.beginPath();ctx.moveTo(91,-32);ctx.quadraticCurveTo(81,-11,91,-12);ctx.quadraticCurveTo(99,-13,91,-32);ctx.stroke();}
   if(f.marks==='sleep'){
     ctx.save();const opacity=ctx.globalAlpha;ctx.fillStyle=color;ctx.shadowBlur=3;ctx.textAlign='center';
     for(let i=0;i<3;i++){
       const phase=reduceMotion?0:(time*.32+i/3)%1;
       ctx.globalAlpha=opacity*(reduceMotion ? .8 : .25+.75*Math.sin(phase*Math.PI));
-      ctx.font=`500 ${14+i*4}px Manrope, sans-serif`;
+      ctx.font=`500 ${14+i*4}px system-ui, sans-serif`;
       ctx.fillText('z',69+i*15+phase*12,-129-i*14-phase*23);
     }
     ctx.restore();

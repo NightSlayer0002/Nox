@@ -1,4 +1,229 @@
-/* Chat fields adapt Liquid Glass controls-content / control-group.
-   Existing NOX message/history DOM and behavior remain controller-owned. */
-.connection-heading,.persona-header,.composer-bottom,.notebook-head,.answer-controls{display:flex;justify-content:space-between;align-items:center;gap:10px}.persona-header{font-size:9px;letter-spacing:.1em;color:var(--muted)}.mode-tabs{display:flex;gap:4px;margin:12px 0 20px}.mode-tabs button{flex:1;font-size:11px;padding:9px 10px;border-color:transparent}.mode-tabs button.active{border-color:var(--line)}.conversation{height:clamp(260px,39vh,470px);overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin;scrollbar-color:var(--line) transparent;padding-right:8px;overflow-wrap:anywhere}.message{margin:0 0 24px;line-height:1.8}.message .speaker{font-size:9px;letter-spacing:.13em;color:var(--accent);margin:0 0 8px}.message>p:not(.speaker){white-space:pre-wrap;font-size:14px;margin:0;line-height:1.85}.message.user{background:var(--glass-hover);border-radius:16px;padding:15px 17px}.message.user .speaker{color:var(--muted)}.message.system{font-size:12px;color:var(--muted);border-left:2px solid var(--line);padding-left:15px}.reply-timing{font-size:10px;color:var(--muted);min-height:16px;margin:10px 0}.connection-help{border:1px solid var(--line);padding:12px 14px;border-radius:14px;margin:12px 0;font-size:11px;display:flex;align-items:center;gap:10px;justify-content:space-between}.connection-help p{margin:0}.answer-controls{font-size:10px;margin:14px 0}.answer-controls select{padding:8px 10px;font-size:11px;min-width:0;flex:1}.answer-controls>label{max-width:55px}.composer{background:var(--glass);border:1px solid var(--line);border-radius:20px;padding:14px}.composer:focus-within{border-color:var(--accent)}.composer textarea{border:0;background:none;outline-offset:0;outline:none;width:100%;padding:2px 3px;min-height:60px;font-size:13px;line-height:1.7}.composer textarea::placeholder{color:var(--muted)}.composer-bottom{margin-top:8px}.composer-bottom>span{font-size:8px;letter-spacing:.1em;color:var(--muted)}.composer-bottom button{display:flex;align-items:center;gap:6px;font-size:11px;padding:8px 12px}.composer-bottom #send-button{height:40px;width:40px;padding:10px;background:var(--accent);color:var(--bg);border-color:var(--accent)}.composer-bottom #mic-button{border-color:transparent}.suggestions{display:flex;gap:8px;margin:20px 0}.suggestions button{flex:1;font-size:10px;display:flex;justify-content:space-between;padding:9px 12px}.notebook{border-top:1px solid var(--line);padding-top:18px;margin-top:20px;font-size:11px;color:var(--muted)}.notebook-head button{font-size:9px;padding:6px 10px}.notebook-head .eyebrow{font-size:8px}#memory-facts{display:flex;gap:6px;flex-wrap:wrap}#memory-facts span{border:1px solid var(--line);border-radius:99px;padding:3px 9px}.knowledge-sources{font-size:11px;color:var(--accent);overflow-wrap:anywhere}.companion-column .lab-note{margin:10px 0}
-@media(max-width:480px){.connection-help{align-items:flex-start}.mode-tabs button{font-size:10px;padding:9px 6px}.answer-controls{flex-wrap:wrap}.answer-controls>label{max-width:none}.answer-controls select{flex:1;max-width:210px}.composer-bottom>span{display:none}.conversation{height:360px}.message>p:not(.speaker){font-size:13px}.suggestions button{font-size:10px}.notebook-head{flex-wrap:wrap}}
+/*! NOX adaptation of Liquid Glass demo/control styles. Sources and MIT notices: /vendor/README.md. */
+.connection-heading,
+.persona-header,
+.composer-bottom,
+.notebook-head,
+.answer-controls {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+}
+.persona-header {
+  font-size: 9px;
+  letter-spacing: .1em;
+  color: var(--muted);
+}
+.mode-tabs {
+  display: flex;
+  gap: 4px;
+  margin: 12px 0 20px;
+}
+.mode-tabs button {
+  flex: 1;
+  font-size: 11px;
+  padding: 9px 10px;
+  border-color: transparent;
+}
+.mode-tabs button.active {
+  border-color: var(--line);
+}
+.conversation {
+  height: clamp(260px, 39vh, 470px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: var(--line) transparent;
+  padding-right: 8px;
+  overflow-wrap: anywhere;
+}
+.message {
+  margin: 0 0 24px;
+  line-height: 1.8;
+}
+.message .speaker {
+  font-size: 9px;
+  letter-spacing: .13em;
+  color: var(--accent);
+  margin: 0 0 8px;
+}
+.message > p:not(.speaker) {
+  white-space: pre-wrap;
+  font-size: 14px;
+  margin: 0;
+  line-height: 1.85;
+}
+.message.user {
+  background: var(--glass-hover);
+  border-radius: 16px;
+  padding: 15px 17px;
+}
+.message.user .speaker {
+  color: var(--muted);
+}
+.message.system {
+  font-size: 12px;
+  color: var(--muted);
+  border-left: 2px solid var(--line);
+  padding-left: 15px;
+}
+.reply-timing {
+  font-size: 10px;
+  color: var(--muted);
+  min-height: 16px;
+  margin: 10px 0;
+}
+.connection-help {
+  border: 1px solid var(--line);
+  padding: 12px 14px;
+  border-radius: 14px;
+  margin: 12px 0;
+  font-size: 11px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  justify-content: space-between;
+}
+.connection-help p {
+  margin: 0;
+}
+.answer-controls {
+  font-size: 10px;
+  margin: 14px 0;
+}
+.answer-controls select {
+  padding: 8px 10px;
+  font-size: 11px;
+  min-width: 0;
+  flex: 1;
+}
+.answer-controls > label {
+  max-width: 55px;
+}
+.composer {
+  background: var(--glass);
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  padding: 14px;
+}
+.composer:focus-within {
+  border-color: var(--accent);
+}
+.composer textarea {
+  border: 0;
+  background: none;
+  outline-offset: 0;
+  outline: none;
+  width: 100%;
+  padding: 2px 3px;
+  min-height: 60px;
+  font-size: 13px;
+  line-height: 1.7;
+}
+.composer textarea::placeholder {
+  color: var(--muted);
+}
+.composer-bottom {
+  margin-top: 8px;
+}
+.composer-bottom > span {
+  font-size: 8px;
+  letter-spacing: .1em;
+  color: var(--muted);
+}
+.composer-bottom button {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  padding: 8px 12px;
+}
+.composer-bottom #send-button {
+  height: 40px;
+  width: 40px;
+  padding: 10px;
+  background: var(--accent);
+  color: var(--bg);
+  border-color: var(--accent);
+}
+.composer-bottom #mic-button {
+  border-color: transparent;
+}
+.suggestions {
+  display: flex;
+  gap: 8px;
+  margin: 20px 0;
+}
+.suggestions button {
+  flex: 1;
+  font-size: 10px;
+  display: flex;
+  justify-content: space-between;
+  padding: 9px 12px;
+}
+.notebook {
+  border-top: 1px solid var(--line);
+  padding-top: 18px;
+  margin-top: 20px;
+  font-size: 11px;
+  color: var(--muted);
+}
+.notebook-head button {
+  font-size: 9px;
+  padding: 6px 10px;
+}
+.notebook-head .eyebrow {
+  font-size: 8px;
+}
+#memory-facts {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+#memory-facts span {
+  border: 1px solid var(--line);
+  border-radius: 99px;
+  padding: 3px 9px;
+}
+.knowledge-sources {
+  font-size: 11px;
+  color: var(--accent);
+  overflow-wrap: anywhere;
+}
+.companion-column .lab-note {
+  margin: 10px 0;
+}
+@media (max-width: 480px) {
+  .connection-help {
+    align-items: flex-start;
+  }
+  .mode-tabs button {
+    font-size: 10px;
+    padding: 9px 6px;
+  }
+  .answer-controls {
+    flex-wrap: wrap;
+  }
+  .answer-controls > label {
+    max-width: none;
+  }
+  .answer-controls select {
+    flex: 1;
+    max-width: 210px;
+  }
+  .composer-bottom > span {
+    display: none;
+  }
+  .conversation {
+    height: 360px;
+  }
+  .message > p:not(.speaker) {
+    font-size: 13px;
+  }
+  .suggestions button {
+    font-size: 10px;
+  }
+  .notebook-head {
+    flex-wrap: wrap;
+  }
+}

@@ -3,9 +3,11 @@ import {createRoot} from 'react-dom/client';
 import {AnimatePresence,motion,useReducedMotion} from 'motion/react';
 import {knowledge,knowledgeChanged,downloadText} from '/js/workbench.js';
 import {readTheme,saveTheme,applyTheme} from '/js/preferences.js';
+import {sourceBackground} from '/js/source-background.js';
+import {SourceBoundary} from './source-boundary.jsx';
 applyTheme(readTheme());
 const SourceScene=lazy(()=>import('./source-scene.jsx'));
-function Background(){const connect=useCallback(canvas=>document.dispatchEvent(new CustomEvent('nox:background',{detail:canvas})),[]);return <Suspense fallback={<div className="source-fallback"/>}><SourceScene onCanvas={connect}/></Suspense>;}
+function Background(){const connect=useCallback(canvas=>sourceBackground.publish(canvas),[]);return <SourceBoundary><Suspense fallback={<div className="source-fallback"/>}><SourceScene onCanvas={connect}/></Suspense></SourceBoundary>;}
 const background=document.getElementById('workspace-background');if(background)createRoot(background).render(<Background/>);
 
 const commands=[

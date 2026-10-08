@@ -13,6 +13,7 @@ import { connectionState } from './connection.js';
 import { EXPRESSIONS } from './face-art.js';
 import { knowledge,readDepth,saveDepth } from './workbench.js';
 import { spokenPreview } from './reply.js';
+import {sourceBackground} from './source-background.js';
 
 const $ = id => document.getElementById(id);
 let disk;
@@ -44,12 +45,12 @@ const stage = new Stage($('stage'), action => {
     button.classList.toggle('active', active); button.setAttribute('aria-pressed', active);
   });
 });
-document.addEventListener('nox:background',event=>stage.setBackgroundSource(event.detail));
+sourceBackground.subscribe(canvas=>stage.setBackgroundSource(canvas));
 for(const expression of Object.keys(EXPRESSIONS)){
   const option=document.createElement('option');option.value=expression;option.textContent=expression==='pout'?'Cute outrage':expression[0].toUpperCase()+expression.slice(1);$('expression-preview').append(option);
 }
 $('preview-expression').addEventListener('click',()=>{
-  if(stage.form!=='face'){toast('Choose Presence to try his expressions.');return;}
+  if(stage.form==='core'){toast('Choose Presence or Liquid Metal to try his expressions.');return;}
   stage.character.preview($('expression-preview').value,stage.time);
   stage.canvas.scrollIntoView({behavior:stage.reduceMotion?'instant':'smooth',block:'center'});
 });
@@ -193,9 +194,9 @@ document.querySelectorAll('[data-scene]').forEach(button => button.addEventListe
 }));
 document.querySelectorAll('[data-mode]').forEach(button => button.addEventListener('click', () => setMode(button.dataset.mode)));
 document.querySelectorAll('button[data-form]').forEach(button => button.addEventListener('click', () => {
-  stage.dragging = false; document.body.dataset.form = button.dataset.form; stage.setForm(button.dataset.form);
+  document.body.dataset.form = button.dataset.form; stage.setForm(button.dataset.form);
   document.querySelectorAll('button[data-form]').forEach(control => control.setAttribute('aria-pressed', control.dataset.form === stage.form));
-  $('stage').setAttribute('aria-label', stage.form === 'face' ? 'Animated NOX face. Move the cursor to look around. Click to make him smile, double-click or press Space to wink. Drag or use arrow keys to move him. Shake quickly while holding him for spiral eyes.' : 'Animated NOX signal core. Move the cursor for parallax, click or press Space for a pulse. Drag or use arrow keys to move the core.');
+  $('stage').setAttribute('aria-label', stage.form !== 'core' ? 'Animated NOX face. Move the cursor to look around. Click to make him smile, double-click or press Space to wink. Drag or use arrow keys to move him. Shake quickly while holding him for spiral eyes.' : 'Animated NOX signal core. Move the cursor for parallax, click or press Space for a pulse. Drag or use arrow keys to move the core.');
 }));
 document.querySelectorAll('[data-prompt]').forEach(button => button.addEventListener('click', () => send(button.dataset.prompt)));
 $('chat-form').addEventListener('submit', event => { event.preventDefault(); send($('message').value); });
@@ -272,7 +273,7 @@ setInterval(() => {
     document.body.dataset.signal = signal.status; $('signal-state').textContent = signal.status.toUpperCase();
   }
   $('signal-level').style.width = `${Math.round(signal.energy * 100)}%`;
-  $('stage').dataset.renderer = stage.form === 'face' ? 'canvas-face' : stage.character.renderer?.available ? 'webgl' : 'canvas-core';
+  $('stage').dataset.renderer = stage.form==='liquid'&&stage.liquidRenderer?'liquid-logo':stage.form === 'face' ? 'canvas-face' : stage.character.renderer?.available ? 'liquid-logo' : 'canvas-core';
   $('stage').dataset.form = stage.form;
   $('stage').dataset.gazeX = (stage.character.gazeX ?? stage.character.focus?.x ?? 0).toFixed(2);
   $('stage').dataset.gazeY = (stage.character.gazeY ?? stage.character.focus?.y ?? 0).toFixed(2);

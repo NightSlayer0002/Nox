@@ -30,17 +30,20 @@ export async function createLiquidLogoRenderer(canvas=document.createElement('ca
   const position=gl.getAttribLocation(program,'aVertexPosition');gl.enableVertexAttribArray(position);gl.vertexAttribPointer(position,2,gl.FLOAT,false,0,0);
   gl.bindTexture(gl.TEXTURE_2D,texture);for(const p of [gl.TEXTURE_WRAP_S,gl.TEXTURE_WRAP_T])gl.texParameteri(gl.TEXTURE_2D,p,gl.CLAMP_TO_EDGE);
   for(const p of [gl.TEXTURE_MIN_FILTER,gl.TEXTURE_MAG_FILTER])gl.texParameteri(gl.TEXTURE_2D,p,gl.LINEAR);
-  // Chrome preset from upstream presets.js. Only noise is lowered for NOX.
-  const values={speed:.4,iterations:15,scale:3.12,dotFactor:.04,dotMultiplier:.21,vOffset:5.1,intensityFactor:.07,expFactor:.2,colorShift:.9,logoInteractStrength:.4,noiseIntensity:.12,logoOpacity:1,logoScale:1,logoAspectRatio:1};
+  // Chrome preset from upstream presets.js; contrast/color tuned for NOX's body.
+  const values={speed:.4,iterations:15,scale:3.12,dotFactor:.04,dotMultiplier:.21,vOffset:5.1,intensityFactor:.18,expFactor:.6,colorShift:.9,logoInteractStrength:.4,noiseIntensity:.12,logoOpacity:1,logoScale:1,logoAspectRatio:1};
   const uniforms=Object.fromEntries([...Object.keys(values),'time','resolution','colorFactors','logoTexture','logoBlendMode'].map(key=>[key,gl.getUniformLocation(program,`u_${key}`)]));
   for(const [key,value] of Object.entries(values))gl.uniform1f(uniforms[key],value);
-  gl.uniform3f(uniforms.colorFactors,1.1,.7,.9);gl.uniform1i(uniforms.logoTexture,0);gl.uniform1i(uniforms.logoBlendMode,0);
-  let disposed=false;
-  return {canvas,render(mask,time){
-    if(disposed||gl.isContextLost())return false;
+  gl.uniform3f(uniforms.colorFactors,.9,.9,.9);gl.uniform1i(uniforms.logoTexture,0);gl.uniform1i(uniforms.logoBlendMode,0);
+  let disposed=false,lastMask,lost=false;
+  const onLost=event=>{event.preventDefault();lost=true;};const onRestored=()=>api.onRestore?.();
+  canvas.addEventListener('webglcontextlost',onLost);canvas.addEventListener('webglcontextrestored',onRestored);
+  const api={canvas,onRestore:null,render(mask,time){
+    if(disposed||lost||gl.isContextLost())return false;
     const size=Math.min(512,Math.max(64,mask.width));if(canvas.width!==size||canvas.height!==size){canvas.width=size;canvas.height=size;}
     gl.viewport(0,0,size,size);gl.useProgram(program);gl.clearColor(0,0,0,0);gl.clear(gl.COLOR_BUFFER_BIT);
-    gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,texture);gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,gl.RGBA,gl.UNSIGNED_BYTE,mask);
+    gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,texture);if(lastMask!==mask){gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,gl.RGBA,gl.UNSIGNED_BYTE,mask);lastMask=mask;}
     gl.uniform2f(uniforms.resolution,size,size);gl.uniform1f(uniforms.time,time);gl.drawArrays(gl.TRIANGLE_STRIP,0,4);return true;
-  },dispose(){if(disposed)return;disposed=true;gl.deleteBuffer(buffer);gl.deleteTexture(texture);gl.deleteProgram(program);gl.getExtension('WEBGL_lose_context')?.loseContext();}};
+  },dispose(){if(disposed)return;disposed=true;canvas.removeEventListener('webglcontextlost',onLost);canvas.removeEventListener('webglcontextrestored',onRestored);gl.deleteBuffer(buffer);gl.deleteTexture(texture);gl.deleteProgram(program);gl.getExtension('WEBGL_lose_context')?.loseContext();}};
+  return api;
 }

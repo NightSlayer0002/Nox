@@ -1,6 +1,6 @@
 # NOX system manual: from first principles to founder-level understanding
 
-Code baseline: NOX 0.8.0. External service documentation checked October 7, 2026. Start here for the architecture, then use [FOUNDER-GUIDE.md](FOUNDER-GUIDE.md) for the earlier implementation walkthrough and [DEPLOYMENT.md](DEPLOYMENT.md) for account setup.
+Code baseline: NOX 0.9.0. External service documentation checked October 7, 2026. Start here for the architecture, then use [FOUNDER-GUIDE.md](FOUNDER-GUIDE.md) for the earlier implementation walkthrough and [DEPLOYMENT.md](DEPLOYMENT.md) for account setup.
 
 NOX combines a fictional character, hosted language models, local context retrieval, optional voice, and a creation studio. His most convincing quality comes from connecting these systems carefully: immediate physical reactions, useful answers, continuity, and honest connection states.
 
@@ -28,7 +28,7 @@ This system does not establish sentience, artificial general intelligence, or su
 
 ## 2. Know the product and its boundaries
 
-The homepage at `/` introduces the product, its actual capabilities, and its privacy boundaries. Its live character shares the same expression and gesture engine used by the workspace. The translucent 3D panels represent layers of presence, context and generation; they are a separate visual sculpture.
+The homepage at `/` introduces the product, its actual capabilities, and its privacy boundaries. Its live character shares the same expression and gesture engine used by the workspace. The homepage uses ShaderGradient’s source water-plane preset and React Three Fiber renderer. Liquid Metal applies liquid-logo’s original shader to NOX’s established blob silhouette.
 
 The workspace at `/app` has four hash-selected views: `#explore`, `#conversation`, `#scenes`, and `#library`. Hash navigation changes which panels are visible without inventing additional backend routes. Preferences handles owner access, configured providers and voice. The command palette opens with Ctrl/Cmd+K. The notebook and system explanation are React dialogs.
 
@@ -43,17 +43,18 @@ The Library saves conversations in this browser and supports searching, reopenin
 | File or directory | Job and connection |
 |---|---|
 | `public/index.html`, `public/app.html` | HTML entry points; accessible controls and mount points |
-| `public/design.css` | Shared ivory/charcoal/teal tokens, dark theme, focus and motion rules |
-| `public/home.css`, `public/workspace.css`, `public/style.css` | Page composition and established interface styling |
-| `client/home.jsx` | React homepage, navigation, demonstrations, GSAP/Lenis setup, sculpture interactions |
-| `client/sculpture.js` | Lazy Three.js scene and resource lifecycle |
+| `public/source-ui.css` | Adapted Liquid Glass controls, dark teal tokens, native typography and accessible states |
+| `public/home.css`, `workspace.css`, `conversation.css`, `studio.css`, `views.css`, `preferences.css` | Source-derived layouts and individual workspace views |
+| `client/home.jsx` | React homepage, navigation, demonstrations, GSAP/Lenis setup, source scene integration |
+| `client/source-scene.jsx`, `liquid-button.jsx` | Actual ShaderGradient / R3F scene and source Liquid Glass shader adapter |
+| `public/js/source-effects.js`, `preferences.js` | Original shader program lifecycle, always-on NOX motion and dark-default theme policy |
 | `client/workspace.jsx` | React islands: command palette, notebook, system dialog, theme toolbar |
 | `public/js/app.js` | Workspace orchestration: send, perform, connection, media, history and preferences |
 | `public/js/navigation.js` | Hash views, recent threads, Library search, deletion and export |
 | `public/js/workbench.js` | Shared notebook instance, answer-depth preference and UI events |
 | `public/js/stage.js` | Canvas clock, pointer handling, scene physics and composition |
 | `public/js/face.js`, `public/js/face-art.js` | Reaction state, gesture detectors, pose selection and original drawing paths |
-| `public/js/orb.js`, `orb-state.js`, `orb-shader.js` | Optional signal-core renderer and its bounded state |
+| `public/js/orb.js`, `orb-state.js` | Source-based liquid Signal renderer and existing bounded state |
 | `public/js/landing.js`, `public/js/peek.js` | Homepage character placement and scroll-to-corner projection |
 | `public/js/voice.js`, `speech-envelope.js`, `reply.js` | Speech engines, mouth timing and concise spoken preview |
 | `public/js/camera.js`, `public/js/recorder.js` | Local camera lifecycle and bounded canvas WebM capture |
@@ -205,27 +206,25 @@ Recording captures the stage at 30 fps, chooses a supported WebM codec, and auto
 
 ## 9. Design, React and animation ownership
 
-The visual system uses shared ivory surfaces, charcoal text, restrained teal accents, spacing tokens, fine borders and explicit focus states. The character keeps his dark cinematic room. The workspace can switch to a saved dark theme. HTML remains responsible for text, forms, navigation, status and keyboard access.
+The visual system defaults to dark charcoal surfaces, ivory text and restrained mint accents. A deliberate new Light choice switches to the editorial ivory palette. The `nox.theme.v2` preference intentionally ignores the earlier automatically saved light default. NOX motion has no website toggle and ignores legacy off settings. The owner explicitly chose animation even when the browser requests reduced motion; browser/OS settings themselves are untouched. Other React interface transitions still follow the system preference. HTML remains responsible for text, forms, navigation, status and keyboard access.
 
 React owns the homepage and selected workspace islands, while the established workspace controller still operates its DOM and canvas. An island means a contained interactive component mounted inside an otherwise independent page. This migration preserves routes, IDs and data flows without remounting the live character for every dialog change.
 
 | Owner | Properties / responsibilities in this code |
 |---|---|
-| GSAP | Hero text sequence and section opacity/y reveals; scroll transform on outer `.hero-object-scroll` |
+| GSAP | Hero text sequence and section opacity/y reveals; scroll transform on outer `.source-scroll` |
 | Lenis | Desktop fine-pointer smooth wheel scroll; GSAP ticker supplies its clock, ScrollTrigger receives scroll updates |
 | Motion | React menu/panel/dialog entrances and exits, tab content opacity/y, notebook row layout transitions |
-| React Spring | Sculpture's bounded `x/y` rotation targets; physical return-to-rest and keyboard rotation |
-| Three.js | Scene geometry, lighting, materials, camera, GPU drawing and disposal; receives rotation from Spring |
+| React Spring | Selected pointer response on the source scene wrapper |
+| Three.js | Source scene geometry, lighting, shader animation and GPU drawing |
 | Stage/Face | Character gaze, physics, reactions, audio mouth and canvas rendering |
 | CSS | Hover/focus/pressed visuals, design tokens and reduced-motion rules |
 
 The outer scroll wrapper and inner 3D group are separate targets. GSAP never fights Spring for the group's rotation; Motion does not own the Stage physics; Lenis does not smooth the chat transcript or dialog scrollers. Keeping one owner per property avoids competing loops and jumpy resets.
 
-The sculpture has four offset translucent box panels with edge lines, hemisphere light, key/rim lights, a perspective camera and a subtle base. Pointer response is small; dragging is clamped to x ±0.32 and y ±0.44 radians. Touch rotation is disabled to preserve native scrolling; HTML rotate/reset buttons remain available.
+The source scene adapts the upstream Mint water-plane preset to dark teal and silver. ShaderGradient owns its geometry/material/time, React Three Fiber owns rendering, and Budget limits actual drawing to 30 FPS. The scene lazy-loads with its bundle, avoids external HDR/CDN resources and pauses its frame loop on page visibility changes. The canvas remains decorative; text and controls stay accessible HTML. Liquid Glass samples only this public visual texture, never the private DOM. Liquid Metal shares NOX’s existing face state, so changing material preserves expressions, position and active gravity.
 
-`sculpture.js` is dynamically imported when its host approaches the viewport. The WebGL renderer caps device pixel ratio at `1.5`, uses low-power preference, and lowers transmission resolution. It paints only when invalidated by pose/resize/visibility, pauses offscreen or hidden, and disposes GPU resources on cleanup. WebGL failure/context loss exposes a CSS-panel fallback.
-
-The character's 2D canvas caps DPR at `2` and clamps physics frame deltas; its existing clock still runs while present. Three's demand rendering does not mean the entire app has zero idle work. On small screens the hero stacks, motion is simplified, and the primary action remains HTML. Reduced-motion users keep functional controls and static expressions.
+The character's 2D canvas caps DPR at `2` and clamps physics frame deltas; its established clock drives expressions and reactions. Ambient animation has a real rendering cost; pausing the 3D scene offscreen avoids wasting that work. On small screens the hero stacks, native touch scrolling remains available, and the primary action stays HTML.
 
 ## 10. Latency and cache: know exactly what is optimized
 
@@ -276,7 +275,7 @@ Google's free pricing table says content may be used to improve its products. Re
 
 Vercel Hobby is for personal, non-commercial use. This setup is suitable for the personal prototype; monetizing a hosted business requires reviewing hosting and provider terms and a suitable plan. There is no claim of unlimited free generation or a production SLA. [Vercel Hobby plan](https://vercel.com/docs/plans/hobby).
 
-`npm.cmd start` builds client bundles, then starts the local Node server. `npm.cmd run dev` does the client build once and watches the Node server. If you change `client/*.jsx` or sculpture code, run `npm.cmd run build:client` again and refresh; this setup has no full client hot-module replacement. Local environment changes require restart.
+`npm.cmd start` builds client bundles, then starts the local Node server. `npm.cmd run dev` does the client build once and watches the Node server. If you change `client/*.jsx` or source-scene code, run `npm.cmd run build:client` again and refresh; this setup has no full client hot-module replacement. Local environment changes require restart.
 
 `build-client.mjs` uses esbuild to produce minified ESM entry bundles and shared/lazy chunks in ignored `public/dist`. `build-vercel.mjs` rebuilds these, copies public assets and the shared contract, and packages five Node 24 functions: status, chat, speech, summary and session. It writes explicit Build Output API v3 routes into ignored `.vercel/output`.
 
@@ -296,9 +295,9 @@ To rename the public address, use Vercel Project Settings → Domains and assign
 
 **“Why use a schema?”** To make output predictable and bound the connection between language and behavior. Validation can reject or normalize an unsupported action. A schema does not establish factual correctness, authorize new tools, or make the model immune to injected instructions.
 
-**“Why so many animation libraries?”** They have distinct owners: GSAP coordinates scroll/hero sequences; Lenis supplies smooth desktop scroll; Motion handles React UI transitions; Spring controls physical rotation; Three renders the sculpture. NOX's character remains in its established Stage clock.
+**“Why so many animation libraries?”** They have distinct owners: GSAP coordinates scroll/hero sequences; Lenis supplies smooth desktop scroll; Motion handles React UI transitions; Spring controls selected pointer response; Three / R3F render the source scene. NOX's character remains in its established Stage clock.
 
-**“What did you optimize?”** Immediate local acting, bounded context, delayed summary work, a short spoken preview, identical-audio reuse, lazy/demand 3D, reduced-motion support and stale-work cancellation. Provider inference and quota remain external constraints; measured timing is reported honestly.
+**“What did you optimize?”** Immediate local acting, bounded context, delayed summary work, a short spoken preview, identical-audio reuse, lazy source effects, visibility-aware GPU drawing and stale-work cancellation. Provider inference and quota remain external constraints; measured timing is reported honestly.
 
 **“Is the deployment secure?”** It has concrete boundaries, not a blanket security guarantee: server-held secrets, host/origin checks, signed owner sessions, allowlisted output, size limits, safe text rendering and bounded local throttles. Public multi-user use needs additional identity, tenant isolation and distributed quota controls.
 

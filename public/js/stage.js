@@ -1,5 +1,7 @@
 import { Orb } from './orb.js';
 import { Face } from './face.js';
+import {createBlobMask} from './face-art.js';
+import {createLiquidLogoRenderer} from './source-effects.js';
 import { ACTIONS } from '../../shared/character.js';
 
 const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
@@ -41,13 +43,20 @@ export class Stage {
     this.motionOverride = enabled===null?null:Boolean(enabled); this.reduceMotion = this.motionOverride===null?this.motionQuery.matches:!this.motionOverride; this.reset();
   }
   setForm(form) {
-    if (!['face', 'core'].includes(form)) return false;
+    if (!['face', 'core','liquid'].includes(form)) return false;
     if (form === this.form) return true;
-    if (!this.forms[form]) this.forms[form] = form === 'core' ? new Orb() : new Face();
-    const next = this.forms[form], current = this.character;
+    if(form==='liquid')this.prepareLiquid();
+    if(form!=='core'&&this.form!=='core'){this.form=form;return true;}
+    if(form==='core'&&!this.forms.core)this.forms.core=new Orb();
+    const next = this.forms[form==='liquid'?'face':form], current = this.character;
     for (const key of ['mode','emotion','activity','speakingUntil','intensity']) next[key] = current[key];
     this.character = next; this.form = form; this.reset();
     return true;
+  }
+  prepareLiquid(){
+    if(this.liquidRenderer||this.liquidLoading)return;
+    this.canvas.dataset.liquid='loading';
+    this.liquidLoading=createLiquidLogoRenderer().then(renderer=>{this.liquidRenderer=renderer;this.liquidMask=createBlobMask();this.canvas.dataset.liquid='ready';renderer.onRestore=()=>{renderer.dispose();this.liquidRenderer=null;this.liquidLoading=null;this.prepareLiquid();};}).catch(()=>{this.canvas.dataset.liquid='fallback';});
   }
   setBackgroundSource(canvas){this.backgroundSource=canvas;}
   drawBackground(ctx,w,h){
@@ -95,7 +104,7 @@ export class Stage {
     this.canvas.addEventListener('pointerup', release);
     this.canvas.addEventListener('pointercancel', release);
     this.canvas.addEventListener('lostpointercapture', release);
-    this.canvas.addEventListener('dblclick', () => { if (this.form === 'face') this.character.wink(this.time); else this.character.poke(this.time); });
+    this.canvas.addEventListener('dblclick', () => { if (this.character.wink) this.character.wink(this.time); else this.character.poke(this.time); });
     this.canvas.addEventListener('keydown', event => {
       const step = { ArrowLeft: [-.03, 0], ArrowRight: [.03, 0], ArrowUp: [0, -.03], ArrowDown: [0, .03] }[event.key];
       if (step) {
@@ -104,7 +113,7 @@ export class Stage {
         this.character.x = clamp(this.character.x + step[0], 0, 1); this.character.y = clamp(this.character.y + step[1], 0, 1);
         this.character.targetX = this.character.x; this.character.targetY = this.character.y;
       }
-      if (event.key === ' ') { event.preventDefault(); if (this.form === 'face') this.character.wink(this.time); else this.character.poke(this.time); }
+      if (event.key === ' ') { event.preventDefault(); if (this.character.wink) this.character.wink(this.time); else this.character.poke(this.time); }
     });
   }
   prepareMove() {
@@ -128,7 +137,7 @@ export class Stage {
     this.reset();
     this.scene = { action, start: this.time, velocity: 0 };
     if(action==='takeover'&&this.reduceMotion)this.takeoverPose(1);
-    if (action === 'gravity' && this.form === 'face' && !this.reduceMotion) {
+    if (action === 'gravity' && this.form !== 'core' && !this.reduceMotion) {
       this.character.y = .28; this.character.targetY = .28; this.character.scale = .9;
     }
     this.onScene?.(action);
@@ -150,6 +159,8 @@ export class Stage {
     const dt = Math.min(.04, Math.max(0, (timestamp - (this.previous || timestamp)) / 1000));
     this.previous = timestamp;
     this.onBeforeFrame?.(this.time,dt);
+    this.materialBlend=(this.materialBlend||0)+((this.form==='liquid'?1:0)-(this.materialBlend||0))*(1-Math.exp(-dt*7));
+    if(this.form==='liquid'&&this.liquidRenderer&&this.liquidMask&&this.time-(this.liquidRenderedAt??-1)>=1/30&&!document.hidden){this.liquidRenderer.render(this.liquidMask,this.time);this.liquidRenderedAt=this.time;}
     this.animateScene(dt);
     this.character.update(this.time, dt, this.pointer, this.dragging || this.scene?.action === 'gravity', this.reduceMotion);
     if(this.renderEnabled!==false)this.render();
@@ -167,7 +178,7 @@ export class Stage {
       this.scene.velocity += dt * 1.6;
       this.character.y += this.scene.velocity * dt;
       // Reserve the caption band below the face, including its speaking mouth.
-      const floor = this.form === 'face' ? .74 - this.character.unit(this.width, this.height)*92 / this.height : .93 - this.character.diameter(this.width, this.height) * .38 / this.height;
+      const floor = this.form !== 'core' ? .74 - this.character.unit(this.width, this.height)*92 / this.height : .93 - this.character.diameter(this.width, this.height) * .38 / this.height;
       if (this.character.y >= floor) {
         this.character.land?.(Math.abs(this.scene.velocity),this.time);
         this.character.y = floor;
@@ -182,9 +193,9 @@ export class Stage {
   }
   takeoverPose(enter){
     const unit=this.character.unit?.(this.width,this.height,1);
-    const scale=this.form==='face'?Math.min(1.9,.82*this.height/(290*unit),.9*this.width/(300*unit)):1.75;
+    const scale=this.form!=='core'?Math.min(1.9,.82*this.height/(290*unit),.9*this.width/(300*unit)):1.75;
     this.character.scale=1+enter*(scale-1);
-    if(this.form==='face'){this.character.targetY=.46-enter*.06;if(this.reduceMotion)this.character.y=this.character.targetY;}
+    if(this.form!=='core'){this.character.targetY=.46-enter*.06;if(this.reduceMotion)this.character.y=this.character.targetY;}
   }
   render() {
     const ctx = this.ctx, w = this.width, h = this.height;
@@ -202,7 +213,7 @@ export class Stage {
       const appearance = this.reduceMotion ? .18 : smooth(clamp((age - 1) / 3, 0, 1)) * .22;
       this.character.draw(ctx, w, h, this.time, { x: .75, y: .29, scale: .56, alpha: appearance, ghost: true });
     }
-    if(this.characterAlpha!==0)this.character.draw(ctx, w, h, this.time,{alpha:this.characterAlpha??1});
+    if(this.characterAlpha!==0)this.character.draw(ctx, w, h, this.time,{alpha:this.characterAlpha??1,bodyTexture:this.form!=='core'?this.liquidRenderer?.canvas:null,materialBlend:this.materialBlend??0});
     if (action === 'spotlight') {
       const radius = Math.min(w, h) * .32;
       const px = this.reduceMotion ? w * .5 : this.pointer.x * w;
@@ -245,7 +256,7 @@ export class Stage {
   drawCaption(text) {
     const ctx = this.ctx, w = this.width, h = this.height;
     const fontSize = clamp(w / 48, 12, 17);
-    ctx.font = `400 ${fontSize}px Manrope, sans-serif`; ctx.textAlign = 'center';
+    ctx.font = `400 ${fontSize}px system-ui, sans-serif`; ctx.textAlign = 'center';
     const maxWidth = w * .79;
     const words = text.split(/\s+/), lines = []; let line = '';
     for (const word of words) {
@@ -257,6 +268,7 @@ export class Stage {
     const shown = lines.slice(0, 4);
     if (lines.length > 4) shown[3] += '…';
     const baseline = h * .81;
+    ctx.save();ctx.fillStyle='#080e11e6';ctx.beginPath();ctx.roundRect(w*.085,baseline-fontSize,w*.83,shown.length*fontSize*1.4+fontSize*.6,9);ctx.fill();ctx.restore();
     ctx.fillStyle = '#b9beb9'; ctx.shadowColor = '#090c0d'; ctx.shadowBlur = 8;
     shown.forEach((value, index) => ctx.fillText(value, w / 2, baseline + index * fontSize * 1.4));
     ctx.shadowBlur = 0;
