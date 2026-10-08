@@ -40,3 +40,16 @@ test('corner gaze points at the real cursor without moving NOX out of his origin
   assert.ok(left.x<home.x);assert.ok(left.y<home.y);assert.ok(right.x>home.x);assert.ok(right.y>home.y);
   assert.deepEqual(home,{x:.76,y:.65});
 });
+
+test('moving outside the offscreen hero wakes the peeker through its actual corner coordinates',()=>{
+  const names=['document','innerWidth','innerHeight','scrollY'],previous=Object.fromEntries(names.map(name=>[name,globalThis[name]]));
+  Object.assign(globalThis,{document:new EventTarget(),innerWidth:1280,innerHeight:800,scrollY:1000});
+  const noticed=[];
+  const stage={time:5,canvas:{dataset:{},getBoundingClientRect:()=>({left:800,top:-700,width:240,height:280,bottom:-420})},character:{x:.5,y:.5,unit:()=>1,noticePointer:p=>noticed.push({...p})},events:new AbortController()};
+  const host=Object.assign(new EventTarget(),{dataset:{},getBoundingClientRect:()=>({left:1130,top:640,width:150,height:160,right:1280,bottom:800})});
+  try{
+    attachPeek(stage,host,{getContext:()=>({})});
+    for(let i=0;i<8;i++)stage.onBeforeFrame(5,1/60);
+    assert.ok(noticed.length>0);assert.deepEqual(noticed.at(-1),stage.pointer);assert.ok(stage.pointer.x<stage.character.x);
+  }finally{stage.events.abort();for(const name of names){if(previous[name]===undefined)delete globalThis[name];else globalThis[name]=previous[name];}}
+});

@@ -42,6 +42,7 @@ export function attachPeek(stage,host,canvas){
     pose={box,unit,x,y,dx,dy,progress};
     if(progress>.5)stage.pointer=cursorForFace(client,{x:box.left+x+dx,y:box.top+y+dy},face);
     else stage.pointer={x:(client.x-room.left)/Math.max(1,room.width),y:(client.y-room.top)/Math.max(1,room.height)};
+    if(progress>.5)face.noticePointer?.(stage.pointer,stage.time);
     const near=docked&&progress>.8&&client.x>=box.left&&client.x<=box.right&&client.y>=box.top&&client.y<=box.bottom;
     if(near&&!noticed&&!stage.reduceMotion)face.wink(stage.time);
     noticed=near;
