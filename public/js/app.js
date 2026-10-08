@@ -9,7 +9,6 @@ import { createTurnGate } from './turns.js';
 import { createHistory } from './history.js';
 import { createNavigation } from './navigation.js';
 import { readChatStream } from './stream.js';
-import { readMotionChoice } from './preferences.js';
 import { connectionState } from './connection.js';
 import { EXPRESSIONS } from './face-art.js';
 import { knowledge,readDepth,saveDepth } from './workbench.js';
@@ -53,18 +52,8 @@ $('preview-expression').addEventListener('click',()=>{
   stage.character.preview($('expression-preview').value,stage.time);
   stage.canvas.scrollIntoView({behavior:stage.reduceMotion?'instant':'smooth',block:'center'});
 });
-function showMotion(enabled) {
-  $('motion-button').setAttribute('aria-pressed', enabled);
-  $('motion-button').querySelector('span').textContent = enabled ? 'Motion on' : 'Motion off';
-  $('motion-note').textContent = enabled ? 'Gaze, blinks, and a little life.' : 'Still expressions. Dragging stays on.';
-}
-stage.onMotionChange = showMotion;
-stage.setMotion(readMotionChoice(disk));
-showMotion(!stage.reduceMotion);
-$('motion-button').addEventListener('click', () => {
-  stage.setMotion(stage.reduceMotion); showMotion(!stage.reduceMotion);
-  try { disk.setItem('nox.motion.v2', stage.reduceMotion ? 'off' : 'on'); } catch { /* Visit-only preference. */ }
-});
+// The owner chose always-on NOX animation. There is no website motion switch.
+stage.setMotion(true);
 const voice = createVoice({
   onStart: () => { stage.character.speakingUntil = Infinity; },
   onEnd: () => { stage.character.speakingUntil = stage.time; }, onError: toast,

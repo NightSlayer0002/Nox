@@ -2,6 +2,8 @@ import React,{useEffect,useRef,useState} from 'react';
 import {createRoot} from 'react-dom/client';
 import {AnimatePresence,motion,useReducedMotion} from 'motion/react';
 import {knowledge,knowledgeChanged,downloadText} from '/js/workbench.js';
+import {readTheme,saveTheme,applyTheme} from '/js/preferences.js';
+applyTheme(readTheme());
 
 const commands=[
   ['Explore','Open your workspace','#explore'],['Conversation','Talk with NOX','#conversation'],['Scene studio','Gravity, expressions and filming','#scenes'],['Library','Search saved conversations','#library'],
@@ -57,8 +59,9 @@ function Workbench({initial,onClose}){const [tab,setTab]=useState(initial),reduc
   <AnimatePresence mode="wait" initial={false}><motion.div key={tab} id="workbench-panel" role="tabpanel" aria-labelledby={`${tab}-tab`} initial={reduce?false:{opacity:0,y:6}} animate={{opacity:1,y:0}} exit={reduce?undefined:{opacity:0,y:-4}} transition={{duration:.13}}>{tab==='knowledge'?<Notebook/>:<System/>}</motion.div></AnimatePresence>
 </Dialog>;}
 function Palette({onClose,run}){const [query,setQuery]=useState('');const matches=commands.filter(c=>`${c[0]} ${c[1]}`.toLowerCase().includes(query.toLowerCase()));return <Dialog title="Where shall we go?" kind="command-dialog" onClose={onClose}><label className="sr-only" htmlFor="command-search">Search commands</label><input className="command-search" id="command-search" value={query} onChange={e=>setQuery(e.target.value)} onKeyDown={e=>{if(e.key==='Enter'&&matches[0])run(matches[0][2]);}} placeholder="Search pages, actions, settings…" autoFocus/><div className="command-list">{matches.map(([title,description,id])=><button key={id} onClick={()=>run(id)}><span>{title}</span><small>{description}</small></button>)}{!matches.length&&<p className="empty-state">No command matches that search.</p>}</div></Dialog>;}
-function Toolbar(){const [open,setOpen]=useState(null),[dark,setDark]=useState(()=>{try{return localStorage.getItem('nox.theme.v1')==='dark';}catch{return false;}});
-  useEffect(()=>{document.documentElement.dataset.theme=dark?'dark':'light';try{localStorage.setItem('nox.theme.v1',dark?'dark':'light');}catch{}},[dark]);
+function Toolbar(){const [open,setOpen]=useState(null),[dark,setDark]=useState(()=>readTheme()==='dark');
+  useEffect(()=>{applyTheme(saveTheme(dark?'dark':'light'));},[dark]);
+  useEffect(()=>{const sync=e=>{if(e.key==='nox.theme.v2')setDark(readTheme()==='dark');};window.addEventListener('storage',sync);return()=>window.removeEventListener('storage',sync);},[]);
   useEffect(()=>{const key=e=>{if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='k'){e.preventDefault();setOpen(current=>current=== 'commands'?null:'commands');}};const notebook=()=>setOpen('knowledge');window.addEventListener('keydown',key);document.getElementById('knowledge-button')?.addEventListener('click',notebook);document.getElementById('knowledge-chat-button')?.addEventListener('click',notebook);return()=>{window.removeEventListener('keydown',key);document.getElementById('knowledge-button')?.removeEventListener('click',notebook);document.getElementById('knowledge-chat-button')?.removeEventListener('click',notebook);};},[]);
   function run(id){setOpen(null);if(['knowledge','system'].includes(id)){setOpen(id);return;}if(id.startsWith('#')){location.hash=id;setTimeout(()=>{if(id==='#conversation')document.getElementById('message')?.focus();},0);return;}setTimeout(()=>{if(id.startsWith('scene:')){location.hash='#scenes';document.querySelector(`[data-scene="${id.slice(6)}"]`)?.click();}else document.getElementById(id)?.click();},0);}
   return <><div className="lab-toolbar"><button onClick={()=>setOpen('commands')} aria-label="Open command palette">⌘ <span>Navigate</span> <kbd>Ctrl K</kbd></button><button onClick={()=>setOpen('system')}>Inside NOX</button><button onClick={()=>setDark(!dark)} aria-label={dark?'Switch to light room':'Switch to dark room'}>{dark?'☀':'◐'} <span className="theme-label">{dark?'Light':'Dark'}</span></button></div>{open==='commands'?<Palette onClose={()=>setOpen(null)} run={run}/>:open&&<Workbench key={open} initial={open} onClose={()=>setOpen(null)}/>}</>;
