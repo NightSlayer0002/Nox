@@ -80,3 +80,19 @@ were pushed. The upstream Pensive icosahedron preset now sits in the hero. NOX
 remains the same draggable character in front. React Spring controls bounded
 rotation of the actual mesh, rather than a flat image. Both source canvases
 pause when hidden/offscreen and draw at most 30 FPS.
+
+### Additional sourced scroll stage
+
+- Official Lenis clone: `bc152f90d7c9b04ef372718350e2f616f3c706b2`.
+- Codrops OnScrollTypographyAnimations clone:
+  `af28d61d1f8d3d117f5d1e9b09d5209e20a1a212`.
+- Adapt effect 6 and semantic character wrappers; preserve whole heading labels.
+- Reuse the existing single GSAP/Lenis clock, and the official Lenis CSS.
+- Commit and push this scroll stage separately from the 3D stage `606a0f2`.
+- Additional review found the R3F clock resets on pause/resume. The render budget
+  now uses an independent monotonic timestamp; a regression test covers long
+  hidden intervals and clock epoch restarts.
+- Final verification: 164 NOX tests passed, 71 JavaScript modules syntax checked,
+  and the Vercel production output built successfully. Browser checks confirmed
+  sourced 3D rendering, actual mesh pointer rotation, complete scroll headings,
+  corner peeking, mobile layout bounds and Liquid Metal initialization.

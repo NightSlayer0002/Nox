@@ -19,3 +19,10 @@ adapt. No new bitmap, shader, sculpture, or decorative shape is generated.
 The original demos do not provide chat/history/authentication pages. Integration
 code maps their components to NOX's existing semantic HTML and controller IDs.
 No private DOM screenshot library, external script CDN or analytics was added.
+
+The owner subsequently authorized another repository for actual scroll effects.
+Codrops OnScrollTypographyAnimations effect 6 now supplies the 3D letter
+reveal. Its original source and MIT license are retained in `scroll-typography`.
+The official Lenis repo was also cloned for its GSAP ticker integration and
+scrolling CSS. Both commits are recorded in `sources.json`. No stock photos or
+external Typekit fonts from the demos are loaded.

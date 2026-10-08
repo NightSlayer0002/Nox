@@ -1,5 +1,6 @@
 // WebGL lifecycle adapter for the original liquid-logo / liquid-glass-js shaders.
 // Upstream GLSL is in /vendor, with its license and pinned source commit.
+export function createFrameBudget(fps=30){const interval=1000/Math.max(1,Math.min(60,fps));let last=-Infinity;return now=>{if(!Number.isFinite(now))return false;if(now<last||now-last>=interval){last=now;return true;}return false;};}
 export function compileSourceProgram(gl,vertex,fragment){
   const shaders=[];let program;
   try{

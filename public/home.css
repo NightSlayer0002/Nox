@@ -382,3 +382,7 @@
 
 /*! Pensive sphere: ruucm/shadergradient preset; placed behind existing NOX brand. */
 .hero-sphere{position:absolute;inset:0 0 65px 0;pointer-events:none}.hero-sphere .source-fallback{background:none}.hero-sphere .source-scene{overflow:visible}.hero-presence #landing-stage{z-index:1}.hero-presence .DemoPanel,.hero-material{z-index:2}
+
+/*! Codrops scroll typography wrappers; upstream effect 6 supplies animation. */
+.content__title .word{display:inline-block;white-space:nowrap}.content__title .char{display:inline-block;transform-style:preserve-3d}
+.liquid-button canvas{filter:brightness(.45)}

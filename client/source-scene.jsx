@@ -4,6 +4,7 @@ import React,{Component,useEffect,useRef,useState} from 'react';
 import {ShaderGradient,ShaderGradientCanvas} from '@shadergradient/react';
 import {useFrame,useThree} from '@react-three/fiber';
 import {useSpring} from '@react-spring/web';
+import {createFrameBudget} from '/js/source-effects.js';
 
 class Boundary extends Component{
   state={failed:false};static getDerivedStateFromError(){return {failed:true};}
@@ -11,7 +12,7 @@ class Boundary extends Component{
   render(){return this.state.failed?<div className="source-fallback" aria-hidden="true"/>:this.props.children;}
 }
 function Budget({onCanvas,tilt,sculpture}){
-  const {gl,setFrameloop,invalidate}=useThree(),last=useRef(-1);
+  const {gl,setFrameloop,invalidate}=useThree(),due=useRef(createFrameBudget(30));
   useEffect(()=>{
     onCanvas?.(gl.domElement);
     let visible=true;const visibility=()=>{setFrameloop(document.hidden||!visible?'never':'always');if(!document.hidden&&visible)invalidate();};
@@ -19,7 +20,7 @@ function Budget({onCanvas,tilt,sculpture}){
     document.addEventListener('visibilitychange',visibility);visibility();
     return()=>{observer.disconnect();document.removeEventListener('visibilitychange',visibility);onCanvas?.(null);};
   },[gl,setFrameloop,invalidate,onCanvas]);
-  useFrame(({gl,scene,camera,clock})=>{if(clock.elapsedTime-last.current<1/30)return;last.current=clock.elapsedTime;if(sculpture){const mesh=scene.getObjectByName('shadergradient-mesh');if(mesh){mesh.rotation.x=tilt.rotateX.get()*Math.PI/180;mesh.rotation.y=tilt.rotateY.get()*Math.PI/180;gl.domElement.dataset.tiltY=mesh.rotation.y.toFixed(3);}}gl.render(scene,camera);gl.domElement.dataset.source='shadergradient';gl.domElement.dataset.geometry=sculpture?'icosahedron':'water-plane';gl.domElement.dataset.frame=String(Math.round(clock.elapsedTime*30));},1);
+  useFrame(({gl,scene,camera,clock})=>{if(!due.current(performance.now()))return;if(sculpture){const mesh=scene.getObjectByName('shadergradient-mesh');if(mesh){mesh.rotation.x=tilt.rotateX.get()*Math.PI/180;mesh.rotation.y=tilt.rotateY.get()*Math.PI/180;gl.domElement.dataset.tiltY=mesh.rotation.y.toFixed(3);}}gl.render(scene,camera);gl.domElement.dataset.source='shadergradient';gl.domElement.dataset.geometry=sculpture?'icosahedron':'water-plane';gl.domElement.dataset.frame=String(Math.round(clock.elapsedTime*30));},1);
   return null;
 }
 export default function SourceScene({onCanvas,interactive=false,className='',variant='water'}){

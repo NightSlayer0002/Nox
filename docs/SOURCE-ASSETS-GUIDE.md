@@ -114,3 +114,22 @@ The system manual explains the separate AI and security architecture.
    production release; local edits alone do not instantly change the live site.
 
 Licenses remain in `public/vendor`; attribution links also appear on the homepage.
+
+## The additional scroll assets
+
+The owner requested a visible 3D element and repository-sourced scroll effects.
+The Pensive icosahedron preset now renders beside NOX in the hero, with a
+contained camera framing and bounded Spring rotation on the actual Three mesh.
+It animates without clicks, and pauses offscreen as well as when hidden.
+
+Codrops’ `OnScrollTypographyAnimations` was cloned. `client/codrops-scroll.js`
+adapts its effect 6: letters turn forward in perspective and rise into place as
+their headings enter the viewport. React creates the expected word/character
+wrappers in `scroll-title.jsx`; screen readers receive each complete heading
+once. Demo stock images and external fonts are not loaded.
+
+The official Lenis repository was also cloned. Its source CSS and documented
+GSAP integration are used: Lenis emits scroll updates, GSAP’s ticker supplies
+one clock, and lag smoothing is disabled. Native touch scrolling is retained.
+Both new upstream commits and licenses are in `public/vendor/`. The existing
+GSAP context owns and disposes the scroll typography effects.

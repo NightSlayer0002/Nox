@@ -15,6 +15,16 @@
     {
       "repository": "https://github.com/pmndrs/react-three-fiber",
       "commit": "d604b18bbda025d9ca682efb322cc76b99350e52"
+    },
+    {
+      "repository": "https://github.com/darkroomengineering/lenis",
+      "commit": "bc152f90d7c9b04ef372718350e2f616f3c706b2",
+      "use": "Official GSAP ticker integration and scrolling CSS"
+    },
+    {
+      "repository": "https://github.com/Codrops/OnScrollTypographyAnimations",
+      "commit": "af28d61d1f8d3d117f5d1e9b09d5209e20a1a212",
+      "use": "Effect 6: scroll-linked perspective typography"
     }
   ],
   "runtime": {
