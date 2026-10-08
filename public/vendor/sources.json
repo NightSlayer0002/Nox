@@ -24,7 +24,7 @@
     {
       "repository": "https://github.com/Codrops/OnScrollTypographyAnimations",
       "commit": "af28d61d1f8d3d117f5d1e9b09d5209e20a1a212",
-      "use": "Effect 6: scroll-linked perspective typography"
+      "use": "Effects 6 and 26: perspective typography and a short pinned material chapter"
     }
   ],
   "runtime": {

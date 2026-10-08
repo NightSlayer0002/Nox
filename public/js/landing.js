@@ -1,19 +1,21 @@
 import { Stage } from './stage.js';
+import {attachPeek} from './peek.js';
 
 // Scroll supplies pose targets; Stage retains gesture, gravity and material physics.
-export function createLanding(canvas,{onDiscover,onExpression,onScene}={}){
+export function createLanding(canvas,{onDiscover,onExpression,onScene,peekHost,peekCanvas}={}){
   const stage=new Stage(canvas,onScene,{landing:true,transparent:true});
   stage.setMotion(true);
-  const pose={x:.7,y:.53,size:.34};
+  const pose={x:.5,y:.5,size:.65};
   let manual=false,expression='';
   stage.character.x=stage.character.targetX=pose.x;
   stage.character.y=stage.character.targetY=pose.y;
-  stage.onGesture=kind=>{if(kind==='drag')manual=true;onDiscover?.(kind);};
+  stage.onGesture=kind=>{if(kind==='drag'||kind==='move')manual=true;onDiscover?.(kind==='move'?'drag':kind);};
   stage.onBeforeFrame=()=>{
     if(stage.dragging&&stage.dragDistance>=6)manual=true;
     if(!manual&&!stage.dragging&&!stage.scene){
+      if(!stage.width||!stage.height)return;
       stage.character.targetX=pose.x;stage.character.targetY=pose.y;
-      const size=Math.min(460,stage.width*pose.size);
+      const size=Math.min(180,stage.width*pose.size);
       stage.character.scale=size/(270*Math.min(stage.width/720,stage.height/560));
     }
   };
@@ -24,8 +26,9 @@ export function createLanding(canvas,{onDiscover,onExpression,onScene}={}){
     canvas.dataset.expression=next;canvas.dataset.material=stage.form;
     if(next!==expression){expression=next;onExpression?.(next);if(next==='dizzy')onDiscover?.('shake');if(next==='pout')onDiscover?.('pout');}
   };
+  const peek=peekHost&&peekCanvas?attachPeek(stage,peekHost,peekCanvas):null;
   return {
-    stage,pose,
+    stage,pose,peek,
     chapter(){if(!stage.dragging&&stage.scene?.action!=='gravity')manual=false;},
     poke(){stage.character.poke(stage.time);onDiscover?.('poke');},
     material(metal){stage.setForm(metal?'liquid':'face');if(metal)onDiscover?.('liquid');},

@@ -124,8 +124,9 @@ export class Stage {
         this.character.react?.('curious',this.time,.7);
         this.character.x = clamp(this.character.x + step[0], 0, 1); this.character.y = clamp(this.character.y + step[1], 0, 1);
         this.character.targetX = this.character.x; this.character.targetY = this.character.y;
+        this.onGesture?.('move');
       }
-      if (event.key === ' ') { event.preventDefault(); if (this.character.wink) this.character.wink(this.time); else this.character.poke(this.time); }
+      if (event.key === ' ') { event.preventDefault(); if (this.character.wink) this.character.wink(this.time); else this.character.poke(this.time);this.onGesture?.('poke'); }
     });
   }
   prepareMove() {

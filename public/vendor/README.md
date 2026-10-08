@@ -21,8 +21,10 @@ code maps their components to NOX's existing semantic HTML and controller IDs.
 No private DOM screenshot library, external script CDN or analytics was added.
 
 The owner subsequently authorized another repository for actual scroll effects.
-Codrops OnScrollTypographyAnimations effect 6 now supplies the 3D letter
-reveal. Its original source and MIT license are retained in `scroll-typography`.
+Codrops OnScrollTypographyAnimations effects 6 and 26 supply perspective letter
+reveals and the shorter pinned material chapter. Original source files and MIT
+license are retained in `scroll-typography`. The NOX adaptation explicitly adds
+pin spacing for its layout and retains readable letters at anchor entry.
 The official Lenis repo was also cloned for its GSAP ticker integration and
 scrolling CSS. Both commits are recorded in `sources.json`. No stock photos or
 external Typekit fonts from the demos are loaded.

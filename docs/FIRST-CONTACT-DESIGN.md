@@ -7,12 +7,17 @@ idea; we do not copy its hand model, textures, branding, audio or proprietary co
 
 ## Experience
 
-Four short scroll scenes share one large, live NOX and one source-based 3D world:
-meet him, discover his physical reactions, change his material, enter the studio.
-The page has a small scene map, a local discovery counter and a hold-to-liquify
-control. Chat remains directly accessible; no puzzle or loading gate blocks it.
-Scene controls work without an AI key and are clearly local experiments. Real
-model conversation, knowledge, voice and history remain in the existing workspace.
+The owner corrected the first implementation: preserve the small character and
+the original corner peeking, and replace the background floating sculpture with
+a separate, purposeful 3D effect. Four short scroll scenes meet NOX, explain his
+reactions, change material, then open the workspace. There is a small scene map
+and a hold-to-liquify control; the invented discovery counter is removed.
+NOX lives in a small hero canvas, peeks from the lower-right edge after leaving
+the viewport, tracks the cursor there, and returns when scrolling back up. A
+separate three-dimensional NOX emblem adapts the established icon, rather than
+enlarging the character or adding a decorative background sphere.
+Chat remains directly accessible. Local gestures never stand in for real model
+conversation; knowledge, voice and history remain in the existing workspace.
 
 Keep dark default, always-on character motion, the legless blob, cursor attention,
 pickup/shaking/annoyance/sleep acting and persistent gravity. Keep all workspace
@@ -20,17 +25,19 @@ routes and the homepage anchors `#features`, `#inside`, `#about`.
 
 ## Sources and ownership
 
-- ShaderGradient Mint/Pensive presets and R3F render the world. No new model,
-  bitmap, decorative SVG or shader is created.
+- ShaderGradient Mint renders the public fluid backdrop. The unwanted Pensive
+  background sphere is removed from the homepage. R3F's model/gesture demo
+  patterns render an adaptation of the existing NOX icon, with liquid-logo
+  supplying the live metal texture. No new decorative artwork or shader.
 - liquid-logo applies Chrome to the established NOX silhouette.
 - Liquid Glass supplies control surfaces; private DOM capture remains excluded.
 - Codrops OnScrollTypographyAnimations supplies perspective typography and its
   effect-26 pinned timeline pattern, adapted to the scene progression.
 - Lenis keeps a single GSAP-driven scroll clock. Native touch scroll is retained.
-- Stage owns character physics/material blending. GSAP owns scroll pose targets
-  and scene layers; Spring owns the source 3D mesh's pointer rotation.
-- React owns controls and status. Discoveries stay in memory for this visit;
-  they are not model learning, analytics, saved chat or account XP.
+- Stage owns character physics/material blending and both hero/corner drawing.
+  GSAP owns scroll rotation of the emblem's outer group; Spring owns pointer
+  rotation of its inner group. Neither library moves the character on scroll.
+- React owns controls and status. No account XP, telemetry or claim of learning.
 
 ## Implementation stages / real commits
 

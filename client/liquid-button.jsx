@@ -2,7 +2,7 @@
 // Original shader; native HTML supplies focus and keyboard access.
 import React,{useEffect,useRef} from 'react';
 import {compileSourceProgram,sourceShader} from '/js/source-effects.js';
-export function LiquidButton({children,onClick,source,href,className='',pressed}){
+export function LiquidButton({children,onClick,source,href,className='',pressed,...controls}){
   const canvas=useRef();
   useEffect(()=>{
     if(!source)return;
@@ -33,5 +33,5 @@ export function LiquidButton({children,onClick,source,href,className='',pressed}
     return()=>{disposed=true;cancelAnimationFrame(frame);if(buffer)gl.deleteBuffer(buffer);if(tex)gl.deleteTexture(tex);if(program)gl.deleteProgram(program);};
   },[source]);
   const Tag=href?'a':'button';
-  return <Tag href={href} type={href?undefined:'button'} onClick={onClick} aria-pressed={pressed} className={`glass-button liquid-button ${className}`}><canvas ref={canvas} aria-hidden="true"/><span>{children}</span></Tag>;
+  return <Tag {...controls} href={href} type={href?undefined:'button'} onClick={onClick} aria-pressed={pressed} className={`glass-button liquid-button ${className}`}><canvas ref={canvas} aria-hidden="true"/><span>{children}</span></Tag>;
 }

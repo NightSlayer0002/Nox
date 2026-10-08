@@ -20,9 +20,13 @@ export function cursorForFace(client,anchor,home){
 
 export function attachPeek(stage,host,canvas){
   const state=createPeekState(),ctx=canvas.getContext('2d');
+  const before=stage.onBeforeFrame,after=stage.onAfterFrame;
   let client={x:innerWidth/2,y:innerHeight/2},pose,noticed=false;
-  document.addEventListener('pointermove',event=>{client={x:event.clientX,y:event.clientY};},{passive:true});
+  const owned=stage.events?{signal:stage.events.signal}:{};
+  document.addEventListener('pointermove',event=>{client={x:event.clientX,y:event.clientY};},{passive:true,...owned});
+  host.addEventListener('pointerdown',()=>{if(state.docked){stage.character.poke(stage.time);stage.onGesture?.('poke');}},owned);
   stage.onBeforeFrame=(_time,dt)=>{
+    before?.(_time,dt);
     const room=stage.canvas.getBoundingClientRect(),face=stage.character;
     // Follow the actual character's bottom edge, including a user-dragged position.
     const originalBottom=room.top+face.y*room.height+face.unit(room.width,room.height)*165;
@@ -43,6 +47,7 @@ export function attachPeek(stage,host,canvas){
     noticed=near;
   };
   stage.onAfterFrame=()=>{
+    after?.();
     if(!pose)return;
     const {box,unit,x,y,dx,dy,progress}=pose,ratio=Math.min(devicePixelRatio||1,2);
     const width=Math.round(box.width*ratio),height=Math.round(box.height*ratio);
