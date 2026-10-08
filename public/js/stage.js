@@ -10,6 +10,7 @@ const smooth = value => value * value * (3 - 2 * value);
 export class Stage {
   constructor(canvas, onScene, {landing=false,transparent=false}={}) {
     this.canvas = canvas; this.ctx = canvas.getContext('2d');
+    this.events = new AbortController();
     this.forms = { face: new Face() }; this.form = 'face'; this.character = this.forms.face;
     this.landing=landing;this.transparent=transparent;
     if(landing){this.character.x=this.character.targetX=.76;this.character.y=this.character.targetY=.68;this.character.scale=.85;}
@@ -21,11 +22,20 @@ export class Stage {
     this.reduceMotion = this.motionQuery.matches; this.motionOverride = null;
     this.motionQuery.addEventListener('change', event => {
       if (this.motionOverride === null) { this.reduceMotion = event.matches; this.reset(); this.onMotionChange?.(!this.reduceMotion); }
-    });
+    }, {signal:this.events.signal});
     this.resizeObserver = new ResizeObserver(() => this.resize());
     this.resizeObserver.observe(canvas);
     this.bindPointer(); this.resize();
-    requestAnimationFrame(timestamp => this.frame(timestamp));
+    this.frameId=requestAnimationFrame(timestamp => this.frame(timestamp));
+  }
+  dispose() {
+    if(this.disposed)return;
+    this.disposed=true;
+    cancelAnimationFrame(this.frameId);
+    this.resizeObserver?.disconnect();
+    this.events?.abort();
+    this.liquidRenderer?.dispose();
+    this.forms.core?.dispose();
   }
   resize() {
     if (this.recordingLocked) return;
@@ -56,7 +66,7 @@ export class Stage {
   prepareLiquid(){
     if(this.liquidRenderer||this.liquidLoading)return;
     this.canvas.dataset.liquid='loading';
-    this.liquidLoading=createLiquidLogoRenderer().then(renderer=>{this.liquidRenderer=renderer;this.liquidMask=createBlobMask();this.canvas.dataset.liquid='ready';renderer.onRestore=()=>{renderer.dispose();this.liquidRenderer=null;this.liquidLoading=null;this.prepareLiquid();};}).catch(()=>{this.canvas.dataset.liquid='fallback';});
+    this.liquidLoading=createLiquidLogoRenderer().then(renderer=>{if(this.disposed){renderer.dispose();return;}this.liquidRenderer=renderer;this.liquidMask=createBlobMask();this.canvas.dataset.liquid='ready';renderer.onRestore=()=>{renderer.dispose();this.liquidRenderer=null;this.liquidLoading=null;if(!this.disposed)this.prepareLiquid();};}).catch(()=>{if(!this.disposed)this.canvas.dataset.liquid='fallback';});
   }
   setBackgroundSource(canvas){this.backgroundSource=canvas;}
   drawBackground(ctx,w,h){
@@ -64,15 +74,16 @@ export class Stage {
     else {ctx.fillStyle='#080e11';ctx.fillRect(0,0,w,h);}
   }
   bindPointer() {
+    const listen=(target,type,handler,options={})=>target?.addEventListener(type,handler,{...options,...(this.events?{signal:this.events.signal}:{})});
     const eventTime=()=>Number.isFinite(this.started)?(performance.now()-this.started)/1000:this.time;
     const locate = event => {
       const box = this.canvas.getBoundingClientRect();
       return { x: clamp((event.clientX - box.left) / box.width, 0, 1), y: clamp((event.clientY - box.top) / box.height, 0, 1) };
     };
-    globalThis.document?.addEventListener('pointermove', event => {
+    listen(globalThis.document,'pointermove', event => {
       if (!this.dragging) { this.pointer = locate(event);this.character?.noticePointer?.(this.pointer,this.time); }
     }, {passive:true});
-    this.canvas.addEventListener('pointermove', event => {
+    listen(this.canvas,'pointermove', event => {
       if (this.dragging && event.pointerId !== this.activePointer) return;
       this.pointer = locate(event);
       if (this.dragging) {
@@ -83,7 +94,7 @@ export class Stage {
         this.character.targetX = this.character.x; this.character.targetY = this.character.y;
       }
     });
-    this.canvas.addEventListener('pointerdown', event => {
+    listen(this.canvas,'pointerdown', event => {
       if (this.dragging) return;
       this.pointer = locate(event);
       if (this.character.hitTest(this.pointer, this.width, this.height)) {
@@ -96,16 +107,17 @@ export class Stage {
     });
     const release = event => {
       if (!this.dragging || event.pointerId !== this.activePointer) return;
-      if (this.dragging && event.type === 'pointerup' && this.dragDistance < 6) this.character.poke(this.time);
+      if (this.dragging && event.type === 'pointerup' && this.dragDistance < 6) {this.character.poke(this.time);this.onGesture?.('poke');}
       this.character.setHeld?.(false,this.time);
       if(this.dragDistance>=6)this.character.release?.(this.time,{cancelled:event.type!=='pointerup',gravity:this.scene?.action==='gravity'});
+      if(this.dragDistance>=6&&event.type==='pointerup')this.onGesture?.('drag');
       this.dragging = false; this.activePointer = null; this.character.targetX = this.character.x; this.character.targetY = this.character.y;
     };
-    this.canvas.addEventListener('pointerup', release);
-    this.canvas.addEventListener('pointercancel', release);
-    this.canvas.addEventListener('lostpointercapture', release);
-    this.canvas.addEventListener('dblclick', () => { if (this.character.wink) this.character.wink(this.time); else this.character.poke(this.time); });
-    this.canvas.addEventListener('keydown', event => {
+    listen(this.canvas,'pointerup', release);
+    listen(this.canvas,'pointercancel', release);
+    listen(this.canvas,'lostpointercapture', release);
+    listen(this.canvas,'dblclick', () => { if (this.character.wink) this.character.wink(this.time); else this.character.poke(this.time); });
+    listen(this.canvas,'keydown', event => {
       const step = { ArrowLeft: [-.03, 0], ArrowRight: [.03, 0], ArrowUp: [0, -.03], ArrowDown: [0, .03] }[event.key];
       if (step) {
         event.preventDefault(); this.prepareMove();
@@ -155,6 +167,7 @@ export class Stage {
     this.onScene?.('none');
   }
   frame(timestamp) {
+    if(this.disposed)return;
     this.time = (timestamp - this.started) / 1000;
     const dt = Math.min(.04, Math.max(0, (timestamp - (this.previous || timestamp)) / 1000));
     this.previous = timestamp;
@@ -165,7 +178,7 @@ export class Stage {
     this.character.update(this.time, dt, this.pointer, this.dragging || this.scene?.action === 'gravity', this.reduceMotion);
     if(this.renderEnabled!==false)this.render();
     this.onAfterFrame?.();
-    requestAnimationFrame(next => this.frame(next));
+    this.frameId=requestAnimationFrame(next => this.frame(next));
   }
   animateScene(dt) {
     if (!this.scene) return;

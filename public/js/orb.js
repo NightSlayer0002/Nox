@@ -9,7 +9,8 @@ export class Orb extends OrbSignal{
     const mask=document.createElement('canvas');mask.width=mask.height=512;const ctx=mask.getContext('2d');ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(256,256,195,0,Math.PI*2);ctx.fill();this.mask=mask;
     this.loadMaterial();
   }
-  loadMaterial(){if(this.loadingMaterial)return;this.loadingMaterial=createLiquidLogoRenderer().then(renderer=>{this.material?.dispose();this.material=renderer;this.renderer.available=true;this.renderedAt=-1;renderer.onRestore=()=>this.loadMaterial();}).catch(()=>{this.renderer.available=false;}).finally(()=>{this.loadingMaterial=null;});}
+  loadMaterial(){if(this.disposed||this.loadingMaterial)return;this.loadingMaterial=createLiquidLogoRenderer().then(renderer=>{if(this.disposed){renderer.dispose();return;}this.material?.dispose();this.material=renderer;this.renderer.available=true;this.renderedAt=-1;renderer.onRestore=()=>this.loadMaterial();}).catch(()=>{this.renderer.available=false;}).finally(()=>{this.loadingMaterial=null;});}
+  dispose(){if(this.disposed)return;this.disposed=true;this.material?.dispose();}
   say(text,now){this.speakingUntil=now+Math.min(12,Math.max(2.5,text.length/18));}
   poke(now){this.pulseAt=now;}
   update(time,dt,pointer,dragging,reduceMotion){const ease=1-Math.exp(-dt*8);if(!dragging){this.x+=(this.targetX-this.x)*ease;this.y+=(this.targetY-this.y)*ease;}const motion=reduceMotion?0:1;this.focus.x+=(clamp((pointer.x-this.x)*2,-1,1)*motion-this.focus.x)*ease;this.focus.y+=(clamp((pointer.y-this.y)*2,-1,1)*motion-this.focus.y)*ease;this.signal=this.sample(time,dt,reduceMotion);}

@@ -1,0 +1,7 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {createDiscoveries,createHoldGate,sceneIndex} from '../public/js/first-contact.js';
+test('discoveries count actual unique local interactions and reject unknown input',()=>{const state=createDiscoveries();assert.equal(state.mark('poke'),true);assert.equal(state.mark('poke'),false);assert.equal(state.mark('__proto__'),false);state.mark('drag');assert.equal(state.count,2);assert.deepEqual(state.list(),['poke','drag']);});
+test('holding completes once, never from a short click or another pointer',()=>{const hold=createHoldGate(900);hold.begin(1,100);assert.equal(hold.advance(500).complete,false);assert.equal(hold.cancel(2),false);assert.equal(hold.advance(1000).complete,true);assert.equal(hold.advance(1100).complete,false);hold.begin(3,2000);hold.cancel(3);assert.equal(hold.advance(5000).complete,false);});
+test('cancelled holds restart fresh and invalid timestamps cannot transform NOX',()=>{const hold=createHoldGate(900);hold.begin(1,0);hold.advance(700);hold.cancel(1);hold.begin(2,1000);assert.equal(hold.advance(1200).progress,200/900);assert.equal(hold.advance(NaN).complete,false);assert.equal(hold.advance(900).progress,0);});
+test('scroll scene indices are bounded for restored positions and malformed values',()=>{assert.equal(sceneIndex(-1),0);assert.equal(sceneIndex(0),0);assert.equal(sceneIndex(.34),1);assert.equal(sceneIndex(.67),2);assert.equal(sceneIndex(1),3);assert.equal(sceneIndex(99),3);assert.equal(sceneIndex(NaN),0);});

@@ -401,3 +401,10 @@ test('scene personality reactions do not replace dialogue state',()=>{
   assert.equal(stage.character.emotion,'skeptical');
   stage.run('takeover');assert.equal(stage.character.features(stage.time+.1).expression,'mischievous');
 });
+
+test('disposing a stage stops its clock and owned resources exactly once',()=>{
+  const stage=Object.create(Stage.prototype),counts={resize:0,events:0,liquid:0,core:0},cancelled=[];
+  Object.assign(stage,{frameId:42,resizeObserver:{disconnect(){counts.resize++;}},events:{abort(){counts.events++;}},liquidRenderer:{dispose(){counts.liquid++;}},forms:{core:{dispose(){counts.core++;}}}});
+  const previous=globalThis.cancelAnimationFrame;globalThis.cancelAnimationFrame=id=>cancelled.push(id);
+  try{stage.dispose();stage.dispose();stage.frame(100);assert.deepEqual(cancelled,[42]);assert.deepEqual(counts,{resize:1,events:1,liquid:1,core:1});}finally{if(previous===undefined)delete globalThis.cancelAnimationFrame;else globalThis.cancelAnimationFrame=previous;}
+});
