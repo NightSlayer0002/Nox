@@ -182,11 +182,11 @@ into a bounded 512px source canvas; CanvasTexture maps its moving surface onto
 the brand geometry. A separate lit side material makes depth visible as it
 turns. The emblem has no vertical bobbing loop.
 
-Two nested groups keep animation ownership explicit: GSAP turns the outer
-group with scroll; Spring rotates the inner group from drag/hover targets.
-The gesture controller clamps rotation, ignores unrelated pointers and invalid
-coordinates, and applies the same bounds to keyboard turns. Reset releases
-pointer capture and returns the emblem's view without moving NOX.
+Two nested groups keep animation ownership explicit: GSAP positions, sizes and
+turns the outer group through each scroll chapter; Spring rotates the inner
+group from bounded cursor attention across the viewport. It is a background
+scene with no arrows, reset button or pointer capture. The small NOX character
+keeps his own existing dragging and corner peeking.
 
 ### Budget, fallbacks and scope
 
@@ -241,3 +241,34 @@ GPU contexts, geometry, materials, textures and listeners are released on
 disposal. Context restoration rebuilds the renderer; missing WebGL or failed
 source loading leaves the matte character usable. These effects process only
 public shader textures and face geometry, with no new AI call or data store.
+
+## Scroll becomes scene direction
+
+The 3D icon now occupies one fixed R3F background canvas. Its screen coordinates
+come from `public/js/home-choreography.js`; `client/home-scroll.js` connects
+those targets to the existing GSAP/Lenis clock and actual ScrollTrigger chapter
+starts. The emblem dwells while a paragraph is read, then crosses to the other
+side. Eyes spread, the smile drops and the group rolls slightly through the
+crossing before assembling again. On desktop it faces toward alternating copy
+columns. Mobile keeps copy above a smaller, quieter emblem. Reverse scrolling
+replays the same scene, including the pinned chapter's actual spacing.
+
+ShaderGradient's existing water plane now uses charcoal/deep teal colors, lower
+brightness and lower reflection, replacing broad pale areas in the studio and
+homepage. The home's scroll pose turns and shifts the water mesh while its
+container slowly changes scale and orientation. Copy, margin notes and the
+final detail columns add separate depth cues; Codrops letter effects remain.
+This scene progression takes inspiration from the creator's
+[ZERO case study](https://tympanus.net/codrops/2026/07/17/zero-the-engineering-behind-a-defiant-interactive-narrative/).
+NOX retains native scrolling and its existing assets rather than importing
+ZERO's hands or models.
+
+The material control has no fill bar or arrow symbol. React Spring gives the
+source Liquid Glass pill a slight pointer pull, a held squeeze and a release
+response. During its 900ms hold, bounded existing Glass/Chrome uniforms change
+refraction, ripple and flow. The R3F demo's vertex wave loosens the existing
+icon's edges; its eyes pull apart and its smile softens. Early release resets
+pressure, completed holds change the real character's material, and Enter or
+Space remains immediate. Pointer cancellation, tab hiding, blur and unmount
+release ownership and never complete a short hold. Only public shader canvases
+are sampled; no private DOM, camera, conversation or owner token is read.

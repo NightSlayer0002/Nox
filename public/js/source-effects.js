@@ -1,5 +1,9 @@
 // WebGL lifecycle adapter for the original liquid-logo / liquid-glass-js shaders.
 // Upstream GLSL is in /vendor, with its license and pinned source commit.
+const pressureValue=value=>Number.isFinite(value)?Math.max(0,Math.min(1,value)):0;
+// Existing upstream GUI uniforms, with bounded tactile targets. No new shader.
+export function logoPressure(value){const p=pressureValue(value);return {speed:.4+p*.65,scale:3.12-p*.65,noiseIntensity:.12+p*.12,intensityFactor:.18-p*.04};}
+export function glassPressure(value,hover){const p=pressureValue(value),h=pressureValue(hover);return {warp:1+h*3+p*9,rippleEffect:.1+p*.6,rimIntensity:.05+h*.04+p*.12};}
 export function createFrameBudget(fps=30){const interval=1000/Math.max(1,Math.min(60,fps));let last=-Infinity;return now=>{if(!Number.isFinite(now))return false;if(now<last||now-last>=interval){last=now;return true;}return false;};}
 export function compileSourceProgram(gl,vertex,fragment){
   const shaders=[];let program;
@@ -39,11 +43,12 @@ export async function createLiquidLogoRenderer(canvas=document.createElement('ca
   let disposed=false,lastMask,lost=false;
   const onLost=event=>{event.preventDefault();lost=true;};const onRestored=()=>api.onRestore?.();
   canvas.addEventListener('webglcontextlost',onLost);canvas.addEventListener('webglcontextrestored',onRestored);
-  const api={canvas,onRestore:null,render(mask,time){
+  const api={canvas,onRestore:null,render(mask,time,{pressure=0}={}){
     if(disposed||lost||gl.isContextLost())return false;
     const size=Math.min(512,Math.max(64,mask.width));if(canvas.width!==size||canvas.height!==size){canvas.width=size;canvas.height=size;}
     gl.viewport(0,0,size,size);gl.useProgram(program);gl.clearColor(0,0,0,0);gl.clear(gl.COLOR_BUFFER_BIT);
     gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,texture);if(lastMask!==mask){gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,gl.RGBA,gl.UNSIGNED_BYTE,mask);lastMask=mask;}
+    for(const [key,value] of Object.entries(logoPressure(pressure)))gl.uniform1f(uniforms[key],value);
     gl.uniform2f(uniforms.resolution,size,size);gl.uniform1f(uniforms.time,time);gl.drawArrays(gl.TRIANGLE_STRIP,0,4);return true;
   },dispose(){if(disposed)return;disposed=true;canvas.removeEventListener('webglcontextlost',onLost);canvas.removeEventListener('webglcontextrestored',onRestored);gl.deleteBuffer(buffer);gl.deleteTexture(texture);gl.deleteProgram(program);gl.getExtension('WEBGL_lose_context')?.loseContext();}};
   return api;

@@ -24,7 +24,7 @@ body.landing {overflow-x:clip;-webkit-font-smoothing:antialiased}
 .contact-copy a,.contact-copy button{pointer-events:auto}
 .wander-link{display:block;font-size:11px;color:var(--muted);margin:22px 0;width:fit-content}
 .wander-link:hover{color:var(--accent)}
-.chapter-margin{position:absolute;right:4vw;bottom:150px;text-align:right;color:var(--muted);font-size:12px;line-height:1.8}
+.chapter-margin{position:absolute;right:4vw;bottom:220px;text-align:right;color:var(--muted);font-size:12px;line-height:1.8}
 .chapter-margin>span{font-size:9px;letter-spacing:.12em;color:var(--accent)}
 .scene-map{position:fixed;left:24px;top:50%;transform:translateY(-50%);z-index:10;display:flex;flex-direction:column;gap:18px}
 .scene-map a{display:flex;align-items:center;gap:10px;font-size:10px;color:var(--muted);padding:3px 0}
@@ -74,58 +74,58 @@ body.landing {overflow-x:clip;-webkit-font-smoothing:antialiased}
  .contact-actions{gap:6px}.contact-actions button{font-size:10px;padding:10px 13px}.experiment-note{font-size:9px;margin-top:12px}.workspace-paths{font-size:10px;gap:13px;margin-top:18px}
  .contact-details{margin:0 7vw 50px;padding:65px 0}.detail-columns{grid-template-columns:1fr;gap:20px}.source-credits{gap:14px}.source-footer{margin:0 7vw;flex-wrap:wrap;padding-bottom:170px}.source-footer>span:nth-child(2){width:100%}
 }
-@media(max-height:650px) and (min-width:701px){.contact-copy h1{font-size:76px}.contact-copy h2{font-size:62px}.contact-chapter{padding-top:100px;padding-bottom:130px}.chapter-margin{bottom:110px}}
-/*! Native interaction feedback over the source Liquid Glass control. */
-.material-control{position:relative;isolation:isolate;overflow:hidden;touch-action:none;user-select:none;min-width:190px}
-.material-control .hold-fill{position:absolute;inset:0;background:var(--accent);opacity:.23;transform:scaleX(var(--hold-progress,0));transform-origin:left;z-index:-1;pointer-events:none}
-.material-help{font-size:10px;line-height:1.7;margin:11px 0 0;color:var(--muted)}
-@media(max-width:700px){.material-help{font-size:9px}.contact-chapter:has(.contact-actions){padding-top:112px}.contact-actions{max-width:300px}}
+@media(max-height:650px) and (min-width:701px){.contact-copy h1{font-size:76px}.contact-copy h2{font-size:62px}.contact-chapter{padding-top:100px;padding-bottom:130px}.chapter-margin{bottom:170px}}
+/*! Liquid Glass's pill surface; Spring owns press/hover deformation. */
+.material-press{display:inline-block;transform-origin:center;pointer-events:auto}
+.material-control{min-width:282px;min-height:74px;padding:12px 23px 12px 15px;touch-action:pan-y;user-select:none;text-align:left;border-color:#6ea69a66;background:#0d2529aa}
+.material-control>span{gap:15px}
+.material-control canvas{filter:brightness(.9);opacity:.75}
+.material-mark{display:grid;place-items:center;width:42px;height:42px;border:1px solid #90b9a830;border-radius:50%;background:#06101388;flex:none}
+.material-mark img{width:29px;height:29px}
+.material-label{display:flex;flex-direction:column;gap:6px;min-width:205px}
+.material-label>span{font-size:13px;font-weight:500;white-space:nowrap}
+.material-label small{font-size:9px;color:var(--muted);letter-spacing:.025em}
+.material-help{font-size:10px;line-height:1.7;margin:15px 0 0;color:var(--muted)}
 
-/*! R3F demo/Panel placement, with the established NOX character kept separate. */
-.hero-visual{position:absolute;left:52%;right:5%;top:110px;bottom:140px;pointer-events:auto}
-.logo-preview{position:absolute;inset:0 0 75px;display:grid;place-items:center;pointer-events:none}
-.logo-preview img{width:180px;opacity:.7}
-.visual-caption{position:absolute;left:20px;top:24px;font-size:9px;letter-spacing:.15em;color:var(--muted);pointer-events:none}
-.mascot-room{position:absolute;right:-10px;bottom:-15px;width:210px;height:230px;pointer-events:auto}
+/*! R3F viewport mapping: the brand emblem is a background scene, not a panel. */
+.contact-emblem{position:fixed;inset:0;z-index:-1;pointer-events:none;overflow:hidden}
+.source-logo{position:relative;width:100%;height:100%;pointer-events:none}
+.logo-canvas{position:absolute;inset:0;pointer-events:none}
+.logo-canvas canvas{pointer-events:none}
+.logo-static{position:absolute;left:64%;top:25%;width:25%;height:40%;display:grid;place-items:center;pointer-events:none;opacity:.4}
+.logo-static img{width:70%;max-width:210px}
+.logo-loading{position:absolute;inset:0;pointer-events:none;z-index:1}
+.logo-loading[hidden]{display:none}
+.logo-fallback{position:absolute;inset:0}
+.source-logo[data-state=fallback] .logo-canvas{visibility:hidden}
+#features .contact-copy,#about .contact-copy{margin-left:auto;width:46vw}
+#features .chapter-margin,#about .chapter-margin{right:auto;left:9vw;text-align:left}
+.hero-visual{position:absolute;left:52%;right:5%;top:110px;bottom:140px;pointer-events:none}
+.mascot-room{position:absolute;right:-5px;bottom:-40px;width:210px;height:230px;pointer-events:auto}
 .mascot-room>span{position:absolute;bottom:4px;left:0;right:0;text-align:center;font-size:9px;color:var(--muted);pointer-events:none}
 .nox-peek{position:fixed;bottom:0;right:0;width:150px;height:160px;overflow:hidden;z-index:40;cursor:pointer;touch-action:pan-y}
 .nox-peek canvas{width:100%;height:100%}
 .scroll-cue{margin-right:140px}
+@media(max-width:1000px) and (min-width:701px){#features .contact-copy,#about .contact-copy{width:46vw}.contact-copy h2{font-size:clamp(48px,6vw,75px)}}
 @media(max-width:700px){
- #home.contact-chapter{padding-bottom:90px}
- .hero-visual{position:relative;left:auto;right:auto;top:auto;bottom:auto;width:100%;height:340px;margin-top:12px}
- .visual-caption{top:8px;left:0;font-size:8px}
- .logo-preview{inset:10px 0 70px}
- .logo-preview img{width:120px}
- .mascot-room{right:-14px;bottom:-10px;width:170px;height:195px}
+ #home.contact-chapter{padding-bottom:90px;min-height:100svh}
+ #features .contact-copy,#about .contact-copy{margin-left:0;width:100%}
+ .contact-emblem{opacity:.7}
+ .hero-visual{position:relative;left:auto;right:auto;top:auto;bottom:auto;width:100%;height:260px;margin-top:12px}
+ .mascot-room{right:-10px;bottom:-30px;width:155px;height:180px}
  .nox-peek{width:120px;height:140px}
+ .logo-static{left:25%;top:65%;width:50%;height:25%}
+ .logo-static img{max-width:120px}
  .hud-presence{max-width:205px}
  .scroll-cue{margin-right:0}
-}/*! R3F Page/DemoPanel controls around the adapted NOX brand model. */
-.logo-preview{pointer-events:auto}
-.source-logo{position:relative;width:100%;height:100%}
-.logo-canvas{position:absolute;inset:0 0 45px;touch-action:pan-y;cursor:grab}
-.logo-canvas:active{cursor:grabbing}
-.logo-canvas canvas{touch-action:pan-y}
-.logo-static{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:20px;pointer-events:none}
-.logo-static img{width:140px}
-.logo-static span{font-size:10px;color:var(--muted)}
-.logo-loading{position:absolute;inset:0;pointer-events:none;z-index:1}
-.logo-loading[hidden]{display:none}
-.logo-fallback{position:absolute;inset:0 0 45px}
-.source-logo[data-state=fallback] .logo-canvas{visibility:hidden}
-.logo-controls{position:absolute;bottom:0;left:16px;right:10px;display:flex;align-items:center;gap:7px;justify-content:center;flex-wrap:wrap}
-.logo-controls>span{font-size:8px;letter-spacing:.1em;color:var(--muted);width:100%;text-align:center;margin-bottom:7px}
-.logo-controls button{font-size:10px;min-width:38px;padding:7px 10px;background:var(--glass)}
-.mascot-room{bottom:-40px;right:-5px}
-.visual-caption{top:0}
-@media(max-width:700px){.logo-static img{width:100px}.logo-controls{left:0;right:0;bottom:0}.logo-controls>span{font-size:7px}.logo-controls button{min-height:40px;min-width:40px}.mascot-room{right:-12px;bottom:-35px}.hero-visual{height:360px}.logo-preview{inset:12px 0 125px}.logo-canvas{inset:0 0 36px}.logo-fallback{inset:0 0 36px}.logo-controls>span{display:none}}
-/* Compact R3F panel placement keeps the little character in shorter views. */
+ .contact-copy .material-control{padding:11px 18px 11px 12px;min-height:68px;min-width:270px}
+ .material-control>span{gap:12px}.material-mark{width:38px;height:38px}.material-label{min-width:195px}.material-label>span{font-size:12px}
+ .material-help{font-size:9px}.contact-chapter:has(.contact-actions){padding-top:112px}.contact-actions{max-width:300px}
+}
 @media(max-width:700px) and (max-height:780px){
- #home.contact-chapter{padding-top:100px;padding-bottom:90px;min-height:100svh}
+ #home.contact-chapter{padding-top:100px;padding-bottom:90px}
  #home .contact-copy h1{font-size:clamp(49px,10vw,66px);margin:16px 0 20px}
  #home .contact-description{font-size:12px;margin-bottom:14px}
- #home .hero-visual{height:245px;margin-top:8px}
- #home .logo-preview{inset:12px 0 55px}
+ #home .hero-visual{height:220px;margin-top:8px}
  #home .mascot-room{width:140px;height:160px;bottom:-22px;right:0}
 }

@@ -1,8 +1,8 @@
 // Adapted from dashersw/liquid-glass-js Container.initWebGL / Button.
 // Original shader; native HTML supplies focus and keyboard access.
 import React,{useEffect,useRef} from 'react';
-import {compileSourceProgram,sourceShader} from '/js/source-effects.js';
-export function LiquidButton({children,onClick,source,href,className='',pressed,...controls}){
+import {compileSourceProgram,sourceShader,glassPressure} from '/js/source-effects.js';
+export function LiquidButton({children,onClick,source,href,className='',pressed,interaction,...controls}){
   const canvas=useRef();
   useEffect(()=>{
     if(!source)return;
@@ -26,12 +26,14 @@ export function LiquidButton({children,onClick,source,href,className='',pressed,
         const w=Math.ceil(box.width),h=Math.ceil(box.height);if(surface.width!==w||surface.height!==h){surface.width=w;surface.height=h;}
         gl.viewport(0,0,w,h);gl.useProgram(program);gl.bindTexture(gl.TEXTURE_2D,tex);gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,gl.RGBA,gl.UNSIGNED_BYTE,source);
         gl.uniform2f(uniform('resolution'),w,h);gl.uniform2f(uniform('textureSize'),innerWidth,innerHeight);gl.uniform2f(uniform('containerPosition'),box.left+w/2,box.top+h/2);
-        gl.uniform1f(uniform('pageHeight'),innerHeight);gl.uniform1f(uniform('viewportHeight'),innerHeight);gl.drawArrays(gl.TRIANGLES,0,6);surface.dataset.effect='liquid-glass-js';
+        if(interaction)for(const [key,value] of Object.entries(glassPressure(interaction.current.pressure,interaction.current.hover)))gl.uniform1f(uniform(key),value);
+        gl.uniform1f(uniform('borderRadius'),Math.min(w,h)/2);
+        gl.uniform1f(uniform('pageHeight'),innerHeight);gl.uniform1f(uniform('viewportHeight'),innerHeight);gl.drawArrays(gl.TRIANGLES,0,6);surface.dataset.effect='liquid-glass-js';surface.dataset.pressure=String(interaction?.current.pressure??0);
       };frame=requestAnimationFrame(draw);
     }
     init().catch(error=>{surface.dataset.effect='fallback';surface.dataset.error=error.message;surface.hidden=true;});
     return()=>{disposed=true;cancelAnimationFrame(frame);if(buffer)gl.deleteBuffer(buffer);if(tex)gl.deleteTexture(tex);if(program)gl.deleteProgram(program);};
-  },[source]);
+  },[source,interaction]);
   const Tag=href?'a':'button';
   return <Tag {...controls} href={href} type={href?undefined:'button'} onClick={onClick} aria-pressed={pressed} className={`glass-button liquid-button ${className}`}><canvas ref={canvas} aria-hidden="true"/><span>{children}</span></Tag>;
 }
