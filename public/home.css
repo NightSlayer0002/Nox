@@ -15,7 +15,7 @@ body.landing {overflow-x:clip;-webkit-font-smoothing:antialiased}
 .contact-coordinate{font-size:9px;letter-spacing:.16em;color:var(--muted)}
 .nav-enter{border:1px solid var(--line);background:var(--glass);border-radius:99px;padding:12px 20px;font-size:12px;white-space:nowrap}
 .nav-enter:hover{border-color:var(--accent);background:var(--glass-hover)}
-.contact-chapter{position:relative;min-height:110svh;width:100%;display:flex;flex-direction:column;justify-content:center;padding:120px 9vw 180px;pointer-events:none}
+.contact-chapter{position:relative;min-height:110svh;width:100%;display:flex;flex-direction:column;justify-content:center;padding:120px 9vw 210px;pointer-events:none}
 .contact-copy{max-width:630px;position:relative}
 .contact-copy h1,.contact-copy h2{font-weight:500;font-size:clamp(60px,7.2vw,124px);line-height:.98;letter-spacing:-.065em;margin:28px 0 34px}
 .contact-copy h2{font-size:clamp(52px,6vw,96px)}
@@ -24,7 +24,7 @@ body.landing {overflow-x:clip;-webkit-font-smoothing:antialiased}
 .contact-copy a,.contact-copy button{pointer-events:auto}
 .wander-link{display:block;font-size:11px;color:var(--muted);margin:22px 0;width:fit-content}
 .wander-link:hover{color:var(--accent)}
-.chapter-margin{position:absolute;right:4vw;bottom:220px;text-align:right;color:var(--muted);font-size:12px;line-height:1.8}
+.chapter-margin{position:absolute;right:4vw;bottom:270px;text-align:right;color:var(--muted);font-size:12px;line-height:1.8}
 .chapter-margin>span{font-size:9px;letter-spacing:.12em;color:var(--accent)}
 .scene-map{position:fixed;left:24px;top:50%;transform:translateY(-50%);z-index:10;display:flex;flex-direction:column;gap:18px}
 .scene-map a{display:flex;align-items:center;gap:10px;font-size:10px;color:var(--muted);padding:3px 0}
@@ -74,7 +74,7 @@ body.landing {overflow-x:clip;-webkit-font-smoothing:antialiased}
  .contact-actions{gap:6px}.contact-actions button{font-size:10px;padding:10px 13px}.experiment-note{font-size:9px;margin-top:12px}.workspace-paths{font-size:10px;gap:13px;margin-top:18px}
  .contact-details{margin:0 7vw 50px;padding:65px 0}.detail-columns{grid-template-columns:1fr;gap:20px}.source-credits{gap:14px}.source-footer{margin:0 7vw;flex-wrap:wrap;padding-bottom:170px}.source-footer>span:nth-child(2){width:100%}
 }
-@media(max-height:650px) and (min-width:701px){.contact-copy h1{font-size:76px}.contact-copy h2{font-size:62px}.contact-chapter{padding-top:100px;padding-bottom:130px}.chapter-margin{bottom:170px}}
+@media(max-height:650px) and (min-width:701px){.contact-copy h1{font-size:76px}.contact-copy h2{font-size:62px}.contact-chapter{padding-top:100px;padding-bottom:170px}.chapter-margin{bottom:220px}}
 /*! Liquid Glass's pill surface; Spring owns press/hover deformation. */
 .material-press{display:inline-block;transform-origin:center;pointer-events:auto}
 .material-control{min-width:282px;min-height:74px;padding:12px 23px 12px 15px;touch-action:pan-y;user-select:none;text-align:left;border-color:#6ea69a66;background:#0d2529aa}
@@ -128,4 +128,10 @@ body.landing {overflow-x:clip;-webkit-font-smoothing:antialiased}
  #home .contact-description{font-size:12px;margin-bottom:14px}
  #home .hero-visual{height:220px;margin-top:8px}
  #home .mascot-room{width:140px;height:160px;bottom:-22px;right:0}
+}
+@media(min-width:701px) and (max-height:780px){
+ .contact-chapter{justify-content:flex-start;padding-top:110px;padding-bottom:170px}
+ .contact-copy h2{font-size:clamp(48px,5.4vw,76px);margin:22px 0 24px}
+ .contact-description{margin-bottom:22px}.experiment-note{margin-top:12px}
+ .chapter-margin{bottom:330px}
 }

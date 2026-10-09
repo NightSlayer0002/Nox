@@ -46,7 +46,13 @@ function Home(){
       });
       ScrollTrigger.refresh();
     },root);
-    return()=>{context.revert();gsap.ticker.remove(tick);lenis.destroy();landing.dispose();controller.current=null;};
+    // React creates the chapters after the browser's initial fragment lookup.
+    // Restore that entry after the pinned layout and Lenis are ready.
+    const entryFrame=requestAnimationFrame(()=>{
+      const id=location.hash.slice(1);
+      if(scenes.some(([key])=>key===id)){lenis.scrollTo(document.getElementById(id),{immediate:true});ScrollTrigger.update();}
+    });
+    return()=>{cancelAnimationFrame(entryFrame);context.revert();gsap.ticker.remove(tick);lenis.destroy();landing.dispose();controller.current=null;};
   },[]);
   const toggleMaterial=()=>{material.current=!material.current;matter.current.metal=material.current;controller.current?.material(material.current);setMetal(material.current);};
   const pressMaterial=useCallback(progress=>{matter.current.hold=progress;if(progress>0&&!material.current)controller.current?.stage.prepareLiquid();},[]);
