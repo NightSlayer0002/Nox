@@ -12,7 +12,7 @@ function ReceptionNode({data}){
   </div>;
 }
 const nodeTypes={reception:ReceptionNode};
-export default function AfterimageLattice({packet,signalIndex,endingIndex,onSignal,onEnding,playing}){
+export default function AfterimageLattice({packet,signalIndex,endingIndex,onSignal,onEnding,playing,disabled}){
   const nodes=useMemo(()=>[
     {id:'seed',type:'reception',position:{x:0,y:109},data:{kind:'origin',active:true}},
     ...packet.signals.map((signal,index)=>({id:`signal-${index}`,type:'reception',position:{x:130,y:index*108},data:{kind:'signal',code:`SIGNAL 0${index+1}`,label:signal.label,active:index===signalIndex}})),
@@ -23,7 +23,7 @@ export default function AfterimageLattice({packet,signalIndex,endingIndex,onSign
     ...[0,1].map(index=>({id:`end-${index}`,source:`signal-${signalIndex}`,target:`ending-${index}`,animated:playing&&index===endingIndex,type:'smoothstep',style:{stroke:index===endingIndex?'#89cdbb':'#304c4e',strokeWidth:index===endingIndex?2:1}})),
   ],[packet,signalIndex,endingIndex,playing]);
   return <div className="afterimage-lattice" aria-hidden="true">
-    <ReactFlow key={packet.title} nodes={nodes} edges={edges} nodeTypes={nodeTypes} fitView fitViewOptions={{padding:.1}} minZoom={.4} maxZoom={1.1} colorMode="dark" nodesDraggable={false} nodesConnectable={false} nodesFocusable={false} edgesFocusable={false} elementsSelectable={false} panOnDrag={false} zoomOnScroll={false} zoomOnDoubleClick={false} zoomOnPinch={false} preventScrolling={false} onNodeClick={(_event,node)=>{if(playing)return;if(node.id.startsWith('signal-'))onSignal(Number(node.id.slice(7)));if(node.id.startsWith('ending-'))onEnding(Number(node.id.slice(7)));}}>
+    <ReactFlow key={packet.title} nodes={nodes} edges={edges} nodeTypes={nodeTypes} fitView fitViewOptions={{padding:.1}} minZoom={.4} maxZoom={1.1} colorMode="dark" nodesDraggable={false} nodesConnectable={false} nodesFocusable={false} edgesFocusable={false} elementsSelectable={false} panOnDrag={false} zoomOnScroll={false} zoomOnDoubleClick={false} zoomOnPinch={false} preventScrolling={false} onNodeClick={(_event,node)=>{if(disabled||playing)return;if(node.id.startsWith('signal-'))onSignal(Number(node.id.slice(7)));if(node.id.startsWith('ending-'))onEnding(Number(node.id.slice(7)));}}>
       <Background color="#37514f" gap={26} size={.55}/>
     </ReactFlow>
   </div>;
