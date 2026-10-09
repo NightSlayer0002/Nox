@@ -23,9 +23,12 @@ test('Vercel build contains static module dependencies and all bounded API handl
     for(const source of ['liquid-logo/fragment-shader.glsl','liquid-glass-js/glass.frag','sources.json'])assert.ok((await readFile(path.join(output,'static/vendor',source),'utf8')).length>0);
     assert.match(await readFile(path.join(output,'static/index.html'),'utf8'), /NOX/);
     assert.match(await readFile(path.join(output,'static/shared/character.js'),'utf8'), /normalizePacket/);
+    const sharedAfterimage=await import(pathToFileURL(path.join(output,'static/shared/afterimage.js')));
+    assert.equal(sharedAfterimage.sanitizeAfterimageInput({seed:'A moon',tone:'wonder'}).variation,0);
+    assert.throws(()=>sharedAfterimage.normalizeAfterimage({title:'incomplete'}),TypeError);
     const files = await readdir(path.join(output,'static'));
     for (const secret of ['.env','.git','server.mjs','docs','artifacts']) assert.ok(!files.includes(secret));
-    for (const endpoint of ['status','chat','speech','summary','session']) {
+    for (const endpoint of ['status','chat','speech','summary','session','afterimage']) {
       const folder = path.join(output,`functions/api/${endpoint}.func`);
       const config = JSON.parse(await readFile(path.join(folder,'.vc-config.json'),'utf8'));
       assert.equal(config.runtime,'nodejs24.x'); assert.equal(config.handler,'index.mjs');
@@ -53,6 +56,17 @@ test('Vercel build contains static module dependencies and all bounded API handl
           }).on('error',reject);
         });
       } finally {await new Promise(resolve=>server.close(resolve));}
+      const {default:afterimageHandler}=await import(pathToFileURL(path.join(output,'functions/api/afterimage.func/index.mjs')));
+      const afterimageServer=http.createServer(afterimageHandler);
+      await new Promise(resolve=>afterimageServer.listen(0,'127.0.0.1',resolve));
+      try {
+        await new Promise((resolve,reject)=>{
+          const request=http.request(`http://127.0.0.1:${afterimageServer.address().port}/api/afterimage`,{method:'POST',headers:{host:'nox-build.example',origin:'https://foreign.example','content-type':'application/json'}},response=>{
+            response.resume();response.on('end',()=>{try{assert.equal(response.statusCode,403);resolve();}catch(error){reject(error);}});
+          });
+          request.on('error',reject);request.end(JSON.stringify({seed:'A moon',tone:'wonder'}));
+        });
+      } finally {await new Promise(resolve=>afterimageServer.close(resolve));}
     } finally {if(originalOrigin===undefined)delete process.env.NOX_PUBLIC_ORIGIN;else process.env.NOX_PUBLIC_ORIGIN=originalOrigin;}
   } finally { await rm(output,{recursive:true,force:true}); }
 });

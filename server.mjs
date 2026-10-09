@@ -11,6 +11,8 @@ import { createCache } from './server/cache.mjs';
 import { requestSpeech } from './server/speech.mjs';
 import { createHash, timingSafeEqual } from 'node:crypto';
 import { mintSession, validSession, sessionFromCookie, sessionCookie, createUnlockThrottle } from './server/session.mjs';
+import { normalizeAfterimage, sanitizeAfterimageInput } from './shared/afterimage.js';
+import { createAfterimageCache } from './server/afterimage-cache.mjs';
 
 const root = path.dirname(fileURLToPath(import.meta.url));
 const publicRoot = path.join(root, 'public');
@@ -63,6 +65,7 @@ export function createAppServer({
   let windowStart = Date.now();
   let requests = 0;
   const audioCache=createCache();
+  const afterimageCache=createAfterimageCache({now});
   const unlockThrottle=createUnlockThrottle({now});
   const available = [...providers];
   if(apiKey) available.push({id:'openai',name:'OpenAI',model});
@@ -108,13 +111,37 @@ export function createAppServer({
       voice: voiceKey && !locked && naturalVoice ? 'natural' : 'browser', access: locked ? 'locked' : 'open',
       providers: !locked ? available : [], provider: !locked ? preferred?.id || null : null,
     });
-    if (['/api/chat','/api/speech','/api/summary'].includes(pathname) && request.method === 'POST') {
+    if (['/api/chat','/api/speech','/api/summary','/api/afterimage'].includes(pathname) && request.method === 'POST') {
       const origin = request.headers.origin;
       if (origin && origin !== `${hosted?'https':'http'}://${host}`) return sendJson(response, 403, { error: 'Use NOX from its own page.' });
       if (locked) return sendJson(response, 401, { error: 'Unlock owner access in Settings before using cloud AI or natural voice.' });
       if (!request.headers['content-type']?.startsWith('application/json')) return sendJson(response, 415, { error: 'Send application/json.' });
       try {
         const input = await readJson(request);
+        if(pathname==='/api/afterimage'){
+          let creative;
+          try{creative=sanitizeAfterimageInput(input);}catch{return sendJson(response,400,{error:'Send a seed of 1–600 characters, a wonder/uncanny/bold tone, and an optional variation from 0 to 1024 or configured provider.'});}
+          const eligible=available.filter(p=>['groq','gemini','nvidia'].includes(p.id));
+          const selected=creative.provider?eligible.find(p=>p.id===creative.provider):eligible.find(p=>p.id===preferred?.id)||eligible.find(p=>p.id==='groq')||eligible[0];
+          if(!selected)return sendJson(response,503,{error:'Configure a Groq, Gemini or NVIDIA server key to receive an AFTERIMAGE.'});
+          if(Date.now()-windowStart>60000){windowStart=Date.now();requests=0;}
+          if(++requests>30)return sendJson(response,429,{error:'Give NOX a moment before receiving another AFTERIMAGE.'});
+          const controller=new AbortController(),started=performance.now(),selectedModel=modelForDepth(selected.id,selected.model,'quick');
+          response.on('close',()=>{if(!response.writableEnded)controller.abort();});
+          const key=createHash('sha256').update(JSON.stringify([host,creative.seed,creative.tone,creative.variation,selected.id,selectedModel])).digest('hex');
+          try{
+            const {value:packet,hit}=await afterimageCache.getOrCreate(key,async sharedSignal=>{
+              const signal=AbortSignal.any([sharedSignal,AbortSignal.timeout(20000)]);
+              return normalizeAfterimage(await providerRequest(creative,{provider:selected.id,apiKey:providerKey(selected.id),model:selectedModel,task:'afterimage',signal}));
+            },{signal:controller.signal});
+            if(controller.signal.aborted)return;
+            return sendJson(response,200,{packet,metrics:{provider:selected.name,model:selectedModel,totalMs:Math.round(performance.now()-started),cacheHit:hit}});
+          }catch(error){
+            if(controller.signal.aborted)return;
+            if(error.code==='busy')return sendJson(response,429,{error:'AFTERIMAGE is receiving other signals. Try again shortly.'});
+            return sendJson(response,502,{error:chatFailure(error)});
+          }
+        }
         if (pathname === '/api/speech') {
           if (!voiceKey || !naturalVoice) return sendJson(response,503,{error:'Natural voice is not configured. Browser voice is still available.'});
           if (!input || typeof input.text !== 'string' || !input.text.trim() || input.text.length>420) return sendJson(response,400,{error:'Speech must contain 1–420 characters.'});
@@ -195,9 +222,9 @@ export function createAppServer({
     }
     if (!['GET', 'HEAD'].includes(request.method)) return sendJson(response, 405, { error: 'Method not allowed.' });
 
-    // Only public assets and this exact shared module are readable over HTTP.
+    // Only public assets and these exact shared modules are readable over HTTP.
     let file;
-    if (pathname === '/shared/character.js') file = path.join(root, 'shared', 'character.js');
+    if (['/shared/character.js','/shared/afterimage.js'].includes(pathname)) file = path.join(root, 'shared', path.basename(pathname));
     else {
       file = path.resolve(publicRoot, pathname === '/' ? 'index.html' : ['/app','/app/'].includes(pathname)?'app.html':`.${pathname}`);
       if (!file.startsWith(publicRoot + path.sep) || pathname.includes('\\') || pathname.split('/').some(part => part.startsWith('.'))) return sendJson(response, 404, { error: 'Not found.' });
