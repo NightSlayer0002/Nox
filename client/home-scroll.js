@@ -6,7 +6,7 @@ export function sourceWorldScroll(root,gsap,ScrollTrigger,pose,small,onChapter){
   const sections=[...root.querySelectorAll('.contact-chapter'),root.querySelector('.contact-details')];
   const markers=sections.map(section=>ScrollTrigger.create({trigger:section,start:'top top',end:'bottom top'}));
   let anchors=markers.map(marker=>marker.start);
-  const movers=Object.fromEntries(Object.keys(pose).map(key=>[key,gsap.quickTo(pose,key,{duration:.55,ease:'power2.out'})]));
+  const movers=Object.fromEntries(Object.keys(pose).map(key=>[key,gsap.quickTo(pose,key,{duration:.36,ease:'power2.out'})]));
   ScrollTrigger.create({start:0,end:()=>ScrollTrigger.maxScroll(window),onUpdate:self=>{
     onChapter(emblemChapter(self.scroll()+innerHeight*.35,anchors));const next=emblemPose(self.scroll(),anchors,small);for(const key of Object.keys(next))movers[key](next[key]);
   },onRefresh:self=>{anchors=markers.map(marker=>marker.start);onChapter(emblemChapter(self.scroll()+innerHeight*.35,anchors));gsap.set(pose,emblemPose(self.scroll(),anchors,small));}});

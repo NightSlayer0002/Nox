@@ -29,7 +29,8 @@
   ],
   "runtime": {
     "shadergradient": "2.4.20",
-    "fiber": "9.8.1"
+    "fiber": "9.8.1",
+    "reactFlow": {"package":"@xyflow/react","version":"12.12.0","repository":"https://github.com/xyflow/xyflow","use":"Official custom-node and animated-edge patterns for AFTERIMAGE's real branches","license":"MIT; react-flow/LICENSE"}
   },
-  "note": "Source files from pinned clones. Runtime package versions are separately pinned to published releases."
+  "note": "Cloned source files are pinned above. Runtime packages, including React Flow installed from npm, are separately pinned to published releases."
 }

@@ -7,11 +7,12 @@ import {sourceBackground} from '/js/source-background.js';
 import {SourceBoundary} from './source-boundary.jsx';
 applyTheme(readTheme());
 const SourceScene=lazy(()=>import('./source-scene.jsx'));
+const Afterimage=lazy(()=>import('./afterimage.jsx'));
 function Background(){const connect=useCallback(canvas=>sourceBackground.publish(canvas),[]);return <SourceBoundary><Suspense fallback={<div className="source-fallback"/>}><SourceScene onCanvas={connect}/></Suspense></SourceBoundary>;}
 const background=document.getElementById('workspace-background');if(background)createRoot(background).render(<Background/>);
 
 const commands=[
-  ['Explore','Open your workspace','#explore'],['Conversation','Talk with NOX','#conversation'],['Scene studio','Gravity, expressions and filming','#scenes'],['Library','Search saved conversations','#library'],
+  ['Explore','Open your workspace','#explore'],['Conversation','Talk with NOX','#conversation'],['Scene studio','Gravity, expressions and filming','#scenes'],['Afterimage','Receive, branch and perform a fictional transmission','#afterimage'],['Library','Search saved conversations','#library'],
   ['New conversation','Start a new thread','new-chat'],['Preferences','Owner access, model and voice','inside-button'],['Knowledge notebook','Add text for NOX to work with','knowledge'],['How NOX works','Capabilities and privacy','system'],
   ['Gravity','Toggle the gravity program','scene:gravity'],['Spotlight','Toggle a cursor spotlight','scene:spotlight'],['Orbit','Toggle a small universe','scene:orbit'],['Reset scene','Return to a quiet room','reset-button'],
 ];
@@ -72,3 +73,9 @@ function Toolbar(){const [open,setOpen]=useState(null),[dark,setDark]=useState((
   return <><div className="lab-toolbar"><button onClick={()=>setOpen('commands')} aria-label="Open command palette">⌘ <span>Navigate</span> <kbd>Ctrl K</kbd></button><button onClick={()=>setOpen('system')}>Inside NOX</button><button onClick={()=>setDark(!dark)} aria-label={dark?'Switch to light room':'Switch to dark room'}>{dark?'☀':'◐'} <span className="theme-label">{dark?'Light':'Dark'}</span></button></div>{open==='commands'?<Palette onClose={()=>setOpen(null)} run={run}/>:open&&<Workbench key={open} initial={open} onClose={()=>setOpen(null)}/>}</>;
 }
 const mount=document.getElementById('workspace-controls');if(mount)createRoot(mount).render(<Toolbar/>);
+function ReceiverRoute(){
+  const [active,setActive]=useState(()=>location.hash==='#afterimage');
+  useEffect(()=>{const change=()=>setActive(location.hash==='#afterimage');window.addEventListener('hashchange',change);return()=>window.removeEventListener('hashchange',change);},[]);
+  return active?<SourceBoundary fallback={<p className="receiver-error" role="alert">The receiver could not load. Reload to retry; ordinary chat and scenes remain available.</p>}><Suspense fallback={<p className="receiver-notice" role="status">Opening AFTERIMAGE…</p>}><Afterimage/></Suspense></SourceBoundary>:null;
+}
+const receiver=document.getElementById('afterimage-root');if(receiver)createRoot(receiver).render(<ReceiverRoute/>);
