@@ -1,5 +1,6 @@
 import { OrbSignal } from './orb-state.js';
 import { EXPRESSIONS, drawBody, drawEyes, drawMouth } from './face-art.js';
+import {LIQUID_FRAME_SIZE} from './liquid-frame.js';
 
 const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
 
@@ -126,16 +127,21 @@ export class Face extends OrbSignal {
     const unit = this.unit(width,height);
     return ((point.x-this.x)*width/(128*unit))**2+((point.y-this.y)*height/(149*unit))**2<1.1;
   }
-  draw(ctx, width, height, time, { alpha = 1, x = this.x, y = this.y, scale = this.scale, ghost = false,bodyTexture=null,materialBlend=1 } = {}) {
+  draw(ctx, width, height, time, { alpha = 1, x = this.x, y = this.y, scale = this.scale, ghost = false,bodyTexture=null,volumeTexture=null,materialBlend=1 } = {}) {
     const unit=this.unit(width,height,scale),features=this.features(time);
     const red=this.mode==='uncanny'||this.emotion==='uncanny';
     const color=ghost?'#c7cbb4':red?'#efbba3':this.mode==='director'?'#eeefd6':'#fff3c9';
     ctx.save();ctx.globalAlpha=alpha;
     ctx.translate(width*x,height*y+(this.breath-(this.held&&!this.reduceMotion?7:0)+features.squash*80)*unit);
     ctx.scale(unit*(1+features.squash),unit*(1-features.squash*.6));ctx.rotate(this.rotation+features.bodyTilt);
+    const volume=!ghost&&volumeTexture&&materialBlend>0;
+    if(volume&&materialBlend>=.999){ctx.shadowBlur=0;ctx.drawImage(volumeTexture,-LIQUID_FRAME_SIZE/2,-LIQUID_FRAME_SIZE/2,LIQUID_FRAME_SIZE,LIQUID_FRAME_SIZE);ctx.restore();return;}
+    if(volume)ctx.globalAlpha=alpha*(1-materialBlend);
     if(!ghost){drawBody(ctx,this.held);if(bodyTexture&&materialBlend>0){ctx.save();ctx.globalAlpha*=materialBlend;ctx.drawImage(bodyTexture,-256/1.4,-256/1.4,512/1.4,512/1.4);ctx.restore();}}
     ctx.shadowColor=red?'#c78361':'#f2d794';ctx.shadowBlur=3+this.signal.intensity*6;
     drawEyes(ctx,features,this.gazeX,this.gazeY,time,color,this.reduceMotion);
-    ctx.shadowBlur=2;drawMouth(ctx,features,this.gazeX,this.gazeY,color);ctx.restore();
+    ctx.shadowBlur=2;drawMouth(ctx,features,this.gazeX,this.gazeY,color);
+    if(volume){ctx.globalAlpha=alpha*materialBlend;ctx.shadowBlur=0;ctx.drawImage(volumeTexture,-LIQUID_FRAME_SIZE/2,-LIQUID_FRAME_SIZE/2,LIQUID_FRAME_SIZE,LIQUID_FRAME_SIZE);}
+    ctx.restore();
   }
 }

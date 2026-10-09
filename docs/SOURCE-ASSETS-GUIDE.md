@@ -206,3 +206,34 @@ private chat, notebook or camera texture. Public gradient canvases supply the
 glass button textures. Connected chat, voice, auth and quotas remain separate
 systems in the system manual. This update changes no authentication or data
 storage policy, and adds no sentience, model training or unlimited quotas.
+
+## Liquid Metal character: actual volume
+
+Liquid Metal now changes NOX's body itself into a rounded Three.js mesh. The
+existing legless `blobPath` becomes a Shape, with ExtrudeGeometry adding 208
+units of depth and a broad bevel. This keeps his silhouette instead of adding
+a stock model. The Chrome shader from liquid-logo supplies the moving surface
+and a small environment reflection; MeshPhysicalMaterial supplies metal,
+roughness and clearcoat. The gentle vertex ripple comes from the cloned R3F
+`example/src/demos/ShaderMaterial.tsx` demo, adapted to NOX's coordinates.
+
+Stage lazy-loads `client/liquid-character.js` only when this mode is selected.
+It updates the existing Face first, then renders the mesh and a transparent
+face texture from the same eyes/mouth functions. Cursor gaze rotates the
+whole volume. Speech amplitude, blinks, spiral eyes, sleep marks and temporary
+reactions therefore use the existing acting state rather than a separate
+script. The face sits beyond the mesh's maximum surface displacement to avoid
+depth flicker.
+
+The offscreen renderer paints at most 30 FPS into a 512px canvas at pixel
+density 1. Face.draw composites that complete frame into the existing Stage:
+dragging, gravity, impact squash, camera backgrounds and recorded WebM clips
+all use the same output. Presence and Liquid Metal share one Face instance;
+switching material does not reset gravity or expressions. The corner peeker
+uses the same frame too. Hidden tabs and hidden stages pause the metal draw,
+except when the corner peeker remains visible.
+
+GPU contexts, geometry, materials, textures and listeners are released on
+disposal. Context restoration rebuilds the renderer; missing WebGL or failed
+source loading leaves the matte character usable. These effects process only
+public shader textures and face geometry, with no new AI call or data store.

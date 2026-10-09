@@ -408,3 +408,10 @@ test('disposing a stage stops its clock and owned resources exactly once',()=>{
   const previous=globalThis.cancelAnimationFrame;globalThis.cancelAnimationFrame=id=>cancelled.push(id);
   try{stage.dispose();stage.dispose();stage.frame(100);assert.deepEqual(cancelled,[42]);assert.deepEqual(counts,{resize:1,events:1,liquid:1,core:1});}finally{if(previous===undefined)delete globalThis.cancelAnimationFrame;else globalThis.cancelAnimationFrame=previous;}
 });
+
+test('a complete 3D liquid frame replaces the flat body and eyes in the recording canvas',()=>{
+  const calls=[],texture={};const ctx=new Proxy({},{get:(_target,name)=> (...args)=>{calls.push([name,...args]);return ctx;},set:()=>true});
+  new Face().draw(ctx,720,560,1,{volumeTexture:texture,materialBlend:1});
+  assert.deepEqual(calls.filter(call=>call[0]==='drawImage'),[['drawImage',texture,-224,-224,448,448]]);
+  assert.equal(calls.filter(call=>call[0]==='beginPath').length,0);
+});

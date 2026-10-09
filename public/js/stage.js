@@ -1,7 +1,5 @@
 import { Orb } from './orb.js';
 import { Face } from './face.js';
-import {createBlobMask} from './face-art.js';
-import {createLiquidLogoRenderer} from './source-effects.js';
 import { ACTIONS } from '../../shared/character.js';
 
 const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
@@ -66,7 +64,7 @@ export class Stage {
   prepareLiquid(){
     if(this.liquidRenderer||this.liquidLoading)return;
     this.canvas.dataset.liquid='loading';
-    this.liquidLoading=createLiquidLogoRenderer().then(renderer=>{if(this.disposed){renderer.dispose();return;}this.liquidRenderer=renderer;this.liquidMask=createBlobMask();this.canvas.dataset.liquid='ready';renderer.onRestore=()=>{renderer.dispose();this.liquidRenderer=null;this.liquidLoading=null;if(!this.disposed)this.prepareLiquid();};}).catch(()=>{if(!this.disposed)this.canvas.dataset.liquid='fallback';});
+    this.liquidLoading=import('/dist/liquid-character.js').then(module=>this.disposed?null:module.createLiquidCharacter()).then(renderer=>{if(!renderer)return;if(this.disposed){renderer.dispose();return;}this.liquidRenderer=renderer;this.canvas.dataset.liquid='ready';this.canvas.dataset.liquidGeometry='rounded-blob-volume';renderer.onRestore=()=>{renderer.dispose();this.liquidRenderer=null;this.liquidReady=false;this.liquidLoading=null;if(!this.disposed)this.prepareLiquid();};}).catch(()=>{if(!this.disposed){this.liquidLoading=null;this.canvas.dataset.liquid='fallback';}});
   }
   setBackgroundSource(canvas){this.backgroundSource=canvas;}
   drawBackground(ctx,w,h){
@@ -173,10 +171,10 @@ export class Stage {
     const dt = Math.min(.04, Math.max(0, (timestamp - (this.previous || timestamp)) / 1000));
     this.previous = timestamp;
     this.onBeforeFrame?.(this.time,dt);
-    this.materialBlend=(this.materialBlend||0)+((this.form==='liquid'?1:0)-(this.materialBlend||0))*(1-Math.exp(-dt*7));
-    if(this.form==='liquid'&&this.liquidRenderer&&this.liquidMask&&this.time-(this.liquidRenderedAt??-1)>=1/30&&!document.hidden){this.liquidRenderer.render(this.liquidMask,this.time);this.liquidRenderedAt=this.time;}
+    this.materialBlend=(this.materialBlend||0)+((this.form==='liquid'&&this.liquidReady?1:0)-(this.materialBlend||0))*(1-Math.exp(-dt*7));
     this.animateScene(dt);
     this.character.update(this.time, dt, this.pointer, this.dragging || this.scene?.action === 'gravity', this.reduceMotion);
+    if(this.liquidRenderer&&(this.form==='liquid'||this.materialBlend>.001)&&this.time-(this.liquidRenderedAt??-1)>=1/30&&!document.hidden&&(this.renderEnabled!==false||this.canvas.dataset.presence==='peeking')){this.liquidReady=this.liquidRenderer.render(this.forms.face,this.time);this.liquidRenderedAt=this.time;this.canvas.dataset.liquid=this.liquidReady?'ready':'fallback';}
     if(this.renderEnabled!==false)this.render();
     this.onAfterFrame?.();
     this.frameId=requestAnimationFrame(next => this.frame(next));
@@ -227,7 +225,7 @@ export class Stage {
       const appearance = this.reduceMotion ? .18 : smooth(clamp((age - 1) / 3, 0, 1)) * .22;
       this.character.draw(ctx, w, h, this.time, { x: .75, y: .29, scale: .56, alpha: appearance, ghost: true });
     }
-    if(this.characterAlpha!==0)this.character.draw(ctx, w, h, this.time,{alpha:this.characterAlpha??1,bodyTexture:this.form!=='core'?this.liquidRenderer?.canvas:null,materialBlend:this.materialBlend??0});
+    if(this.characterAlpha!==0)this.character.draw(ctx, w, h, this.time,{alpha:this.characterAlpha??1,volumeTexture:this.form!=='core'&&this.liquidReady?this.liquidRenderer?.canvas:null,materialBlend:this.materialBlend??0});
     if (action === 'spotlight') {
       const radius = Math.min(w, h) * .32;
       const px = this.reduceMotion ? w * .5 : this.pointer.x * w;
