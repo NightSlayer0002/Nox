@@ -14,6 +14,7 @@ import { EXPRESSIONS } from './face-art.js';
 import { knowledge,readDepth,saveDepth } from './workbench.js';
 import { spokenPreview } from './reply.js';
 import {sourceBackground} from './source-background.js';
+import { afterimageBridge, applyAfterimageCue } from './afterimage-bridge.js';
 
 const $ = id => document.getElementById(id);
 let disk;
@@ -31,6 +32,7 @@ const turns = createTurnGate();
 let lastPacket = { speech: 'Oh. You found me.', emotion: 'curious', action: 'none', memory: '' };
 let toastTimer;
 let preferredEngine='browser';
+let afterimageDriving=false;
 
 function toast(text) {
   $('toast').textContent = text; $('toast').hidden = false;
@@ -39,6 +41,7 @@ function toast(text) {
 
 const sceneLabels = { none: 'MOVE YOUR CURSOR. POKE HIM. DRAG HIM.', gravity: 'GRAVITY: ENABLED. DIGNITY: NEGOTIABLE.', spotlight: 'MOVE THE LIGHT. LET HIM FIND IT.', orbit: 'ONE VERY SMALL UNIVERSE.', echo: 'AN AUTHORED SCENE. ANOTHER PRESENCE.', takeover: 'CREATIVE CONTROL: NOX.' };
 const stage = new Stage($('stage'), action => {
+  if(!afterimageDriving)afterimageBridge.stop('scene-change');
   $('scene-label').textContent = action === 'none' && document.body.dataset.form === 'core' ? 'DRAG THE CORE. CLICK TO SEND A PULSE.' : sceneLabels[action];
   document.querySelectorAll('[data-scene]').forEach(button => {
     const active = button.dataset.scene === action;
@@ -65,7 +68,7 @@ const voice = createVoice({
     if(!response.ok) {const error=await response.json();throw new Error(error.error||'Natural voice is unavailable.');}
     if(!response.headers.get('content-type')?.startsWith('audio/')) throw new Error('Natural voice did not return audio.');
     const blob=await response.blob(); if(!blob.size || blob.size>2*1024*1024) throw new Error('Natural voice returned invalid audio.');
-    if(!signal.aborted){$('reply-timing').textContent+=` · voice ${Math.round(performance.now()-start)} ms`;$('reply-timing').dataset.audioCache=response.headers.get('x-nox-audio-cache')||'unknown';}
+    if(!signal.aborted&&afterimageBridge.snapshot().status!=='playing'){$('reply-timing').textContent+=` · voice ${Math.round(performance.now()-start)} ms`;$('reply-timing').dataset.audioCache=response.headers.get('x-nox-audio-cache')||'unknown';}
     return blob;
   },
 });
@@ -78,6 +81,7 @@ const recorder = createRecorder($('stage'), (active, clip) => {
   $('record-button').querySelector('span').textContent = active ? 'Stop & save' : 'Record clip';
   $('film-record').textContent = active ? '● Stop & save' : '● Record clip';
   document.body.classList.toggle('recording', active);
+  if(active)afterimageBridge.refreshState();else afterimageBridge.recordingEnded();
   if (clip) {
     $('clip-video').src = clip.url;
     $('save-clip').href = clip.url; $('save-clip').download = clip.filename;
@@ -92,6 +96,32 @@ const microphone = createMicrophone({
     stage.character.activity = busy ? 'thinking' : active ? 'listening' : 'idle';
   },
   onError: toast,
+});
+
+afterimageBridge.connect({
+  async receive({seed,tone,variation,signal}) {
+    const state=connectionState(connection,selectedProvider);
+    if(state.kind!=='live')throw new Error(state.kind==='locked'?'Unlock AI in Preferences to receive a transmission.':state.kind==='demo'?'Choose a configured AI provider, or open the authored first contact.':'A configured AI connection is required to receive a transmission.');
+    const body={seed,tone,...(variation===undefined?{}:{variation}),...(selectedProvider?{provider:selectedProvider}:{})};
+    const response=await fetch('/api/afterimage',{method:'POST',headers:apiHeaders(),body:JSON.stringify(body),signal});
+    if(!response.ok){const error=await response.json();if(response.status===401&&!signal.aborted)await refreshConnection();throw new Error(error.error||'The transmission could not be received.');}
+    return response.json();
+  },
+  cue(value) {
+    afterimageDriving=true;
+    try{const cue=applyAfterimageCue(stage,value);$('mood-label').textContent=cue.emotion.toUpperCase();}
+    finally{afterimageDriving=false;}
+  },
+  speak: (script,emotion) => voice.speak(script,mode,emotion),
+  stop() {
+    voice.stop();stage.character.speakingUntil=stage.time;stage.captionUntil=0;
+    afterimageDriving=true;try{stage.reset(false);}finally{afterimageDriving=false;}
+  },
+  record:toggleRecording,
+  startRecording:() => recorder.start(),
+  stopRecording:() => recorder.stop(),
+  setVoice(value){voice.setEnabled(value);showVoice();try{disk.setItem('nox.voice.v2',voice.enabled?'on':'off');}catch{}},
+  getState:() => ({voiceEnabled:voice.enabled,recording:recorder.active,recordSupported:recorder.supported,connection:connectionState(connection,selectedProvider)}),
 });
 
 function addMessage(speaker, text) {
@@ -131,6 +161,7 @@ function setBusy(value) {
 
 async function send(raw) {
   const text = raw.trim(); if (!text || busy) return;
+  afterimageBridge.stop('conversation');
   const takeover=/^(?:please\s+)?(?:take\s*over(?:\s+(?:the\s+)?(?:screen|stage))?|takeover)[.!]?$/i.test(text);
   if(!['live','demo'].includes(brain)){
     if(takeover)stage.run('takeover');
@@ -194,6 +225,7 @@ document.querySelectorAll('[data-scene]').forEach(button => button.addEventListe
 }));
 document.querySelectorAll('[data-mode]').forEach(button => button.addEventListener('click', () => setMode(button.dataset.mode)));
 document.querySelectorAll('button[data-form]').forEach(button => button.addEventListener('click', () => {
+  afterimageBridge.stop('scene-change');
   document.body.dataset.form = button.dataset.form; stage.setForm(button.dataset.form);
   document.querySelectorAll('button[data-form]').forEach(control => control.setAttribute('aria-pressed', control.dataset.form === stage.form));
   $('stage').setAttribute('aria-label', stage.form !== 'core' ? 'Animated NOX face. Move the cursor to look around. Click to make him smile, double-click or press Space to wink. Drag or use arrow keys to move him. Shake quickly while holding him for spiral eyes.' : 'Animated NOX signal core. Move the cursor for parallax, click or press Space for a pulse. Drag or use arrow keys to move the core.');
@@ -212,10 +244,10 @@ $('voice-button').addEventListener('click', () => {
   const enabled = voice.setEnabled(!voice.enabled);
   showVoice();
   try{disk.setItem('nox.voice.v2',enabled?'on':'off');}catch{}
-  if (enabled) voice.speak(lastPacket.speech, mode,lastPacket.emotion);
+  if (enabled && afterimageBridge.snapshot().status!=='playing') voice.speak(lastPacket.speech, mode,lastPacket.emotion);
   else if (!voice.supported) toast('Speech synthesis is unavailable in this browser. You can read NOX’s captions.');
 });
-$('mic-button').addEventListener('click', () => { if (busy) { toast('Let NOX finish this thought first.'); return; } voice.stop(); microphone.start(); });
+$('mic-button').addEventListener('click', () => { if (busy) { toast('Let NOX finish this thought first.'); return; } afterimageBridge.stop('conversation');voice.stop(); microphone.start(); });
 $('camera-button').addEventListener('click', async () => {
   const button = $('camera-button'); button.disabled = true;
   try {
@@ -265,7 +297,8 @@ document.addEventListener('keydown', event => {
   if (event.key.toLowerCase() === 'f') toggleFilm();
   if (event.key.toLowerCase() === 'r') toggleRecording();
 });
-window.addEventListener('pagehide', () => { ownerToken=''; camera.stop(); voice.stop(); microphone.stop(); });
+window.addEventListener('pagehide', () => { afterimageBridge.stop('pagehide');ownerToken=''; camera.stop(); voice.stop(); microphone.stop(); });
+window.addEventListener('hashchange',()=>{if(location.hash==='#afterimage')cancelConversation();else afterimageBridge.stop('navigation');});
 setInterval(() => { const seconds = Math.floor(stage.time); $('stage-time').textContent = `${String(Math.floor(seconds / 60)).padStart(2, '0')}:${String(seconds % 60).padStart(2, '0')}`; }, 1000);
 setInterval(() => {
   const signal = stage.character.signal;
@@ -283,7 +316,7 @@ setInterval(() => {
   $('stage').dataset.held=String(Boolean(stage.character.held));$('stage').dataset.mouth=voice.mouthLevel.toFixed(2);$('stage').dataset.mouthTiming=voice.mouthTiming;
 }, 120);
 
-function cancelConversation(){turns.cancel();setBusy(false);voice.stop();microphone.stop();summaryController?.abort();clearTimeout(summaryTimer);pendingDraft?.remove();pendingDraft=null;}
+function cancelConversation(){afterimageBridge.stop('conversation');turns.cancel();setBusy(false);voice.stop();microphone.stop();summaryController?.abort();clearTimeout(summaryTimer);pendingDraft?.remove();pendingDraft=null;}
 async function restoreConversation(){cancelConversation();const thread=history.active();await setMode(thread.mode,false);if(history.active().id!==thread.id)return;$('conversation').replaceChildren();$('chat-title').textContent=thread.title==='New conversation'?"Let's wander a little.":thread.title;
   thread.turns.forEach(turn=>addMessage(turn.role==='user'?'user':'nox',turn.content));
   const last=thread.turns.findLast(t=>t.role==='assistant');lastPacket={speech:last?.content||(thread.turns.length?'Your last message is saved. Ready when the AI connection is available.':greetings[mode]),emotion:stage.character.emotion,action:'none',memory:''};
@@ -307,6 +340,7 @@ function showVoice() {
   $('voice-button').querySelector('span').textContent=voice.enabled?'Voice on':'Voice off';
   $('voice-engine').value=voice.engine;
   $('voice-note').textContent=voice.engine==='natural'?'This is an AI-generated voice. Each reply uses your configured speech provider’s quota.':'Browser voice is free. Quality depends on the voices available on your device.';
+  afterimageBridge.refreshState();
 }
 function showConnection() {
   const state=connectionState(connection,selectedProvider),provider=state.provider;brain=state.kind;
@@ -317,6 +351,7 @@ function showConnection() {
   $('connection-message').textContent=note;$('connection-help').hidden=brain==='live';$('unlock-ai').hidden=brain==='demo';
   $('unlock-ai').textContent=brain==='locked'?'Unlock AI ↗':'Connection settings ↗';
   $('inspector-brain').textContent=brain==='live'?`${provider.model} · providers.mjs`:labels[brain];
+  afterimageBridge.refreshState();
 }
 async function refreshConnection(token = ownerToken) {
   const version=++connectionVersion;
@@ -375,8 +410,8 @@ try{preferredEngine=disk.getItem('nox.voice.engine.v1')||'browser';$('speaker-se
 voice.setSpeaker($('speaker-select').value);voice.setBrowserVoice(savedBrowserVoice);browserVoices();globalThis.speechSynthesis?.addEventListener('voiceschanged',browserVoices);
 $('speaker-select').addEventListener('change',e=>{voice.setSpeaker(e.target.value);try{disk.setItem('nox.voice.speaker.v2',e.target.value);}catch{}});
 $('browser-speaker').addEventListener('change',e=>{savedBrowserVoice=e.target.value;voice.setBrowserVoice(savedBrowserVoice);try{disk.setItem('nox.voice.browser.v2',savedBrowserVoice);}catch{}});
-$('replay-voice').addEventListener('click',()=>{if(!voice.enabled)toast('Turn Voice on to hear this reply.');else voice.speak(spokenPreview(lastPacket.speech),mode,lastPacket.emotion);});
-$('test-voice').addEventListener('click',()=>{voice.setEnabled(true);showVoice();voice.speak('Oh, you found me. I was just thinking about something strange. Want to hear it?',mode,mode==='uncanny'?'uncanny':'happy');});
+$('replay-voice').addEventListener('click',()=>{afterimageBridge.stop('voice-preview');if(!voice.enabled)toast('Turn Voice on to hear this reply.');else voice.speak(spokenPreview(lastPacket.speech),mode,lastPacket.emotion);});
+$('test-voice').addEventListener('click',()=>{afterimageBridge.stop('voice-preview');voice.setEnabled(true);showVoice();voice.speak('Oh, you found me. I was just thinking about something strange. Want to hear it?',mode,mode==='uncanny'?'uncanny':'happy');});
 try{voice.setEnabled(disk.getItem('nox.voice.v2')!=='off');}catch{voice.setEnabled(true);}showVoice();
 try {await refreshConnection();}
 catch {connection={};showConnection();$('connection-message').textContent='Could not reach the AI server. Reload to retry. Scenes and touch still work.';toast('The AI server could not be reached. No scripted reply was substituted.');}
