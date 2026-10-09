@@ -210,9 +210,11 @@ storage policy, and adds no sentience, model training or unlimited quotas.
 ## Liquid Metal character: actual volume
 
 Liquid Metal now changes NOX's body itself into a rounded Three.js mesh. The
-existing legless `blobPath` becomes a Shape, with ExtrudeGeometry adding 208
-units of depth and a broad bevel. This keeps his silhouette instead of adding
-a stock model. The Chrome shader from liquid-logo supplies the moving surface
+existing legless `blobPath` becomes a Shape. Three's SphereGeometry is adapted
+to that contour, retaining 208 units of depth with a continuously domed front
+and back. Shared vertices smooth the surface: there is no flat front plate or
+thick bevel rim. This keeps his silhouette instead of adding a stock model.
+The Chrome shader from liquid-logo supplies the moving surface
 and a small environment reflection; MeshPhysicalMaterial supplies metal,
 roughness and clearcoat. The gentle vertex ripple comes from the cloned R3F
 `example/src/demos/ShaderMaterial.tsx` demo, adapted to NOX's coordinates.
@@ -220,7 +222,9 @@ roughness and clearcoat. The gentle vertex ripple comes from the cloned R3F
 Stage lazy-loads `client/liquid-character.js` only when this mode is selected.
 It updates the existing Face first, then renders the mesh and a transparent
 face texture from the same eyes/mouth functions. Cursor gaze rotates the
-whole volume. Speech amplitude, blinks, spiral eyes, sleep marks and temporary
+whole volume. The gaze's screen Y coordinate grows down, so positive Three X
+rotation faces downward and negative X faces upward. Speech amplitude,
+blinks, spiral eyes, sleep marks and temporary
 reactions therefore use the existing acting state rather than a separate
 script. The face sits beyond the mesh's maximum surface displacement to avoid
 depth flicker.

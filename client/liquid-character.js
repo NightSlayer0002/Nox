@@ -4,11 +4,16 @@ import {drawEyes,drawMouth} from '../public/js/face-art.js';
 import {createLiquidLogoRenderer} from '../public/js/source-effects.js';
 import {LIQUID_FRAME_SIZE} from '../public/js/liquid-frame.js';
 
+export function liquidRotation(face){
+  // Screen Y grows down. Positive Three X turns the front normal downward.
+  return face.reduceMotion?[0,0,0]:[face.gazeY/12*.1,face.gazeX/18*.22,0];
+}
+
 // Three/R3F scene/material patterns, liquid-logo's original Chrome surface,
 // and the existing NOX brand/acting. Stage is the only animation clock.
 export async function createLiquidCharacter(){
   const chrome=await createLiquidLogoRenderer();
-  let renderer,geometry,material,faceGeometry,faceMaterial,faceTexture,surfaceTexture,environment,pmrem,cube;
+  let renderer,geometry,material,faceGeometry,faceMaterial,faceTexture,surfaceTexture,environment,pmrem,reflectionTexture;
   try{
     const canvas=document.createElement('canvas');
     renderer=new THREE.WebGLRenderer({canvas,alpha:true,antialias:true,preserveDrawingBuffer:true,powerPreference:'low-power'});
@@ -18,9 +23,11 @@ export async function createLiquidCharacter(){
     const group=new THREE.Group();scene.add(group);
     const mask=document.createElement('canvas');mask.width=mask.height=512;const maskCtx=mask.getContext('2d');maskCtx.fillStyle='#fff';maskCtx.fillRect(0,0,512,512);chrome.render(mask,2);
     surfaceTexture=new THREE.CanvasTexture(chrome.canvas);surfaceTexture.colorSpace=THREE.SRGBColorSpace;surfaceTexture.generateMipmaps=false;surfaceTexture.minFilter=surfaceTexture.magFilter=THREE.LinearFilter;
-    const reflection=document.createElement('canvas');reflection.width=reflection.height=128;reflection.getContext('2d').drawImage(chrome.canvas,0,0,128,128);
-    cube=new THREE.CubeTexture(Array(6).fill(reflection));cube.colorSpace=THREE.SRGBColorSpace;cube.needsUpdate=true;
-    pmrem=new THREE.PMREMGenerator(renderer);environment=pmrem.fromCubemap(cube);
+    const reflection=document.createElement('canvas');reflection.width=256;reflection.height=128;reflection.getContext('2d').drawImage(chrome.canvas,0,0,256,128);
+    reflectionTexture=new THREE.CanvasTexture(reflection);reflectionTexture.colorSpace=THREE.SRGBColorSpace;reflectionTexture.mapping=THREE.EquirectangularReflectionMapping;
+    // One continuous reflection field avoids six repeated cube-face corners
+    // looking like creases in an otherwise smooth body.
+    pmrem=new THREE.PMREMGenerator(renderer);environment=pmrem.fromEquirectangular(reflectionTexture);
     geometry=createLiquidGeometry();
     material=new THREE.MeshPhysicalMaterial({color:'#dce5e3',metalness:.94,roughness:.17,clearcoat:1,clearcoatRoughness:.12,map:surfaceTexture,envMap:environment.texture,envMapIntensity:1.5});
     const wave={value:0};
@@ -40,12 +47,12 @@ export async function createLiquidCharacter(){
     const api={canvas,kind:'3d',onRestore:null,render(face,time){
       if(disposed||lost||renderer.getContext().isContextLost()||!chrome.render(mask,time+2))return false;
       surfaceTexture.needsUpdate=true;wave.value=face.reduceMotion?0:time*.22;
-      group.rotation.set(face.reduceMotion?0:-face.gazeY/12*.1,face.reduceMotion?0:face.gazeX/18*.22,0);
+      group.rotation.set(...liquidRotation(face));
       const features=face.features(time),red=face.mode==='uncanny'||face.emotion==='uncanny',color=red?'#efbba3':face.mode==='director'?'#eeefd6':'#fff3c9';
       ctx.setTransform(1,0,0,1,0,0);ctx.clearRect(0,0,512,512);ctx.translate(256,256);ctx.scale(512/LIQUID_FRAME_SIZE,512/LIQUID_FRAME_SIZE);
       ctx.shadowColor=red?'#c78361':'#f2d794';ctx.shadowBlur=5;drawEyes(ctx,features,face.gazeX,face.gazeY,time,color,face.reduceMotion);ctx.shadowBlur=2;drawMouth(ctx,features,face.gazeX,face.gazeY,color);faceTexture.needsUpdate=true;
       renderer.render(scene,camera);canvas.dataset.geometry='rounded-blob-volume';return true;
-    },dispose(){if(disposed)return;disposed=true;canvas.removeEventListener('webglcontextlost',lose);canvas.removeEventListener('webglcontextrestored',restore);chrome.onRestore=null;chrome.dispose();geometry.dispose();material.dispose();faceGeometry.dispose();faceMaterial.dispose();faceTexture.dispose();surfaceTexture.dispose();environment.dispose();pmrem.dispose();cube.dispose();renderer.dispose();renderer.forceContextLoss();}};
+    },dispose(){if(disposed)return;disposed=true;canvas.removeEventListener('webglcontextlost',lose);canvas.removeEventListener('webglcontextrestored',restore);chrome.onRestore=null;chrome.dispose();geometry.dispose();material.dispose();faceGeometry.dispose();faceMaterial.dispose();faceTexture.dispose();surfaceTexture.dispose();environment.dispose();pmrem.dispose();reflectionTexture.dispose();renderer.dispose();renderer.forceContextLoss();}};
     return api;
-  }catch(error){chrome.dispose();geometry?.dispose();material?.dispose();faceGeometry?.dispose();faceMaterial?.dispose();faceTexture?.dispose();surfaceTexture?.dispose();environment?.dispose();pmrem?.dispose();cube?.dispose();renderer?.dispose();renderer?.forceContextLoss();throw error;}
+  }catch(error){chrome.dispose();geometry?.dispose();material?.dispose();faceGeometry?.dispose();faceMaterial?.dispose();faceTexture?.dispose();surfaceTexture?.dispose();environment?.dispose();pmrem?.dispose();reflectionTexture?.dispose();renderer?.dispose();renderer?.forceContextLoss();throw error;}
 }
