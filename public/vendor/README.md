@@ -29,3 +29,11 @@ pin spacing for its layout and retains readable letters at anchor entry.
 The official Lenis repo was also cloned for its GSAP ticker integration and
 scrolling CSS. Both commits are recorded in `sources.json`. No stock photos or
 external Typekit fonts from the demos are loaded.
+
+Magic UI's MIT ShimmerButton supplies the conic shimmer, inset highlight and
+backdrop pattern in `/source-buttons.css`. The repository was cloned at
+`cdb348cb4c72a9b54b554d8617801e479fbc8714`; source:
+`apps/www/registry/magicui/shimmer-button.tsx`. NOX adapts it to native buttons
+and links, a mint/charcoal gradient, a masked border, and hover/focus animation.
+Its copyright and permission notice ship in `magicui/LICENSE`. Source notices
+belong with the shipped code; the homepage does not need a promotional link wall.

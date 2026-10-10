@@ -355,7 +355,7 @@ function showConnection() {
   const scopeNote=!visit.owner&&brain==='live'?'Temporary Groq conversation · quick replies, limited public quota. Refresh starts a new visit. Orpheus voice is available without owner sign-in.':note;
   $('brain-status').title=scopeNote;$('brain-note').textContent=scopeNote;
   $('connection-message').textContent=scopeNote;$('connection-help').hidden=brain==='live';$('unlock-ai').hidden=brain==='demo';
-  $('unlock-ai').textContent=brain==='locked'?'Unlock AI ↗':'Connection settings ↗';
+  $('unlock-ai').textContent=brain==='locked'?'Unlock AI ':'Connection settings ';
   $('inspector-brain').textContent=brain==='live'?`${provider.model} · providers.mjs`:labels[brain];
   afterimageBridge.refreshState();
 }
