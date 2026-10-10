@@ -33,7 +33,7 @@ The receiver opens with a prepared first-contact story, ready to rehearse even w
 7. Use **Edit this cut**, change the four selected lines, then select **Apply edits**. Every line must contain text and is bounded to 90 characters. Short lines leave more room for acting and silence.
 8. Use **Rehearse**. NOX performs three acts followed by the chosen ending. Use **Stop** to end the performance and speech; another rehearsal begins again from the first act. On phones and tablets, the stage scrolls into view and a fixed **On air** bar shows elapsed time and **End performance**, so the stop control stays within reach.
 9. Try the other ending or another signal. Choosing, editing, and replaying the saved packet do not ask a text model to write again. Optional natural voice has its own quota behavior.
-10. Use **Export script**, **Export reception**, or **Capture 28s**. Capture opens the existing clip preview when it finishes; **Save clip** downloads its silent WebM. Use OBS to capture playback with desktop audio, or add a voice track in an editor.
+10. Use **Export script**, **Export reception**, or **Capture 28s**. Capture opens the existing clip preview when it finishes; **Save clip** downloads its WebM with enabled Orpheus audio. Browser/OS speech cannot be captured by this path.
 
 An example seed is useful because it anchors the fiction in a simple object, introduces a change, and leaves the explanation open. You remain the editor: discard a weak branch, change a line, or receive a new take rather than treating the first model result as final.
 
@@ -47,7 +47,7 @@ These are the receiver's visible controls. An arrow, music note, or playback sym
 | Wonder | Requests surprising, curious speculative fiction | Changes the next text generation |
 | Uncanny | Requests subtle fictional unease | Changes the next text generation; it does not enable camera vision |
 | Bold | Requests a more decisive, dramatic creative turn | Changes the next text generation |
-| Receive a signal | Requests a complete branching packet from the configured text provider; becomes Receiving… while busy | One text-model operation on a cache miss |
+| Receive a signal | Requests a complete branching packet from the configured text provider; becomes Receiving… while busy | Normally one upstream text request on a cache miss; one narrowly permitted second attempt is explained below |
 | Cancel reception | Stops waiting for the current generation and retains the seed | Cancellation cannot promise a provider refund |
 | New take | Appears on model-generated receptions and changes the take associated with the entered seed and tone | Can cause fresh generation; it is not a local rewrite |
 | First contact · authored example | Loads and archives the prepared story with an explicit authored label | No text-model operation; natural speech can still use its provider |
@@ -57,14 +57,14 @@ These are the receiver's visible controls. An arrow, music note, or playback sym
 | Apply edits | Saves four nonempty lines, each at most 90 characters, to the selected reception | Local; an edited natural-voice script may need fresh speech audio |
 | Rehearse | Performs the four scheduled cues from the beginning | Local acting; optional speech is separate |
 | Stop | Ends the active performance and speech; during capture it also finalizes the owned recording | Prevents later local cues; does not promise a provider refund |
-| Capture 28s | Records a complete rehearsal and opens the existing clip dialog when finished | Local silent video; natural speech remains separate |
+| Capture 28s | Records a complete rehearsal and opens the existing clip dialog when finished | Local video with enabled Orpheus audio |
 | Voice on/off | Enables/stops the same voice engine selected in Preferences | Natural speech uses its own quota; captions remain available |
 | Export script | Downloads the selected script, timing, scenes, and captions | Local download |
 | Export reception | Downloads the packet and reception metadata as JSON | Local download; may include the seed and edits |
 | Reception archive title | Restores that packet, selected cut, edits, seed, and tone | Local |
 | Archive × / Delete reception | Removes that local record | Does not retract provider data or previously downloaded files |
 | What is this machine actually doing? | Expands the explanation of writing, cue timing, quota, and caption/audio limitations | Local |
-| Provider/model/timing/cache information | Shows the actual request metadata returned by the server | Describes measured execution, not intelligence or story quality |
+| Provider/model/timing/cache/attempt information | Shows actual request metadata; a two-attempt result says written in 2 attempts | Describes measured execution, not intelligence or story quality |
 
 The three branches and their endings have labeled buttons below the lattice. You can also click a signal or ending node in the graph; nodes cannot be dragged or connected, and graph zoom/pan gestures are disabled. The buttons provide the keyboard-accessible selection path. Seed, tone, branch, ending, and editing controls are disabled while receiving or performing so the active cut stays consistent.
 
@@ -104,6 +104,13 @@ The owner selected always-on NOX animation. There is no website motion switch, a
 
 ## 5. Access, model, and voice settings
 
+Orpheus speech is now public when the server's Groq voice is configured. Owner
+unlock is not needed to hear NOX. The public path is bounded to four requests
+per client and twelve total per minute in each warm process; other serverless
+instances have separate counters. Free provider quotas still apply. Legacy
+paid speech remains owner-only. Troy is the default, with Austin and Daniel as
+alternate voices. No gender-preference label is shown in the interface.
+
 Open **Settings** or **Preferences** to inspect connection and speech choices.
 
 | Setting | What to choose or understand |
@@ -136,7 +143,7 @@ Signal 2: act 1 → act 2 → act 3 → ending A or ending B
 Signal 3: act 1 → act 2 → act 3 → ending A or ending B
 ```
 
-Three signals multiplied by two endings gives **six selectable cuts from one text-model result**. A cut uses four cues. It does not require four writing requests or a new request when you select the other ending. There are fifteen cue objects in the complete packet: five per signal.
+Three signals multiplied by two endings gives **six selectable cuts from one successful text-model result**. A normal reception uses one upstream writing request; a specific provider-side structured-output rejection can trigger exactly one additional attempt. A cut does not require four writing requests or a new request when you select the other ending. There are fifteen cue objects in the complete packet: five per signal.
 
 The performance schedule is fixed:
 
@@ -157,9 +164,9 @@ The engine joins four lines of at most 90 characters with three newline separato
 
 There are three distinct counts:
 
-- **Text generation:** one AFTERIMAGE writing operation for the branching packet on a cache miss.
+- **Text generation:** one AFTERIMAGE receive operation, normally one upstream writing request on a cache miss. Its narrowly bounded retry can make this two upstream requests; it does not generate each branch separately.
 - **Application speech:** one call to `voice.speak` and, for natural voice, one `/api/speech` request for the selected full script.
-- **Speech-provider clips:** the existing Groq adapter splits input longer than its 200-character ceiling, allowing room for an acting tag, and joins the returned WAV clips. A 363-character script can therefore require multiple upstream speech requests. “One speech call” at the application layer does not mean one provider clip or free speech.
+- **Speech-provider clips:** AFTERIMAGE sends four validated lines and their emotions. Each line receives its own vocal directions. Groq inputs are bounded to 200 characters including tags, and the returned WAV clips are joined in order. The bounded five-minute line cache can reuse unchanged acts when you choose another ending. A four-line cut can therefore require four upstream speech requests on a cold cache. “One speech call” at the application layer does not mean one provider clip or free speech.
 
 Natural-voice mouth movement uses the energy envelope extracted from the returned WAV and the audio player's current playback time. It reacts to the actual audio amplitude; it is not a phoneme recognizer or proof that each word matches a particular scene cue. If a usable audio envelope is unavailable, the voice layer has an estimated timeline fallback.
 
@@ -175,7 +182,7 @@ The existing composition order is source background → scene → optional camer
 
 For a built-in clip, choose the branch and ending, finish local edits, set the frame, and use **Capture 28s**. The bridge's `recordAndPlay` starts a 28-second performance and stops the recorder it owns. Once the clip is finalized, the existing clip dialog opens automatically with native playback controls and **Save clip**. This preview/download flow is the same one used by ordinary stage **Record clip** / **Stop & save** recording. Stopping early can save a shorter clip rather than a complete 28-second cut.
 
-The resulting WebM is **silent**, including when you heard Troy during rehearsal. There is no hidden microphone track. To preserve the performed voice, record the screen/window and desktop audio with OBS, or add audio afterward in an editor. Verify your own audio routing and recording before an important take. The site does not automate OBS.
+The recorder now combines canvas video with a cloned Web Audio track carrying Orpheus playback. Voice must be enabled and natural speech must succeed for audible speech to appear. No microphone or unrelated system audio is captured. Browser/OS speech is not available to Web Audio, so that fallback produces video only. Older downloads remain silent; make a new recording for audio. Stopping a recording releases its cloned track without stopping ordinary playback.
 
 If Camera is on, the visible local preview appears in the canvas and therefore in the downloaded clip. No camera frame is attached automatically to an AFTERIMAGE model request. A local recording can still contain identifying material if you put it in the frame.
 
@@ -224,7 +231,8 @@ flowchart TD
   U[Seed and tone] --> R[React receiver and branch controls]
   R -->|POST /api/afterimage| S[Node route: access, input and rate checks]
   S --> C[Bounded warm-instance cache/coalescing]
-  C -->|Miss| P[Configured text-model provider]
+  C -->|Miss| G[Generation helper: normally one attempt, at most two]
+  G --> P[Configured text-model provider]
   P --> V[Parse and normalize allowlisted packet]
   V --> R
   C -->|Hit| R
@@ -235,7 +243,7 @@ flowchart TD
   B --> VO[Existing voice layer]
   VO -->|Natural voice only| SP[Protected speech route and provider]
   ST --> CA[Composited canvas and captions]
-  CA --> WEBM[Local silent WebM]
+  CA --> WEBM[Local WebM with Orpheus audio]
   L --> EXP[Local JSON or Markdown export]
 ```
 
@@ -279,31 +287,39 @@ The normalized packet contains:
 
 The shared emotion allowlist is `neutral`, `happy`, `curious`, `skeptical`, `sleepy`, `uncanny`, `annoyed`, `surprised`, and `shy`. The action allowlist is `none`, `gravity`, `spotlight`, `orbit`, `echo`, and `takeover`.
 
-These are data labels. `takeover` invokes a known stage effect; it is not an operating-system instruction. The current normalizer rejects missing/unexpected structures, incorrect counts, empty text, and wrong cue value types; text is cleaned and bounded. An unknown emotion string becomes `neutral`, and an unknown action string becomes `none`. The provider schema asks for accepted values, while the normalizer supplies a safe fallback if a non-strict provider returns an unknown string. No generated JavaScript, URL field, DOM command, or invented action is dispatched. Words that look like code or URLs inside speech remain text. The response includes `{packet, metrics: {provider, model, totalMs, cacheHit}}`.
+These are data labels. `takeover` invokes a known stage effect; it is not an operating-system instruction. The current normalizer rejects missing/unexpected structures, incorrect counts, empty text, and wrong cue value types; text is cleaned and bounded. An unknown emotion string becomes `neutral`, and an unknown action string becomes `none`. The provider schema asks for accepted values, while the normalizer supplies a safe fallback if a non-strict provider returns an unknown string. No generated JavaScript, URL field, DOM command, or invented action is dispatched. Words that look like code or URLs inside speech remain text. The response includes `{packet, metrics: {provider, model, totalMs, cacheHit, attempts}}`. New successful generations have `attempts` equal to 1 or 2; older saved receptions may omit this optional metric.
 
 All three supported providers return one complete, nonstreamed AFTERIMAGE packet. The task has a 2,700-output-token budget. Groq uses the configured ordinary model, defaulting to `openai/gpt-oss-20b`, with low reasoning where the model supports that setting. The selected Gemini or NVIDIA model is likewise server-configured. This dedicated task does not switch to the ordinary Deep-chat model. A token budget is a ceiling, not a guarantee that generation finishes with a valid packet.
+
+### The narrowly bounded second attempt
+
+Structured writing can fail at the provider even when the request is valid. The generation helper normally asks the provider once. It makes **exactly one additional attempt only when all three error fields match**: `code === 'invalid_json'`, `providerStatus === 400`, and `providerCode === 'json_validate_failed'`. The shared deadline/cancellation signal must still be active, and the error cannot be a `TypeError`, `SyntaxError`, `TimeoutError`, or `AbortError`. This is the explicit provider-side structured-output rejection observed with Groq; it is not a general retry for every bad result.
+
+Authentication/credential failures, exhausted quota, timeouts, output limits, JSON parsing `SyntaxError`s, and local normalizer failures do **not** trigger this second attempt. Nor does a second structured-output rejection cause a third attempt. The original shared twenty-second deadline and abort signal cover both attempts; the retry does not reset the clock. If writing still fails, the receiver shows the sanitized failure and keeps the seed. No failed packet is cached or presented as a successful story.
+
+`server/afterimage-generation.mjs` exposes `requestAfterimageGeneration`, which returns `{packet, attempts}` only after successful normalization. The cache retains that successful result, including its original writing-attempt count. Consequently, a cached reception can show both **warm cache** and **written in 2 attempts**: two attempts were used to write the original take, not to fetch that cached copy. An older reception without `attempts` should not be interpreted as proof of a particular count.
 
 Model prompts guide the writing, schema, and fictional framing, but prompts are not a security boundary. The real boundaries are server authentication, server-owned provider selection, request/output validation, escaped text rendering, and the finite action dispatcher. A constrained schema can stop invented executable actions; it does not guarantee truthful text, perfect originality, or a good story. The founder still needs editorial review and testing.
 
 ## 13. Quota, caches, rate limits, and latency
 
-No new paid service is required by AFTERIMAGE. Local choices, edits, scene playback, browser storage, and silent capture run in the browser. Hosted text and natural speech use provider accounts, whose free quotas, permissions, terms, and availability can change. The optional legacy OpenAI adapter is not part of the free-only path unless deliberately configured.
+No new paid service is required by AFTERIMAGE. Local choices, edits, scene playback, browser storage, and audio/video capture run in the browser. Hosted text and natural speech use provider accounts, whose free quotas, permissions, terms, and availability can change. The optional legacy OpenAI adapter is not part of the free-only path unless deliberately configured.
 
-One cache-miss reception can be a larger text response than a quick chat: it contains three signals and fifteen cue objects. “One request” is not “one token,” and generating six selectable cuts does not make the work zero-cost. Different endings and local edits conserve text-generation quota because they reuse the returned packet.
+One cache-miss reception can be a larger text response than a quick chat: it contains three signals and fifteen cue objects. “One request” is not “one token,” and generating six selectable cuts does not make the work zero-cost. The permitted second writing attempt can consume additional provider quota. Different endings and local edits conserve text-generation quota because they reuse the successful returned packet.
 
 The HTTP server limits JSON bodies to **16,384 bytes** and checks JSON content type. AFTERIMAGE adds the 1–600-character seed bound, known tone values, variation validation, configured-provider selection, and strict packet checks. Bad bodies fail before useful playback is available. Client field limits improve usability; server checks are the enforcement boundary.
 
-The shared chat/speech/summary/AFTERIMAGE guard allows **30 requests in a 60-second window per warm process**, across those routes. AFTERIMAGE cache hits still count against this guard. This is not thirty requests per visitor or a globally coordinated limit. Serverless instances can have separate counters. Provider quotas are an additional, independent restriction. The unsuccessful-owner-unlock throttle is also process-local: eight failures in a five-minute window trigger a wait, with a bounded map of tracked addresses.
+The shared chat/speech/summary/AFTERIMAGE guard allows **30 application API requests in a 60-second window per warm process**, across those routes. AFTERIMAGE cache hits still count against this guard. Its internal second writing attempt stays within the same receive operation; upstream provider requests and tokens still count toward the provider's own limits. This is not thirty requests per visitor or a globally coordinated limit. Serverless instances can have separate counters. The unsuccessful-owner-unlock throttle is also process-local: eight failures in a five-minute window trigger a wait, with a bounded map of tracked addresses.
 
-AFTERIMAGE's cache has a **60-second lifetime**, up to **twelve completed entries**, and a combined **512-KiB serialized UTF-8 budget**. It also permits up to **twelve distinct pending jobs**; another distinct job receives `429` while that capacity is full. The cache key includes host, seed, tone, variation, provider, and model. Identical in-flight receivers can share a result, and `cacheHit` covers both completed reuse and pending coalescing. A variation deliberately changes the key. Failed/canceled work is not retained as a usable packet.
+AFTERIMAGE's cache has a **60-second lifetime**, up to **twelve completed entries**, and a combined **512-KiB serialized UTF-8 budget**. It also permits up to **twelve distinct pending jobs**; another distinct job receives `429` while that capacity is full. The cache key includes host, seed, tone, variation, provider, and model. Identical in-flight receivers can share a result, and `cacheHit` covers both completed reuse and pending coalescing. A variation deliberately changes the key. Only successfully normalized generation results are retained, including their `attempts` value; failed/canceled work is not retained as a usable packet.
 
 Each receiver can cancel independently. Shared upstream work is aborted when all receivers leave; canceling one receiver does not discard a result still needed by another. This is a warm-instance optimization, not a durable database, global cache, or guarantee that every repeat avoids provider work. It cannot promise an upstream provider refunds work already performed.
 
 The existing **speech cache** has a five-minute lifetime, up to twelve completed entries, and a combined twelve-MiB byte budget. Its key includes speech provider/key identity, voice, and acting text/mode/emotion. Identical pending work can share its result within the bounded implementation. Failed work is not a successful cached clip. Restarting or reaching another server instance can remove the benefit. Editing words or changing voice/acting can make a new speech request necessary.
 
-Provider text and speech adapters have a twenty-second deadline in the existing code. There is no fixed end-to-end latency guarantee: network time, cold starts, queueing, packet length, validation, and audio generation all matter. AFTERIMAGE's 28 seconds is the planned performance duration after playback begins, not how quickly a provider must answer. Mouth amplitude, graph transitions, and prompt length are separate issues.
+Provider text and speech adapters have a twenty-second deadline. The AFTERIMAGE generation operation shares one twenty-second deadline across any permitted two-attempt writing path. There is no fixed end-to-end latency guarantee: network time, cold starts, queueing, packet length, validation, a retry, and audio generation all matter. AFTERIMAGE's 28 seconds is the performance duration after playback begins, not how quickly a provider must answer. Mouth amplitude, graph transitions, and prompt length are separate issues.
 
-The real provider/model, `totalMs`, and `cacheHit` are useful operational facts. They must not become a fictional accuracy score, intelligence meter, or fake live telemetry. A cache hit means reuse/coalescing in the application, not that the provider learned your story.
+The real provider/model, `totalMs`, `cacheHit`, and optional `attempts` are useful operational facts. `totalMs` describes this receive operation; a cached result's attempt count describes the original writing. These values must not become a fictional accuracy score, intelligence meter, or fake live telemetry. A cache hit means reuse/coalescing in the application, not that the provider learned your story. A successful retry guarantees neither better prose nor originality.
 
 Groq documents request, token, and audio limits and states that limits apply at organization level. Check the account's current Limits page rather than treating a public table as your entitlement. Natural speech has its own limit and may require accepting Orpheus's terms/model permissions. [Groq rate limits](https://console.groq.com/docs/rate-limits), [Groq text to speech](https://console.groq.com/docs/text-to-speech).
 
@@ -343,13 +359,14 @@ React Flow supplies an interactive graph component. NOX's packet-to-node mapping
 | `shared/afterimage.js` | AFTERIMAGE provider schema, exact input checks, and packet normalization |
 | `server.mjs` | Host/origin/session/content/body/rate checks and protected API routes |
 | `server/providers.mjs`, `server/ai.mjs` | Server-owned provider adapters, prompts, model selection, and text-generation behavior |
+| `server/afterimage-generation.mjs` | Successful packet normalization plus the single narrowly gated additional writing attempt and original attempt count |
 | `server/session.mjs` | Signed owner sessions and bounded unlock throttle |
 | `server/cache.mjs` | Existing bounded warm-process speech cache |
 | `server/afterimage-cache.mjs` | Dedicated short-lived packet cache, pending-cap guard, and shared cancellation |
 | `server/speech.mjs`, `server/wav.mjs` | Speech-provider calls, Orpheus splitting, and WAV joining |
 | `public/js/voice.js`, `public/js/speech-envelope.js` | Speech playback, cancellation, amplitude/boundary/estimated mouth timing |
 | `public/js/stage.js`, `face.js`, `face-art.js` | Canvas composition, physical programs, expressions, and drawing clock |
-| `public/js/camera.js`, `public/js/recorder.js` | Local preview and silent canvas WebM lifecycle |
+| `public/js/camera.js`, `public/js/recorder.js` | Local preview and canvas-plus-Orpheus WebM lifecycle |
 | `client/home.jsx`, `home-scroll.js`, `source-scene.jsx`, `source-logo.jsx`, `liquid-character.js` | Homepage invitation/choreography and sourced visual implementations |
 | `public/vendor/`, `public/vendor/sources.json` | Vendored source examples/shaders, retained license notices, upstream provenance |
 | `package.json`, `scripts/build-client.mjs`, `scripts/build-vercel.mjs`, `vercel.json` | Dependencies, lazy client bundles, and deployment packaging |
@@ -367,10 +384,11 @@ React Flow supplies an interactive graph component. NOX's packet-to-node mapping
 | Oversized JSON / `413` | Reduce the request; the byte budget applies to the entire body |
 | Wrong content type / `415` | The API expects JSON |
 | Rate guard / `429` | Stop repeated receiving/auditioning and wait; multiple routes can share the warm-process counter |
-| Sanitized provider failure / `502` | The provider may have exhausted quota, rejected access, timed out, or returned an unusable packet; a fresh authored example is not substituted silently |
+| Sanitized provider failure / `502` | Writing can fail because of quota, access, timeout, output limits, or an unusable packet. Only the exact provider `400/json_validate_failed` rejection receives one bounded extra attempt; other failures stop immediately. An authored example is not substituted silently |
+| written in 2 attempts | The original take needed the permitted second writing attempt; this label can remain on a cached result. It is not a quality score |
 | Text works, Troy does not | Natural voice has separate access, terms, model permission, and quota; choose Browser voice or rehearse with captions |
 | Sound and cue timing differ | Seven-second scene cues are approximate rehearsal timing; shorten/edit lines and rehearse again |
-| Downloaded clip has no sound | This is the existing silent WebM contract; use OBS or an editor for audio |
+| Downloaded clip has no sound | Make a new recording with Orpheus and Voice enabled; browser speech, unavailable Web Audio, a speech failure, or an older export can produce video without audible speech |
 | A tab switch stops the cut | This is deliberate cancellation behavior; return and replay |
 | A saved reception is missing | Check the same origin/browser/profile and whether storage was cleared/denied or the bounded archive evicted older work; use exports for preservation |
 | WebM recording is unavailable | Use a browser with supported canvas/MediaRecorder/WebM capability or record externally with OBS |
@@ -395,9 +413,9 @@ The server deliberately returns safe categories instead of forwarding raw provid
 | TTS | Text to speech; a separate operation from writing the story |
 | Audio envelope | How recorded sound energy changes over time; used for mouth movement |
 | Cache hit | Reuse or sharing of identical work inside the bounded application cache |
+| Attempts | Upstream writing attempts used for the original successful take; 1 or 2 when recorded |
 | Warm instance | A running server process that still has its in-memory state |
 | Coalescing | Sharing one pending result among identical concurrent requests |
 | Origin | The site's scheme, host, and port; a boundary for browser storage and requests |
 | localStorage | Persistent, plaintext browser storage belonging to that origin/profile |
-| WebM | The local video format used by the built-in silent recorder |
-
+| WebM | The local video format used by the built-in recorder; new natural-voice recordings include an Opus audio track |

@@ -8,7 +8,7 @@ const freeze = value => { if (value && typeof value === 'object' && !Object.isFr
 
 export function sanitizeAfterimageMetrics(value) {
   if (!value || typeof value !== 'object') return undefined;
-  return {provider:cleanText(value.provider,20),model:cleanText(value.model,100),totalMs:Number.isFinite(value.totalMs) && value.totalMs >= 0 ? Math.min(Math.round(value.totalMs),3600000) : 0,cacheHit:value.cacheHit === true};
+  return {provider:cleanText(value.provider,20),model:cleanText(value.model,100),totalMs:Number.isFinite(value.totalMs) && value.totalMs >= 0 ? Math.min(Math.round(value.totalMs),3600000) : 0,cacheHit:value.cacheHit === true,...([1,2].includes(value.attempts)?{attempts:value.attempts}:{})};
 }
 
 function normalizeReception(value) {

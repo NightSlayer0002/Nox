@@ -128,8 +128,10 @@ test('corrupt, incompatible and unavailable storage stay usable and bounded',()=
 });
 
 test('store snapshots prevent mutation and omit arbitrary fields and provider credentials',()=>{
-  const store=createAfterimageStore(disk()),entry=store.add({packet:packet(),seed:'Hi',tone:'wonder',source:'live',secret:'no',metrics:{provider:'groq',model:'configured',totalMs:12,cacheHit:true,apiKey:'secret'}});
+  const storage=disk(),store=createAfterimageStore(storage),entry=store.add({packet:packet(),seed:'Hi',tone:'wonder',source:'live',secret:'no',metrics:{provider:'groq',model:'configured',totalMs:12,cacheHit:true,attempts:2,apiKey:'secret'}});
   assert.throws(()=>entry.packet.signals[0].beats[0].action='not-allowed',TypeError);assert.doesNotMatch(store.export(),/secret|apiKey/);
+  assert.equal(createAfterimageStore(storage).get(entry.id).metrics.attempts,2);
+  const invalid=store.add({packet:packet(),seed:'Hi',tone:'wonder',source:'live',metrics:{attempts:{apiKey:'secret'}}});assert.equal(invalid.metrics.attempts,undefined);assert.doesNotMatch(store.export(),/secret|apiKey/);
   assert.equal(store.snapshot(),store.snapshot());let calls=0;const unsubscribe=store.subscribe(()=>calls++);store.remove(entry.id);unsubscribe();store.clear();assert.equal(calls,1);
 });
 

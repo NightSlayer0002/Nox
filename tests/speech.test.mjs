@@ -4,10 +4,21 @@ import assert from 'node:assert/strict';
 test('Groq uses emotion directions while keeping directed segments under the provider limit',async()=>{
   const inputs=[];
   await requestSpeech({text:'word '.repeat(45).trim(),mode:'companion',emotion:'happy'},{provider:'groq',apiKey:'fixture',voice:'austin',fetchImpl:async(_url,o)=>{const body=JSON.parse(o.body);inputs.push(body.input);assert.equal(body.voice,'austin');return new Response(fixtureWav([1]),{headers:{'content-type':'audio/wav'}});}});
-  assert.ok(inputs.every(text=>text.length<=200));assert.match(inputs[0],/^\[warm\]/);
+  assert.ok(inputs.every(text=>text.length<=200));assert.match(inputs[0],/^\[cheerful\]/);
 });
 import { requestSpeech } from '../server/speech.mjs';
 import { fixtureWav } from './helpers/wav.mjs';
+import {createCache} from '../server/cache.mjs';
+
+test('story lines get separate acting directions and unchanged lines reuse cached speech',async()=>{
+  const cache=createCache(),inputs=[],lines=[{speech:'I found a door.',emotion:'curious'},{speech:'Someone answered.',emotion:'uncanny'},{speech:'That was me?',emotion:'surprised'},{speech:'I like this ending.',emotion:'happy'}];
+  const options={provider:'groq',apiKey:'fixture',voice:'troy',clipCache:cache,fetchImpl:async(_url,o)=>{inputs.push(JSON.parse(o.body).input);return new Response(fixtureWav([1]),{headers:{'content-type':'audio/wav'}});}};
+  await requestSpeech({text:lines.map(l=>l.speech).join('\n'),speechCues:lines},options);
+  assert.equal(inputs.length,4);assert.match(inputs[1],/gravelly whisper/);assert.match(inputs[2],/excited/);assert.ok(inputs.every(line=>line.length<=200));
+  const other=structuredClone(lines);other[3].speech='I chose another ending.';
+  await requestSpeech({text:other.map(l=>l.speech).join('\n'),speechCues:other},options);assert.equal(inputs.length,5);
+  await assert.rejects(requestSpeech({text:'Different text',speechCues:lines},options),/match/i);
+});
 
 test('natural speech sends bounded text with server-owned voice, model, and acting direction', async () => {
   let body;

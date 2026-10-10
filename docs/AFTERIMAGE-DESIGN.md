@@ -11,7 +11,9 @@ uniqueness is not claimed.
 
 Open `/app#afterimage` from the rail, command palette or homepage. Enter a seed
 (1–600 characters) and choose wonder, uncanny or bold. Receive makes one
-protected model request. A clearly labeled authored example works without AI
+protected generation. Normally it uses one model request; a confirmed provider
+HTTP 400 `json_validate_failed` can retry once within the same deadline, with
+the attempt count disclosed. A clearly labeled authored example works without AI
 access. Three signals appear as an interactive branch lattice. Select one and
 choose either ending. Edit its lines locally; Play performs three acts followed
 by the chosen ending. Each cue lasts seven seconds, for a 28-second cut.

@@ -8,14 +8,24 @@ export function selectBrowserVoice(voices) {
     || english.find(voice => !voice.localService)
     || english.find(voice => /Daniel|Guy|David/i.test(voice.name)) || english[0];
 }
-export function createVoice({ onStart, onEnd, onError, requestAudio, AudioCtor = globalThis.Audio, urls = URL, now=()=>performance.now()/1000 } = {}) {
+export function createVoice({ onStart, onEnd, onError, requestAudio, AudioCtor = globalThis.Audio, AudioContextCtor=globalThis.AudioContext||globalThis.webkitAudioContext, urls = URL, now=()=>performance.now()/1000 } = {}) {
   let enabled = false, generation = 0, engine = 'browser', natural = false,speaker='troy',browserName='';
   let mouthPlayback=null,gapTimer,currentUtterance=null;
   let controller, player, objectUrl;
+  let audioContext,audioDestination,audioSource;
   const synth = globalThis.speechSynthesis;
+  function prepareCapture(){
+    if(engine!=='natural'||!AudioContextCtor)return null;
+    try{
+      if(!audioContext){audioContext=new AudioContextCtor();audioDestination=audioContext.createMediaStreamDestination();}
+      audioContext.resume().catch(()=>onError?.('Tap Voice to allow audio playback.'));
+      return audioDestination.stream;
+    }catch{return null;}
+  }
   const cleanup = () => {
     clearTimeout(gapTimer);gapTimer=null;mouthPlayback=null;currentUtterance=null;
     controller?.abort(); controller = null;
+    audioSource?.disconnect();audioSource=null;
     if(player) {player.onplaying = player.onended = player.onerror = player.onpause = player.onwaiting = null; player.pause(); player = null;}
     if(objectUrl) {urls.revokeObjectURL(objectUrl); objectUrl = null;}
   };
@@ -30,23 +40,28 @@ export function createVoice({ onStart, onEnd, onError, requestAudio, AudioCtor =
       if(mouthPlayback.boundary){const age=now()-mouthPlayback.boundary.start;return age>=0&&age<mouthPlayback.boundary.duration?.35+.45*Math.abs(Math.sin(age*24)):0;}
       return timelineAt(mouthPlayback.timeline,now()-mouthPlayback.start);
     },
-    setSpeaker(value){speaker=['austin','troy','daniel','hannah'].includes(value)?value:'austin';stop();},
+    setSpeaker(value){speaker=['austin','troy','daniel'].includes(value)?value:'troy';stop();},
     setBrowserVoice(value){browserName=typeof value==='string'?value:'';stop();},
     get supported() { return engine === 'natural' ? natural : Boolean(synth); },
     configureNatural(value) { natural = Boolean(value && requestAudio && AudioCtor); if (!natural && engine === 'natural') this.setEngine('browser'); },
     setEngine(value) { stop(); engine = value === 'natural' && natural ? 'natural' : 'browser'; if(!this.supported) enabled = false; return engine; },
     setEnabled(value) { enabled = Boolean(value && this.supported); if (!enabled) stop(); return enabled; },
     stop,
-    async speak(text, mode = 'companion', emotion = 'neutral') {
+    prepareCapture,
+    async speak(text, mode = 'companion', emotion = 'neutral', cues) {
       if (!enabled || !this.supported) return;
       stop(); const version = generation;
       if(engine === 'natural') {
         controller = new AbortController();
         try {
-          const blob = await requestAudio(text,mode,controller.signal,emotion,speaker);
+          const blob = await requestAudio(text,mode,controller.signal,emotion,speaker,cues?.map(cue=>({speech:cue.speech,emotion:cue.emotion})));
           if(version !== generation) return;
           const envelope=wavEnvelope(await blob.arrayBuffer());if(version!==generation)return;
           objectUrl = urls.createObjectURL(blob); player = new AudioCtor(objectUrl);
+          if(prepareCapture()){
+            audioSource=audioContext.createMediaElementSource(player);
+            audioSource.connect(audioContext.destination);audioSource.connect(audioDestination);
+          }
           player.onplaying = () => {if(version === generation) {mouthPlayback={envelope,timeline:speechTimeline(text),start:now()};onStart?.();}};
           player.onwaiting=player.onpause=()=>{if(version===generation&&mouthPlayback)mouthPlayback.active=false;};
           player.playbackRate=1.04;player.preservesPitch=false;

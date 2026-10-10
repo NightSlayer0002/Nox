@@ -31,7 +31,7 @@ const apiHeaders = (token = ownerToken) => ({'content-type':'application/json',.
 const turns = createTurnGate();
 let lastPacket = { speech: 'Oh. You found me.', emotion: 'curious', action: 'none', memory: '' };
 let toastTimer;
-let preferredEngine='browser';
+let preferredEngine='natural';
 let afterimageDriving=false;
 
 function toast(text) {
@@ -62,9 +62,9 @@ stage.setMotion(true);
 const voice = createVoice({
   onStart: () => { stage.character.speakingUntil = Infinity; },
   onEnd: () => { stage.character.speakingUntil = stage.time; }, onError: toast,
-  requestAudio: async (text,mode,signal,emotion,speaker) => {
+  requestAudio: async (text,mode,signal,emotion,speaker,speechCues) => {
     const start=performance.now();
-    const response = await fetch('/api/speech',{method:'POST',headers:apiHeaders(),body:JSON.stringify({text,mode,emotion,voice:speaker}),signal});
+    const response = await fetch('/api/speech',{method:'POST',headers:apiHeaders(),body:JSON.stringify({text,mode,emotion,voice:speaker,...(speechCues?{speechCues}:{})}),signal});
     if(!response.ok) {const error=await response.json();throw new Error(error.error||'Natural voice is unavailable.');}
     if(!response.headers.get('content-type')?.startsWith('audio/')) throw new Error('Natural voice did not return audio.');
     const blob=await response.blob(); if(!blob.size || blob.size>2*1024*1024) throw new Error('Natural voice returned invalid audio.');
@@ -85,10 +85,10 @@ const recorder = createRecorder($('stage'), (active, clip) => {
   if (clip) {
     $('clip-video').src = clip.url;
     $('save-clip').href = clip.url; $('save-clip').download = clip.filename;
-    $('clip-meta').textContent = `${(clip.blob.size / 1024).toFixed(0)} KB · WebM · stage capture · silent`;
+    $('clip-meta').textContent = `${(clip.blob.size / 1024).toFixed(0)} KB · WebM · ${clip.audio?'NOX audio track':'video only'}`;
     $('clip-dialog').showModal();
   }
-});
+},{getAudioStream:()=>voice.prepareCapture()});
 const microphone = createMicrophone({
   onText: text => { $('message').value = text; send(text); },
   onState: active => {
@@ -112,7 +112,7 @@ afterimageBridge.connect({
     try{const cue=applyAfterimageCue(stage,value);$('mood-label').textContent=cue.emotion.toUpperCase();}
     finally{afterimageDriving=false;}
   },
-  speak: (script,emotion) => voice.speak(script,mode,emotion),
+  speak: (script,emotion,cues) => voice.speak(script,mode,emotion,cues),
   stop() {
     voice.stop();stage.character.speakingUntil=stage.time;stage.captionUntil=0;
     afterimageDriving=true;try{stage.reset(false);}finally{afterimageDriving=false;}
@@ -276,7 +276,7 @@ $('film-button').addEventListener('click', toggleFilm); $('exit-film').addEventL
 function toggleRecording() {
   try {
     if (recorder.active) recorder.stop();
-    else { recorder.start(); toast('Recording the stage and captions. This export is silent. Stops automatically after 60 seconds.'); }
+    else { recorder.start(); toast(voice.engine==='natural'?'Recording NOX, captions and his voice. Stops after 60 seconds.':'Recording the stage. Choose Orpheus for captured voice; browser speech cannot be recorded.'); }
   } catch (error) { toast(error.message); }
 }
 $('record-button').addEventListener('click', toggleRecording);
@@ -376,7 +376,7 @@ async function refreshConnection(token = ownerToken) {
 $('provider-select').addEventListener('change',event=>{
   cancelConversation();selectedProvider=event.target.value;showConnection();
 });
-$('voice-engine').addEventListener('change',event=>{preferredEngine=event.target.value;voice.setEngine(preferredEngine);try{disk.setItem('nox.voice.engine.v1',preferredEngine);}catch{}showVoice();});
+$('voice-engine').addEventListener('change',event=>{preferredEngine=event.target.value;voice.setEngine(preferredEngine);try{disk.setItem('nox.voice.engine.v2',preferredEngine);}catch{}showVoice();});
 $('owner-form').addEventListener('submit',async event=>{
   event.preventDefault();const token=$('owner-token').value.trim();$('owner-token').value='';
   if(!token) return;
@@ -404,9 +404,9 @@ $('lock-owner').addEventListener('click',async()=>{
   try {await refreshConnection();}catch{toast('Cloud access is locked. Server status is unavailable.');}
 });
 $('unlock-ai').addEventListener('click',()=>{$('inside-dialog').showModal();if(brain==='locked')$('owner-token').focus();});
-function browserVoices(){const voices=globalThis.speechSynthesis?.getVoices().filter(v=>v.lang?.startsWith('en'))||[];const selected=$('browser-speaker').value;$('browser-speaker').replaceChildren(new Option('Automatic · prefer male',''),...voices.map(v=>new Option(v.name,v.name)));$('browser-speaker').value=selected||savedBrowserVoice;}
+function browserVoices(){const voices=globalThis.speechSynthesis?.getVoices().filter(v=>v.lang?.startsWith('en'))||[];const selected=$('browser-speaker').value;$('browser-speaker').replaceChildren(new Option('Automatic',''),...voices.map(v=>new Option(v.name,v.name)));$('browser-speaker').value=selected||savedBrowserVoice;}
 let savedBrowserVoice='';
-try{preferredEngine=disk.getItem('nox.voice.engine.v1')||'browser';$('speaker-select').value=disk.getItem('nox.voice.speaker.v2')||'troy';savedBrowserVoice=disk.getItem('nox.voice.browser.v2')||'';}catch{}
+try{preferredEngine=disk.getItem('nox.voice.engine.v2')||'natural';const savedSpeaker=disk.getItem('nox.voice.speaker.v2');$('speaker-select').value=['troy','austin','daniel'].includes(savedSpeaker)?savedSpeaker:'troy';savedBrowserVoice=disk.getItem('nox.voice.browser.v2')||'';}catch{}
 voice.setSpeaker($('speaker-select').value);voice.setBrowserVoice(savedBrowserVoice);browserVoices();globalThis.speechSynthesis?.addEventListener('voiceschanged',browserVoices);
 $('speaker-select').addEventListener('change',e=>{voice.setSpeaker(e.target.value);try{disk.setItem('nox.voice.speaker.v2',e.target.value);}catch{}});
 $('browser-speaker').addEventListener('change',e=>{savedBrowserVoice=e.target.value;voice.setBrowserVoice(savedBrowserVoice);try{disk.setItem('nox.voice.browser.v2',savedBrowserVoice);}catch{}});

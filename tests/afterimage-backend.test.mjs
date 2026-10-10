@@ -13,6 +13,63 @@ const transmission = () => ({
   caption:'A fictional transmission. Which ending will you make?',
 });
 const providerResponse = value => Response.json({choices:[{finish_reason:'stop',message:{content:JSON.stringify(value)}}]});
+const validationFailure = () => Object.assign(new Error('PRIVATE provider output'),{code:'invalid_json',providerStatus:400,providerCode:'json_validate_failed'});
+
+test('AFTERIMAGE generation validates one successful attempt and reports its count',async()=>{
+  const {requestAfterimageGeneration}=await import('../server/afterimage-generation.mjs');
+  let calls=0;const value=transmission();value.signals[0].beats[0].action='run_shell';
+  const result=await requestAfterimageGeneration(async()=>{calls++;return value;});
+  assert.equal(calls,1);assert.equal(result.attempts,1);assert.equal(result.packet.signals[0].beats[0].action,'none');
+});
+
+test('AFTERIMAGE generation retries the confirmed provider validation failure once',async()=>{
+  const {requestAfterimageGeneration}=await import('../server/afterimage-generation.mjs');
+  let calls=0;const result=await requestAfterimageGeneration(async()=>{if(++calls===1)throw validationFailure();return transmission();});
+  assert.equal(calls,2);assert.equal(result.attempts,2);assert.equal(result.packet.title,'The unanswered moon');
+});
+
+test('AFTERIMAGE generation never makes a third attempt after repeat validation failure',async()=>{
+  const {requestAfterimageGeneration}=await import('../server/afterimage-generation.mjs');
+  let calls=0;const error=validationFailure();
+  await assert.rejects(requestAfterimageGeneration(async()=>{calls++;throw error;}),received=>received===error);
+  assert.equal(calls,2);
+});
+
+test('AFTERIMAGE generation does not retry parsing, packet, quota, credentials, limits or timeout failures',async()=>{
+  const {requestAfterimageGeneration}=await import('../server/afterimage-generation.mjs');
+  const errors=[new SyntaxError('PRIVATE JSON'),new TypeError('PRIVATE packet'),
+    Object.assign(new TypeError('PRIVATE type'),{code:'invalid_json',providerStatus:400,providerCode:'json_validate_failed'}),
+    Object.assign(new Error('quota'),{code:'quota',providerStatus:429,providerCode:'rate_limit_exceeded'}),
+    Object.assign(new Error('credentials'),{code:'credentials',providerStatus:401,providerCode:'invalid_api_key'}),
+    Object.assign(new Error('limit'),{code:'output_limit'}),new DOMException('timeout','TimeoutError'),
+    Object.assign(new Error('wrong status'),{code:'invalid_json',providerStatus:502,providerCode:'json_validate_failed'}),
+    Object.assign(new Error('wrong provider code'),{code:'invalid_json',providerStatus:400,providerCode:'unknown'})];
+  for(const error of errors){let calls=0;await assert.rejects(requestAfterimageGeneration(async()=>{calls++;throw error;}),received=>received===error);assert.equal(calls,1);}
+  let calls=0;await assert.rejects(requestAfterimageGeneration(async()=>{calls++;return {title:'incomplete'};}),TypeError);assert.equal(calls,1);
+});
+
+test('AFTERIMAGE generation checks cancellation before work, after a reply and before retry',async()=>{
+  const {requestAfterimageGeneration}=await import('../server/afterimage-generation.mjs');
+  const already=new AbortController();already.abort();let calls=0;
+  await assert.rejects(requestAfterimageGeneration(async()=>{calls++;return transmission();},{signal:already.signal}),error=>error.name==='AbortError');assert.equal(calls,0);
+  for(const fail of [false,true]){
+    const controller=new AbortController();calls=0;
+    await assert.rejects(requestAfterimageGeneration(async()=>{calls++;controller.abort();if(fail)throw validationFailure();return transmission();},{signal:controller.signal}),error=>error.name==='AbortError');
+    assert.equal(calls,1);
+  }
+});
+
+test('AFTERIMAGE generation uses the same cancellation deadline during its second attempt',async()=>{
+  const {requestAfterimageGeneration}=await import('../server/afterimage-generation.mjs');
+  const controller=new AbortController();let calls=0,secondStarted;
+  const began=new Promise(resolve=>{secondStarted=resolve;});
+  const pending=requestAfterimageGeneration(async()=>{
+    if(++calls===1)throw validationFailure();secondStarted();
+    return new Promise((_resolve,reject)=>controller.signal.addEventListener('abort',()=>reject(controller.signal.reason),{once:true}));
+  },{signal:controller.signal});
+  const rejected=assert.rejects(pending,error=>error.name==='TimeoutError');await began;
+  controller.abort(new DOMException('shared deadline','TimeoutError'));await rejected;assert.equal(calls,2);
+});
 
 test('AFTERIMAGE normalizes exact playable counts and bounds every text field',async()=>{
   const {normalizeAfterimage}=await import('../shared/afterimage.js');
@@ -128,7 +185,7 @@ test('AFTERIMAGE chooses a configured non-OpenAI provider and keeps model and da
     assert.equal(response.status,200);const data=await response.json();
     assert.deepEqual(seen.input,{seed:'Ocean radio',tone:'uncanny',variation:9,provider:'gemini'});
     assert.equal(seen.options.task,'afterimage');assert.equal(seen.options.model,'server-model');assert.equal(seen.options.onText,undefined);
-    assert.equal(data.metrics.provider,'Google Gemini');assert.equal(data.metrics.model,'server-model');assert.equal(data.metrics.cacheHit,false);assert.ok(data.metrics.totalMs>=0);
+    assert.equal(data.metrics.provider,'Google Gemini');assert.equal(data.metrics.model,'server-model');assert.equal(data.metrics.cacheHit,false);assert.equal(data.metrics.attempts,1);assert.ok(data.metrics.totalMs>=0);
     assert.equal((await post(base,{seed:'A moon',tone:'wonder'})).status,200);assert.equal(seen.options.provider,'groq');
     assert.equal((await post(base,{seed:'A moon',tone:'wonder',model:'caller-model'})).status,400);
   });
@@ -150,6 +207,43 @@ test('AFTERIMAGE caches identical complete requests but variation and tone start
     const metrics=await Promise.all([one.json(),two.json()]);assert.equal(calls,1);assert.deepEqual(metrics.map(v=>v.metrics.cacheHit).sort(),[false,true]);
     assert.equal((await (await post(base,input)).json()).metrics.cacheHit,true);
     await post(base,{...input,variation:1});await post(base,{...input,tone:'bold'});assert.equal(calls,3);
+  });
+});
+
+test('AFTERIMAGE API coalesces a bounded retry and preserves generation attempts in cached metadata',async()=>{
+  let calls=0,firstSignal;await withServer({providers:[groq],providerRequest:async(_input,{signal})=>{
+    calls++;if(calls===1){firstSignal=signal;await new Promise(resolve=>setTimeout(resolve,5));throw validationFailure();}
+    if(calls===2)assert.equal(signal,firstSignal);return transmission();
+  }},async base=>{
+    const input={seed:'A moon',tone:'wonder'};
+    const responses=await Promise.all([post(base,input),post(base,input)]);
+    for(const response of responses)assert.equal(response.status,200);
+    const results=await Promise.all(responses.map(response=>response.json()));
+    assert.equal(calls,2);assert.deepEqual(results.map(result=>result.metrics.cacheHit).sort(),[false,true]);
+    assert.deepEqual(results.map(result=>result.metrics.attempts),[2,2]);
+    const cached=await (await post(base,input)).json();assert.equal(cached.metrics.cacheHit,true);assert.equal(cached.metrics.attempts,2);assert.equal(calls,2);
+    const fresh=await (await post(base,{...input,tone:'bold'})).json();assert.equal(fresh.metrics.attempts,1);assert.equal(calls,3);
+  });
+});
+
+test('AFTERIMAGE API sanitizes repeated validation failures with its task tag and leaves no failed cache entry',async()=>{
+  let calls=0;const logs=[],originalWarn=console.warn;console.warn=value=>logs.push(value);
+  try{
+    await withServer({providers:[groq],providerRequest:async()=>{calls++;throw validationFailure();}},async base=>{
+      for(let index=0;index<2;index++){
+        const response=await post(base,{seed:'A moon',tone:'wonder'});assert.equal(response.status,502);
+        const body=await response.json();assert.match(body.error,/AFTERIMAGE/);assert.doesNotMatch(body.error,/PRIVATE/);
+      }
+      assert.equal(calls,4);
+    });
+  }finally{console.warn=originalWarn;}
+  assert.equal(logs.length,2);for(const log of logs){assert.match(log,/^\[NOX afterimage\] reason=invalid_json status=400 code=json_validate_failed$/);assert.doesNotMatch(log,/PRIVATE/);}
+});
+
+test('AFTERIMAGE output-limit failures keep specific safe wording and do not retry',async()=>{
+  let calls=0;await withServer({providers:[groq],providerRequest:async()=>{calls++;throw Object.assign(new Error('PRIVATE output'),{code:'output_limit'});}},async base=>{
+    const response=await post(base,{seed:'A moon',tone:'wonder'});assert.equal(response.status,502);
+    const {error}=await response.json();assert.match(error,/AFTERIMAGE/);assert.doesNotMatch(error,/PRIVATE/);assert.equal(calls,1);
   });
 });
 

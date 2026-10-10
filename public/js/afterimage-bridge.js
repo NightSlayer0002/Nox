@@ -30,7 +30,7 @@ export function createAfterimageBridge(options = {}) {
     try { adapter?.stop?.(reason); }
     finally { if (ownsRecording) { ownsRecording=false;adapter?.stopRecording?.(); }refreshState(); }
   }
-  const controller=createAfterimageController({...options,onCue:(cue,index) => adapter?.cue?.(cue,index),onSpeak:(script,emotion) => adapter?.speak?.(script,emotion),onStop:stopBody});
+  const controller=createAfterimageController({...options,onCue:(cue,index) => adapter?.cue?.(cue,index),onSpeak:(script,emotion,cues) => adapter?.speak?.(script,emotion,cues),onStop:stopBody});
   controller.subscribe(refreshState);refreshState();
   const visibilityTarget=options.visibilityTarget;
   const hidden = () => { if (visibilityTarget?.hidden) { cancelRequest();if (ownsRecording && controller.snapshot().status !== 'playing') stopBody('hidden'); } };

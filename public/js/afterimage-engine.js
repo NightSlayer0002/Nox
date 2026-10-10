@@ -86,7 +86,7 @@ export function createAfterimageController({onCue, onSpeak, onStop, now = () => 
       try {
         onCue?.(run.cues[0],0);
         if (currentVersion !== version) return false;
-        const speaking = onSpeak?.(run.script,run.cues[0].emotion);
+        const speaking = onSpeak?.(run.script,run.cues[0].emotion,run.cues);
         speaking?.catch?.(() => { if (currentVersion === version && state.status === 'playing') finish('error'); });
       } catch { finish('error'); return false; }
       if (currentVersion !== version) return false;

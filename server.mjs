@@ -8,11 +8,13 @@ import { normalizePacket, sanitizeContext, answerDepth, EMOTIONS } from './share
 import { requestNox, explicitMemoryRequest } from './server/ai.mjs';
 import { getProviders, providerKey, requestProvider, requestSummary, modelForDepth } from './server/providers.mjs';
 import { createCache } from './server/cache.mjs';
-import { requestSpeech } from './server/speech.mjs';
+import { requestSpeech,normalizeSpeechCues } from './server/speech.mjs';
 import { createHash, timingSafeEqual } from 'node:crypto';
 import { mintSession, validSession, sessionFromCookie, sessionCookie, createUnlockThrottle } from './server/session.mjs';
-import { normalizeAfterimage, sanitizeAfterimageInput } from './shared/afterimage.js';
+import { sanitizeAfterimageInput } from './shared/afterimage.js';
 import { createAfterimageCache } from './server/afterimage-cache.mjs';
+import { requestAfterimageGeneration } from './server/afterimage-generation.mjs';
+import { createPublicQuota } from './server/public-quota.mjs';
 
 const root = path.dirname(fileURLToPath(import.meta.url));
 const publicRoot = path.join(root, 'public');
@@ -44,11 +46,14 @@ function readJson(request) {
   });
 }
 
-function chatFailure(error){
+function chatFailure(error,task='chat'){
   const categories=['quota','credentials','provider_http','invalid_json','model_access','output_limit','finish_reason'];
   const reason=categories.includes(error.code)?error.code:error.name==='SyntaxError'?'invalid_json':error.name==='TimeoutError'?'timeout':'other';
   const code=['json_validate_failed','model_decommissioned','model_not_found','invalid_api_key','rate_limit_exceeded','insufficient_quota','invalid_request_error'].includes(error.providerCode)?error.providerCode:'unknown';
-  console.warn(`[NOX chat] reason=${reason} status=${Number.isInteger(error.providerStatus)?error.providerStatus:'none'} code=${code}`);
+  const tag=task==='afterimage'?'afterimage':'chat';
+  console.warn(`[NOX ${tag}] reason=${reason} status=${Number.isInteger(error.providerStatus)?error.providerStatus:'none'} code=${code}`);
+  if(tag==='afterimage'&&reason==='invalid_json')return 'The AI returned an invalid AFTERIMAGE transmission. Please receive another take.';
+  if(tag==='afterimage'&&reason==='output_limit')return 'The AI could not finish the AFTERIMAGE script within its output budget. Please receive another take.';
   return {quota:'The AI provider’s free quota is temporarily exhausted. Wait for its limit to reset or choose another configured provider.',credentials:'The AI provider rejected its server key or model access. Check its account settings.',model_access:'The configured AI model is unavailable. Choose an enabled model in server settings.',output_limit:'The AI ran out of reply tokens. Try a shorter question.',invalid_json:'The AI returned an invalid character reply. Please try again.'}[reason]||'NOX could not finish this reply. Check provider access or limits and try again.';
 }
 
@@ -65,8 +70,10 @@ export function createAppServer({
   let windowStart = Date.now();
   let requests = 0;
   const audioCache=createCache();
+  const speechClipCache=createCache();
   const afterimageCache=createAfterimageCache({now});
   const unlockThrottle=createUnlockThrottle({now});
+  const publicQuota=createPublicQuota({now});
   const available = [...providers];
   if(apiKey) available.push({id:'openai',name:'OpenAI',model});
   const preferred = available.find(p=>p.id===defaultProvider) || available[0];
@@ -108,13 +115,14 @@ export function createAppServer({
     }
     if (pathname === '/api/status' && request.method === 'GET') return sendJson(response, 200, {
       brain: preferred && !locked ? 'live' : 'demo', model: preferred && !locked ? preferred.model : null,
-      voice: voiceKey && !locked && naturalVoice ? 'natural' : 'browser', access: locked ? 'locked' : 'open',
+      voice: voiceKey && (!locked||speechProvider==='groq') && naturalVoice ? 'natural' : 'browser', access: locked ? 'locked' : 'open',
       providers: !locked ? available : [], provider: !locked ? preferred?.id || null : null,
     });
     if (['/api/chat','/api/speech','/api/summary','/api/afterimage'].includes(pathname) && request.method === 'POST') {
       const origin = request.headers.origin;
       if (origin && origin !== `${hosted?'https':'http'}://${host}`) return sendJson(response, 403, { error: 'Use NOX from its own page.' });
-      if (locked) return sendJson(response, 401, { error: 'Unlock owner access in Settings before using cloud AI or natural voice.' });
+      const publicSpeech=pathname==='/api/speech'&&naturalVoice&&speechProvider==='groq'&&voiceKey;
+      if (locked&&!publicSpeech) return sendJson(response, 401, { error: 'Unlock owner access in Settings before using cloud AI.' });
       if (!request.headers['content-type']?.startsWith('application/json')) return sendJson(response, 415, { error: 'Send application/json.' });
       try {
         const input = await readJson(request);
@@ -130,28 +138,30 @@ export function createAppServer({
           response.on('close',()=>{if(!response.writableEnded)controller.abort();});
           const key=createHash('sha256').update(JSON.stringify([host,creative.seed,creative.tone,creative.variation,selected.id,selectedModel])).digest('hex');
           try{
-            const {value:packet,hit}=await afterimageCache.getOrCreate(key,async sharedSignal=>{
+            const {value:generation,hit}=await afterimageCache.getOrCreate(key,async sharedSignal=>{
               const signal=AbortSignal.any([sharedSignal,AbortSignal.timeout(20000)]);
-              return normalizeAfterimage(await providerRequest(creative,{provider:selected.id,apiKey:providerKey(selected.id),model:selectedModel,task:'afterimage',signal}));
+              return requestAfterimageGeneration(()=>providerRequest(creative,{provider:selected.id,apiKey:providerKey(selected.id),model:selectedModel,task:'afterimage',signal}),{signal});
             },{signal:controller.signal});
             if(controller.signal.aborted)return;
-            return sendJson(response,200,{packet,metrics:{provider:selected.name,model:selectedModel,totalMs:Math.round(performance.now()-started),cacheHit:hit}});
+            return sendJson(response,200,{packet:generation.packet,metrics:{provider:selected.name,model:selectedModel,totalMs:Math.round(performance.now()-started),cacheHit:hit,attempts:generation.attempts}});
           }catch(error){
             if(controller.signal.aborted)return;
             if(error.code==='busy')return sendJson(response,429,{error:'AFTERIMAGE is receiving other signals. Try again shortly.'});
-            return sendJson(response,502,{error:chatFailure(error)});
+            return sendJson(response,502,{error:chatFailure(error,'afterimage')});
           }
         }
         if (pathname === '/api/speech') {
           if (!voiceKey || !naturalVoice) return sendJson(response,503,{error:'Natural voice is not configured. Browser voice is still available.'});
           if (!input || typeof input.text !== 'string' || !input.text.trim() || input.text.length>420) return sendJson(response,400,{error:'Speech must contain 1–420 characters.'});
+          let speechCues;try{speechCues=normalizeSpeechCues(input.text,input.speechCues);}catch{return sendJson(response,400,{error:'Speech cues must match four bounded script lines and known emotions.'});}
+          if(locked){const wait=publicQuota.take(createHash('sha256').update(clientIP).digest('hex'));if(wait){response.setHeader('retry-after',wait);return sendJson(response,429,{error:'NOX needs a short voice break. Try again in a minute.'});}}
           if (Date.now()-windowStart>60000) {windowStart=Date.now();requests=0;}
           if(++requests>30) return sendJson(response,429,{error:'Give NOX a moment before requesting more voice.'});
           try {
-            const voice=speechProvider==='groq'&&['troy','austin','daniel','hannah'].includes(input.voice)?input.voice:speechVoice;
-            const acting={text:input.text.trim(),mode:sanitizeContext({mode:input.mode}).mode,emotion:EMOTIONS.includes(input.emotion)?input.emotion:'neutral'};
+            const voice=speechProvider==='groq'?(['troy','austin','daniel'].includes(input.voice)?input.voice:'troy'):speechVoice;
+            const acting={text:input.text.trim(),mode:sanitizeContext({mode:input.mode}).mode,emotion:EMOTIONS.includes(input.emotion)?input.emotion:'neutral',...(speechCues?{speechCues}:{})};
             const key=createHash('sha256').update(JSON.stringify([voiceKey,voice,speechProvider,acting])).digest('hex');
-            const {value:audio,hit}=await audioCache.getOrCreate(key,()=>speech(acting,{apiKey:voiceKey,voice,provider:speechProvider}));
+            const {value:audio,hit}=await audioCache.getOrCreate(key,()=>speech(acting,{apiKey:voiceKey,voice,provider:speechProvider,clipCache:speechClipCache}));
             response.writeHead(200,{'content-type':speechProvider==='groq'?'audio/wav':'audio/mpeg','x-nox-audio-cache':hit?'hit':'miss'}); response.end(audio); return;
           } catch(error) {
             const categories=['terms_required','input_limit','model_permission','quota','credentials','provider_http','invalid_audio_type'];
