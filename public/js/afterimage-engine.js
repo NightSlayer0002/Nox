@@ -112,6 +112,6 @@ export function toMarkdown(reception) {
   if (reception?.seed) lines.push(`Seed: ${markdownText(reception.seed)}`);
   lines.push('',markdownText(packet.anchor),'',`## ${markdownText(performance.signalLabel)} · ${markdownText(performance.endingLabel)}`,'',markdownText(signal.premise),'');
   performance.cues.forEach((cue,index) => lines.push(`### ${timecode(index * AFTERIMAGE_CUE_MS)}–${timecode((index + 1) * AFTERIMAGE_CUE_MS)} · ${index === 3 ? 'Ending' : `Act ${index + 1}`}`,'',`> ${markdownText(cue.speech)}`,'',`Emotion: ${cue.emotion} · Scene: ${cue.action}`,''));
-  lines.push('## Caption','',markdownText(packet.caption),'','28-second rehearsal. Cue timing is a schedule, not word-level audio alignment. Capture is a silent WebM of the local stage and captions.','');
+  lines.push('## Caption','',markdownText(packet.caption),'','28-second rehearsal. Cue timing is a schedule, not word-level audio alignment. Capture is a WebM of the local stage, captions and enabled Orpheus audio. Browser speech is not captured.','');
   return lines.join('\n');
 }

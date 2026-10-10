@@ -291,3 +291,5 @@ dialog p {
 :root .visit-banner{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:13px 0 18px;border-bottom:1px solid var(--line);margin-bottom:23px;color:var(--muted);font-size:10px;line-height:1.7}
 .visit-banner p{margin:0}.visit-banner>div{display:flex;gap:14px;white-space:nowrap}.visit-banner a{color:var(--accent)}
 @media(max-width:700px){.visit-banner{align-items:flex-start;flex-direction:column;gap:8px;font-size:10px}}
+.provider-pending{display:flex;justify-content:space-between;gap:20px;align-items:center}
+.provider-pending>span:last-child{color:var(--muted);font-size:12px}

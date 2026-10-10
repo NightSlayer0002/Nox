@@ -1,6 +1,6 @@
 # NOX system manual: from first principles to founder-level understanding
 
-Code baseline: NOX 0.9.0. External service documentation checked October 7, 2026. Start here for the architecture, then use [FOUNDER-GUIDE.md](FOUNDER-GUIDE.md) for the earlier implementation walkthrough and [DEPLOYMENT.md](DEPLOYMENT.md) for account setup.
+Code baseline: NOX 0.9.0, refined October 10, 2026. External service documentation checked October 7, 2026. Start here for the architecture, then use [FOUNDER-GUIDE.md](FOUNDER-GUIDE.md) for the earlier implementation walkthrough and [DEPLOYMENT.md](DEPLOYMENT.md) for account setup.
 
 NOX combines a fictional character, hosted language models, local context retrieval, optional voice, and a creation studio. His most convincing quality comes from connecting these systems carefully: immediate physical reactions, useful answers, continuity, and honest connection states.
 
@@ -30,11 +30,11 @@ This system does not establish sentience, artificial general intelligence, or su
 
 The homepage at `/` introduces the product, its actual capabilities, and its privacy boundaries. Its live character shares the same expression and gesture engine used by the workspace. The homepage uses ShaderGradient’s source water-plane preset and React Three Fiber renderer. Liquid Metal applies liquid-logo’s original shader to NOX’s established blob silhouette.
 
-The workspace at `/app` has four hash-selected views: `#explore`, `#conversation`, `#scenes`, and `#library`. Hash navigation changes which panels are visible without inventing additional backend routes. Preferences handles owner access, configured providers and voice. The command palette opens with Ctrl/Cmd+K. The notebook and system explanation are React dialogs.
+The workspace at `/app` has five hash-selected views: `#explore`, `#conversation`, `#scenes`, `#afterimage`, and `#library`. `/guest` forces a temporary visit; `/owner` opens owner sign-in. Hash navigation changes visible panels. Preferences handles owner access, configured providers and voice. The command palette opens with Ctrl/Cmd+K. The notebook and system explanation are React dialogs.
 
-Conversation generates replies when a configured provider and owner session are available. The explicitly selected scripted demo remains a demo. Locked, loading and unconfigured states do not silently substitute repetitive scripted answers. Gestures and scene programs work locally even when AI access is locked.
+Guest conversation uses configured Groq with quick, bounded replies. Owner mode adds deeper answers and a saved local archive. The explicitly selected scripted demo remains a demo. Locked, loading and unconfigured states do not silently substitute repetitive scripted answers. Gestures and scene programs work locally even when AI access is locked.
 
-Scene Studio includes expression previews, gravity, spotlight, orbit, echo, takeover, camera preview and clip recording. Takeover enlarges NOX inside his stage; it grants no operating-system access. The camera is a local preview, not model vision. The recorded WebM contains the canvas composition and captions, and is silent.
+Scene Studio includes expression previews, gravity, spotlight, orbit, echo, takeover, camera preview and clip recording. Takeover enlarges NOX inside his stage; it grants no operating-system access. The camera is a local preview, not model vision. The recorded WebM contains the canvas composition, captions and enabled Orpheus audio. Browser/OS speech, microphone audio and unrelated computer audio are not captured.
 
 The Library saves conversations in this browser and supports searching, reopening, deleting and exporting them. The knowledge notebook accepts pasted text and `.txt`, `.md`, or `.markdown` files. It searches locally, then supplies selected excerpts with a question when enabled. It is not web search and has no cloud synchronization.
 
@@ -202,7 +202,7 @@ This is amplitude-based mouth timing, not phoneme recognition or anatomically ex
 
 Camera `getUserMedia` requests video only and displays it locally; NOX does not see the pixels through his text model. Browser speech recognition can send audio through the browser's recognition service; do not describe microphone processing as guaranteed offline. Permission, visible listening state and a stop control matter.
 
-Recording captures the stage at 30 fps, chooses a supported WebM codec, and automatically stops after 60 seconds. Capture dimensions are locked during a clip. Tracks and obsolete blob URLs are released. Voice audio is not mixed into the current recorder; use an external capture tool when a clip needs sound.
+Recording captures the stage at 30 fps, chooses a supported WebM codec, and automatically stops after 60 seconds. Capture dimensions are locked during a clip. Web Audio routes generated Orpheus playback to both speakers and a MediaStreamDestination; the recorder clones that audio track into its canvas stream. Tracks and obsolete blob URLs are released. Browser/OS speech and microphone audio are not mixed into the recorder.
 
 ## 9. Design, React and animation ownership
 
@@ -240,7 +240,7 @@ Measure p50/p95 question-to-first-visible-text, question-to-audible-word, errors
 
 ## 11. Access, threat model and responsibilities
 
-The public frontend is visible to everyone; cloud endpoints are intended for a private owner session. `NOX_ACCESS_TOKEN` is a separate long random secret, not a provider API key. Preferences submits it to same-origin `/api/session`, clears the field, and receives an HttpOnly cookie. It is not saved in localStorage.
+The public frontend, bounded guest chat and Groq speech are available without owner access. Private context, summaries, new AFTERIMAGE generation and additional providers require an owner session. `NOX_ACCESS_TOKEN` is a separate long random secret, not a provider API key. Preferences submits it to same-origin `/api/session`, clears the field, and receives an HttpOnly cookie. It is not saved in localStorage.
 
 The session contains an expiry and a random 16-byte nonce, signed with HMAC-SHA256 using the owner token and request host. HMAC proves integrity/authenticity; it does not encrypt the payload. Verification rejects tampering, expiry, another host and another signing key, with timing-safe signature comparison. Maximum lifetime is twelve hours.
 
@@ -320,3 +320,38 @@ For performance, collect enough cold/warm samples to report median and tail late
 **Future: stronger retrieval and learning.** Semantic embeddings, hybrid lexical/vector ranking and reranking can help synonyms but introduce models, storage, privacy and cost. Fine-tuning changes weights and needs a lawful curated dataset, evaluation and operational budget. Begin with measured failures in the present retrieval/prompt system rather than adding complexity on faith.
 
 Your founder-level responsibility is to explain what each component can do, where authority lives, what evidence supports quality, and which limits remain. The best next upgrade is the one that improves a measured user task while preserving that clarity.
+
+
+## October 10: public visits, voice and privacy
+
+- Share `/guest#conversation` for a temporary trial. A verified owner can enter
+  `/owner#conversation`, open Preferences and sign in with the existing owner
+  token. A hard navigation switches storage scopes; guest code never loads the
+  owner's local archive, even if an owner cookie exists. Sign-out preserves the
+  owner's archive and opens a fresh guest visit. Chats on other browsers were
+  never shared with this browser's test chats.
+- Guest storage is a fresh in-memory map for each page load: chat, scratchpad,
+  character preferences and authored AFTERIMAGE rehearsal state disappear on
+  refresh. Owner storage remains browser-local, without cloud sync or encryption.
+- Public chat is fixed to Groq gpt-oss-20b, quick depth, 600-character messages
+  and eight recent context turns. Guests cannot invoke summaries, new AFTERIMAGE
+  writing, paid OpenAI paths or private notebook context. These are server rules,
+  not merely disabled controls. Expired owner requests get 401 rather than being
+  silently resubmitted as public prompts.
+- Troy is the default Orpheus voice for everyone. Mood directions and per-line
+  AFTERIMAGE directions guide acting; expressiveness still depends on the model.
+  Browser playback needs a user gesture. New WebM captures mix NOX's natural
+  audio through Web Audio into a cloned MediaStream track. Old exports stay silent;
+  browser/OS speech cannot be routed through this audio graph.
+- Full audio and individual speech clips are cache-scoped to owner or one random
+  guest visit. The visit ID is a cache namespace, never authentication or a rate
+  limit identity. Missing IDs get a fresh namespace. All audio caches remain
+  bounded, process-local and temporary; they do not cache complete AI answers.
+- Public chat and public speech each have separate process-local limits of four
+  requests per client and twelve total per minute; provider quotas also apply.
+  Distributed abuse protection would require shared infrastructure. No paid
+  service or database was introduced.
+- NVIDIA NIM is shown as “To be connected” until configured. Server key setup
+  remains optional. Buttons adapt Magic UI's MIT source; notices remain under
+  `public/vendor/magicui`. Homepage 3D arrival anchors follow visible copy centers,
+  with smooth settling; the scroll cue and little NOX now have separate space.

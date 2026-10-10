@@ -15,7 +15,7 @@ Sources checked October 5, 2026: [Groq limits](https://console.groq.com/docs/rat
 
 ## 1. What belongs where
 
-GitHub stores source code and version history. Vercel downloads a chosen Git commit, runs the build, hosts static files, and runs five small server functions: status, chat, speech, summary and session. Groq/Gemini/NVIDIA run the language model. None of these services replaces the others.
+GitHub stores source code and version history. Vercel downloads a chosen Git commit, runs the build, hosts static files, and runs six small server functions: status, chat, speech, summary, session and afterimage. Groq/Gemini/NVIDIA run the language model. None of these services replaces the others.
 
 Your browser sends text to NOX's same-origin `/api/chat` endpoint. The server adds its secret provider key and forwards a bounded conversation to the chosen model. The browser receives only a validated reply packet. It never downloads the provider key.
 
@@ -191,7 +191,7 @@ Voice defaults to a recognized male browser voice, or male Troy when Natural is 
 
 The home page is `/`; the interactive workspace is `/app`. The current build packages `/api/summary` and `/api/session` alongside status, chat, and speech. All five are Node 24 functions with explicit ESM scope. Chat streaming uses the existing chat endpoint with `stream: true`; it sends SSE text events and one final normalized packet. A closed or failed stream never becomes a saved assistant reply. Cloud chat, summaries, and speech share the same owner authorization, trusted origin, request-size bounds, and convenience rate limit.
 
-Motion and voice default on for a fresh preference set. Settings persist explicit off choices. Browser voice is the default engine, and audio playback requires browser interaction. Orpheus remains optional: choose Natural, pick a character voice, and use Try this voice. NOX 0.5 used Austin as its default; the requested boyish voice in 0.6 defaults to male Troy. Supported vocal directions reflect NOX's mood and count toward the 200-character segment budget. These are model directions, so acting quality can vary.
+Motion and voice default on for a fresh preference set. There is no website motion switch. When configured, Orpheus is the default voice engine with Troy; it works without owner sign-in. Browser voice remains an explicit fallback. Audio playback requires browser interaction. Supported vocal directions reflect NOX's mood and count toward the 200-character segment budget. These are model directions, so acting quality can vary.
 
 The Library stores conversations in this browser and domain, with search, reopen, export, and delete. It holds up to 40 threads and 200 messages per thread; the oldest entries are bounded rather than an unlimited archive. Export conversations you want to preserve. Web Locks serialize mutations against fresh storage, and storage events update other tabs; browsers without this capability are told to use one workspace tab. If browser storage fails, the UI says that new history lasts for the visit. Cloud requests use a compact summary, recent context, and bounded excerpts of unsummarized old turns while a summary is pending. Full retained transcripts remain available locally. Summarization consumes additional model quota only at its background threshold, and it never replaces or deletes the transcript.
 
@@ -266,3 +266,38 @@ After deployment, reload the homepage and workspace. Check 3D rotation, mobile m
 All four requested public repositories were cloned; no GitHub account connection was needed. Licenses, exact source commits, original GLSL and examples ship in `public/vendor/`. Runtime package versions are separately pinned. Existing custom panel/Signal shaders, generated room bitmap and old visual styles were replaced. See [SOURCE-ASSETS-GUIDE.md](SOURCE-ASSETS-GUIDE.md) for responsibilities, changes and performance limits.
 
 Meaningful commits separate source foundation, homepage, conversation, frame/play, Explore/Library, Preferences/Knowledge and character material. `npm run verify` scopes tests to NOX’s `tests/*.test.mjs`, excluding the cloned repositories’ independent development tests. Owner access and provider environment values remain server-owned.
+
+
+## October 10: public visits, voice and privacy
+
+- Share `/guest#conversation` for a temporary trial. A verified owner can enter
+  `/owner#conversation`, open Preferences and sign in with the existing owner
+  token. A hard navigation switches storage scopes; guest code never loads the
+  owner's local archive, even if an owner cookie exists. Sign-out preserves the
+  owner's archive and opens a fresh guest visit. Chats on other browsers were
+  never shared with this browser's test chats.
+- Guest storage is a fresh in-memory map for each page load: chat, scratchpad,
+  character preferences and authored AFTERIMAGE rehearsal state disappear on
+  refresh. Owner storage remains browser-local, without cloud sync or encryption.
+- Public chat is fixed to Groq gpt-oss-20b, quick depth, 600-character messages
+  and eight recent context turns. Guests cannot invoke summaries, new AFTERIMAGE
+  writing, paid OpenAI paths or private notebook context. These are server rules,
+  not merely disabled controls. Expired owner requests get 401 rather than being
+  silently resubmitted as public prompts.
+- Troy is the default Orpheus voice for everyone. Mood directions and per-line
+  AFTERIMAGE directions guide acting; expressiveness still depends on the model.
+  Browser playback needs a user gesture. New WebM captures mix NOX's natural
+  audio through Web Audio into a cloned MediaStream track. Old exports stay silent;
+  browser/OS speech cannot be routed through this audio graph.
+- Full audio and individual speech clips are cache-scoped to owner or one random
+  guest visit. The visit ID is a cache namespace, never authentication or a rate
+  limit identity. Missing IDs get a fresh namespace. All audio caches remain
+  bounded, process-local and temporary; they do not cache complete AI answers.
+- Public chat and public speech each have separate process-local limits of four
+  requests per client and twelve total per minute; provider quotas also apply.
+  Distributed abuse protection would require shared infrastructure. No paid
+  service or database was introduced.
+- NVIDIA NIM is shown as “To be connected” until configured. Server key setup
+  remains optional. Buttons adapt Magic UI's MIT source; notices remain under
+  `public/vendor/magicui`. Homepage 3D arrival anchors follow visible copy centers,
+  with smooth settling; the scroll cue and little NOX now have separate space.

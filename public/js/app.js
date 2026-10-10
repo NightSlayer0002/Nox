@@ -368,7 +368,7 @@ async function refreshConnection(token = ownerToken,initial) {
   if(token && status.access==='locked') throw new Error('The owner token was not accepted.');
   ownerToken=''; connection=status;
   const configured=status.providers||[];
-  const choices=[{id:'',name:status.access==='locked'?'AI · unlock to connect':'Automatic AI'},{id:'demo',name:'Scripted demo · offline'},...['groq','nvidia','gemini'].map(id=>configured.find(p=>p.id===id)||{id,name:({groq:'GroqCloud',nvidia:'NVIDIA NIM',gemini:'Google Gemini'}[id])+` · ${status.access==='locked'?'unlock first':'add key'}`,disabled:true}),...configured.filter(p=>!['groq','nvidia','gemini'].includes(p.id))];
+  const choices=[{id:'',name:status.access==='locked'?'AI · unlock to connect':'Automatic AI'},{id:'demo',name:'Scripted demo · offline'},...['groq','nvidia','gemini'].map(id=>configured.find(p=>p.id===id)||{id,name:id==='nvidia'?'NVIDIA NIM · To be connected':({groq:'GroqCloud',gemini:'Google Gemini'}[id])+` · ${status.access==='locked'?'unlock first':'add key'}`,disabled:true}),...configured.filter(p=>!['groq','nvidia','gemini'].includes(p.id))];
   $('provider-select').replaceChildren(...choices.map(p=>{const option=document.createElement('option');option.value=p.id;option.textContent=p.name;option.disabled=!!p.disabled;return option;}));
   if(selectedProvider!=='demo'&&!status.providers?.some(p=>p.id===selectedProvider)) selectedProvider=status.provider||'';
   $('provider-select').value=selectedProvider;
