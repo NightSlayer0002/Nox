@@ -18,7 +18,7 @@ export function createMemory(storage) {
     catch { persistent = false; }
   }
   return {
-    get persistent() { return persistent; },
+    get persistent() { return persistent&&storage.temporary!==true; },
     snapshot: () => structuredClone(state),
     setName(name) { state.name = cleanText(name, 40); save(); },
     setMode(mode) { state.mode = sanitizeContext({ mode }).mode; save(); },

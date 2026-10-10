@@ -36,7 +36,7 @@ function parseStore(raw) {
 
 // Local and deliberately bounded. Refresh before writes so stale tabs cannot revive deleted takes.
 export function createAfterimageStore(storage, {now = () => Date.now(), createId = () => globalThis.crypto?.randomUUID?.() ?? `take-${Date.now()}-${Math.random().toString(36).slice(2)}`} = {}) {
-  let persistent=true,receptions=[];
+  let persistent=storage?.temporary!==true,receptions=[];
   const listeners=new Set();
   if (storage === undefined) { try { storage=globalThis.localStorage; } catch { persistent=false; } }
   if (!storage?.getItem || !storage?.setItem) persistent=false;

@@ -59,7 +59,7 @@ test('streaming chat delivers text then a normalized final packet with timings',
 test('server status describes demo mode without exposing the key', async () => {
   await withServer({ apiKey: '' }, async base => {
     const response = await fetch(`${base}/api/status`);
-    assert.deepEqual(await response.json(), { brain: 'demo', model: null, voice: 'browser', access: 'open',providers:[],provider:null });
+    assert.deepEqual(await response.json(), { brain: 'demo', model: null, voice: 'browser', access: 'open',providers:[],provider:null,owner:true,guestProvider:null });
     assert.equal((await fetch(`${base}/.env`)).status, 404);
     assert.equal((await fetch(`${base}/package.json`)).status, 404);
     assert.equal((await fetch(`${base}/shared/character.js`)).status, 200);
@@ -73,7 +73,7 @@ test('hosted paid endpoints require owner access and accept only the configured 
     speech:async () => {calls++; return Buffer.from('ID3');}},async base => {
     const headers={host:'nox.example','content-type':'application/json',origin:'https://nox.example'};
     const locked=await hostedRequest(`${base}/api/status`,{headers:{host:'nox.example'}});
-    assert.deepEqual(await locked.json(),{brain:'demo',model:null,voice:'browser',access:'locked',providers:[],provider:null});
+    assert.deepEqual(await locked.json(),{brain:'demo',model:null,voice:'browser',access:'locked',providers:[],provider:null,owner:false,guestProvider:null});
     for (const endpoint of ['chat','speech']) {
       const body=JSON.stringify(endpoint==='chat'?{message:'Hi'}:{text:'Hi',mode:'companion'});
       assert.equal((await hostedRequest(`${base}/api/${endpoint}`,{method:'POST',headers,body})).status,401);

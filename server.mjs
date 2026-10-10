@@ -9,7 +9,7 @@ import { requestNox, explicitMemoryRequest } from './server/ai.mjs';
 import { getProviders, providerKey, requestProvider, requestSummary, modelForDepth } from './server/providers.mjs';
 import { createCache } from './server/cache.mjs';
 import { requestSpeech,normalizeSpeechCues } from './server/speech.mjs';
-import { createHash, timingSafeEqual } from 'node:crypto';
+import { createHash, timingSafeEqual, randomUUID } from 'node:crypto';
 import { mintSession, validSession, sessionFromCookie, sessionCookie, createUnlockThrottle } from './server/session.mjs';
 import { sanitizeAfterimageInput } from './shared/afterimage.js';
 import { createAfterimageCache } from './server/afterimage-cache.mjs';
@@ -74,9 +74,12 @@ export function createAppServer({
   const afterimageCache=createAfterimageCache({now});
   const unlockThrottle=createUnlockThrottle({now});
   const publicQuota=createPublicQuota({now});
+  const guestChatQuota=createPublicQuota({now});
   const available = [...providers];
   if(apiKey) available.push({id:'openai',name:'OpenAI',model});
   const preferred = available.find(p=>p.id===defaultProvider) || available[0];
+  const guestBase=available.find(p=>p.id==='groq');
+  const guestProvider=guestBase?{...guestBase,model:'openai/gpt-oss-20b'}:null;
   const voiceKey = speechProvider==='groq' ? speechKey : apiKey;
   const hasCloud = available.length > 0 || Boolean(naturalVoice && voiceKey);
   const server = http.createServer(async (request, response) => {
@@ -103,7 +106,10 @@ export function createAppServer({
     const bearerAccepted=Boolean(accessToken&&suppliedToken&&timingSafeEqual(digest(suppliedToken),digest(accessToken)));
     if(bearerAttempt){if(bearerAccepted)unlockThrottle.clear(clientIP);else unlockThrottle.fail(clientIP);}
     const authorized=suppliedToken?bearerAccepted:validSession(sessionFromCookie(request.headers.cookie,hosted),accessToken,host,now());
-    const locked = Boolean(hasCloud && (hosted || accessToken) && !authorized);
+    const requestedGuest=request.headers['x-nox-guest']==='1';
+    const owner=!requestedGuest&&(authorized||!hosted&&!accessToken);
+    const locked = Boolean(hasCloud && (hosted || accessToken) && !owner);
+    if(request.headers['x-nox-owner']==='1'&&!owner)return sendJson(response,401,{error:'Your owner session ended. Continue as a guest or sign in again.'});
     if(pathname==='/api/session'&&['POST','DELETE'].includes(request.method)){
       if(request.headers.origin!==`${hosted?'https':'http'}://${host}`)return sendJson(response,403,{error:'Unlock from NOX’s own page.'});
       if(request.method==='DELETE'){
@@ -117,12 +123,15 @@ export function createAppServer({
       brain: preferred && !locked ? 'live' : 'demo', model: preferred && !locked ? preferred.model : null,
       voice: voiceKey && (!locked||speechProvider==='groq') && naturalVoice ? 'natural' : 'browser', access: locked ? 'locked' : 'open',
       providers: !locked ? available : [], provider: !locked ? preferred?.id || null : null,
+      owner,guestProvider,
     });
     if (['/api/chat','/api/speech','/api/summary','/api/afterimage'].includes(pathname) && request.method === 'POST') {
       const origin = request.headers.origin;
       if (origin && origin !== `${hosted?'https':'http'}://${host}`) return sendJson(response, 403, { error: 'Use NOX from its own page.' });
       const publicSpeech=pathname==='/api/speech'&&naturalVoice&&speechProvider==='groq'&&voiceKey;
-      if (locked&&!publicSpeech) return sendJson(response, 401, { error: 'Unlock owner access in Settings before using cloud AI.' });
+      const guestChat=pathname==='/api/chat'&&requestedGuest&&guestProvider;
+      if((guestChat||publicSpeech&&locked)&&origin!==`${hosted?'https':'http'}://${host}`)return sendJson(response,403,{error:'Use public NOX from its own page.'});
+      if (locked&&!publicSpeech&&!guestChat) return sendJson(response, 401, { error: 'Unlock owner access in Settings before using cloud AI.' });
       if (!request.headers['content-type']?.startsWith('application/json')) return sendJson(response, 415, { error: 'Send application/json.' });
       try {
         const input = await readJson(request);
@@ -160,8 +169,11 @@ export function createAppServer({
           try {
             const voice=speechProvider==='groq'?(['troy','austin','daniel'].includes(input.voice)?input.voice:'troy'):speechVoice;
             const acting={text:input.text.trim(),mode:sanitizeContext({mode:input.mode}).mode,emotion:EMOTIONS.includes(input.emotion)?input.emotion:'neutral',...(speechCues?{speechCues}:{})};
-            const key=createHash('sha256').update(JSON.stringify([voiceKey,voice,speechProvider,acting])).digest('hex');
-            const {value:audio,hit}=await audioCache.getOrCreate(key,()=>speech(acting,{apiKey:voiceKey,voice,provider:speechProvider,clipCache:speechClipCache}));
+            // A visit ID namespaces cache entries; it never changes authorization or IP quotas.
+            const visitID=request.headers['x-nox-visit-id'];
+            const cacheScope=owner?'owner':`guest:${typeof visitID==='string'&&/^[a-f0-9-]{36}$/i.test(visitID)?visitID:randomUUID()}`;
+            const key=createHash('sha256').update(JSON.stringify([cacheScope,voiceKey,voice,speechProvider,acting])).digest('hex');
+            const {value:audio,hit}=await audioCache.getOrCreate(key,()=>speech(acting,{apiKey:voiceKey,voice,provider:speechProvider,clipCache:speechClipCache,cacheScope}));
             response.writeHead(200,{'content-type':speechProvider==='groq'?'audio/wav':'audio/mpeg','x-nox-audio-cache':hit?'hit':'miss'}); response.end(audio); return;
           } catch(error) {
             const categories=['terms_required','input_limit','model_permission','quota','credentials','provider_http','invalid_audio_type'];
@@ -181,16 +193,19 @@ export function createAppServer({
           try {return sendJson(response,200,{summary:await summary(input,{provider:selected.id,apiKey:providerKey(selected.id),model:selected.model})});}
           catch{return sendJson(response,502,{error:'The conversation summary could not finish. Your saved transcript is unchanged.'});}
         }
-        if (!input || typeof input.message !== 'string' || !input.message.trim() || input.message.length > 1200) {
-          return sendJson(response, 400, { error: 'Message must contain 1–1200 characters.' });
+        const messageLimit=guestChat?600:1200;
+        if (!input || typeof input.message !== 'string' || !input.message.trim() || input.message.length > messageLimit) {
+          return sendJson(response, 400, { error: `Message must contain 1–${messageLimit} characters.` });
         }
         if (!preferred) return sendJson(response, 503, { error: 'Add a Groq, Gemini, or NVIDIA API key to server environment settings and restart or redeploy NOX.' });
-        const selected = input.provider ? available.find(p=>p.id===input.provider) : preferred;
+        if(guestChat&&input.provider&&input.provider!=='groq')return sendJson(response,400,{error:'Guest trial uses the free Groq connection.'});
+        if(guestChat){const wait=guestChatQuota.take(createHash('sha256').update(clientIP).digest('hex'));if(wait){response.setHeader('retry-after',wait);return sendJson(response,429,{error:'Guest trial needs a short break. Try again in a minute.'});}}
+        const selected = guestChat?guestProvider:input.provider ? available.find(p=>p.id===input.provider) : preferred;
         if(!selected) return sendJson(response,400,{error:'That provider is not configured on this server.'});
         if (Date.now() - windowStart > 60000) { windowStart = Date.now(); requests = 0; }
         if (++requests > 30) return sendJson(response, 429, { error: 'Thirty turns in a minute. Give NOX a moment.' });
         try {
-          const prompt = { message: input.message.trim(), context: sanitizeContext(input.context) };
+          const prompt = { message: input.message.trim(), context: sanitizeContext(guestChat?{mode:input.context?.mode,depth:'quick',history:Array.isArray(input.context?.history)?input.context.history.slice(-8):[]}:input.context) };
           prompt.context.depth=answerDepth(prompt.context.depth);
           const selectedModel=modelForDepth(selected.id,selected.model,prompt.context.depth,groqDeepModel);
           const controller=new AbortController(),started=performance.now();
@@ -198,7 +213,7 @@ export function createAppServer({
           const options={apiKey:selected.id==='openai'?apiKey:providerKey(selected.id),model:selectedModel,signal:controller.signal,provider:selected.id,deepModel:groqDeepModel};
           const finish=packet=>{
             const result=normalizePacket(packet,prompt.context.depth);
-            if(!explicitMemoryRequest(prompt.message))result.memory='';
+            if(guestChat||!explicitMemoryRequest(prompt.message))result.memory='';
             return result;
           };
           const metrics=firstTextMs=>({firstTextMs,totalMs:Math.round(performance.now()-started),provider:selected.name,model:selectedModel,depth:prompt.context.depth});
@@ -236,7 +251,7 @@ export function createAppServer({
     let file;
     if (['/shared/character.js','/shared/afterimage.js'].includes(pathname)) file = path.join(root, 'shared', path.basename(pathname));
     else {
-      file = path.resolve(publicRoot, pathname === '/' ? 'index.html' : ['/app','/app/'].includes(pathname)?'app.html':`.${pathname}`);
+      file = path.resolve(publicRoot, pathname === '/' ? 'index.html' : ['/app','/app/','/guest','/guest/','/owner','/owner/'].includes(pathname)?'app.html':`.${pathname}`);
       if (!file.startsWith(publicRoot + path.sep) || pathname.includes('\\') || pathname.split('/').some(part => part.startsWith('.'))) return sendJson(response, 404, { error: 'Not found.' });
     }
     const type = contentTypes[path.extname(file)];

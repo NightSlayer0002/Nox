@@ -17,7 +17,7 @@ export function normalizeSpeechCues(text,value){
   return lines;
 }
 
-export async function requestSpeech({text,mode='companion',emotion,speechCues}, {apiKey,voice='cedar',provider='openai',fetchImpl=fetch,clipCache}={}) {
+export async function requestSpeech({text,mode='companion',emotion,speechCues}, {apiKey,voice='cedar',provider='openai',fetchImpl=fetch,clipCache,cacheScope='private'}={}) {
   if (typeof text !== 'string' || !text.trim() || text.length > 420) throw new Error('Speech needs 1–420 characters.');
   if(!['openai','groq'].includes(provider)) throw new Error('Unknown speech provider.');
   const groq = provider === 'groq';
@@ -26,7 +26,7 @@ export async function requestSpeech({text,mode='companion',emotion,speechCues}, 
   const getClip=async input=>{
     const create=()=>requestClip(input,mode,{apiKey,voice,groq,fetchImpl,signal});
     if(!clipCache)return create();
-    const key=createHash('sha256').update(JSON.stringify([apiKey,voice,provider,mode,input])).digest('hex');
+    const key=createHash('sha256').update(JSON.stringify([cacheScope,apiKey,voice,provider,mode,input])).digest('hex');
     return (await clipCache.getOrCreate(key,create)).value;
   };
   if(!groq)return getClip(text);

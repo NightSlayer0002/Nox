@@ -4,6 +4,7 @@ import {AnimatePresence,motion,useReducedMotion} from 'motion/react';
 import {knowledge,knowledgeChanged,downloadText} from '/js/workbench.js';
 import {readTheme,saveTheme,applyTheme} from '/js/preferences.js';
 import {sourceBackground} from '/js/source-background.js';
+import {visit} from '/js/visit-scope.js';
 import {SourceBoundary} from './source-boundary.jsx';
 applyTheme(readTheme());
 const SourceScene=lazy(()=>import('./source-scene.jsx'));
@@ -33,8 +34,8 @@ function Notebook(){
   function submit(e){e.preventDefault();if(act(()=>knowledge.add({title,text}),'Note added. Relevant passages can accompany your next question.')){setTitle('');setText('');}}
   async function importFile(e){const file=e.target.files?.[0];e.target.value='';if(!file)return;try{if(!/\.(txt|md|markdown)$/i.test(file.name))throw Error('Choose a .txt or Markdown file.');if(file.size>128*1024)throw Error('Choose a text file smaller than 128 KB. Each note allows 24,000 characters.');const content=await file.text();act(()=>knowledge.add({title:file.name,text:content}),'File added to this browser’s notebook.');}catch(error){setStatus(error.message);setError(true);}}
   return <>
-    <p className="lab-note">Give NOX useful context: a project brief, story outline, or your own notes. Search runs here in your browser. Relevant excerpts are sent with a question when context is enabled.</p>
-    <div className="lab-actions"><label className="lab-check"><input type="checkbox" checked={enabled} onChange={e=>act(()=>knowledge.setEnabled(e.target.checked),e.target.checked?'Notebook context enabled.':'Notebook context disabled. Notes stay saved.')} />Use relevant notes in chat</label><button className="quiet-button" type="button" onClick={()=>downloadText(knowledge.export(),'nox-knowledge.json')}>Export notes ↓</button></div>
+    <p className="lab-note">{visit.owner?'Give NOX useful context: a project brief, story outline, or your own notes. Relevant excerpts accompany a question when context is enabled.':'A temporary scratchpad for this visit. Refresh clears it. Owner mode enables saved notes and notebook context; guests can paste a passage directly into chat.'}</p>
+    <div className="lab-actions"><label className="lab-check"><input type="checkbox" disabled={!visit.owner} checked={visit.owner&&enabled} onChange={e=>act(()=>knowledge.setEnabled(e.target.checked),e.target.checked?'Notebook context enabled.':'Notebook context disabled. Notes stay saved.')} />Use relevant notes in chat</label><button className="quiet-button" type="button" onClick={()=>downloadText(knowledge.export(),'nox-knowledge.json')}>Export notes ↓</button></div>
     <form className="lab-form" onSubmit={submit}>
       <label htmlFor="knowledge-title">Note title</label><input id="knowledge-title" value={title} onChange={e=>setTitle(e.target.value)} maxLength={160} placeholder="A name you’ll recognize" required />
       <label htmlFor="knowledge-text">Source text</label><textarea id="knowledge-text" value={text} onChange={e=>setText(e.target.value)} maxLength={24000} placeholder="Paste the details NOX should know…" required />

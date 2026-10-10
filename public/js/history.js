@@ -32,7 +32,7 @@ export async function createHistory(storage,legacy=[]){
   async function refresh(){return serialize(storage,()=>{const before=JSON.stringify(active()),id=currentId;if(persistent)load();choose();const currentChanged=id!==currentId||before!==JSON.stringify(active());listeners.forEach(fn=>fn({currentChanged}));});}
   globalThis.window?.addEventListener('storage',event=>{if(event.key===KEY&&(!event.storageArea||event.storageArea===storage))void refresh();});
   return {
-    get persistent(){return persistent;},
+    get persistent(){return persistent&&storage.temporary!==true;},
     get crossTabSafe(){return !globalThis.window||Boolean(globalThis.navigator?.locks?.request);},
     subscribe(fn){listeners.add(fn);return ()=>listeners.delete(fn);},
     refresh,

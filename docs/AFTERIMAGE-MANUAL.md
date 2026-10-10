@@ -104,6 +104,21 @@ The owner selected always-on NOX animation. There is no website motion switch, a
 
 ## 5. Access, model, and voice settings
 
+Public visitors use `/guest` (or a default workspace without an owner session).
+Chats, scratchpad notes, remembered state and receptions use fresh in-memory
+storage; refresh ends the visit. Owner mode at `/owner` uses the existing key
+and signed session to open this browser's saved archive. Guest mode never reads
+that archive, including when the same browser already has an owner cookie.
+Owner data remains local plaintext, not an encrypted cloud account or shared
+database. Signing out switches to a fresh guest page. Owner expiry rejects
+private requests rather than treating their context as a guest request.
+
+The public Groq trial uses quick replies and at most eight recent turns, with
+no owner notebook, facts or old-chat summary. New AFTERIMAGE writing and
+summaries remain owner-only. Guests can rehearse and capture the authored
+example and make temporary local edits. Public chat and voice have separate
+bounded rate counters. Free provider quotas can still interrupt a visit.
+
 Orpheus speech is now public when the server's Groq voice is configured. Owner
 unlock is not needed to hear NOX. The public path is bounded to four requests
 per client and twelve total per minute in each warm process; other serverless

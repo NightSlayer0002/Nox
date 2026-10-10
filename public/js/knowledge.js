@@ -110,7 +110,7 @@ export function createKnowledge(storage){
   fresh();
   return {
     get enabled(){return fresh().enabled;},
-    get persistent(){return persistent;},
+    get persistent(){return persistent&&storage?.temporary!==true;},
     list(){return fresh().documents.map(copy);},
     add(input){
       fresh();

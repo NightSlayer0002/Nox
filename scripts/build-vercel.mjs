@@ -40,6 +40,8 @@ export async function buildVercel(destination = path.join(root,'.vercel/output')
     {src:'/dist/chunks/(.*)-[A-Z0-9]{8}\\.js',headers:{'Cache-Control':'public, max-age=31536000, immutable'},continue:true},
     {src:'/',dest:'/index.html'},
     {src:'/app/?',dest:'/app.html'},
+    {src:'/guest/?',dest:'/app.html'},
+    {src:'/owner/?',dest:'/app.html'},
     {handle:'filesystem'},
     {src:'/(.*)',status:404},
   ]},null,2));

@@ -15,11 +15,13 @@ import { knowledge,readDepth,saveDepth } from './workbench.js';
 import { spokenPreview } from './reply.js';
 import {sourceBackground} from './source-background.js';
 import { afterimageBridge, applyAfterimageCue } from './afterimage-bridge.js';
+import {visit,initialVisitStatus,requestVisitStatus} from './visit-scope.js';
 
 const $ = id => document.getElementById(id);
-let disk;
-try { disk = localStorage; }
-catch { disk = { getItem() { throw new Error('Storage unavailable'); }, setItem() { throw new Error('Storage unavailable'); } }; }
+const disk=visit.storage;
+document.body.dataset.visit=visit.owner?'owner':'guest';
+$('message').maxLength=visit.owner?1200:600;
+$('visit-note').textContent=visit.owner?'Owner workspace · your archive stays on this browser.':'Guest visit · chats and notes disappear on refresh. No account needed.';
 const memory = createMemory(disk);
 const history = await createHistory(disk,memory.snapshot().history);
 if(history.persistent)memory.clearHistory();
@@ -27,7 +29,7 @@ let mode = history.active().mode;
 let navigation,summaryController,summaryTimer,pendingDraft;
 let brain = 'loading'; let busy = false;
 let ownerToken = '', selectedProvider = '', connectionVersion = 0, connection = {};
-const apiHeaders = (token = ownerToken) => ({'content-type':'application/json',...(token ? {authorization:`Bearer ${token}`} : {})});
+const apiHeaders = (token = ownerToken) => ({'content-type':'application/json',...(token ? {authorization:`Bearer ${token}`} : visit.owner?{'x-nox-owner':'1'}:{'x-nox-guest':'1','x-nox-visit-id':visit.id})});
 const turns = createTurnGate();
 let lastPacket = { speech: 'Oh. You found me.', emotion: 'curious', action: 'none', memory: '' };
 let toastTimer;
@@ -100,6 +102,7 @@ const microphone = createMicrophone({
 
 afterimageBridge.connect({
   async receive({seed,tone,variation,signal}) {
+    if(!visit.owner)throw new Error('Owner mode is needed for new transmissions. Guest visits can rehearse and capture the authored example.');
     const state=connectionState(connection,selectedProvider);
     if(state.kind!=='live')throw new Error(state.kind==='locked'?'Unlock AI in Preferences to receive a transmission.':state.kind==='demo'?'Choose a configured AI provider, or open the authored first contact.':'A configured AI connection is required to receive a transmission.');
     const body={seed,tone,...(variation===undefined?{}:{variation}),...(selectedProvider?{provider:selectedProvider}:{})};
@@ -138,7 +141,8 @@ function updateMemory() {
   $('memory-summary').textContent = state.name ? `He knows you as ${state.name}. ${state.facts.length ? 'A few things worth keeping.' : 'Tell him something worth keeping.'}` : 'A fresh start. Tell him your name.';
   $('memory-facts').replaceChildren();
   state.facts.slice(-4).forEach(fact => { const tag = document.createElement('span'); tag.className = 'fact'; tag.textContent = fact; $('memory-facts').append(tag); });
-  if (!memory.persistent) $('memory-summary').textContent += ' Storage is unavailable; this notebook lasts for this visit.';
+  if(!visit.owner)$('memory-summary').textContent='Temporary guest visit. Recent messages provide context; refresh starts fresh.';
+  else if (!memory.persistent) $('memory-summary').textContent += ' Storage is unavailable; this notebook lasts for this visit.';
 }
 
 async function perform(value, save = true, draft, version, depth='quick',rememberAllowed=false) {
@@ -172,8 +176,8 @@ async function send(raw) {
   summaryController?.abort();clearTimeout(summaryTimer);
   const name = text.match(/(?:my name is|call me|i am called)\s+([\p{L}\p{N}_ -]{1,40})/iu);
   if (name) memory.setName(name[1].trim());
-  const depth=$('reply-depth').value;
-  const context = { ...memory.snapshot(), ...history.context(), mode,depth,knowledge:knowledge.context(text) };
+  const depth=visit.owner?$('reply-depth').value:'quick';
+  const context = visit.owner?{ ...memory.snapshot(), ...history.context(), mode,depth,knowledge:knowledge.context(text) }:{mode,depth,history:history.context().history};
   const request=prepareChatRequest(text,context,selectedProvider,true);
   setBusy(true);
   if(!await history.append('user',text)){cancelConversation();await restoreConversation();toast('This conversation changed in another tab. Start a new thought.');return;}
@@ -191,7 +195,7 @@ async function send(raw) {
       if(!response.ok){const error=await response.json();if(response.status===401){await refreshConnection();}throw new Error(error.error||'The AI connection did not respond.');}
       const result = await readChatStream(response,speech=>{if(turns.isCurrent(version)){draft.lastChild.textContent=speech;$('conversation').scrollTop=$('conversation').scrollHeight;}});
       packet = result;
-      if (turns.isCurrent(version)) {$('brain-status').lastChild.textContent = ' AI CONNECTED';const timing=result.metrics;$('reply-timing').textContent=timing?`${timing.firstTextMs===null?'Reply':`First words ${timing.firstTextMs} ms · reply`} ${timing.totalMs} ms · ${timing.provider}`:'Reply received';if(timing){$('reply-timing').dataset.model=timing.model||'';$('reply-timing').dataset.depth=timing.depth||depth;$('inspector-brain').textContent=`${timing.model||'Configured model'} · ${timing.depth||depth} · ${timing.provider}`;}}
+      if (turns.isCurrent(version)) {$('brain-status').lastChild.textContent = visit.owner?' AI CONNECTED':' GUEST TRIAL';const timing=result.metrics;$('reply-timing').textContent=timing?`${timing.firstTextMs===null?'Reply':`First words ${timing.firstTextMs} ms · reply`} ${timing.totalMs} ms · ${timing.provider}`:'Reply received';if(timing){$('reply-timing').dataset.model=timing.model||'';$('reply-timing').dataset.depth=timing.depth||depth;$('inspector-brain').textContent=`${timing.model||'Configured model'} · ${timing.depth||depth} · ${timing.provider}`;}}
     } else {
       await new Promise(resolve => setTimeout(resolve, 350));
       packet = demoReply(text, context);
@@ -235,8 +239,9 @@ $('chat-form').addEventListener('submit', event => { event.preventDefault(); sen
 $('message').addEventListener('keydown', event => { if (event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); send(event.currentTarget.value); } });
 $('cancel-reply').addEventListener('click',()=>{cancelConversation();$('reply-timing').textContent='Reply stopped. Your sent message is saved.';});
 function contextPreview(){const notes=knowledge.context($('message').value);$('knowledge-context').hidden=!notes.length;$('knowledge-context').textContent=notes.length?'Relevant context for this thought: '+notes.map(n=>`[${n.id}] ${n.title}`).join(' · '):'';}
-function depthNote(){const depth=$('reply-depth').value;$('depth-note').textContent=depth==='deep'?'Deep uses more time and quota. Groq uses a larger model; other providers use their configured model. Voice reads a concise opening.':depth==='quick'?'Quick keeps the response brief and uses less quota.':'Balanced gives a fuller answer. Voice reads a concise opening.';}
+function depthNote(){const depth=$('reply-depth').value;$('depth-note').textContent=!visit.owner?'Guest trial uses quick replies. Owner mode adds saved history, notebook context and deeper answers.':depth==='deep'?'Deep uses more time and quota. Groq uses a larger model; other providers use their configured model. Voice reads a concise opening.':depth==='quick'?'Quick keeps the response brief and uses less quota.':'Balanced gives a fuller answer. Voice reads a concise opening.';}
 $('reply-depth').value=readDepth();depthNote();
+for(const option of $('reply-depth').options)option.disabled=!visit.owner&&option.value!=='quick';
 $('reply-depth').addEventListener('change',()=>{saveDepth($('reply-depth').value);depthNote();});
 $('message').addEventListener('input',contextPreview);window.addEventListener('nox:knowledge',contextPreview);window.addEventListener('storage',contextPreview);
 document.querySelector('.skip-link')?.addEventListener('click',event=>{event.preventDefault();$('workspace-main').focus();});
@@ -325,7 +330,7 @@ async function restoreConversation(){cancelConversation();const thread=history.a
   else{addMessage('nox',greetings[mode]);stage.caption='A fresh thought. I’m listening.';stage.captionUntil=stage.time+8;}
   $('reply-timing').textContent='';$('summary-note').textContent=thread.summary?'Older context is summarized. Your full transcript is kept in the Library.':'';navigation?.render();updateMemory();
 }
-function scheduleSummary(){clearTimeout(summaryTimer);if(brain!=='live'||!history.summaryWork()||selectedProvider==='openai')return;summaryTimer=setTimeout(async()=>{
+function scheduleSummary(){clearTimeout(summaryTimer);if(!visit.owner||brain!=='live'||!history.summaryWork()||selectedProvider==='openai')return;summaryTimer=setTimeout(async()=>{
   const work=history.summaryWork();if(!work||busy)return;const controller=new AbortController();summaryController=controller;
   try{const response=await fetch('/api/summary',{method:'POST',headers:apiHeaders(),body:JSON.stringify({previous:work.previous,turns:work.turns,provider:selectedProvider}),signal:controller.signal});if(!response.ok)throw Error('summary');const result=await response.json();if(!controller.signal.aborted&&await history.applySummary(work.id,work.through,result.summary)&&history.active().id===work.id)$('summary-note').textContent='Older context is summarized. Your full transcript is kept in the Library.';}
   catch(error){if(error.name!=='AbortError'&&history.active().id===work.id)$('summary-note').textContent='Summary will retry after a later turn. The full transcript is still saved.';}
@@ -345,20 +350,21 @@ function showVoice() {
 function showConnection() {
   const state=connectionState(connection,selectedProvider),provider=state.provider;brain=state.kind;
   const labels={locked:'UNLOCK AI',loading:'CHECKING CONNECTION',unconfigured:'AI NOT CONFIGURED',demo:'SCRIPTED DEMO'};
-  $('brain-status').lastChild.textContent=brain==='live'?` ${provider.name.toUpperCase()}`:` ${labels[brain]}`;
+  $('brain-status').lastChild.textContent=brain==='live'?` ${visit.owner?provider.name.toUpperCase():'GUEST TRIAL'}`:` ${labels[brain]}`;
   const note=brain==='live'?`Model-generated replies · ${provider.name}. Your name, notebook, and conversation context travel with each turn. Camera stays local.`:brain==='locked'?'Your AI brain is locked. Unlock it once in Preferences; access lasts up to 12 hours in this browser. Scenes and touch still work.':brain==='demo'?'You selected the scripted demo. Switch to a configured AI provider for fresh conversation.':brain==='loading'?'Checking the AI connection…':'No AI provider is configured. Add a server key to enable conversation; scenes and touch still work.';
-  $('brain-status').title=note;$('brain-note').textContent=note;
-  $('connection-message').textContent=note;$('connection-help').hidden=brain==='live';$('unlock-ai').hidden=brain==='demo';
+  const scopeNote=!visit.owner&&brain==='live'?'Temporary Groq conversation · quick replies, limited public quota. Refresh starts a new visit. Orpheus voice is available without owner sign-in.':note;
+  $('brain-status').title=scopeNote;$('brain-note').textContent=scopeNote;
+  $('connection-message').textContent=scopeNote;$('connection-help').hidden=brain==='live';$('unlock-ai').hidden=brain==='demo';
   $('unlock-ai').textContent=brain==='locked'?'Unlock AI ↗':'Connection settings ↗';
   $('inspector-brain').textContent=brain==='live'?`${provider.model} · providers.mjs`:labels[brain];
   afterimageBridge.refreshState();
 }
-async function refreshConnection(token = ownerToken) {
+async function refreshConnection(token = ownerToken,initial) {
   const version=++connectionVersion;
-  const response=await fetch('/api/status',{headers:apiHeaders(token)});
-  if(!response.ok) throw new Error('Server status is unavailable.');
-  const status=await response.json();
+  let status;
+  try{status=initial||await requestVisitStatus({headers:apiHeaders(token)});}catch(error){if(visit.owner&&error.status===401)location.replace(`/guest${location.hash}`);throw error;}
   if(version!==connectionVersion) return false;
+  if(visit.owner&&!status.owner){cancelConversation();location.replace(`/guest${location.hash}`);return false;}
   if(token && status.access==='locked') throw new Error('The owner token was not accepted.');
   ownerToken=''; connection=status;
   const configured=status.providers||[];
@@ -370,7 +376,8 @@ async function refreshConnection(token = ownerToken) {
   voice.configureNatural(status.voice==='natural'); $('natural-option').disabled=status.voice!=='natural';
   voice.setEngine(preferredEngine);
   try{voice.setEnabled(disk.getItem('nox.voice.v2')!=='off');}catch{voice.setEnabled(true);}
-  $('owner-form').hidden=status.access!=='locked'; $('lock-owner').hidden=status.access==='locked'||!configured.length;
+  $('owner-form').hidden=visit.owner; $('lock-owner').hidden=!visit.owner;
+  $('owner-status').textContent=visit.owner?'Owner/dev session · saved locally for this browser.':'Owner sign-in opens your saved archive. This temporary guest visit will end.';
   showConnection();showVoice(); return true;
 }
 $('provider-select').addEventListener('change',event=>{
@@ -384,13 +391,9 @@ $('owner-form').addEventListener('submit',async event=>{
   try {
     const response=await fetch('/api/session',{method:'POST',headers:apiHeaders(token)});
     if(!response.ok){const error=await response.json();throw Error(error.error||'Could not unlock AI.');}
-    selectedProvider='';
-    if(await refreshConnection()){
-      if(connection.access!=='open')throw Error('This browser could not keep the AI session. Allow cookies for NOX, then unlock again.');
-      if(brain!=='live')throw Error('Owner access is unlocked, but no AI provider is configured. Add its server key first.');
-      $('owner-status').textContent='AI unlocked for up to 12 hours. Reloading keeps this browser connected.';
-      $('inside-dialog').close();toast('NOX’s AI brain is connected.');
-    }
+    const checked=await requestVisitStatus({forceGuest:false});
+    if(!checked.owner)throw Error('This browser could not keep the owner session. Allow cookies for NOX, then sign in again.');
+    cancelConversation();location.replace(`/app${location.hash||'#conversation'}`);
   }
   catch(error){$('owner-status').textContent=error.message;}
   finally {button.disabled=false;}
@@ -398,10 +401,7 @@ $('owner-form').addEventListener('submit',async event=>{
 $('lock-owner').addEventListener('click',async()=>{
   cancelConversation();ownerToken='';selectedProvider='';
   try{const response=await fetch('/api/session',{method:'DELETE'});if(!response.ok)throw Error('lock');}catch{toast('Could not end the browser session. Try Lock again.');return;}
-  connectionVersion++;connection={access:'locked',providers:[]};voice.configureNatural(false);showConnection();showVoice();
-  $('provider-select').replaceChildren(new Option('AI · unlock to connect',''));$('natural-option').disabled=true;
-  $('owner-form').hidden=false;$('lock-owner').hidden=true;$('owner-status').textContent='Cloud access is locked.';
-  try {await refreshConnection();}catch{toast('Cloud access is locked. Server status is unavailable.');}
+  location.replace(`/guest${location.hash||'#conversation'}`);
 });
 $('unlock-ai').addEventListener('click',()=>{$('inside-dialog').showModal();if(brain==='locked')$('owner-token').focus();});
 function browserVoices(){const voices=globalThis.speechSynthesis?.getVoices().filter(v=>v.lang?.startsWith('en'))||[];const selected=$('browser-speaker').value;$('browser-speaker').replaceChildren(new Option('Automatic',''),...voices.map(v=>new Option(v.name,v.name)));$('browser-speaker').value=selected||savedBrowserVoice;}
@@ -413,5 +413,9 @@ $('browser-speaker').addEventListener('change',e=>{savedBrowserVoice=e.target.va
 $('replay-voice').addEventListener('click',()=>{afterimageBridge.stop('voice-preview');if(!voice.enabled)toast('Turn Voice on to hear this reply.');else voice.speak(spokenPreview(lastPacket.speech),mode,lastPacket.emotion);});
 $('test-voice').addEventListener('click',()=>{afterimageBridge.stop('voice-preview');voice.setEnabled(true);showVoice();voice.speak('Oh, you found me. I was just thinking about something strange. Want to hear it?',mode,mode==='uncanny'?'uncanny':'happy');});
 try{voice.setEnabled(disk.getItem('nox.voice.v2')!=='off');}catch{voice.setEnabled(true);}showVoice();
-try {await refreshConnection();}
+try {await refreshConnection('',initialVisitStatus);if(location.pathname.replace(/\/$/,'')==='/owner'){$('inside-dialog').showModal();if(!visit.owner)$('owner-token').focus();}}
 catch {connection={};showConnection();$('connection-message').textContent='Could not reach the AI server. Reload to retry. Scenes and touch still work.';toast('The AI server could not be reached. No scripted reply was substituted.');}
+if(visit.owner){
+  const checkOwner=async()=>{try{const status=await requestVisitStatus({headers:apiHeaders()});if(!status.owner)location.replace(`/guest${location.hash}`);}catch(error){if(error.status===401)location.replace(`/guest${location.hash}`);}};
+  const ownerCheck=setInterval(checkOwner,60000);window.addEventListener('pagehide',()=>clearInterval(ownerCheck),{once:true});document.addEventListener('visibilitychange',()=>{if(!document.hidden)void checkOwner();});
+}

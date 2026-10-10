@@ -7,8 +7,9 @@ import {createAfterimageStore} from '/js/afterimage-store.js';
 import {buildSelectedPerformance,toMarkdown} from '/js/afterimage-engine.js';
 import {downloadText} from '/js/workbench.js';
 import {FIRST_CONTACT} from './afterimage-example.js';
+import {visit} from '/js/visit-scope.js';
 const Lattice=lazy(()=>import('./afterimage-lattice.jsx'));
-let disk;try{disk=localStorage;}catch{/* The store supports temporary memory. */}
+const disk=visit.storage;
 const store=createAfterimageStore(disk);
 const example=normalizeAfterimage(FIRST_CONTACT);
 const timecode=ms=>`${String(Math.floor(ms/1000/60)).padStart(2,'0')}:${String(Math.floor(ms/1000)%60).padStart(2,'0')}`;
@@ -65,8 +66,8 @@ export default function Afterimage(){
       <textarea id="afterimage-seed" value={seed} onChange={e=>{setSeed(e.target.value);variation.current=0;}} maxLength={600} rows={2} placeholder="An abandoned elevator keeps arriving at my floor…" disabled={disabled}/>
       <div className="receiver-input-note"><span>Only this seed and tone go to your configured model.</span><span>{seed.length}/600</span></div>
       <div className="receiver-tones" role="group" aria-label="Transmission tone">{tones.map(([id,label,hint])=><button key={id} type="button" aria-pressed={tone===id} disabled={disabled} title={hint} onClick={()=>setTone(id)}>{label}</button>)}</div>
-      <div className="receiver-form-actions"><button className="receive-button" type="submit" disabled={!seed.trim()||disabled||!view.connected}>{busy?'Receiving…':'Receive a signal ↗'}</button>{busy?<button type="button" onClick={cancel}>Cancel reception</button>:<button type="button" onClick={useExample} disabled={playing}>First contact · authored example</button>}</div>
-      {view.connection?.kind==='locked'&&<p className="receiver-access">New signals need owner access. <button type="button" onClick={()=>document.getElementById('settings-button')?.click()}>Unlock in Preferences ↗</button> The authored example is ready to play.</p>}
+      <div className="receiver-form-actions"><button className="receive-button" type="submit" disabled={!seed.trim()||disabled||!view.connected||!visit.owner}>{busy?'Receiving…':'Receive a signal ↗'}</button>{busy?<button type="button" onClick={cancel}>Cancel reception</button>:<button type="button" onClick={useExample} disabled={playing}>First contact · authored example</button>}</div>
+      {(!visit.owner||view.connection?.kind==='locked')&&<p className="receiver-access">New signals need owner mode. <button type="button" onClick={()=>document.getElementById('settings-button')?.click()}>Owner sign-in</button> The authored example is ready to play and capture.</p>}
     </form>
     {error&&<p className="receiver-error" role="alert">{error}</p>}<p className="receiver-notice" role="status">{notice||'Creative fiction. These are invented stories, not predictions.'}</p>
     <div className="reception-header"><span className="source-tag">{generated?'MODEL-GENERATED SIGNAL':'AUTHORED FIRST CONTACT'}</span><span>{current?new Date(current.createdAt).toLocaleDateString(undefined,{month:'short',day:'numeric'}):'NO AI REQUEST'}</span></div>
