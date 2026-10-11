@@ -1,0 +1,104 @@
+/*! NOX's existing Liquid Glass control/layout adaptation, reduced to open
+ * columns and dividers. Magic UI action-button source remains in source-buttons.
+ * Upstream notices: /vendor/README.md. No external artwork or new UI library. */
+.workspace{background:var(--bg)}
+.workspace-background{opacity:.06}
+.workspace .sidebar{background:var(--bg);backdrop-filter:none;border-right:1px solid var(--line);width:180px;padding:28px 18px;gap:20px}
+.workspace .sidebar nav a,.workspace .sidebar nav button{border-radius:0;padding:11px 12px;border:0;border-left:1px solid transparent;font-size:12px}
+.workspace .sidebar nav a:hover,.workspace .sidebar nav .selected{background:transparent;border-left-color:var(--accent);color:var(--accent)}
+.workspace .new-chat{border-radius:4px;box-shadow:none;background:var(--surface);font-size:11px}
+.workspace .shell{margin-left:180px;padding:0 4vw;max-width:1800px}
+.workspace .header{min-height:76px;padding:20px 0;background:transparent}
+.workspace .intro{margin:38px 0 32px;gap:24px;align-items:baseline}
+.workspace .intro h1{font-size:clamp(30px,3.6vw,48px);line-height:1.08;font-weight:400;letter-spacing:-.045em;margin:0}
+.workspace .intro-note{font-size:11px;max-width:260px}
+.workspace .visit-banner{margin-bottom:0;padding:12px 0;font-size:9px;border-color:var(--line)}
+.workspace .studio{gap:40px;grid-template-columns:minmax(0,1fr) minmax(340px,1fr)}
+.workspace .studio>aside{border:0;border-left:1px solid var(--line);border-radius:0;background:transparent;box-shadow:none;backdrop-filter:none;min-height:0;padding:0 0 0 36px}
+.workspace .studio>aside h2{font-size:clamp(24px,2.2vw,34px);font-weight:400;letter-spacing:-.04em;margin:16px 0 24px}
+.workspace .stage-bezel{border:0;border-radius:0}
+.workspace .stage-wrap{aspect-ratio:1.12;background:transparent}
+.workspace:not(.film) .stage-wrap>canvas{mask-image:linear-gradient(transparent,#000 7%,#000 93%,transparent),linear-gradient(90deg,transparent,#000 7%,#000 93%,transparent);mask-composite:intersect}
+.workspace.film .stage-wrap{aspect-ratio:9/16}.workspace.film .stage-bottom{bottom:72px}
+.workspace .stage-top{right:12px;top:12px}
+.workspace .room-note{left:14px;top:18px;opacity:.65}
+.workspace .stage-bottom{left:14px;right:14px;bottom:14px}
+.workspace .stage-bottom>span{border-radius:3px;background:#071111a6;padding:5px 7px}
+.workspace .stage-tools{margin:12px 0 20px;gap:8px}
+.workspace .tool-button,.workspace .reset-button{border:0;border-radius:3px;background:transparent;min-height:42px;font-size:10px;padding:8px 10px}
+.workspace .tool-button[aria-pressed=true]{color:var(--accent);background:var(--surface)}
+.workspace .reset-button span{display:inline}
+.workspace .control-glyph{font-size:12px}
+.workspace .experiments{padding-top:10px}
+.workspace .section-heading>span{font-size:9px}
+.workspace .experiment-buttons{display:flex;gap:4px;flex-wrap:wrap;margin:5px 0 18px}
+.workspace .experiment-buttons button{border:0;border-bottom:1px solid transparent;background:transparent;border-radius:0;padding:11px 10px;min-height:44px;display:flex;flex-direction:row;gap:7px;flex:1;justify-content:center}
+.workspace .experiment-buttons button[aria-pressed=true]{border-bottom-color:var(--accent);background:transparent;color:var(--accent)}
+.workspace .program-symbol{font-size:13px}.workspace .program-symbol:empty{display:none}.workspace .program-detail{display:none}
+.workspace .modulation{padding-top:4px}
+.workspace .conversation{height:clamp(150px,22vh,290px);padding-right:8px}
+.workspace .message.user{border-radius:0;background:transparent;border-left:1px solid var(--line);padding:0 0 0 16px}
+.workspace .message>p:not(.speaker){font-size:14px;line-height:1.8}
+.workspace .mode-tabs{gap:18px;margin:13px 0 25px}
+.workspace .mode-tabs button{flex:0 1 auto;padding:9px 0;border-radius:0;background:transparent;border:0;border-bottom:1px solid transparent}
+.workspace .mode-tabs button.active{border-bottom-color:var(--accent);color:var(--accent)}
+.workspace .composer{border:0;border-top:1px solid var(--line);border-bottom:1px solid var(--line);background:transparent;border-radius:0;padding:17px 0 12px}
+.workspace .composer:focus-within{border-color:var(--accent)}
+.workspace .composer textarea{min-height:66px;font-size:13px;resize:vertical}
+.workspace .composer-bottom #send-button{border-radius:4px;height:40px;min-height:40px;min-width:74px;width:auto;background:var(--accent);color:var(--bg);border-color:var(--accent);box-shadow:none}
+.workspace .answer-controls select{border:0;border-bottom:1px solid var(--line);border-radius:0;background:transparent;padding:9px 4px}
+.workspace .suggestions{gap:18px;margin:16px 0}
+.workspace .suggestions button{flex:0 1 auto;background:transparent;border:0;border-radius:0;box-shadow:none;min-height:40px;padding:9px 0;font-size:11px;color:var(--muted)}
+.workspace .suggestions button::before{display:none}
+.workspace .suggestions button:hover{color:var(--accent);background:transparent}
+.workspace .notebook{margin-top:16px;padding-top:15px}
+.workspace[data-visit=guest] .notebook{display:none}
+.workspace .notebook-head button{border:0;background:transparent;padding:8px 0}
+.workspace .demo-note,.workspace .lab-note{font-size:10px;line-height:1.75}
+.workspace .explore-grid{display:flex;flex-direction:column;gap:0}
+.workspace .explore-grid button{border:0;border-bottom:1px solid var(--line);border-radius:0;background:transparent;padding:20px 0;min-height:0;gap:7px}
+.workspace .explore-grid button b{font-size:20px;font-weight:400}
+.workspace .history-open,.workspace .resume-row{border-radius:0;background:transparent;box-shadow:none}
+.workspace :is(.lab-toolbar button,.quiet-button,.outline-button,.cream-button,.receive-button,.save-clip){border-radius:4px;box-shadow:none}
+.workspace :is(.lab-toolbar button,.quiet-button){border-color:transparent;background:transparent}
+.workspace :is(dialog,.lab-dialog){border-radius:10px;box-shadow:0 20px 90px #0006;backdrop-filter:none}
+.workspace .capability-grid{gap:0 28px}.workspace .capability-grid article{background:transparent;border:0;border-top:1px solid var(--line);border-radius:0;padding:22px 0}
+.workspace .studio>.afterimage-column{background:transparent;border-left:1px solid var(--line);padding:0 0 0 36px;border-radius:0}
+.workspace .receiver-form textarea{background:transparent;border:0;border-bottom:1px solid var(--line);border-radius:0;padding:10px 0;min-height:84px}
+.workspace .receiver-tones{gap:18px}.workspace .receiver-tones button{flex:0 1 auto;border:0;border-bottom:1px solid transparent;border-radius:0;padding:10px 0;background:transparent}
+.workspace .receiver-tones button[aria-pressed=true]{border-bottom-color:var(--accent);color:var(--accent)}
+.workspace .signal-choices{gap:20px}.workspace .signal-choices button{border:0;border-bottom:1px solid var(--line);border-radius:0;background:transparent;padding:12px 0;min-height:56px}
+.workspace .signal-choices button[aria-pressed=true]{border-bottom-color:var(--accent);background:transparent}
+.workspace .ending-choices button{border:0;border-bottom:1px solid var(--line);border-radius:0;background:transparent;padding:12px 0}
+.workspace .ending-choices button[aria-pressed=true]{border-bottom-color:var(--accent);background:transparent}
+.workspace .cue-tape{border:0;border-top:1px solid var(--line);border-radius:0}
+.workspace .cue-tape li{padding:18px 0;background:transparent;border-bottom-color:var(--line)}
+.workspace .cue-tape li.cue-active{border-left:0;padding-left:0;background:transparent}.workspace .cue-active>span{color:var(--accent)}
+.workspace .cue-active p{color:var(--text)}
+.workspace .afterimage-lattice{background:transparent;border:0;border-radius:0}
+.workspace .afterimage-lattice .react-flow{background:transparent}
+.workspace .reception-node{background:var(--bg);border-radius:4px;border-width:0 0 1px;padding:12px 0;box-shadow:none}
+.workspace .reception-node.is-active{background:var(--surface);box-shadow:none;padding-inline:8px}
+.workspace .performance-actions button,.workspace .receiver-export button{border-radius:4px}
+.workspace .cut-editor{border:0;border-top:1px solid var(--line);border-bottom:1px solid var(--line);border-radius:0;background:transparent;padding:18px 0}
+.workspace .cut-editor textarea{background:transparent;border-radius:4px}
+.workspace footer{padding-top:35px;font-size:8px}
+@media(max-width:1200px){body.workspace[data-view=afterimage] .studio{grid-template-columns:1fr}.workspace .studio>.afterimage-column{border-left:0;border-top:1px solid var(--line);padding:30px 0 0}}
+@media(max-width:1000px){.workspace .studio{grid-template-columns:1fr;gap:28px}.workspace .studio>aside{border-left:0;border-top:1px solid var(--line);padding:28px 0 0}.workspace .stage-wrap{aspect-ratio:1.5}}
+@media(min-width:1001px){.workspace .stage-column{position:sticky;top:24px}}
+@media(max-width:700px){
+ .workspace .sidebar{position:relative;inset:auto;width:100%;padding:18px 6vw;gap:12px;border-right:0;border-bottom:1px solid var(--line)}
+ .workspace .sidebar nav{flex-direction:row;flex-wrap:wrap;gap:4px}.workspace .sidebar nav a,.workspace .sidebar nav button{font-size:10px;min-height:38px;padding:10px 7px;border-left:0;border-bottom:1px solid transparent}.workspace .sidebar nav .selected{border-bottom-color:var(--accent)}
+ .workspace .sidebar .new-chat{position:absolute;right:6vw;top:15px;width:auto;padding:9px 12px;min-height:36px}
+ .workspace .sidebar .brand{padding:0;min-height:36px}
+ .workspace .sidebar :is(.rail-label,.recent-chats,.rail-bottom){display:none}
+ .workspace .shell{margin-left:0;padding:0 6vw}.workspace .header{min-height:64px;gap:8px;flex-wrap:wrap;padding:12px 0}.workspace .header-right{flex-wrap:wrap;gap:8px;justify-content:flex-start}
+ .workspace .header>.eyebrow{display:none}.workspace .intro{margin:26px 0;display:block}.workspace .intro h1{font-size:34px}.workspace .intro-note{margin-top:12px}
+ .workspace .visit-banner{font-size:9px;gap:6px}.workspace .visit-banner>div{gap:15px}
+ .workspace .stage-wrap{aspect-ratio:1.2}.workspace .stage-tools{gap:4px}.workspace .media-tools{gap:0;flex-wrap:wrap}.workspace .reset-button span{display:none}
+ .workspace .experiment-buttons{gap:2px}.workspace .experiment-buttons button{font-size:9px;padding:10px 6px;flex:1 1 auto}.workspace .program-symbol{display:none}
+ .workspace .section-heading>span{font-size:8px}.workspace .signal-choices{display:flex;flex-direction:column;gap:0}.workspace .ending-choices{gap:20px}
+ .workspace .receiver-tones{gap:24px}.workspace .performance-actions{display:flex;gap:8px}.workspace .performance-actions button{flex:1;min-height:44px}
+ .workspace .answer-controls{gap:9px}.workspace .answer-controls>label{max-width:none;font-size:9px}.workspace .answer-controls select{max-width:none;font-size:10px}
+ .workspace .conversation{height:330px}.workspace .modulation{gap:12px}.workspace footer{font-size:8px;gap:12px;flex-wrap:wrap}
+}
