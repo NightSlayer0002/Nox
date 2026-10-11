@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {createLogoGesture,createLogoReadiness,emblemFeatures} from '../public/js/logo-interaction.js';
+import {createLogoGesture,createLogoReadiness,emblemFeatures,releaseLogoInteraction} from '../public/js/logo-interaction.js';
 
 test('emblem drag stays bounded and a second pointer cannot steal it',()=>{
   const gesture=createLogoGesture();assert.equal(gesture.begin(1,100,100),true);assert.equal(gesture.begin(2,100,100),false);
@@ -32,6 +32,12 @@ test('invalid coordinates cannot corrupt the emblem and reset releases a held dr
   const gesture=createLogoGesture();assert.equal(gesture.begin(1,NaN,100),false);gesture.begin(1,0,0);
   assert.equal(gesture.move(1,Infinity,0),false);assert.deepEqual(gesture.angles,{x:0,y:0});gesture.move(1,80,40);gesture.reset();
   assert.equal(gesture.active,false);assert.deepEqual(gesture.angles,{x:0,y:0});assert.equal(gesture.begin(2,0,0),true);
+});
+test('context fallback releases captured ownership even if the removed target cannot release capture',()=>{
+  const gesture=createLogoGesture();gesture.begin(1,0,0);gesture.move(1,100,40);let centered=0;
+  releaseLogoInteraction(gesture,{hasPointerCapture:()=>true,releasePointerCapture:()=>{throw Error('Detached target');}},1,()=>centered++);
+  assert.equal(gesture.active,false);assert.deepEqual(gesture.angles,{x:0,y:0});assert.equal(centered,1);
+  assert.equal(gesture.begin(2,20,20),true);gesture.end(2);assert.equal(gesture.turn(.1),true);
 });
 test('keyboard turns use the same bounds without interrupting an active pointer',()=>{
   const gesture=createLogoGesture();for(let i=0;i<20;i++)gesture.turn(.15);assert.equal(gesture.angles.y,.9);

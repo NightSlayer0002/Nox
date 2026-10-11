@@ -37,3 +37,10 @@ backdrop pattern in `/source-buttons.css`. The repository was cloned at
 and links, a mint/charcoal gradient, a masked border, and hover/focus animation.
 Its copyright and permission notice ship in `magicui/LICENSE`. Source notices
 belong with the shipped code; the homepage does not need a promotional link wall.
+
+October 11's sculpture/workspace refinement keeps those same assets and notices.
+The existing icon extrusion gains physical lighting and gesture/blink integration;
+the Liquid Glass layouts are reduced to open columns and dividers. Terafab is a
+composition reference only: no images, branding, copy or proprietary source from
+it ship in NOX. See `docs/SCULPTURE-AND-RESPONSIVENESS.md` for the rendering clocks,
+gesture ownership and adaptation boundaries.

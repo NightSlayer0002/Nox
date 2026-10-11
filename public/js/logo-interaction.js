@@ -4,6 +4,10 @@ export function emblemFeatures(now,pokeAt=-100){
   const phase=now%6,blink=phase<.14?Math.sin(phase/.14*Math.PI):0;
   return {eyes:Math.max(.06,1-Math.max(blink*.94,greeting*.7)),smile:1+greeting*.18};
 }
+export function releaseLogoInteraction(gesture,target,pointerID,onCenter){
+  try{if(Number.isFinite(pointerID)&&target?.hasPointerCapture?.(pointerID))target.releasePointerCapture(pointerID);}catch{/* The target may already be detached after context loss. */}
+  finally{gesture.reset();onCenter?.();}
+}
 // Bounded rotation for the R3F demo adaptation. Spring owns the interpolation;
 // this controller only computes finite targets and exclusive pointer ownership.
 export function createLogoGesture(){

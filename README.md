@@ -58,3 +58,10 @@ npm.cmd run build
 ```
 
 Vercel runs `npm run verify` before publishing, so a failed test or syntax check stops that deployment. The build emits `.vercel/output` using Vercel's Build Output API. The output and local secrets are ignored by Git. Once the repository is imported, pushing a validated commit to the production branch triggers Vercel's deployment. Saving a local file alone does not update the public site.
+# Latest interface refinement
+
+The homepage's liquid 3D face is now the focal point, with direct cursor response,
+bounded dragging, tap reactions and keyboard access. The workspace uses open
+columns and compact scene controls. See
+[Sculpture and responsiveness](docs/SCULPTURE-AND-RESPONSIVENESS.md) for the source
+assets, render budgets, interaction ownership and verification details.

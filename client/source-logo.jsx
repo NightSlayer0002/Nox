@@ -7,7 +7,7 @@ import {useSpring} from '@react-spring/web';
 import * as THREE from 'three';
 import {SVGLoader} from 'three/addons/loaders/SVGLoader.js';
 import {SourceBoundary} from './source-boundary.jsx';
-import {createLogoReadiness,createLogoGesture,emblemFeatures} from '/js/logo-interaction.js';
+import {createLogoReadiness,createLogoGesture,emblemFeatures,releaseLogoInteraction} from '/js/logo-interaction.js';
 import {emblemPointer} from '/js/home-choreography.js';
 import {createFrameBudget,createLiquidLogoRenderer} from '/js/source-effects.js';
 
@@ -75,7 +75,7 @@ function LogoModel({pose,matter,pointer,rotation,spring,onStatus,gesture,target}
 export default function SourceLogo({pose,matter,onPoke}){
   const pointer=useRef(null),gesture=useRef(createLogoGesture()),target=useRef(),start=useRef();
   const [status,setStatus]=useState('loading'),[{x,y},spring]=useSpring(()=>({x:0,y:0,config:{mass:.55,tension:500,friction:32}}));
-  const changeStatus=useCallback(value=>setStatus(value),[]);
+  const changeStatus=useCallback(value=>{if(value==='fallback'||value==='loading')releaseLogoInteraction(gesture.current,target.current,start.current?.id,()=>spring.start({x:0,y:0}));setStatus(value);},[spring]);
   useEffect(()=>{const move=event=>{if(event.pointerType!=='touch')pointer.current={x:event.clientX/innerWidth,y:event.clientY/innerHeight};},blur=()=>{pointer.current=null;gesture.current.reset();spring.start({x:0,y:0});};document.addEventListener('pointermove',move,{passive:true});window.addEventListener('blur',blur);return()=>{document.removeEventListener('pointermove',move);window.removeEventListener('blur',blur);};},[spring]);
   const release=e=>{if(!gesture.current.end(e.pointerId))return;if(e.type==='pointerup'&&Math.hypot(e.clientX-start.current.x,e.clientY-start.current.y)<6)onPoke?.();gesture.current.reset();};
   return <div className="source-logo" data-state={status}>
@@ -84,6 +84,6 @@ export default function SourceLogo({pose,matter,onPoke}){
       <SourceBoundary fallback={fallback}><Canvas dpr={1} gl={{alpha:true,antialias:true,powerPreference:'low-power'}} camera={{position:[0,0,7],fov:34}} fallback={fallback} style={{pointerEvents:'none'}}><hemisphereLight args={['#e1f4ee','#233a3c',2]}/><directionalLight position={[3,5,7]} intensity={4}/><directionalLight position={[-4,1,3]} color="#81c5b5" intensity={2}/><LogoModel pose={pose} matter={matter} pointer={pointer} rotation={{x,y}} spring={spring} onStatus={changeStatus} gesture={gesture} target={target}/></Canvas></SourceBoundary>
     </div>
     {status==='fallback'&&<div className="logo-fallback">{fallback}</div>}
-    {['solid','metal'].includes(status)&&<button ref={target} className="logo-touch-target" aria-label="Greet and turn NOX. Drag to turn, Left or Right to look, Enter to greet." onPointerDown={e=>{if(e.button!==0||!gesture.current.begin(e.pointerId,e.clientX,e.clientY))return;start.current={x:e.clientX,y:e.clientY};e.currentTarget.setPointerCapture(e.pointerId);}} onPointerMove={e=>gesture.current.move(e.pointerId,e.clientX,e.clientY)} onPointerUp={release} onPointerCancel={release} onLostPointerCapture={release} onKeyDown={e=>{if(['ArrowLeft','ArrowRight','Escape'].includes(e.key)){e.preventDefault();if(e.key==='Escape')gesture.current.reset();else {gesture.current.turn(e.key==='ArrowLeft'?-.1:.1);spring.start(gesture.current.angles);}}}} onClick={e=>{if(e.detail===0)onPoke?.();}}/>}
+    {['solid','metal'].includes(status)&&<button ref={target} className="logo-touch-target" aria-label="Greet and turn NOX. Drag to turn, Left or Right to look, Enter to greet." onPointerDown={e=>{if(e.button!==0||!gesture.current.begin(e.pointerId,e.clientX,e.clientY))return;start.current={id:e.pointerId,x:e.clientX,y:e.clientY};e.currentTarget.setPointerCapture(e.pointerId);}} onPointerMove={e=>gesture.current.move(e.pointerId,e.clientX,e.clientY)} onPointerUp={release} onPointerCancel={release} onLostPointerCapture={release} onKeyDown={e=>{if(['ArrowLeft','ArrowRight','Escape'].includes(e.key)){e.preventDefault();if(e.key==='Escape')gesture.current.reset();else {gesture.current.turn(e.key==='ArrowLeft'?-.1:.1);spring.start(gesture.current.angles);}}}} onClick={e=>{if(e.detail===0)onPoke?.();}}/>}
   </div>;
 }

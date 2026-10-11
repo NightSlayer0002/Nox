@@ -88,7 +88,7 @@
 @media(min-width:1001px){.workspace .stage-column{position:sticky;top:24px}}
 @media(max-width:700px){
  .workspace .sidebar{position:relative;inset:auto;width:100%;padding:18px 6vw;gap:12px;border-right:0;border-bottom:1px solid var(--line)}
- .workspace .sidebar nav{flex-direction:row;flex-wrap:wrap;gap:4px}.workspace .sidebar nav a,.workspace .sidebar nav button{font-size:10px;min-height:38px;padding:10px 7px;border-left:0;border-bottom:1px solid transparent}.workspace .sidebar nav .selected{border-bottom-color:var(--accent)}
+ .workspace .sidebar nav{flex-direction:row;flex-wrap:nowrap;gap:4px;overflow-x:auto;scrollbar-width:none;max-width:100%}.workspace .sidebar nav a,.workspace .sidebar nav button{flex:none;white-space:nowrap;font-size:11px;min-height:40px;padding:10px 7px;border-left:0;border-bottom:1px solid transparent}.workspace .sidebar nav .selected{border-bottom-color:var(--accent)}
  .workspace .sidebar .new-chat{position:absolute;right:6vw;top:15px;width:auto;padding:9px 12px;min-height:36px}
  .workspace .sidebar .brand{padding:0;min-height:36px}
  .workspace .sidebar :is(.rail-label,.recent-chats,.rail-bottom){display:none}
