@@ -1,4 +1,9 @@
 const clamp=(value,min,max)=>Math.max(min,Math.min(max,value));
+export function emblemFeatures(now,pokeAt=-100){
+  const age=now-pokeAt,greeting=age>=0&&age<.7?Math.sin(age/.7*Math.PI):0;
+  const phase=now%6,blink=phase<.14?Math.sin(phase/.14*Math.PI):0;
+  return {eyes:Math.max(.06,1-Math.max(blink*.94,greeting*.7)),smile:1+greeting*.18};
+}
 // Bounded rotation for the R3F demo adaptation. Spring owns the interpolation;
 // this controller only computes finite targets and exclusive pointer ownership.
 export function createLogoGesture(){

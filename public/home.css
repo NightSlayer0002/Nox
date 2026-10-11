@@ -139,3 +139,39 @@ body.landing {overflow-x:clip;-webkit-font-smoothing:antialiased}
 .mascot-room>span{display:none}
 @media(min-width:701px){.contact-chapter .chapter-margin{bottom:145px}.scene-map a:focus-visible .scene-label{max-width:0;padding:0;border:0;opacity:0}}
 @media(max-width:700px){.contact-hud .scroll-cue{display:none}.contact-hud .hud-presence{max-width:calc(100% - 130px)}}
+/*! Editorial chapter layout adapted from the existing Codrops source.
+ * Terafab is a composition reference, not a source of copied media or code. */
+.contact-page{background:transparent}
+body.landing{background:#050909}
+.contact-water{opacity:.18}.contact-water::after{background:#05090955}
+.contact-nav{padding:28px 5vw}.contact-nav .brand{font-weight:500}
+.contact-coordinate{opacity:.55}
+.contact-chapter{min-height:105svh;padding:130px 8vw 180px}
+.contact-copy{z-index:3;max-width:580px}
+.contact-copy h1{font-size:clamp(52px,5.9vw,102px);font-weight:400;letter-spacing:-.055em;line-height:1.03;margin:30px 0}
+.contact-copy h2{font-weight:400;font-size:clamp(48px,5.4vw,86px);line-height:1.07;letter-spacing:-.05em}
+.contact-description{font-size:clamp(14px,1.15vw,18px);line-height:1.7;max-width:450px}
+.contact-emblem{z-index:0}
+.logo-touch-target{position:absolute;top:0;left:0;padding:0;border:0;background:transparent;border-radius:50%;pointer-events:auto;cursor:grab;touch-action:pan-y;opacity:1}
+.logo-touch-target:hover,.logo-touch-target:active{background:transparent;border:0;box-shadow:none}
+.logo-touch-target:active{cursor:grabbing}.logo-touch-target:focus-visible{outline:1px solid var(--accent);outline-offset:-25px}
+.hero-actions{display:flex;align-items:center;gap:28px;flex-wrap:wrap}
+.hero-actions .wander-link{margin:0;font-size:12px}
+.hero-instruction{font-size:10px;color:var(--muted);margin:28px 0 0;opacity:.7}
+.contact-copy .liquid-button,.contact-actions button,.contact-actions .nav-enter{border-radius:4px;min-height:46px;box-shadow:none}
+.hero-visual{z-index:4;bottom:85px}.mascot-room{width:145px;height:150px;bottom:0;right:0}
+.scene-map{left:22px}.scene-number{font-size:8px}
+.contact-details{border-top:1px solid var(--line);margin:0 8vw 80px;padding:65px 0}
+.source-footer{margin:0 8vw}
+@media(max-width:700px){
+ .contact-nav{padding:22px 6vw;gap:12px}.contact-nav .nav-enter{border-radius:4px}
+ .contact-chapter{padding:115px 7vw 170px;min-height:110svh}
+ #home.contact-chapter{min-height:105svh;padding-top:115px;padding-bottom:120px}
+ .contact-copy h1{font-size:clamp(43px,11.4vw,68px);margin:25px 0;line-height:1.06}
+ .contact-copy h2{font-size:clamp(42px,10.8vw,64px)}
+ .hero-actions{gap:20px}.hero-actions .wander-link{font-size:10px}
+ .hero-instruction{font-size:9px;margin-top:22px}.hero-visual{height:255px!important;margin-top:0!important}
+ .mascot-room{width:112px!important;height:130px!important;right:0;bottom:-30px!important}
+ .contact-emblem .logo-touch-target{touch-action:pan-y}
+ .scene-map{left:7vw}.contact-details{margin:0 7vw 60px;padding:50px 0}
+}

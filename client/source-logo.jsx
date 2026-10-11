@@ -7,18 +7,18 @@ import {useSpring} from '@react-spring/web';
 import * as THREE from 'three';
 import {SVGLoader} from 'three/addons/loaders/SVGLoader.js';
 import {SourceBoundary} from './source-boundary.jsx';
-import {createLogoReadiness} from '/js/logo-interaction.js';
+import {createLogoReadiness,createLogoGesture,emblemFeatures} from '/js/logo-interaction.js';
 import {emblemPointer} from '/js/home-choreography.js';
 import {createFrameBudget,createLiquidLogoRenderer} from '/js/source-effects.js';
 
 const fallback=<div className="logo-static"><img src="/icon.svg" alt=""/></div>;
 
-function LogoModel({pose,matter,pointer,rotation,spring,onStatus}){
+function LogoModel({pose,matter,pointer,rotation,spring,onStatus,gesture,target}){
   const outer=useRef(),inner=useRef(),meshes=useRef([]),resources=useRef({}),readiness=useRef(),due=useRef(createFrameBudget(60)),textureDue=useRef(createFrameBudget(24)),lastPointer=useRef({x:0,y:0}),pressureState=useRef(0),frames=useRef(0);
   const {gl,viewport,setFrameloop,invalidate}=useThree(),[parts,setParts]=useState([]);
   const wave=useMemo(()=>({time:{value:0},pressure:{value:0}}),[]);
-  const front=useMemo(()=>new THREE.MeshBasicMaterial({color:'#c1ceca',toneMapped:false,transparent:true}),[]);
-  const side=useMemo(()=>new THREE.MeshStandardMaterial({color:'#397d78',metalness:.65,roughness:.24,transparent:true}),[]);
+  const front=useMemo(()=>new THREE.MeshPhysicalMaterial({color:'#b5cfca',metalness:.72,roughness:.24,clearcoat:1,clearcoatRoughness:.16,transparent:true}),[]);
+  const side=useMemo(()=>new THREE.MeshStandardMaterial({color:'#356961',metalness:.75,roughness:.2,transparent:true}),[]);
   useEffect(()=>{
     // Original R3F ShaderMaterial demo wave, applied to existing icon geometry.
     for(const material of [front,side]){material.onBeforeCompile=shader=>{shader.uniforms.noxTime=wave.time;shader.uniforms.noxPressure=wave.pressure;shader.vertexShader='uniform float noxTime;\nuniform float noxPressure;\n'+shader.vertexShader.replace('#include <begin_vertex>','#include <begin_vertex>\ntransformed.z += sin((position.x / 8.0 + noxTime) * 4.0) * noxPressure * 0.8;');};material.customProgramCacheKey=()=> 'nox-emblem-source-wave-v1';}
@@ -35,7 +35,7 @@ function LogoModel({pose,matter,pointer,rotation,spring,onStatus}){
       const eyes=svg.paths.filter(path=>path.userData.style.fill==='#eee8cc');
       for(const path of eyes){for(const shape of path.toShapes()){
         const geometry=new THREE.ExtrudeGeometry(shape,{depth:4,steps:1,bevelEnabled:true,bevelThickness:.8,bevelSize:.7,bevelSegments:3,curveSegments:20});
-        geometry.computeBoundingBox();const {min,max}=geometry.boundingBox;
+        geometry.computeBoundingBox();const {min,max}=geometry.boundingBox;geometry.userData.centerY=(min.y+max.y)/2;
         const uv=geometry.attributes.uv;for(let i=0;i<uv.count;i++)uv.setXY(i,(uv.getX(i)-min.x)/(max.x-min.x),(uv.getY(i)-min.y)/(max.y-min.y));
         owned.push(geometry);
       }}
@@ -58,11 +58,13 @@ function LogoModel({pose,matter,pointer,rotation,spring,onStatus}){
   useFrame(({gl,scene,camera})=>{
     const now=performance.now();if(!due.current(now)||!parts.length)return;
     pressureState.current+=(matter.hold-pressureState.current)*.28;
-    const pressure=pressureState.current,attention=emblemPointer(pointer.current,pose);
+    const pressure=pressureState.current,turn=gesture.current.angles,attention=gesture.current.active||turn.y!==0?turn:emblemPointer(pointer.current,pose);
     if(Math.abs(attention.x-lastPointer.current.x)+Math.abs(attention.y-lastPointer.current.y)>.002){lastPointer.current=attention;spring.start(attention);}
     outer.current.rotation.set(pose.x,pose.y,pose.z);outer.current.position.set((pose.screenX-.5)*viewport.width,(.5-pose.screenY)*viewport.height,0);outer.current.scale.setScalar(pose.size*viewport.width/3.2);
     inner.current.rotation.set(rotation.x.get(),rotation.y.get(),0);inner.current.scale.set(1+pressure*.12,1-pressure*.12,1+pressure*.2);
-    for(let i=0;i<meshes.current.length;i++){const mesh=meshes.current[i];if(mesh){mesh.position.x=i<2?(i===0?-1:1)*(pose.spread*3+pressure*4):0;mesh.position.y=i===2?pose.spread*2+pressure*3:0;}}
+    const face=emblemFeatures(now/1000,(matter.pokeAt??-100000)/1000);
+    for(let i=0;i<meshes.current.length;i++){const mesh=meshes.current[i];if(mesh){mesh.position.x=i<2?(i===0?-1:1)*(pose.spread*3+pressure*4):0;mesh.scale.y=i<2?face.eyes:face.smile;mesh.position.y=i<2?(1-face.eyes)*mesh.geometry.userData.centerY:pose.spread*2+pressure*3;}}
+    if(target.current){const width=gl.domElement.clientWidth,height=gl.domElement.clientHeight,size=pose.size*width*1.35;target.current.style.width=`${size}px`;target.current.style.height=`${size}px`;target.current.style.transform=`translate(${pose.screenX*width-size/2}px,${pose.screenY*height-size/2}px)`;target.current.hidden=pose.opacity<.3;}
     front.opacity=side.opacity=pose.opacity;wave.time.value=now/4000;wave.pressure.value=pressure+(matter.metal ? .25 : 0);
     const active=resources.current;if(active.renderer&&textureDue.current(now)){const available=active.renderer.render(active.mask,(now-active.started)/1000,{pressure});if(available){active.texture.needsUpdate=true;}else if(front.map){front.map=null;front.needsUpdate=true;readiness.current?.setPhase('solid');}}
     gl.render(scene,camera);gl.domElement.dataset.source='r3f-liquid-logo';gl.domElement.dataset.geometry='nox-icon-extrusion';gl.domElement.dataset.screenX=pose.screenX.toFixed(3);gl.domElement.dataset.screenY=pose.screenY.toFixed(3);gl.domElement.dataset.tiltY=inner.current.rotation.y.toFixed(3);gl.domElement.dataset.scrollY=outer.current.rotation.y.toFixed(3);gl.domElement.dataset.pressure=pressure.toFixed(3);gl.domElement.dataset.frame=String(++frames.current);
@@ -70,16 +72,18 @@ function LogoModel({pose,matter,pointer,rotation,spring,onStatus}){
   return <group ref={outer}><group ref={inner}><group scale={[.08,-.08,.08]} position={[-2.56,2.65,0]} dispose={null}>{parts.map((geometry,index)=><mesh ref={mesh=>{meshes.current[index]=mesh;}} key={index} geometry={geometry} material={index<2?[front,side]:front}/>)}</group></group></group>;
 }
 
-export default function SourceLogo({pose,matter}){
-  const pointer=useRef(null);
+export default function SourceLogo({pose,matter,onPoke}){
+  const pointer=useRef(null),gesture=useRef(createLogoGesture()),target=useRef(),start=useRef();
   const [status,setStatus]=useState('loading'),[{x,y},spring]=useSpring(()=>({x:0,y:0,config:{mass:.55,tension:500,friction:32}}));
   const changeStatus=useCallback(value=>setStatus(value),[]);
-  useEffect(()=>{const move=event=>{if(event.pointerType!=='touch')pointer.current={x:event.clientX/innerWidth,y:event.clientY/innerHeight};},blur=()=>{pointer.current=null;spring.start({x:0,y:0});};document.addEventListener('pointermove',move,{passive:true});window.addEventListener('blur',blur);return()=>{document.removeEventListener('pointermove',move);window.removeEventListener('blur',blur);};},[spring]);
+  useEffect(()=>{const move=event=>{if(event.pointerType!=='touch')pointer.current={x:event.clientX/innerWidth,y:event.clientY/innerHeight};},blur=()=>{pointer.current=null;gesture.current.reset();spring.start({x:0,y:0});};document.addEventListener('pointermove',move,{passive:true});window.addEventListener('blur',blur);return()=>{document.removeEventListener('pointermove',move);window.removeEventListener('blur',blur);};},[spring]);
+  const release=e=>{if(!gesture.current.end(e.pointerId))return;if(e.type==='pointerup'&&Math.hypot(e.clientX-start.current.x,e.clientY-start.current.y)<6)onPoke?.();gesture.current.reset();};
   return <div className="source-logo" data-state={status}>
     <div className="logo-canvas" aria-hidden="true">
       <div className="logo-loading" hidden={status!=='loading'}>{fallback}</div>
-      <SourceBoundary fallback={fallback}><Canvas dpr={1} gl={{alpha:true,antialias:true,powerPreference:'low-power'}} camera={{position:[0,0,7],fov:34}} fallback={fallback} style={{pointerEvents:'none'}}><ambientLight intensity={.5*Math.PI}/><spotLight decay={0} position={[10,10,10]} angle={.3} penumbra={1}/><pointLight decay={0} position={[-10,-10,-10]}/><LogoModel pose={pose} matter={matter} pointer={pointer} rotation={{x,y}} spring={spring} onStatus={changeStatus}/></Canvas></SourceBoundary>
+      <SourceBoundary fallback={fallback}><Canvas dpr={1} gl={{alpha:true,antialias:true,powerPreference:'low-power'}} camera={{position:[0,0,7],fov:34}} fallback={fallback} style={{pointerEvents:'none'}}><hemisphereLight args={['#e1f4ee','#233a3c',2]}/><directionalLight position={[3,5,7]} intensity={4}/><directionalLight position={[-4,1,3]} color="#81c5b5" intensity={2}/><LogoModel pose={pose} matter={matter} pointer={pointer} rotation={{x,y}} spring={spring} onStatus={changeStatus} gesture={gesture} target={target}/></Canvas></SourceBoundary>
     </div>
     {status==='fallback'&&<div className="logo-fallback">{fallback}</div>}
+    {['solid','metal'].includes(status)&&<button ref={target} className="logo-touch-target" aria-label="Greet and turn NOX. Drag to turn, Left or Right to look, Enter to greet." onPointerDown={e=>{if(e.button!==0||!gesture.current.begin(e.pointerId,e.clientX,e.clientY))return;start.current={x:e.clientX,y:e.clientY};e.currentTarget.setPointerCapture(e.pointerId);}} onPointerMove={e=>gesture.current.move(e.pointerId,e.clientX,e.clientY)} onPointerUp={release} onPointerCancel={release} onLostPointerCapture={release} onKeyDown={e=>{if(['ArrowLeft','ArrowRight','Escape'].includes(e.key)){e.preventDefault();if(e.key==='Escape')gesture.current.reset();else {gesture.current.turn(e.key==='ArrowLeft'?-.1:.1);spring.start(gesture.current.angles);}}}} onClick={e=>{if(e.detail===0)onPoke?.();}}/>}
   </div>;
 }

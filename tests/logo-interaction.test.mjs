@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {createLogoGesture,createLogoReadiness} from '../public/js/logo-interaction.js';
+import {createLogoGesture,createLogoReadiness,emblemFeatures} from '../public/js/logo-interaction.js';
 
 test('emblem drag stays bounded and a second pointer cannot steal it',()=>{
   const gesture=createLogoGesture();assert.equal(gesture.begin(1,100,100),true);assert.equal(gesture.begin(2,100,100),false);
@@ -8,6 +8,13 @@ test('emblem drag stays bounded and a second pointer cannot steal it',()=>{
   gesture.move(1,10000,-10000);assert.equal(gesture.angles.x,-.45);assert.equal(gesture.angles.y,.9);
   assert.equal(gesture.end(2),false);assert.equal(gesture.active,true);assert.equal(gesture.end(1),true);
   assert.equal(gesture.move(1,0,0),false);
+});
+test('the hero face blinks and a greeting squeezes its eyes, then restores its proportions',()=>{
+  const idle=emblemFeatures(1),greeting=emblemFeatures(1.3,1),settled=emblemFeatures(2,1);
+  assert.equal(idle.eyes,1);assert.ok(greeting.eyes<.45);assert.ok(greeting.smile>1);
+  assert.equal(settled.eyes,1);assert.equal(settled.smile,1);
+  assert.ok(emblemFeatures(6.06).eyes<.3);
+  for(let t=0;t<30;t+=.013){const face=emblemFeatures(t,10);assert.ok(face.eyes>=.06&&face.eyes<=1);assert.ok(Number.isFinite(face.smile));}
 });
 
 test('async icon and metal readiness cannot remove the fallback during primary context loss',()=>{
