@@ -1,0 +1,33 @@
+/*! Native NOX adaptation of Vercel AI Elements PromptInput/InputGroup.
+ * Block-end footer, ghost tools, transparent textarea and compact submit.
+ * Original Apache-2.0 source and notices: /vendor/ai-elements.
+ * Icons are unmodified Lucide SVGs (ISC): /vendor/lucide. */
+.source-icon{display:inline-block;flex:none;width:18px;height:18px;background:currentColor;mask:var(--source-icon) center/contain no-repeat}
+.icon-mic{--source-icon:url('/vendor/lucide/mic.svg')}.icon-voice{--source-icon:url('/vendor/lucide/audio-lines.svg')}.icon-send{--source-icon:url('/vendor/lucide/send.svg')}.icon-stop{--source-icon:url('/vendor/lucide/square.svg')}.icon-notes{--source-icon:url('/vendor/lucide/notebook-pen.svg')}.icon-orbit{--source-icon:url('/vendor/lucide/orbit.svg')}
+.workspace .composer.composer-source{container-type:inline-size;position:relative;display:block;min-width:0;width:100%;margin-top:16px;border:1px solid var(--line);border-radius:18px;background:var(--surface);padding:16px;box-shadow:0 2px 5px #0001;transition:border-color .16s,box-shadow .16s}
+.workspace .composer.composer-source:focus-within{border-color:var(--accent);box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 12%,transparent)}
+.workspace .composer-source textarea{display:block;width:100%;min-height:80px;max-height:180px;field-sizing:content;resize:none;padding:0 3px 12px;border:0;border-radius:0;background:transparent;box-shadow:none;font-size:15px;line-height:1.65;outline:none}
+.workspace .composer-source textarea::placeholder{color:var(--muted)}
+.composer-footer{display:flex;align-items:center;justify-content:space-between;gap:6px;min-width:0;min-height:38px}
+.composer-tools,.composer-actions{display:flex;align-items:center;gap:3px;min-width:0;flex:none}
+.workspace .composer-source button{display:inline-flex;align-items:center;justify-content:center;flex:none;width:36px;height:36px;min-height:36px;padding:0;border:0;border-radius:9px;color:var(--muted);background:transparent;box-shadow:none;transition:background .14s,color .14s,transform .12s}
+.workspace .composer-source button::before,.workspace .composer-source button::after{display:none}
+.workspace .composer-source button:hover{background:var(--glass-hover);color:var(--text)}
+.workspace .composer-source button:active{transform:scale(.94)}
+.workspace .composer-source :is(button,select):focus-visible{outline:2px solid var(--accent);outline-offset:3px}
+.workspace .composer-source button:disabled{opacity:.35;cursor:not-allowed;transform:none}
+.workspace .composer-source #send-button,.workspace .composer-source #cancel-reply{background:var(--accent);color:var(--bg);border-radius:10px;width:38px;min-width:38px;height:38px;min-height:38px}
+.workspace .composer-source #send-button:hover,.workspace .composer-source #cancel-reply:hover{background:color-mix(in srgb,var(--accent) 85%,var(--text))}
+.workspace .composer-source #mic-button.listening,.workspace .composer-source #composer-voice[aria-pressed=true]{color:var(--accent)}
+.workspace .composer-source #mic-button.listening{background:color-mix(in srgb,var(--accent) 14%,transparent)}
+.composer-select{position:relative;min-width:0;border-radius:7px;transition:background .14s}
+.composer-select:hover{background:var(--glass-hover)}
+.composer-select::after{position:absolute;right:5px;top:50%;transform:translateY(-50%);content:'';width:13px;height:13px;pointer-events:none;background:var(--muted);mask:url('/vendor/lucide/chevron-down.svg') center/contain no-repeat}
+.workspace .composer-select select{width:100%;height:36px;min-width:0;border:0;border-radius:7px;background:transparent;box-shadow:none;appearance:none;padding:0 23px 0 7px;font-size:11px;color:var(--muted);cursor:pointer;white-space:nowrap;text-overflow:ellipsis}
+.workspace .composer-select select:disabled{opacity:.4;cursor:wait}
+.workspace .composer-select option{background:var(--surface);color:var(--text)}
+.depth-select{width:84px}.model-select{flex:1;max-width:170px;min-width:90px;margin-left:auto}
+.composer-help{font-size:9px;color:var(--muted);margin:9px 0 0;text-align:right}.composer-help span{margin-inline:5px}
+@container (max-width:370px){.composer-footer{flex-wrap:wrap;gap:5px}.model-select{max-width:none;flex:1}.composer-actions{margin-left:auto}}
+@container (max-width:290px){.composer-tools{order:1}.model-select{flex-basis:calc(100% - 5px);order:0;max-width:100%}.composer-actions{order:2}}
+@media(max-width:700px){.workspace .composer.composer-source{padding:14px;border-radius:16px}.workspace .composer-source textarea{font-size:16px}.composer-help{font-size:8px}}

@@ -1,5 +1,16 @@
 # Visual sources
 
+Vercel AI Elements' Apache-2.0 `PromptInput` and shadcn `InputGroup` sources
+supply the compact composer structure: transparent textarea, a block-end footer,
+ghost tool buttons, model selection and a compact submit/stop control. The
+unmodified source files and license ship under `ai-elements`; NOX adapts their
+layout to native HTML and existing controller IDs rather than installing their
+React/shadcn dependency graph. The provided screenshot is a layout reference,
+not copied branding. Native selects and labelled buttons retain keyboard access.
+Lucide supplies the actual unmodified SVG icons, with its ISC notice in `lucide`.
+Both repositories were cloned and pinned in `sources.json`. All shipped assets
+are local: no runtime icon CDN or remote scripts were added.
+
 ARWES's MIT FrameCircle artwork now supplies the Orbit program. Original
 `createFrameCircleSettings.ts` and `filterProps.ts` ship unchanged with the
 license. `scripts/export-orbit-asset.mjs` exports those descriptors to

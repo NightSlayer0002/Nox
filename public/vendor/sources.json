@@ -1,6 +1,18 @@
 {
   "sources": [
     {
+      "repository": "https://github.com/vercel/ai-elements",
+      "commit": "6a9d5b1822ffb10bba4bd97175f01edd7d8651cd",
+      "use": "Native adaptation of PromptInput footer/tools, InputGroup textarea and compact submit controls",
+      "license": "Apache-2.0; ai-elements/LICENSE"
+    },
+    {
+      "repository": "https://github.com/lucide-icons/lucide",
+      "commit": "70562c1ee1c4fdcf736fe97bc893fb8511927934",
+      "use": "Unmodified microphone, voice, send, stop, notes, chevron and orbit SVG icons",
+      "license": "ISC; lucide/LICENSE"
+    },
+    {
       "repository": "https://github.com/arwes/arwes",
       "commit": "bdbaa0324900ee978d42036d1304a053c1fe54b5",
       "use": "Original FrameCircle geometry exported as SVG; transparent mint palette, canvas orbit integration",

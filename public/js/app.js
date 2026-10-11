@@ -10,6 +10,7 @@ import { createHistory } from './history.js';
 import { createNavigation } from './navigation.js';
 import { readChatStream } from './stream.js';
 import { connectionState } from './connection.js';
+import {createProviderControls} from './provider-controls.js';
 import { EXPRESSIONS } from './face-art.js';
 import { knowledge,readDepth,saveDepth } from './workbench.js';
 import { spokenPreview } from './reply.js';
@@ -29,6 +30,7 @@ let mode = history.active().mode;
 let navigation,summaryController,summaryTimer,pendingDraft;
 let brain = 'loading'; let busy = false;
 let ownerToken = '', selectedProvider = '', connectionVersion = 0, connection = {};
+const providerControls=createProviderControls([$('provider-select'),$('composer-provider')],value=>{cancelConversation();selectedProvider=value;showConnection();});
 const apiHeaders = (token = ownerToken) => ({'content-type':'application/json',...(token ? {authorization:`Bearer ${token}`} : visit.owner?{'x-nox-owner':'1'}:{'x-nox-guest':'1','x-nox-visit-id':visit.id})});
 const turns = createTurnGate();
 let lastPacket = { speech: 'Oh. You found me.', emotion: 'curious', action: 'none', memory: '' };
@@ -95,10 +97,12 @@ const microphone = createMicrophone({
   onText: text => { $('message').value = text; send(text); },
   onState: active => {
     $('mic-button').classList.toggle('listening', active); $('mic-button').querySelector('span').textContent = active ? 'Listening…' : 'Talk';
+    $('mic-button').setAttribute('aria-pressed',active);$('mic-button').setAttribute('aria-label',active?'Stop dictation':'Dictate a message');$('mic-button').title=active?'Stop dictation':'Dictate a message';
     stage.character.activity = busy ? 'thinking' : active ? 'listening' : 'idle';
   },
   onError: toast,
 });
+if(!microphone.supported){$('mic-button').disabled=true;$('mic-button').title='Dictation is unavailable in this browser. Type a message instead.';}
 
 afterimageBridge.connect({
   async receive({seed,tone,variation,signal}) {
@@ -158,7 +162,7 @@ async function perform(value, save = true, draft, version, depth='quick',remembe
 }
 
 function setBusy(value) {
-  busy = value; $('send-button').disabled = value; $('chat-form').setAttribute('aria-busy', value);
+  busy = value; $('send-button').disabled = value||!$('message').value.trim();$('send-button').hidden=value; $('chat-form').setAttribute('aria-busy', value);
   $('cancel-reply').hidden=!value;$('reply-depth').disabled=value;
   stage.character.activity = value ? 'thinking' : 'idle';
 }
@@ -243,9 +247,9 @@ function depthNote(){const depth=$('reply-depth').value;$('depth-note').textCont
 $('reply-depth').value=readDepth();depthNote();
 for(const option of $('reply-depth').options)option.disabled=!visit.owner&&option.value!=='quick';
 $('reply-depth').addEventListener('change',()=>{saveDepth($('reply-depth').value);depthNote();});
-$('message').addEventListener('input',contextPreview);window.addEventListener('nox:knowledge',contextPreview);window.addEventListener('storage',contextPreview);
+$('message').addEventListener('input',()=>{contextPreview();$('send-button').disabled=busy||!$('message').value.trim();});window.addEventListener('nox:knowledge',contextPreview);window.addEventListener('storage',contextPreview);
 document.querySelector('.skip-link')?.addEventListener('click',event=>{event.preventDefault();$('workspace-main').focus();});
-$('voice-button').addEventListener('click', () => {
+for(const voiceControl of [$('voice-button'),$('composer-voice')])voiceControl.addEventListener('click', () => {
   const enabled = voice.setEnabled(!voice.enabled);
   showVoice();
   try{disk.setItem('nox.voice.v2',enabled?'on':'off');}catch{}
@@ -343,6 +347,7 @@ await restoreConversation();
 function showVoice() {
   $('voice-button').setAttribute('aria-pressed',voice.enabled);
   $('voice-button').querySelector('span').textContent=voice.enabled?'Voice on':'Voice off';
+  $('composer-voice').setAttribute('aria-pressed',voice.enabled);$('composer-voice').setAttribute('aria-label',voice.enabled?'NOX voice on':'NOX voice off');$('composer-voice').title=voice.enabled?'NOX voice on':'NOX voice off';
   $('voice-engine').value=voice.engine;
   $('voice-note').textContent=voice.engine==='natural'?'This is an AI-generated voice. Each reply uses your configured speech provider’s quota.':'Browser voice is free. Quality depends on the voices available on your device.';
   afterimageBridge.refreshState();
@@ -369,9 +374,8 @@ async function refreshConnection(token = ownerToken,initial) {
   ownerToken=''; connection=status;
   const configured=status.providers||[];
   const choices=[{id:'',name:status.access==='locked'?'AI · unlock to connect':'Automatic AI'},{id:'demo',name:'Scripted demo · offline'},...['groq','nvidia','gemini'].map(id=>configured.find(p=>p.id===id)||{id,name:id==='nvidia'?'NVIDIA NIM · To be connected':({groq:'GroqCloud',gemini:'Google Gemini'}[id])+` · ${status.access==='locked'?'unlock first':'add key'}`,disabled:true}),...configured.filter(p=>!['groq','nvidia','gemini'].includes(p.id))];
-  $('provider-select').replaceChildren(...choices.map(p=>{const option=document.createElement('option');option.value=p.id;option.textContent=p.name;option.disabled=!!p.disabled;return option;}));
   if(selectedProvider!=='demo'&&!status.providers?.some(p=>p.id===selectedProvider)) selectedProvider=status.provider||'';
-  $('provider-select').value=selectedProvider;
+  providerControls.update(choices,selectedProvider);
   $('provider-note').textContent=status.providers?.length?'Switch between configured providers. Models can still reach their free-tier limits.':'Configure GROQ_API_KEY, GEMINI_API_KEY, or NVIDIA_API_KEY on the server. Keys never belong in this page.';
   voice.configureNatural(status.voice==='natural'); $('natural-option').disabled=status.voice!=='natural';
   voice.setEngine(preferredEngine);
@@ -380,9 +384,6 @@ async function refreshConnection(token = ownerToken,initial) {
   $('owner-status').textContent=visit.owner?'Owner/dev session · saved locally for this browser.':'Owner sign-in opens your saved archive. This temporary guest visit will end.';
   showConnection();showVoice(); return true;
 }
-$('provider-select').addEventListener('change',event=>{
-  cancelConversation();selectedProvider=event.target.value;showConnection();
-});
 $('voice-engine').addEventListener('change',event=>{preferredEngine=event.target.value;voice.setEngine(preferredEngine);try{disk.setItem('nox.voice.engine.v2',preferredEngine);}catch{}showVoice();});
 $('owner-form').addEventListener('submit',async event=>{
   event.preventDefault();const token=$('owner-token').value.trim();$('owner-token').value='';
