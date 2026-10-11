@@ -1,6 +1,7 @@
 import { Orb } from './orb.js';
 import { Face } from './face.js';
 import { ACTIONS } from '../../shared/character.js';
+import {createOrbitEffect} from './orbit-effect.js';
 
 const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
 const smooth = value => value * value * (3 - 2 * value);
@@ -34,6 +35,7 @@ export class Stage {
     this.events?.abort();
     this.liquidRenderer?.dispose();
     this.forms.core?.dispose();
+    this.orbitEffect?.dispose();
   }
   resize() {
     if (this.recordingLocked) return;
@@ -224,13 +226,14 @@ export class Stage {
 
     const action = this.scene?.action;
     const age = this.scene ? this.time - this.scene.start : 0;
-    if (action === 'orbit') this.drawOrbit(age);
+    if (action === 'orbit') this.drawOrbit(age,'back');
     if (this.camera?.readyState >= 2) this.drawCamera(action, age);
     if (action === 'echo') {
       const appearance = this.reduceMotion ? .18 : smooth(clamp((age - 1) / 3, 0, 1)) * .22;
       this.character.draw(ctx, w, h, this.time, { x: .75, y: .29, scale: .56, alpha: appearance, ghost: true });
     }
     if(this.characterAlpha!==0)this.character.draw(ctx, w, h, this.time,{alpha:this.characterAlpha??1,volumeTexture:this.form!=='core'&&this.liquidReady?this.liquidRenderer?.canvas:null,materialBlend:this.materialBlend??0});
+    if (action === 'orbit') this.drawOrbit(age,'front');
     if (action === 'spotlight') {
       const radius = Math.min(w, h) * .32;
       const px = this.reduceMotion ? w * .5 : this.pointer.x * w;
@@ -245,17 +248,9 @@ export class Stage {
     }
     if (!this.landing && this.time < this.captionUntil) this.drawCaption(this.caption);
   }
-  drawOrbit(age) {
-    const ctx = this.ctx, w = this.width, h = this.height;
-    for (let index = 0; index < 8; index++) {
-      const angle = (this.reduceMotion ? 0 : age * .4) + index / 8 * Math.PI * 2;
-      const x = w * (.5 + Math.cos(angle) * .31);
-      const y = h * (.44 + Math.sin(angle) * .23);
-      ctx.fillStyle = index % 3 ? '#9b8970' : '#edd7b3';
-      ctx.shadowColor = '#b59b6d'; ctx.shadowBlur = 8;
-      ctx.beginPath(); ctx.arc(x, y, index % 3 + 2, 0, Math.PI * 2); ctx.fill();
-    }
-    ctx.shadowBlur = 0;
+  drawOrbit(age,layer) {
+    if(!this.orbitEffect)this.orbitEffect=createOrbitEffect();
+    this.orbitEffect.draw(this.ctx,this.character,this.width,this.height,age,this.reduceMotion,layer);
   }
   drawCamera(action, age) {
     const ctx = this.ctx, w = this.width, h = this.height;

@@ -1,5 +1,13 @@
 # Visual sources
 
+ARWES's MIT FrameCircle artwork now supplies the Orbit program. Original
+`createFrameCircleSettings.ts` and `filterProps.ts` ship unchanged with the
+license. `scripts/export-orbit-asset.mjs` exports those descriptors to
+`arwes/orbit-frame.svg`, changing only the transparent mint palette and exposed
+generator settings. The canvas adapter rotates/scales this artwork in two tilted
+planes, split behind/in front of NOX. No generated dots or particle fallback is
+used. Because the SVG is drawn into the stage canvas, it appears in recordings.
+
 The four repositories requested by the NOX owner were cloned, inspected, and
 pinned in `sources.json`. Clones live in ignored `artifacts/upstream/`; only
 required source files and license notices ship with NOX.

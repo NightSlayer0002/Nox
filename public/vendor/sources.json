@@ -1,6 +1,12 @@
 {
   "sources": [
     {
+      "repository": "https://github.com/arwes/arwes",
+      "commit": "bdbaa0324900ee978d42036d1304a053c1fe54b5",
+      "use": "Original FrameCircle geometry exported as SVG; transparent mint palette, canvas orbit integration",
+      "license": "MIT; arwes/LICENSE"
+    },
+    {
       "repository": "https://github.com/collidingScopes/liquid-logo",
       "commit": "c733c38a043009b873cb9a6062c0defa9c70ee7d"
     },
