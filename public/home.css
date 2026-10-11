@@ -7,8 +7,8 @@ body.landing {overflow-x:clip;-webkit-font-smoothing:antialiased}
 .source-scene,.source-scene-spring{position:relative;width:100%;height:100%}
 .source-fallback{position:absolute;inset:0;background:linear-gradient(45deg,#07171b,#3c8d88)}
 .contact-water::after{content:"";position:absolute;inset:0;background:rgba(8,14,17,.64)}
-#landing-stage{position:absolute;inset:0;width:100%;height:100%;z-index:1;touch-action:pan-y;cursor:grab;outline-offset:-6px}
-#landing-stage:active{cursor:grabbing}
+#landing-stage{position:absolute;inset:0;width:100%;height:100%;z-index:1;touch-action:pan-y;cursor:pointer;outline-offset:-6px}
+#landing-stage:active{cursor:pointer}
 .contact-nav{position:fixed;top:0;left:0;width:100%;padding:30px 4vw;display:flex;align-items:center;justify-content:space-between;gap:24px;z-index:12;pointer-events:none}
 .contact-nav a,.contact-nav button,.contact-nav nav{pointer-events:auto}
 .contact-nav .brand{letter-spacing:.3em;font-size:15px}

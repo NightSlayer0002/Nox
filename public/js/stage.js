@@ -6,11 +6,11 @@ const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
 const smooth = value => value * value * (3 - 2 * value);
 
 export class Stage {
-  constructor(canvas, onScene, {landing=false,transparent=false}={}) {
+  constructor(canvas, onScene, {landing=false,transparent=false,movable=true}={}) {
     this.canvas = canvas; this.ctx = canvas.getContext('2d');
     this.events = new AbortController();
     this.forms = { face: new Face() }; this.form = 'face'; this.character = this.forms.face;
-    this.landing=landing;this.transparent=transparent;
+    this.landing=landing;this.transparent=transparent;this.movable=movable;
     if(landing){this.character.x=this.character.targetX=.76;this.character.y=this.character.targetY=.68;this.character.scale=.85;}
     this.pointer = { x: .5, y: .45 }; this.dragging = false; this.mode = 'companion';
     this.caption = 'Oh. You found me.'; this.captionUntil = 8;
@@ -93,7 +93,7 @@ export class Stage {
       }
     });
     listen(this.canvas,'pointerdown', event => {
-      if (this.dragging) return;
+      if (this.dragging||this.movable===false) return;
       this.pointer = locate(event);
       if (this.character.hitTest(this.pointer, this.width, this.height)) {
         this.prepareMove(); this.dragging = true; this.canvas.setPointerCapture(event.pointerId);
@@ -114,10 +114,15 @@ export class Stage {
     listen(this.canvas,'pointerup', release);
     listen(this.canvas,'pointercancel', release);
     listen(this.canvas,'lostpointercapture', release);
+    listen(this.canvas,'click',event=>{
+      if(this.movable!==false||event.button!==0)return;
+      this.pointer=locate(event);
+      if(this.character.hitTest(this.pointer,this.width,this.height)){this.character.poke(this.time);this.onGesture?.('poke');}
+    });
     listen(this.canvas,'dblclick', () => { if (this.character.wink) this.character.wink(this.time); else this.character.poke(this.time); });
     listen(this.canvas,'keydown', event => {
       const step = { ArrowLeft: [-.03, 0], ArrowRight: [.03, 0], ArrowUp: [0, -.03], ArrowDown: [0, .03] }[event.key];
-      if (step) {
+      if (step&&this.movable!==false) {
         event.preventDefault(); this.prepareMove();
         this.character.react?.('curious',this.time,.7);
         this.character.x = clamp(this.character.x + step[0], 0, 1); this.character.y = clamp(this.character.y + step[1], 0, 1);

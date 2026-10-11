@@ -1,9 +1,9 @@
 import { Stage } from './stage.js';
 import {attachPeek} from './peek.js';
 
-// Scroll supplies pose targets; Stage retains gesture, gravity and material physics.
+// The homepage keeps NOX anchored; Stage retains gaze, reactions and materials.
 export function createLanding(canvas,{onDiscover,onExpression,onScene,peekHost,peekCanvas}={}){
-  const stage=new Stage(canvas,onScene,{landing:true,transparent:true});
+  const stage=new Stage(canvas,onScene,{landing:true,transparent:true,movable:false});
   stage.setMotion(true);
   const pose={x:.5,y:.5,size:.65};
   let manual=false,expression='';

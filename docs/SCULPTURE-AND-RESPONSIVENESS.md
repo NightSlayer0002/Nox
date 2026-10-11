@@ -28,8 +28,11 @@ restored context accepts a new touch pointer and keyboard control.
 
 `public/js/home-choreography.js` still places the sculpture opposite the active
 paragraph. `client/home-scroll.js` measures visible copy centers, including the
-pinned material chapter. The smaller legless NOX retains his existing reactions
-and corner peeking. The hero's size, copy, lighting and spacing change; routes,
+pinned material chapter. The smaller legless NOX stays anchored on the homepage:
+dragging and arrow keys cannot move him outside his canvas. Cursor gaze, click
+reactions, double-click/Space winks and fixed corner peeking remain active.
+Dragging and gravity remain available in the workspace. The hero's size, copy,
+lighting and spacing change; routes,
 provider integrations and the local character remain compatible.
 
 ## Why movement was slow
