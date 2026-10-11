@@ -89,7 +89,8 @@ export class Face extends OrbSignal {
       const thinking = this.activity === 'thinking'&&!this.held&&!this.falling;
       const gx = thinking ? Math.sin(time*2.7)*13 : clamp((pointer.x-this.x)*50, -18, 18);
       const gy = this.held||this.falling?12:thinking ? -8 : clamp((pointer.y-this.y)*35, -12, 12);
-      this.gazeX += (gx-this.gazeX)*ease; this.gazeY += (gy-this.gazeY)*ease;
+      const attentionEase=1-Math.exp(-Math.min(dt,.05)*30);
+      this.gazeX += (gx-this.gazeX)*attentionEase; this.gazeY += (gy-this.gazeY)*attentionEase;
       this.breath = Math.sin(time*1.5)*3.5;
       if (time >= this.blinkAt) { this.blinkStart = time; this.blinkAt = time + 2.8 + Math.random()*2.5; }
     }

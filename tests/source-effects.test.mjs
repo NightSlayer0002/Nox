@@ -6,3 +6,8 @@ test('source shaders release temporary shader objects after a successful link',(
 test('shader compilation failure releases already allocated resources',()=>{const gl=context({compile:false});assert.throws(()=>compileSourceProgram(gl,'vertex','fragment'),/bad shader/);assert.deepEqual(gl.deleted,[['shader',1]]);});
 test('link failure releases both shaders and the failed program',()=>{const gl=context({link:false});assert.throws(()=>compileSourceProgram(gl,'vertex','fragment'),/bad link/);assert.equal(gl.deleted.filter(v=>v[0]==='shader').length,2);assert.equal(gl.deleted.filter(v=>v[0]==='program').length,1);});
 test('frame budgeting resumes immediately after a hidden interval or clock epoch restart',()=>{const due=createFrameBudget(30);assert.equal(due(30000),true);assert.equal(due(30010),false);assert.equal(due(30034),true);assert.equal(due(90000),true);assert.equal(due(0),true);assert.equal(due(10),false);assert.equal(due(34),true);assert.equal(due(NaN),false);});
+test('a bounded render clock preserves its cadence on a 16ms display without drift',()=>{
+  const due=createFrameBudget(30);let frames=0;
+  for(let now=0;now<1000;now+=16)if(due(now))frames++;
+  assert.ok(frames>=29&&frames<=31,`Expected about 30 frames, got ${frames}`);
+});

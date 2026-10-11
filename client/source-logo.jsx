@@ -14,7 +14,7 @@ import {createFrameBudget,createLiquidLogoRenderer} from '/js/source-effects.js'
 const fallback=<div className="logo-static"><img src="/icon.svg" alt=""/></div>;
 
 function LogoModel({pose,matter,pointer,rotation,spring,onStatus}){
-  const outer=useRef(),inner=useRef(),meshes=useRef([]),resources=useRef({}),readiness=useRef(),due=useRef(createFrameBudget(30)),lastPointer=useRef({x:0,y:0}),pressureState=useRef(0);
+  const outer=useRef(),inner=useRef(),meshes=useRef([]),resources=useRef({}),readiness=useRef(),due=useRef(createFrameBudget(60)),textureDue=useRef(createFrameBudget(24)),lastPointer=useRef({x:0,y:0}),pressureState=useRef(0),frames=useRef(0);
   const {gl,viewport,setFrameloop,invalidate}=useThree(),[parts,setParts]=useState([]);
   const wave=useMemo(()=>({time:{value:0},pressure:{value:0}}),[]);
   const front=useMemo(()=>new THREE.MeshBasicMaterial({color:'#c1ceca',toneMapped:false,transparent:true}),[]);
@@ -43,7 +43,7 @@ function LogoModel({pose,matter,pointer,rotation,spring,onStatus}){
       if(mouth){const points=mouth.subPaths[0].getPoints(48).map(p=>new THREE.Vector3(p.x,p.y,2));owned.push(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(points),48,1,8,false));}
       if(owned.length<3)throw Error('NOX icon could not be adapted');
       setParts([...owned]);geometryReady=true;state.setPhase('solid');
-      const mask=document.createElement('canvas');mask.width=mask.height=512;const ctx=mask.getContext('2d');ctx.fillStyle='#fff';ctx.fillRect(0,0,512,512);
+      const mask=document.createElement('canvas');mask.width=mask.height=256;const ctx=mask.getContext('2d');ctx.fillStyle='#fff';ctx.fillRect(0,0,256,256);
       const loadMetal=async()=>{
         const next=await createLiquidLogoRenderer();if(!live){next.dispose();return;}
         renderer?.dispose();texture?.dispose();renderer=next;texture=new THREE.CanvasTexture(renderer.canvas);texture.colorSpace=THREE.SRGBColorSpace;texture.generateMipmaps=false;texture.minFilter=texture.magFilter=THREE.LinearFilter;
@@ -64,15 +64,15 @@ function LogoModel({pose,matter,pointer,rotation,spring,onStatus}){
     inner.current.rotation.set(rotation.x.get(),rotation.y.get(),0);inner.current.scale.set(1+pressure*.12,1-pressure*.12,1+pressure*.2);
     for(let i=0;i<meshes.current.length;i++){const mesh=meshes.current[i];if(mesh){mesh.position.x=i<2?(i===0?-1:1)*(pose.spread*3+pressure*4):0;mesh.position.y=i===2?pose.spread*2+pressure*3:0;}}
     front.opacity=side.opacity=pose.opacity;wave.time.value=now/4000;wave.pressure.value=pressure+(matter.metal ? .25 : 0);
-    const active=resources.current;if(active.renderer){const available=active.renderer.render(active.mask,(now-active.started)/1000,{pressure});if(available){active.texture.needsUpdate=true;}else if(front.map){front.map=null;front.needsUpdate=true;readiness.current?.setPhase('solid');}}
-    gl.render(scene,camera);gl.domElement.dataset.source='r3f-liquid-logo';gl.domElement.dataset.geometry='nox-icon-extrusion';gl.domElement.dataset.screenX=pose.screenX.toFixed(3);gl.domElement.dataset.screenY=pose.screenY.toFixed(3);gl.domElement.dataset.tiltY=inner.current.rotation.y.toFixed(3);gl.domElement.dataset.scrollY=outer.current.rotation.y.toFixed(3);gl.domElement.dataset.pressure=pressure.toFixed(3);gl.domElement.dataset.frame=String(Math.round(now/34));
+    const active=resources.current;if(active.renderer&&textureDue.current(now)){const available=active.renderer.render(active.mask,(now-active.started)/1000,{pressure});if(available){active.texture.needsUpdate=true;}else if(front.map){front.map=null;front.needsUpdate=true;readiness.current?.setPhase('solid');}}
+    gl.render(scene,camera);gl.domElement.dataset.source='r3f-liquid-logo';gl.domElement.dataset.geometry='nox-icon-extrusion';gl.domElement.dataset.screenX=pose.screenX.toFixed(3);gl.domElement.dataset.screenY=pose.screenY.toFixed(3);gl.domElement.dataset.tiltY=inner.current.rotation.y.toFixed(3);gl.domElement.dataset.scrollY=outer.current.rotation.y.toFixed(3);gl.domElement.dataset.pressure=pressure.toFixed(3);gl.domElement.dataset.frame=String(++frames.current);
   },1);
   return <group ref={outer}><group ref={inner}><group scale={[.08,-.08,.08]} position={[-2.56,2.65,0]} dispose={null}>{parts.map((geometry,index)=><mesh ref={mesh=>{meshes.current[index]=mesh;}} key={index} geometry={geometry} material={index<2?[front,side]:front}/>)}</group></group></group>;
 }
 
 export default function SourceLogo({pose,matter}){
   const pointer=useRef(null);
-  const [status,setStatus]=useState('loading'),[{x,y},spring]=useSpring(()=>({x:0,y:0,config:{mass:1.3,tension:90,friction:24}}));
+  const [status,setStatus]=useState('loading'),[{x,y},spring]=useSpring(()=>({x:0,y:0,config:{mass:.55,tension:500,friction:32}}));
   const changeStatus=useCallback(value=>setStatus(value),[]);
   useEffect(()=>{const move=event=>{if(event.pointerType!=='touch')pointer.current={x:event.clientX/innerWidth,y:event.clientY/innerHeight};},blur=()=>{pointer.current=null;spring.start({x:0,y:0});};document.addEventListener('pointermove',move,{passive:true});window.addEventListener('blur',blur);return()=>{document.removeEventListener('pointermove',move);window.removeEventListener('blur',blur);};},[spring]);
   return <div className="source-logo" data-state={status}>

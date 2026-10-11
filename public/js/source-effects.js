@@ -4,7 +4,15 @@ const pressureValue=value=>Number.isFinite(value)?Math.max(0,Math.min(1,value)):
 // Existing upstream GUI uniforms, with bounded tactile targets. No new shader.
 export function logoPressure(value){const p=pressureValue(value);return {speed:.4+p*.65,scale:3.12-p*.65,noiseIntensity:.12+p*.12,intensityFactor:.18-p*.04};}
 export function glassPressure(value,hover){const p=pressureValue(value),h=pressureValue(hover);return {warp:1+h*3+p*9,rippleEffect:.1+p*.6,rimIntensity:.05+h*.04+p*.12};}
-export function createFrameBudget(fps=30){const interval=1000/Math.max(1,Math.min(60,fps));let last=-Infinity;return now=>{if(!Number.isFinite(now))return false;if(now<last||now-last>=interval){last=now;return true;}return false;};}
+export function createFrameBudget(fps=30){
+  const interval=1000/Math.max(1,Math.min(60,fps));let next=-Infinity,previous=-Infinity;
+  return now=>{if(!Number.isFinite(now))return false;if(now<previous)next=now;previous=now;
+    if(now+.01<next)return false;
+    // Preserve the phase across display ticks instead of accumulating their overshoot.
+    const overshoot=Number.isFinite(next)?Math.max(0,now-next)%interval:0;
+    next=now+interval-overshoot;return true;
+  };
+}
 export function compileSourceProgram(gl,vertex,fragment){
   const shaders=[];let program;
   try{

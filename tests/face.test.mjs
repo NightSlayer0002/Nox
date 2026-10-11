@@ -415,3 +415,9 @@ test('a complete 3D liquid frame replaces the flat body and eyes in the recordin
   assert.deepEqual(calls.filter(call=>call[0]==='drawImage'),[['drawImage',texture,-224,-224,448,448]]);
   assert.equal(calls.filter(call=>call[0]==='beginPath').length,0);
 });
+test('pointer attention responds within 100ms without making body motion abrupt',()=>{
+  const face=new Face();face.update(1,.1,{x:.85,y:.7},false,false);
+  // At 50ms the gaze should already cover most of its bounded movement.
+  assert.ok(face.gazeX>13,`Slow gaze: ${face.gazeX}`);
+  assert.ok(face.gazeY>6);
+});

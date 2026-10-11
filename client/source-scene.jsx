@@ -12,7 +12,7 @@ class Boundary extends Component{
   render(){return this.state.failed?<div className="source-fallback" aria-hidden="true"/>:this.props.children;}
 }
 function Budget({onCanvas,tilt,sculpture,pose}){
-  const {gl,setFrameloop,invalidate}=useThree(),due=useRef(createFrameBudget(30));
+  const {gl,setFrameloop,invalidate}=useThree(),due=useRef(createFrameBudget(24));
   useEffect(()=>{
     onCanvas?.(gl.domElement);
     let visible=true;const visibility=()=>{setFrameloop(document.hidden||!visible?'never':'always');if(!document.hidden&&visible)invalidate();};
@@ -31,7 +31,7 @@ export default function SourceScene({onCanvas,interactive=false,className='',var
   const sculpture=variant==='sphere';
   return <div ref={host} className={`source-scene ${className}`} aria-hidden="true" data-effect={failed?'fallback':'shadergradient'}>
     <div className="source-fallback"/>{ready&&!failed&&<Boundary onError={()=>setFailed(true)}><div className="source-scene-spring">
-      <ShaderGradientCanvas pixelDensity={1} pointerEvents="none" lazyLoad={false} preserveDrawingBuffer powerPreference="low-power">
+      <ShaderGradientCanvas pixelDensity={.65} pointerEvents="none" lazyLoad={false} preserveDrawingBuffer powerPreference="low-power">
         {sculpture?<ShaderGradient type="sphere" animate="on" cAzimuthAngle={250} cDistance={1.5} cPolarAngle={90} cameraZoom={3.2} color1="#83bdb6" color2="#1b4c58" color3="#d1dcd2" brightness={1.5} lightType="3d" grain="off" positionX={0} positionY={0} positionZ={0} reflection={.5} rotationX={0} rotationY={0} rotationZ={140} shader="defaults" uAmplitude={7} uDensity={.8} uFrequency={5.5} uSpeed={.3} uStrength={.4} uTime={0} wireframe={false}/>:<ShaderGradient type="waterPlane" animate="on" cAzimuthAngle={170} cDistance={4.4} cPolarAngle={70} cameraZoom={1} color1="#03090d" color2="#124146" color3="#345554" brightness={.72} lightType="3d" grain="off" positionX={0} positionY={.9} positionZ={-.3} reflection={.04} rotationX={45} rotationY={0} rotationZ={0} shader="defaults" uAmplitude={0} uDensity={1.2} uFrequency={0} uSpeed={.2} uStrength={3.4} uTime={0} wireframe={false}/>}
         <Budget onCanvas={onCanvas} tilt={{rotateX,rotateY}} sculpture={sculpture} pose={pose}/>
       </ShaderGradientCanvas>
