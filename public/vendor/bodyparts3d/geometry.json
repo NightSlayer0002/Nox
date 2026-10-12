@@ -1,0 +1,213 @@
+{
+  "dataset": "BodyParts3D 4.0",
+  "source": "https://dbarchive.biosciencedbc.jp/data/bodyparts3d/LATEST/isa_BP3D_4.0_obj_99.zip",
+  "sourceArchiveSha256": "40665852c49f218326590e204db91064a1ecfc3c6f8cbd7bbbcaac62c7cd409e",
+  "license": "CC-BY-4.0",
+  "licenseSource": "https://dbarchive.biosciencedbc.jp/en/bodyparts3d/lic.html",
+  "modification": "Selected 40 cortical, cerebellar and brainstem meshes. Preserved original vertices and triangle topology; packed float32 positions and uint32 indices. Runtime reorientation, centering and uniform scaling only.",
+  "vertices": 104392,
+  "triangles": 187788,
+  "sha256": "e9cce52fbcf55465348f3683a983a0413c4734f7ac580e25a9ee4f235694cfb3",
+  "sources": [
+    {
+      "id": "FJ1732",
+      "file": "FJ1732.obj",
+      "sha256": "d24f6c5647b751706d3f7c4dd4b62518fb3e9cd281ed7d2a2437fafbbcd0e1b3"
+    },
+    {
+      "id": "FJ1733",
+      "file": "FJ1733.obj",
+      "sha256": "a8e5d63d28890e42861f2b1c4c7b898dba84b169507315d77e9ebeb2433171e9"
+    },
+    {
+      "id": "FJ1739",
+      "file": "FJ1739.obj",
+      "sha256": "0926a6839371b0179bbf7d0040b3925f338995be63d18fc1b176721db12c82d3"
+    },
+    {
+      "id": "FJ1740",
+      "file": "FJ1740.obj",
+      "sha256": "9e8c3b086c0cd15b9f85189b37529c6d044c153cbd3f16c678a5b79d02efb656"
+    },
+    {
+      "id": "FJ1744",
+      "file": "FJ1744.obj",
+      "sha256": "3de90fe338da50f60859e591089e5882cf8ce2df2d0e4acbfc5dae7364c184a5"
+    },
+    {
+      "id": "FJ1745",
+      "file": "FJ1745.obj",
+      "sha256": "b3eafbe2d1289be8c24dde82d8a5475f86a13cb6bcc7d5dbc0b4cfcb2d340132"
+    },
+    {
+      "id": "FJ1746",
+      "file": "FJ1746.obj",
+      "sha256": "aefe572e69d8b7687b29644b0a855ced4e64b255f1cb3ca0e6640cab7292d132"
+    },
+    {
+      "id": "FJ1747",
+      "file": "FJ1747.obj",
+      "sha256": "dd358cac91394ee511250be17f7a0184defecb23a19b921388fb267e23132195"
+    },
+    {
+      "id": "FJ1769",
+      "file": "FJ1769.obj",
+      "sha256": "cc1cd37ef3f58fea9ffe8875efa3a33101ee6945dd13bdb28c973303a9986fbd"
+    },
+    {
+      "id": "FJ1775",
+      "file": "FJ1775.obj",
+      "sha256": "d24253c225545078ce9c4420880dc5652e20fb2576a6305a9fadc18f95fba9dd"
+    },
+    {
+      "id": "FJ1781",
+      "file": "FJ1781.obj",
+      "sha256": "47003d37cf123dc10b108bb79a2b12638a56f0f2616d0d1f58b727af88d1ec53"
+    },
+    {
+      "id": "FJ1783",
+      "file": "FJ1783.obj",
+      "sha256": "f0cc5fbc23f9846e881e91cb2221e691694895c7584506d560aca48324d079b5"
+    },
+    {
+      "id": "FJ1784",
+      "file": "FJ1784.obj",
+      "sha256": "ecfd67d495a6f5f3bf391f2455f124edf444122d79299fb8fa0b01493e450f29"
+    },
+    {
+      "id": "FJ1785",
+      "file": "FJ1785.obj",
+      "sha256": "d328f96770816958f290e2461214dd52c38d3e7395d113eed55ba6065ec76c37"
+    },
+    {
+      "id": "FJ1786",
+      "file": "FJ1786.obj",
+      "sha256": "2453959db95754c9f3fe6dbe435bbcff98e79f6bbd77c12f1d063c30941fa05f"
+    },
+    {
+      "id": "FJ1787",
+      "file": "FJ1787.obj",
+      "sha256": "de3c1098d95fc81060b72603e72a4a2a55529b0fb82063dbd0dfc4f3955d720c"
+    },
+    {
+      "id": "FJ1788",
+      "file": "FJ1788.obj",
+      "sha256": "216015b568cc446ae3e7c2ad256f47a352479a6e36c0df025cde311e913fde0c"
+    },
+    {
+      "id": "FJ1789",
+      "file": "FJ1789.obj",
+      "sha256": "52396a1feaedfb7f8f1a334dd02acb35f2897362b0f1a37658edc4e69556db6d"
+    },
+    {
+      "id": "FJ1790",
+      "file": "FJ1790.obj",
+      "sha256": "f2c8ba988026b991559d5195a702675a0a222e9a03711dcb127a909f18ae0fb4"
+    },
+    {
+      "id": "FJ1791",
+      "file": "FJ1791.obj",
+      "sha256": "d504be1cf6f085be1b885b31ac3b1fb1a1fc475855aeda56baa142a600911fe5"
+    },
+    {
+      "id": "FJ1792",
+      "file": "FJ1792.obj",
+      "sha256": "e9e4bb82648576fbe6256992771f0ab0917cfea10d15325c86869283573a64ad"
+    },
+    {
+      "id": "FJ1793",
+      "file": "FJ1793.obj",
+      "sha256": "b47d45c7f6a419e69a9c5b6af00b80cc4f1269593a260e34b662b850801e354c"
+    },
+    {
+      "id": "FJ1794",
+      "file": "FJ1794.obj",
+      "sha256": "8fe535cdf4054a6a395ea2250e1c66719d551818eaf96802a4c7883af00a8170"
+    },
+    {
+      "id": "FJ1797",
+      "file": "FJ1797.obj",
+      "sha256": "e05f6ec80fa902f5334cc5e8c029359674d39c39a90f86476a6d1d190ca1f30a"
+    },
+    {
+      "id": "FJ1798",
+      "file": "FJ1798.obj",
+      "sha256": "ce476b98e79e988bbf2efa1b8593019d0cc64114cf455d00347ed6e95ee5f037"
+    },
+    {
+      "id": "FJ1800",
+      "file": "FJ1800.obj",
+      "sha256": "9f375219acb0aed075860e5afe3562be19bde6061a007d3096d52f96aa59e944"
+    },
+    {
+      "id": "FJ1801",
+      "file": "FJ1801.obj",
+      "sha256": "89e9017a488f4854ef4daaa5488bbe0bada8aed4cd81352553305beda8caef85"
+    },
+    {
+      "id": "FJ1822",
+      "file": "FJ1822.obj",
+      "sha256": "474dffce10e8506b5f8a7aac5d6ccfc7ef6251490b36b5f04a7fa2676b7fb708"
+    },
+    {
+      "id": "FJ1830",
+      "file": "FJ1830.obj",
+      "sha256": "585176d67d072ead00bab6b4d0ca42a151ace76bed1c20c1aeed22b8b4c57ac1"
+    },
+    {
+      "id": "FJ1831",
+      "file": "FJ1831.obj",
+      "sha256": "7c19ec386aadaafdae3dab8aa99c08d5db47fa063f689e99ee7e9cdf0bdbeda9"
+    },
+    {
+      "id": "FJ1833",
+      "file": "FJ1833.obj",
+      "sha256": "b1705a60646438f5c1bd8d215c738f90e7aed9c9360a8ab94993a1e6b5649851"
+    },
+    {
+      "id": "FJ1834",
+      "file": "FJ1834.obj",
+      "sha256": "505aff0f5fba6160aa273af517d8ef9f9e4d7bd6ee904e2739ccf41f8d7af441"
+    },
+    {
+      "id": "FJ1835",
+      "file": "FJ1835.obj",
+      "sha256": "6d1cc1963191120c07eb557c728b4cd00ccf63467b3858a408a6b5ba4564719c"
+    },
+    {
+      "id": "FJ1836",
+      "file": "FJ1836.obj",
+      "sha256": "e3291cc04dcdc3743d8fe67951d2b1589294062d116873515194e0c6c979c770"
+    },
+    {
+      "id": "FJ1837",
+      "file": "FJ1837.obj",
+      "sha256": "2fb61c24b880e134ff2034558fa6abbfcbcd8506b0aca18ee2cc844fa6783de6"
+    },
+    {
+      "id": "FJ1838",
+      "file": "FJ1838.obj",
+      "sha256": "342678a0d5a35ca049870e95536c19b9d66915c7f636f0b738162e5db833746b"
+    },
+    {
+      "id": "FJ1839",
+      "file": "FJ1839.obj",
+      "sha256": "a26f20cb2f22b373ea82a0ab8d8adc815d5e7ec81fd7ea93947c3322ce79ad77"
+    },
+    {
+      "id": "FJ1840",
+      "file": "FJ1840.obj",
+      "sha256": "4d68654bdf8e258a8253decbd2f246d388f693b6b2a37f809ffcfdd4d4bc25f7"
+    },
+    {
+      "id": "FJ1841",
+      "file": "FJ1841.obj",
+      "sha256": "895a1e9e5eaed7443d9fe9544fefede9db219aaf38d30a4674cde778e1bdfb8e"
+    },
+    {
+      "id": "FJ1842",
+      "file": "FJ1842.obj",
+      "sha256": "374934ec8c016aec1aae2cad47d80b1d2668354cc890b0227a0b102c9b3b4469"
+    }
+  ]
+}

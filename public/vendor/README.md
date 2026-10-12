@@ -1,5 +1,30 @@
 # Visual sources
 
+Signal now uses actual anatomical geometry from BodyParts3D's official 4.0 OBJ
+archive. Forty original cortical, cerebellar and brainstem parts are merged for
+two draw calls. Source/archive and per-part checksums, packing settings, current
+licensor grant and attribution are retained in `bodyparts3d/geometry.json` and
+`bodyparts3d/NOTICE.md`. The licensor changed the dataset to CC BY 4.0 on February
+27, 2025; the current grant is recorded alongside the legacy OBJ header note.
+Attribution: BodyParts3D, © The Database Center for Life Science licensed under
+CC Attribution 4.0 International. NOX adapts the light/material/view, not anatomy.
+Lucide's unmodified brain paths provide its immediate/loading/error fallback.
+The visualization is a theme for NOX, not evidence of superintelligence.
+
+October 12's quiet interface uses Adobe's unmodified Source Sans 3 variable
+webfont, self-hosted with its SIL OFL notice in `source-sans`. The official
+repository was cloned and pinned in `sources.json`. Flat rectangular controls
+adapt Vercel AI Elements' shadcn `Button` primary/secondary/ghost variants;
+the original `button.tsx` and Apache-2.0 notice ship under `ai-elements`.
+The screenshot supplies proportions and the small corner radius. NOX omits
+decorative chevrons, shimmer borders and pill outlines.
+
+Terafab is a composition reference; its footage, copy and branding are not
+repackaged. MotionSites was inspected, but its public gallery alone does not
+establish a free redistribution license for its videos. Its previews are used
+as design references only. Existing licensed liquid-logo/ShaderGradient/R3F
+assets remain the interactive landing artwork instead of a new stock video.
+
 Vercel AI Elements' Apache-2.0 `PromptInput` and shadcn `InputGroup` sources
 supply the compact composer structure: transparent textarea, a block-end footer,
 ghost tool buttons, model selection and a compact submit/stop control. The

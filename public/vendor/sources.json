@@ -1,6 +1,20 @@
 {
   "sources": [
     {
+      "repository": "https://dbarchive.biosciencedbc.jp/en/bodyparts3d/",
+      "archive": "https://dbarchive.biosciencedbc.jp/data/bodyparts3d/LATEST/isa_BP3D_4.0_obj_99.zip",
+      "archiveSHA256": "40665852c49f218326590e204db91064a1ecfc3c6f8cbd7bbbcaac62c7cd409e",
+      "use": "40 original anatomical brain parts merged into a local indexed mesh; lighting/presentation adapted",
+      "license": "CC BY 4.0; bodyparts3d/NOTICE.md and LICENSE-CC-BY-4.0.txt",
+      "licenseURL": "https://dbarchive.biosciencedbc.jp/en/bodyparts3d/lic.html"
+    },
+    {
+      "repository": "https://github.com/adobe-fonts/source-sans",
+      "commit": "87b37a2daaed80fcb8e8ccb0085c4d72ddade12e",
+      "use": "Official Source Sans 3 upright variable WOFF2, self-hosted without modification",
+      "license": "SIL OFL 1.1; source-sans/LICENSE.md"
+    },
+    {
       "repository": "https://github.com/vercel/ai-elements",
       "commit": "6a9d5b1822ffb10bba4bd97175f01edd7d8651cd",
       "use": "Native adaptation of PromptInput footer/tools, InputGroup textarea and compact submit controls",
