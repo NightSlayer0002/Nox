@@ -18,7 +18,7 @@ import { createPublicQuota } from './server/public-quota.mjs';
 
 const root = path.dirname(fileURLToPath(import.meta.url));
 const publicRoot = path.join(root, 'public');
-const contentTypes = { '.html': 'text/html; charset=utf-8', '.css': 'text/css; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.svg': 'image/svg+xml', '.png': 'image/png', '.jpg': 'image/jpeg', '.ttf': 'font/ttf', '.txt': 'text/plain; charset=utf-8', '.glsl':'text/plain; charset=utf-8', '.vert':'text/plain; charset=utf-8', '.frag':'text/plain; charset=utf-8' };
+const contentTypes = { '.html': 'text/html; charset=utf-8', '.css': 'text/css; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.svg': 'image/svg+xml', '.png': 'image/png', '.jpg': 'image/jpeg', '.ttf': 'font/ttf', '.woff2':'font/woff2', '.bin':'application/octet-stream', '.txt': 'text/plain; charset=utf-8', '.glsl':'text/plain; charset=utf-8', '.vert':'text/plain; charset=utf-8', '.frag':'text/plain; charset=utf-8' };
 
 function sendJson(response, status, body) {
   response.writeHead(status, { 'content-type': 'application/json; charset=utf-8' });

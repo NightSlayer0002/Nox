@@ -1,15 +1,15 @@
-/*! NOX adaptation of Liquid Glass demo/control styles. Sources and MIT notices: /vendor/README.md. */
+/*! NOX tokens and native adaptation of licensed controls. Sources: /vendor/README.md. */
+@font-face{font-family:'Source Sans 3';src:url('/vendor/source-sans/SourceSans3VF-Upright.woff2') format('woff2');font-weight:200 900;font-style:normal;font-display:swap}
 :root {
   color-scheme: dark;
-  --bg:#080e11;
-  --surface:#101c21;
-  --glass:rgba(14,27,32,.72);
-  --glass-hover:rgba(49,91,94,.45);
-  --text:#eef0e9;
-  --muted:#abbcbf;
-  --accent:#8bdfcf;
-  --line:rgba(199,233,230,.18);
-  --radius:20px;
+  --bg:#101213;--surface:#1b1e20;
+  --glass:rgba(27,30,32,.9);--glass-hover:rgba(51,57,57,.7);
+  --text:#f3f1e7;--muted:#adafa9;--accent:#efe9d2;--secondary-accent:#83c7b3;
+  --line:rgba(243,241,231,.14);--radius:3px;
+  --font-ui:'Source Sans 3',system-ui,-apple-system,'Segoe UI',sans-serif;
+  --space-1:4px;--space-2:8px;--space-3:12px;--space-4:16px;
+  --space-6:24px;--space-8:32px;--space-12:48px;--space-16:64px;
+  --motion-fast:140ms;--motion-ease:cubic-bezier(.2,.7,.3,1);
 }
 :root[data-theme=light] {
   color-scheme: light;
@@ -33,12 +33,13 @@ body {
   background: var(--bg);
   color: var(--text);
   font-family:
+    'Source Sans 3',
     system-ui,
     -apple-system,
     BlinkMacSystemFont,
     "Segoe UI",
     sans-serif;
-  font-size: 14px;
+  font-size: 16px;
   line-height: 1.6;
 }
 button,
@@ -73,7 +74,7 @@ canvas:focus-visible {
 button {
   background: transparent;
   border: 1px solid var(--line);
-  border-radius: 99px;
+  border-radius: var(--radius);
   padding: 10px 16px;
   transition:
     background .16s,
@@ -102,7 +103,7 @@ textarea,
 select {
   background: var(--glass);
   border: 1px solid var(--line);
-  border-radius: 12px;
+  border-radius: var(--radius);
   padding: 12px 14px;
   max-width: 100%;
 }
