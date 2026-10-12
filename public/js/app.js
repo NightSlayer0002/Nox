@@ -11,6 +11,7 @@ import { createNavigation } from './navigation.js';
 import { readChatStream } from './stream.js';
 import { connectionState } from './connection.js';
 import {createProviderControls} from './provider-controls.js';
+import {attachWorkspaceViewport} from './workspace-viewport.js';
 import { EXPRESSIONS } from './face-art.js';
 import { knowledge,readDepth,saveDepth } from './workbench.js';
 import { spokenPreview } from './reply.js';
@@ -19,10 +20,12 @@ import { afterimageBridge, applyAfterimageCue } from './afterimage-bridge.js';
 import {visit,initialVisitStatus,requestVisitStatus} from './visit-scope.js';
 
 const $ = id => document.getElementById(id);
+const releaseViewport=attachWorkspaceViewport();
+window.addEventListener('pagehide',event=>{if(!event.persisted)releaseViewport();},{once:true});
 const disk=visit.storage;
 document.body.dataset.visit=visit.owner?'owner':'guest';
 $('message').maxLength=visit.owner?1200:600;
-$('visit-note').textContent=visit.owner?'Owner workspace · your archive stays on this browser.':'Guest visit · chats and notes disappear on refresh. No account needed.';
+$('visit-note').textContent=visit.owner?'Owner workspace · saved in this browser.':'Guest visit · temporary until refresh.';
 const memory = createMemory(disk);
 const history = await createHistory(disk,memory.snapshot().history);
 if(history.persistent)memory.clearHistory();
@@ -35,6 +38,11 @@ const apiHeaders = (token = ownerToken) => ({'content-type':'application/json',.
 const turns = createTurnGate();
 let lastPacket = { speech: 'Oh. You found me.', emotion: 'curious', action: 'none', memory: '' };
 let toastTimer;
+function openSettings({owner=false}={}) {
+  if(owner)$('owner-access').open=true;
+  $('inside-dialog').showModal();
+  if(owner)$('owner-token').focus();
+}
 let preferredEngine='natural';
 let afterimageDriving=false;
 
@@ -43,10 +51,10 @@ function toast(text) {
   clearTimeout(toastTimer); toastTimer = setTimeout(() => { $('toast').hidden = true; }, 6500);
 }
 
-const sceneLabels = { none: 'MOVE YOUR CURSOR. POKE HIM. DRAG HIM.', gravity: 'GRAVITY: ENABLED. DIGNITY: NEGOTIABLE.', spotlight: 'MOVE THE LIGHT. LET HIM FIND IT.', orbit: 'ONE VERY SMALL UNIVERSE.', echo: 'AN AUTHORED SCENE. ANOTHER PRESENCE.', takeover: 'CREATIVE CONTROL: NOX.' };
+const sceneLabels = { none: 'Move your cursor. Click or drag NOX.', gravity: 'Gravity is on. Pick NOX up and let go.', spotlight: 'Move the light with your cursor.', orbit: 'A small universe.', echo: 'An authored scene. Another presence.', takeover: 'Creative control: NOX.' };
 const stage = new Stage($('stage'), action => {
   if(!afterimageDriving)afterimageBridge.stop('scene-change');
-  $('scene-label').textContent = action === 'none' && document.body.dataset.form === 'core' ? 'DRAG THE CORE. CLICK TO SEND A PULSE.' : sceneLabels[action];
+  $('scene-label').textContent = action === 'none' && document.body.dataset.form === 'core' ? 'Drag the brain. Click for a pulse.' : sceneLabels[action];
   document.querySelectorAll('[data-scene]').forEach(button => {
     const active = button.dataset.scene === action;
     button.classList.toggle('active', active); button.setAttribute('aria-pressed', active);
@@ -59,7 +67,7 @@ for(const expression of Object.keys(EXPRESSIONS)){
 $('preview-expression').addEventListener('click',()=>{
   if(stage.form==='core'){toast('Choose Presence or Liquid Metal to try his expressions.');return;}
   stage.character.preview($('expression-preview').value,stage.time);
-  stage.canvas.scrollIntoView({behavior:stage.reduceMotion?'instant':'smooth',block:'center'});
+  stage.canvas.scrollIntoView({behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'instant':'smooth',block:'center'});
 });
 // The owner chose always-on NOX animation. There is no website motion switch.
 stage.setMotion(true);
@@ -83,7 +91,7 @@ const recorder = createRecorder($('stage'), (active, clip) => {
   stage.character.react?.(active?'excited':'content',stage.time,2);
   $('record-button').classList.toggle('recording', active);
   $('record-button').querySelector('span').textContent = active ? 'Stop & save' : 'Record clip';
-  $('film-record').textContent = active ? '● Stop & save' : '● Record clip';
+  $('film-record').textContent = active ? 'Stop & save' : 'Record clip';
   document.body.classList.toggle('recording', active);
   if(active)afterimageBridge.refreshState();else afterimageBridge.recordingEnded();
   if (clip) {
@@ -108,7 +116,7 @@ afterimageBridge.connect({
   async receive({seed,tone,variation,signal}) {
     if(!visit.owner)throw new Error('Owner mode is needed for new transmissions. Guest visits can rehearse and capture the authored example.');
     const state=connectionState(connection,selectedProvider);
-    if(state.kind!=='live')throw new Error(state.kind==='locked'?'Unlock AI in Preferences to receive a transmission.':state.kind==='demo'?'Choose a configured AI provider, or open the authored first contact.':'A configured AI connection is required to receive a transmission.');
+    if(state.kind!=='live')throw new Error(state.kind==='locked'?'Unlock AI in Settings to receive a transmission.':state.kind==='demo'?'Choose a configured AI provider, or open the authored first contact.':'A configured AI connection is required to receive a transmission.');
     const body={seed,tone,...(variation===undefined?{}:{variation}),...(selectedProvider?{provider:selectedProvider}:{})};
     const response=await fetch('/api/afterimage',{method:'POST',headers:apiHeaders(),body:JSON.stringify(body),signal});
     if(!response.ok){const error=await response.json();if(response.status===401&&!signal.aborted)await refreshConnection();throw new Error(error.error||'The transmission could not be received.');}
@@ -116,7 +124,7 @@ afterimageBridge.connect({
   },
   cue(value) {
     afterimageDriving=true;
-    try{const cue=applyAfterimageCue(stage,value);$('mood-label').textContent=cue.emotion.toUpperCase();}
+    try{const cue=applyAfterimageCue(stage,value);$('mood-label').textContent=cue.emotion;}
     finally{afterimageDriving=false;}
   },
   speak: (script,emotion,cues) => voice.speak(script,mode,emotion,cues),
@@ -133,7 +141,7 @@ afterimageBridge.connect({
 
 function addMessage(speaker, text) {
   const message = document.createElement('div'); message.className = `message ${speaker}`;
-  const label = document.createElement('p'); label.className = 'speaker'; label.textContent = speaker === 'nox' ? 'NOX /' : speaker === 'user' ? 'YOU /' : 'CONNECTION /';
+  const label = document.createElement('p'); label.className = 'speaker'; label.textContent = speaker === 'nox' ? 'NOX' : speaker === 'user' ? 'You' : 'Connection';
   const content = document.createElement('p'); content.textContent = text;
   message.append(label, content); $('conversation').append(message);
   $('conversation').scrollTop = $('conversation').scrollHeight;
@@ -145,7 +153,7 @@ function updateMemory() {
   $('memory-summary').textContent = state.name ? `He knows you as ${state.name}. ${state.facts.length ? 'A few things worth keeping.' : 'Tell him something worth keeping.'}` : 'A fresh start. Tell him your name.';
   $('memory-facts').replaceChildren();
   state.facts.slice(-4).forEach(fact => { const tag = document.createElement('span'); tag.className = 'fact'; tag.textContent = fact; $('memory-facts').append(tag); });
-  if(!visit.owner)$('memory-summary').textContent='Temporary guest visit. Recent messages provide context; refresh starts fresh.';
+  if(!visit.owner)$('memory-summary').textContent='Recent messages provide context for this visit.';
   else if (!memory.persistent) $('memory-summary').textContent += ' Storage is unavailable; this notebook lasts for this visit.';
 }
 
@@ -156,8 +164,8 @@ async function perform(value, save = true, draft, version, depth='quick',remembe
   if(version!==undefined&&!turns.isCurrent(version))return;
   if(draft){draft.classList.remove('draft');draft.lastChild.textContent=packet.speech;}else addMessage('nox', packet.speech);
   const spoken=spokenPreview(packet.speech);stage.speak({...packet,speech:spoken});voice.speak(spoken, mode, packet.emotion);
-  if(packet.action==='takeover')stage.canvas.scrollIntoView({behavior:stage.reduceMotion?'instant':'smooth',block:'center'});
-  $('mood-label').textContent = packet.emotion.toUpperCase();
+  if(packet.action==='takeover')stage.canvas.scrollIntoView({behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'instant':'smooth',block:'center'});
+  $('mood-label').textContent = packet.emotion;
   $('packet-view').textContent = JSON.stringify(value.metrics?{...packet,metrics:value.metrics}:packet, null, 2); updateMemory();navigation?.render();
 }
 
@@ -173,8 +181,8 @@ async function send(raw) {
   const takeover=/^(?:please\s+)?(?:take\s*over(?:\s+(?:the\s+)?(?:screen|stage))?|takeover)[.!]?$/i.test(text);
   if(!['live','demo'].includes(brain)){
     if(takeover)stage.run('takeover');
-    toast(brain==='locked'?'Unlock AI in Preferences to talk with NOX. Your thought is still here.':'NOX’s AI connection is not ready. Check Preferences; your thought is still here.');
-    $('inside-dialog').showModal();if(brain==='locked')$('owner-token').focus();return;
+    toast(brain==='locked'?'Unlock AI in Settings to talk with NOX. Your thought is still here.':'NOX’s AI connection is not ready. Check Settings; your thought is still here.');
+    openSettings({owner:brain==='locked'});return;
   }
   const version = turns.begin();
   summaryController?.abort();clearTimeout(summaryTimer);
@@ -199,14 +207,14 @@ async function send(raw) {
       if(!response.ok){const error=await response.json();if(response.status===401){await refreshConnection();}throw new Error(error.error||'The AI connection did not respond.');}
       const result = await readChatStream(response,speech=>{if(turns.isCurrent(version)){draft.lastChild.textContent=speech;$('conversation').scrollTop=$('conversation').scrollHeight;}});
       packet = result;
-      if (turns.isCurrent(version)) {$('brain-status').lastChild.textContent = visit.owner?' AI CONNECTED':' GUEST TRIAL';const timing=result.metrics;$('reply-timing').textContent=timing?`${timing.firstTextMs===null?'Reply':`First words ${timing.firstTextMs} ms · reply`} ${timing.totalMs} ms · ${timing.provider}`:'Reply received';if(timing){$('reply-timing').dataset.model=timing.model||'';$('reply-timing').dataset.depth=timing.depth||depth;$('inspector-brain').textContent=`${timing.model||'Configured model'} · ${timing.depth||depth} · ${timing.provider}`;}}
+      if (turns.isCurrent(version)) {$('brain-status').lastChild.textContent = visit.owner?' AI connected':' Guest visit';const timing=result.metrics;$('reply-timing').textContent=timing?`${timing.firstTextMs===null?'Reply':`First words ${timing.firstTextMs} ms · reply`} ${timing.totalMs} ms · ${timing.provider}`:'Reply received';if(timing){$('reply-timing').dataset.model=timing.model||'';$('reply-timing').dataset.depth=timing.depth||depth;$('inspector-brain').textContent=`${timing.model||'Configured model'} · ${timing.depth||depth} · ${timing.provider}`;}}
     } else {
       await new Promise(resolve => setTimeout(resolve, 350));
       packet = demoReply(text, context);
     }
     if (turns.isCurrent(version)) {if(takeover)packet={...packet,action:'takeover'};const draft=pendingDraft;await perform(packet,true,draft,version,depth,explicitMemoryRequest(text));if(turns.isCurrent(version)){if(brain==='live'&&request.context.knowledge?.length&&draft){const sources=document.createElement('p');sources.className='knowledge-sources';sources.textContent='Context included: '+request.context.knowledge.map(n=>`[${n.id}] ${n.title}`).join(' · ');draft.append(sources);}pendingDraft=null;scheduleSummary();}}
   } catch (error) {
-    if (turns.isCurrent(version)){pendingDraft?.remove();pendingDraft=null;if(error.name!=='AbortError'){stage.character.react?.('worried',stage.time,2);if (brain === 'live') $('brain-status').lastChild.textContent = ' AI ERROR'; addMessage('system', error.message); toast(error.message);$('reply-timing').textContent='Reply interrupted. Your sent message is saved.';}}
+    if (turns.isCurrent(version)){pendingDraft?.remove();pendingDraft=null;if(error.name!=='AbortError'){if(!$('message').value){$('message').value=text;contextPreview();}stage.character.react?.('worried',stage.time,2);if (brain === 'live') $('brain-status').lastChild.textContent = ' AI error'; addMessage('system', error.message); toast(error.message);$('reply-timing').textContent='Reply interrupted. Your sent message is saved.';}}
   } finally { if (turns.isCurrent(version)) { setBusy(false); $('message').focus(); } }
 }
 
@@ -219,7 +227,7 @@ async function setMode(next, greet = true) {
   cancelConversation();
   const version=turns.begin();if(!await history.setMode(next)||!turns.isCurrent(version))return;
   mode = next; memory.setMode(mode); stage.setMode(mode); document.body.dataset.persona = mode;
-  $('mood-label').textContent = stage.character.emotion.toUpperCase();
+  $('mood-label').textContent = stage.character.emotion;
   document.querySelectorAll('[data-mode]').forEach(button => { const active = button.dataset.mode === mode; button.classList.toggle('active', active); button.setAttribute('aria-pressed', active); });
   if (greet) await perform({ speech: greetings[mode], emotion: mode === 'uncanny' ? 'uncanny' : 'curious', action: 'none', memory: '' },false,undefined,version);
 }
@@ -229,14 +237,14 @@ document.querySelectorAll('[data-scene]').forEach(button => button.addEventListe
   cancelConversation();
   if (stage.stopScene(button.dataset.scene)) return;
   stage.run(button.dataset.scene);stage.captionUntil=0;
-  stage.canvas.scrollIntoView({behavior:stage.reduceMotion?'instant':'smooth',block:'center'});
+  stage.canvas.scrollIntoView({behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'instant':'smooth',block:'center'});
 }));
 document.querySelectorAll('[data-mode]').forEach(button => button.addEventListener('click', () => setMode(button.dataset.mode)));
 document.querySelectorAll('button[data-form]').forEach(button => button.addEventListener('click', () => {
   afterimageBridge.stop('scene-change');
   document.body.dataset.form = button.dataset.form; stage.setForm(button.dataset.form);
   document.querySelectorAll('button[data-form]').forEach(control => control.setAttribute('aria-pressed', control.dataset.form === stage.form));
-  $('stage').setAttribute('aria-label', stage.form !== 'core' ? 'Animated NOX face. Move the cursor to look around. Click to make him smile, double-click or press Space to wink. Drag or use arrow keys to move him. Shake quickly while holding him for spiral eyes.' : 'Animated NOX signal core. Move the cursor for parallax, click or press Space for a pulse. Drag or use arrow keys to move the core.');
+  $('stage').setAttribute('aria-label', stage.form !== 'core' ? 'Animated NOX face. Move the cursor to look around. Click to make him smile, double-click or press Space to wink. Drag or use arrow keys to move him. Shake quickly while holding him for spiral eyes.' : 'Animated NOX brain. Move the cursor for parallax, click or press Space for a pulse. Drag or use arrow keys to move the brain.');
 }));
 document.querySelectorAll('[data-prompt]').forEach(button => button.addEventListener('click', () => send(button.dataset.prompt)));
 $('chat-form').addEventListener('submit', event => { event.preventDefault(); send($('message').value); });
@@ -244,7 +252,7 @@ $('message').addEventListener('keydown', event => { if (event.key === 'Enter' &&
 $('cancel-reply').addEventListener('click',()=>{cancelConversation();$('reply-timing').textContent='Reply stopped. Your sent message is saved.';});
 function contextPreview(){const notes=knowledge.context($('message').value);$('knowledge-context').hidden=!notes.length;$('knowledge-context').textContent=notes.length?'Relevant context for this thought: '+notes.map(n=>`[${n.id}] ${n.title}`).join(' · '):'';}
 function depthNote(){const depth=$('reply-depth').value;$('depth-note').textContent=!visit.owner?'Guest trial uses quick replies. Owner mode adds saved history, notebook context and deeper answers.':depth==='deep'?'Deep uses more time and quota. Groq uses a larger model; other providers use their configured model. Voice reads a concise opening.':depth==='quick'?'Quick keeps the response brief and uses less quota.':'Balanced gives a fuller answer. Voice reads a concise opening.';}
-$('reply-depth').value=readDepth();depthNote();
+$('reply-depth').value=visit.owner?readDepth():'quick';depthNote();
 for(const option of $('reply-depth').options)option.disabled=!visit.owner&&option.value!=='quick';
 $('reply-depth').addEventListener('change',()=>{saveDepth($('reply-depth').value);depthNote();});
 $('message').addEventListener('input',()=>{contextPreview();$('send-button').disabled=busy||!$('message').value.trim();});window.addEventListener('nox:knowledge',contextPreview);window.addEventListener('storage',contextPreview);
@@ -294,8 +302,8 @@ $('clear-memory').addEventListener('click', () => {
   cancelConversation();memory.clear();
   updateMemory();toast('The saved name and notebook facts are cleared. Conversations remain in your Library.');
 });
-$('inside-button').addEventListener('click', () => { $('packet-view').textContent = JSON.stringify(lastPacket, null, 2); $('inside-dialog').showModal(); });
-$('settings-button').addEventListener('click', () => $('inside-dialog').showModal());
+$('inside-button').addEventListener('click', () => { $('packet-view').textContent = JSON.stringify(lastPacket, null, 2); openSettings(); });
+$('settings-button').addEventListener('click', () => openSettings());
 $('close-inside').addEventListener('click', () => $('inside-dialog').close());
 $('close-clip').addEventListener('click', () => { $('clip-video').pause(); $('clip-dialog').close(); });
 $('inside-dialog').addEventListener('click', event => { if (event.target === $('inside-dialog')) { const rect = event.target.getBoundingClientRect(); if (event.clientX < rect.left || event.clientX > rect.right || event.clientY < rect.top || event.clientY > rect.bottom) event.target.close(); } });
@@ -315,7 +323,7 @@ setInterval(() => {
     document.body.dataset.signal = signal.status; $('signal-state').textContent = signal.status.toUpperCase();
   }
   $('signal-level').style.width = `${Math.round(signal.energy * 100)}%`;
-  $('stage').dataset.renderer = stage.form==='liquid'&&stage.liquidRenderer?'liquid-logo':stage.form === 'face' ? 'canvas-face' : stage.character.renderer?.available ? 'liquid-logo' : 'canvas-core';
+  $('stage').dataset.renderer = stage.form==='liquid'&&stage.liquidRenderer?'liquid-logo':stage.form === 'face' ? 'canvas-face' : stage.character.renderer?.available ? 'bodyparts3d-brain' : 'lucide-brain';
   $('stage').dataset.form = stage.form;
   $('stage').dataset.gazeX = (stage.character.gazeX ?? stage.character.focus?.x ?? 0).toFixed(2);
   $('stage').dataset.gazeY = (stage.character.gazeY ?? stage.character.focus?.y ?? 0).toFixed(2);
@@ -326,7 +334,7 @@ setInterval(() => {
 }, 120);
 
 function cancelConversation(){afterimageBridge.stop('conversation');turns.cancel();setBusy(false);voice.stop();microphone.stop();summaryController?.abort();clearTimeout(summaryTimer);pendingDraft?.remove();pendingDraft=null;}
-async function restoreConversation(){cancelConversation();const thread=history.active();await setMode(thread.mode,false);if(history.active().id!==thread.id)return;$('conversation').replaceChildren();$('chat-title').textContent=thread.title==='New conversation'?"Let's wander a little.":thread.title;
+async function restoreConversation(){cancelConversation();const thread=history.active();await setMode(thread.mode,false);if(history.active().id!==thread.id)return;$('conversation').replaceChildren();$('chat-title').textContent=thread.title;
   thread.turns.forEach(turn=>addMessage(turn.role==='user'?'user':'nox',turn.content));
   const last=thread.turns.findLast(t=>t.role==='assistant');lastPacket={speech:last?.content||(thread.turns.length?'Your last message is saved. Ready when the AI connection is available.':greetings[mode]),emotion:stage.character.emotion,action:'none',memory:''};
   if(last){stage.caption=last.content;stage.captionUntil=stage.time+8;}
@@ -354,10 +362,10 @@ function showVoice() {
 }
 function showConnection() {
   const state=connectionState(connection,selectedProvider),provider=state.provider;brain=state.kind;
-  const labels={locked:'UNLOCK AI',loading:'CHECKING CONNECTION',unconfigured:'AI NOT CONFIGURED',demo:'SCRIPTED DEMO'};
-  $('brain-status').lastChild.textContent=brain==='live'?` ${visit.owner?provider.name.toUpperCase():'GUEST TRIAL'}`:` ${labels[brain]}`;
-  const note=brain==='live'?`Model-generated replies · ${provider.name}. Your name, notebook, and conversation context travel with each turn. Camera stays local.`:brain==='locked'?'Your AI brain is locked. Unlock it once in Preferences; access lasts up to 12 hours in this browser. Scenes and touch still work.':brain==='demo'?'You selected the scripted demo. Switch to a configured AI provider for fresh conversation.':brain==='loading'?'Checking the AI connection…':'No AI provider is configured. Add a server key to enable conversation; scenes and touch still work.';
-  const scopeNote=!visit.owner&&brain==='live'?'Temporary Groq conversation · quick replies, limited public quota. Refresh starts a new visit. Orpheus voice is available without owner sign-in.':note;
+  const labels={locked:'AI locked',loading:'Connecting…',unconfigured:'AI unavailable',demo:'Scripted demo'};
+  $('brain-status').lastChild.textContent=brain==='live'?` ${visit.owner?provider.name:'Guest visit'}`:` ${labels[brain]}`;
+  const note=brain==='live'?`Model-generated replies · ${provider.name}. Your name, notebook, and conversation context travel with each turn. Camera stays local.`:brain==='locked'?'Your AI brain is locked. Unlock it once in Settings; access lasts up to 12 hours in this browser. Scenes and touch still work.':brain==='demo'?'You selected the scripted demo. Switch to a configured AI provider for fresh conversation.':brain==='loading'?'Checking the AI connection…':'No AI provider is configured. Add a server key to enable conversation; scenes and touch still work.';
+  const scopeNote=!visit.owner&&brain==='live'?'Guest visit · quick replies with limited public quota. Orpheus voice is available.':note;
   $('brain-status').title=scopeNote;$('brain-note').textContent=scopeNote;
   $('connection-message').textContent=scopeNote;$('connection-help').hidden=brain==='live';$('unlock-ai').hidden=brain==='demo';
   $('unlock-ai').textContent=brain==='locked'?'Unlock AI ':'Connection settings ';
@@ -381,7 +389,7 @@ async function refreshConnection(token = ownerToken,initial) {
   voice.setEngine(preferredEngine);
   try{voice.setEnabled(disk.getItem('nox.voice.v2')!=='off');}catch{voice.setEnabled(true);}
   $('owner-form').hidden=visit.owner; $('lock-owner').hidden=!visit.owner;
-  $('owner-status').textContent=visit.owner?'Owner/dev session · saved locally for this browser.':'Owner sign-in opens your saved archive. This temporary guest visit will end.';
+  $('owner-status').textContent=visit.owner?'Owner/dev session · saved locally for this browser.':'Owner sign-in opens your saved archive.';
   showConnection();showVoice(); return true;
 }
 $('voice-engine').addEventListener('change',event=>{preferredEngine=event.target.value;voice.setEngine(preferredEngine);try{disk.setItem('nox.voice.engine.v2',preferredEngine);}catch{}showVoice();});
@@ -404,7 +412,7 @@ $('lock-owner').addEventListener('click',async()=>{
   try{const response=await fetch('/api/session',{method:'DELETE'});if(!response.ok)throw Error('lock');}catch{toast('Could not end the browser session. Try Lock again.');return;}
   location.replace(`/guest${location.hash||'#conversation'}`);
 });
-$('unlock-ai').addEventListener('click',()=>{$('inside-dialog').showModal();if(brain==='locked')$('owner-token').focus();});
+$('unlock-ai').addEventListener('click',()=>openSettings({owner:brain==='locked'}));
 function browserVoices(){const voices=globalThis.speechSynthesis?.getVoices().filter(v=>v.lang?.startsWith('en'))||[];const selected=$('browser-speaker').value;$('browser-speaker').replaceChildren(new Option('Automatic',''),...voices.map(v=>new Option(v.name,v.name)));$('browser-speaker').value=selected||savedBrowserVoice;}
 let savedBrowserVoice='';
 try{preferredEngine=disk.getItem('nox.voice.engine.v2')||'natural';const savedSpeaker=disk.getItem('nox.voice.speaker.v2');$('speaker-select').value=['troy','austin','daniel'].includes(savedSpeaker)?savedSpeaker:'troy';savedBrowserVoice=disk.getItem('nox.voice.browser.v2')||'';}catch{}
@@ -414,7 +422,7 @@ $('browser-speaker').addEventListener('change',e=>{savedBrowserVoice=e.target.va
 $('replay-voice').addEventListener('click',()=>{afterimageBridge.stop('voice-preview');if(!voice.enabled)toast('Turn Voice on to hear this reply.');else voice.speak(spokenPreview(lastPacket.speech),mode,lastPacket.emotion);});
 $('test-voice').addEventListener('click',()=>{afterimageBridge.stop('voice-preview');voice.setEnabled(true);showVoice();voice.speak('Oh, you found me. I was just thinking about something strange. Want to hear it?',mode,mode==='uncanny'?'uncanny':'happy');});
 try{voice.setEnabled(disk.getItem('nox.voice.v2')!=='off');}catch{voice.setEnabled(true);}showVoice();
-try {await refreshConnection('',initialVisitStatus);if(location.pathname.replace(/\/$/,'')==='/owner'){$('inside-dialog').showModal();if(!visit.owner)$('owner-token').focus();}}
+try {await refreshConnection('',initialVisitStatus);if(location.pathname.replace(/\/$/,'')==='/owner'){openSettings({owner:!visit.owner});}}
 catch {connection={};showConnection();$('connection-message').textContent='Could not reach the AI server. Reload to retry. Scenes and touch still work.';toast('The AI server could not be reached. No scripted reply was substituted.');}
 if(visit.owner){
   const checkOwner=async()=>{try{const status=await requestVisitStatus({headers:apiHeaders()});if(!status.owner)location.replace(`/guest${location.hash}`);}catch(error){if(error.status===401)location.replace(`/guest${location.hash}`);}};
