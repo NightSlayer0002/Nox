@@ -5,7 +5,7 @@ import {compileSourceProgram,sourceShader,glassPressure} from '/js/source-effect
 export function LiquidButton({children,onClick,source,href,className='',pressed,interaction,...controls}){
   const canvas=useRef();
   useEffect(()=>{
-    if(!source)return;
+    if(!source||!interaction)return;
     let disposed=false,frame=0,program,buffer,tex;const surface=canvas.current;
     const gl=surface.getContext('webgl',{alpha:true,antialias:false,powerPreference:'low-power'});if(!gl)return;
     async function init(){
@@ -27,7 +27,7 @@ export function LiquidButton({children,onClick,source,href,className='',pressed,
         gl.viewport(0,0,w,h);gl.useProgram(program);gl.bindTexture(gl.TEXTURE_2D,tex);gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,gl.RGBA,gl.UNSIGNED_BYTE,source);
         gl.uniform2f(uniform('resolution'),w,h);gl.uniform2f(uniform('textureSize'),innerWidth,innerHeight);gl.uniform2f(uniform('containerPosition'),box.left+w/2,box.top+h/2);
         if(interaction)for(const [key,value] of Object.entries(glassPressure(interaction.current.pressure,interaction.current.hover)))gl.uniform1f(uniform(key),value);
-        gl.uniform1f(uniform('borderRadius'),Math.min(w,h)/2);
+        gl.uniform1f(uniform('borderRadius'),parseFloat(getComputedStyle(surface.parentElement).borderTopLeftRadius)||3);
         gl.uniform1f(uniform('pageHeight'),innerHeight);gl.uniform1f(uniform('viewportHeight'),innerHeight);gl.drawArrays(gl.TRIANGLES,0,6);surface.dataset.effect='liquid-glass-js';surface.dataset.pressure=String(interaction?.current.pressure??0);
       };frame=requestAnimationFrame(draw);
     }

@@ -11,6 +11,7 @@ body.landing {overflow-x:clip;-webkit-font-smoothing:antialiased}
 #landing-stage:active{cursor:pointer}
 .contact-nav{position:fixed;top:0;left:0;width:100%;padding:30px 4vw;display:flex;align-items:center;justify-content:space-between;gap:24px;z-index:12;pointer-events:none}
 .contact-nav a,.contact-nav button,.contact-nav nav{pointer-events:auto}
+.home-links{display:flex;align-items:center;gap:32px}
 .contact-nav .brand{letter-spacing:.3em;font-size:15px}
 .contact-coordinate{font-size:9px;letter-spacing:.16em;color:var(--muted)}
 .nav-enter{border:1px solid var(--line);background:var(--glass);border-radius:99px;padding:12px 20px;font-size:12px;white-space:nowrap}
@@ -174,4 +175,48 @@ body.landing{background:#050909}
  .mascot-room{width:112px!important;height:130px!important;right:0;bottom:-30px!important}
  .contact-emblem .logo-touch-target{touch-action:pan-y}
  .scene-map{left:7vw}.contact-details{margin:0 7vw 60px;padding:50px 0}
+}
+
+/* Quiet landing composition; the source scene/scroll pose is unchanged. */
+body.landing{background:var(--bg);font-family:var(--font-ui)}
+.contact-water{opacity:.2}.contact-water::after{background:color-mix(in srgb,var(--bg) 50%,transparent)}
+.contact-nav{padding:24px 7vw;background:linear-gradient(color-mix(in srgb,var(--bg) 95%,transparent),transparent);gap:24px}
+.contact-nav .brand{font-size:18px;font-weight:600;letter-spacing:.3em}
+.home-links{font-size:16px}.home-links>a:first-child{color:var(--muted)}
+.contact-nav .nav-enter{font-size:16px;font-weight:600;border-radius:3px;min-height:46px;padding:12px 24px;background:var(--accent);color:var(--bg);border:0}
+.contact-copy{max-width:620px}
+.contact-chapter{min-height:100svh;padding:110px 9vw 145px}
+.contact-copy h1{font-size:clamp(48px,5.7vw,86px);line-height:1.04;font-weight:400;letter-spacing:-.04em;margin:0 0 28px}
+.contact-copy h2{font-size:clamp(44px,5.4vw,76px);line-height:1.07;font-weight:400;letter-spacing:-.04em;margin:0 0 28px}
+.contact-description{font-size:18px;line-height:1.6;max-width:500px;margin-bottom:28px}
+.contact-copy .liquid-button{font-size:16px;min-height:50px;padding:14px 26px;border-radius:3px;border:0;background:var(--accent);color:var(--bg)}
+.liquid-button:not(.material-control)>canvas{display:none}
+.hero-instruction{font-size:14px;margin-top:24px;opacity:1}
+.contact-actions{gap:12px}.contact-actions button,.contact-actions .nav-enter{font-size:16px;font-weight:600;min-height:48px;border-radius:3px;padding:13px 24px;border:0;background:var(--surface);color:var(--text)}
+.contact-copy .material-control{background:var(--surface);color:var(--text);padding:14px 20px;border:1px solid var(--line);min-height:76px}
+.material-mark{border-radius:3px}.material-label>span{font-size:16px}.material-label small,.material-help{font-size:14px;letter-spacing:normal;line-height:1.55}
+.contact-hud{left:9vw;right:auto;bottom:28px;max-width:calc(100% - 210px);pointer-events:none}
+.hud-presence{font-size:14px;color:var(--muted);margin:0;max-width:400px;line-height:1.45}
+.contact-details{max-width:none;margin:0 9vw 64px;padding:64px 0 0;border:0;pointer-events:auto}
+.contact-details h2{font-size:clamp(36px,4vw,58px);font-weight:400;max-width:760px}
+.detail-intro{max-width:520px;font-size:18px;line-height:1.6;color:var(--muted);margin:20px 0 28px}
+.home-privacy{margin-top:40px;max-width:880px;color:var(--muted);font-size:16px}
+.home-privacy summary{cursor:pointer;min-height:44px;display:flex;align-items:center;list-style:none}
+.home-privacy summary::-webkit-details-marker{display:none}.home-privacy[open] summary{color:var(--text)}
+.home-privacy>a{display:inline-block;margin-top:20px;text-decoration:underline;text-underline-offset:4px}
+.detail-columns{gap:40px;margin-top:18px}.detail-columns article{border:0;padding:0}
+.detail-columns h3{font-size:18px;font-weight:600;line-height:1.4;margin-bottom:12px}.detail-columns p{font-size:16px;line-height:1.6;margin:0}
+.source-footer{border:0;font-size:14px;letter-spacing:normal;padding:28px 0 112px;margin:0 9vw;color:var(--muted)}
+.mobile-nav{border-radius:3px;background:var(--surface);border:1px solid var(--line);font-size:16px;box-shadow:0 12px 35px #0003}
+@media(max-width:700px){
+ .contact-nav{padding:20px 7vw;background:var(--bg)}.home-links{display:none}.contact-nav .mobile-menu{display:block;font-size:16px;padding:10px 16px;min-height:44px;border-radius:3px;background:var(--surface)}
+ .mobile-nav{position:absolute;left:7vw;right:7vw;top:80px;padding:12px;display:grid;gap:0}.mobile-nav a{display:block;padding:14px;min-height:48px}
+ .contact-chapter{min-height:100svh;padding:130px 7vw 175px;justify-content:flex-start}
+ .contact-copy h1{font-size:clamp(43px,11vw,68px);line-height:1.05;margin:0 0 24px}.contact-copy h2{font-size:clamp(42px,10.5vw,64px);margin:0 0 24px}
+ .contact-description{font-size:17px;line-height:1.55}.contact-copy .liquid-button{font-size:16px;min-height:48px;padding:14px 24px}
+ .hero-instruction{font-size:14px;margin-top:22px}.contact-actions button,.contact-actions .nav-enter{font-size:15px;padding:12px 20px}
+ .contact-copy .material-control{min-width:0;max-width:100%;padding:14px}.material-label{min-width:0}.material-label>span{font-size:16px}.material-label small,.material-help{font-size:13px}
+ .contact-hud{left:7vw;max-width:calc(100% - 160px);bottom:24px}.hud-presence{font-size:13px;min-height:0}
+ .contact-details{margin:0 7vw 45px;padding-top:45px}.detail-intro{font-size:17px}.detail-columns{gap:28px}
+ .source-footer{margin:0 7vw;padding-bottom:110px;gap:20px;flex-wrap:wrap}.source-footer>span:nth-child(2){width:auto}
 }
