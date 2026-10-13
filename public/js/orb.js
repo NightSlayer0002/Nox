@@ -56,7 +56,7 @@ export class Orb extends OrbSignal{
     if(this.disposed)return;
     if(!this.material&&!globalThis.document?.hidden)this.loadMaterial();
     const size=this.diameter(w,h,scale),age=time-this.pulseAt,pulse=this.signal.motion&&age>=0&&age<1.8?Math.sin(age/1.8*Math.PI)*.06:0;
-    if(this.material&&time-(this.renderedAt??-1)>=1/30&&!globalThis.document?.hidden){
+    if(this.material&&time-(this.renderedAt??-1)>=(this.material.frameInterval??1/30)&&!globalThis.document?.hidden){
       try{this.renderer.available=this.material.render(this.signal,this.focus);}catch{this.renderer.available=false;}
       this.renderedAt=time;
     }

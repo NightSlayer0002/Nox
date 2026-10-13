@@ -69,6 +69,8 @@
 .workspace .form-switch {display:flex;flex-wrap:wrap;gap:6px}
 .workspace .form-switch button {padding:9px 11px;font-size:14px;border:1px solid var(--line);background:transparent;border-radius:5px}
 .workspace .form-switch button[aria-pressed=true] {background:var(--accent);color:var(--bg);border-color:var(--accent)}
+.workspace .neural-help {display:none;margin:12px 0 0}
+.workspace[data-form=core] .neural-help {display:block}
 .workspace .expression-lab {margin:0;padding:0;border:0}
 .workspace .expression-lab>label {font-size:14px;color:var(--muted)}
 .workspace .expression-controls {display:flex;gap:8px;margin:8px 0}

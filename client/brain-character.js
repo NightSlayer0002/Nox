@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import {decodeBrain} from '../public/js/brain-data.js';
 import {createBrainLifecycle} from '../public/js/brain-lifecycle.js';
 import {createNeuralGraph} from '../public/js/brain-network.js';
+import {brainQuality} from '../public/js/brain-quality.js';
 import {nodeVertexShader,nodeFragmentShader,linkVertexShader,linkFragmentShader,waveVertexShader,waveFragmentShader,ghostVertexShader,ghostFragmentShader} from './brain-network-shaders.js';
 
 // BodyParts3D/DBCLS supplies the anatomical envelope. The connected-particle
@@ -21,14 +22,14 @@ export async function createBrainCharacter({signal}={}){
   try{
     const canvas=document.createElement('canvas');
     renderer=new THREE.WebGLRenderer({canvas,alpha:true,antialias:true,preserveDrawingBuffer:true,powerPreference:'low-power'});
-    renderer.setPixelRatio(1);renderer.setSize(512,512,false);renderer.setClearColor(0,0);renderer.outputColorSpace=THREE.SRGBColorSpace;
+    const quality=brainQuality();
+    renderer.setPixelRatio(1);renderer.setSize(quality.size,quality.size,false);renderer.setClearColor(0,0);renderer.outputColorSpace=THREE.SRGBColorSpace;
     geometry=new THREE.BufferGeometry();geometries.push(geometry);geometry.setAttribute('position',new THREE.BufferAttribute(source.positions,3));geometry.setIndex(new THREE.BufferAttribute(source.indices,1));
     // The original dataset is Z-up. Reorient to Three Y-up without changing
     // anatomy, then fit its longest dimension inside a fixed capture frame.
     geometry.rotateX(-Math.PI/2);geometry.center();geometry.computeBoundingBox();
     const bounds=geometry.boundingBox.getSize(new THREE.Vector3()),scale=1.48/Math.max(bounds.x,bounds.y,bounds.z);geometry.scale(scale,scale,scale);geometry.computeVertexNormals();
-    const compact=globalThis.innerWidth<700;
-    const graph=createNeuralGraph(geometry.getAttribute('position').array,{maxNodes:compact?2000:4200,maxEdges:compact?5000:11000});
+    const graph=createNeuralGraph(geometry.getAttribute('position').array,{maxNodes:quality.nodes,maxEdges:quality.edges});
     nodeGeometry=new THREE.BufferGeometry();geometries.push(nodeGeometry);
     nodeGeometry.setAttribute('position',new THREE.BufferAttribute(graph.positions,3).setUsage(THREE.StaticDrawUsage));
     nodeGeometry.setAttribute('phase',new THREE.BufferAttribute(graph.nodePhase,1).setUsage(THREE.StaticDrawUsage));
@@ -83,7 +84,7 @@ export async function createBrainCharacter({signal}={}){
     canvas.dataset.nodes=String(graph.nodeCount);canvas.dataset.edges=String(graph.edgeCount);
     canvas.dataset.waves='0';canvas.dataset.drive='0.12';canvas.dataset.waveSerial='0';
     let lastWaveCount=0,lastDrive=12,lastWaveSerial=0;
-    return createBrainLifecycle({canvas,disposeResources,draw(state,focus){
+    const presentation=createBrainLifecycle({canvas,disposeResources,draw(state,focus){
       if(renderer.getContext().isContextLost())return false;
       // Stage owns time, motion preference and cadence. GPU attributes never
       // change after upload; each frame updates only these shared uniforms.
@@ -108,5 +109,7 @@ export async function createBrainCharacter({signal}={}){
       group.position.y=pressure.value*.035;group.scale.setScalar(1+pressure.value*.018);
       renderer.render(scene,camera);return true;
     }});
+    presentation.frameInterval=quality.interval;
+    return presentation;
   }catch(error){disposeResources();throw error;}
 }

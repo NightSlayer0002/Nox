@@ -17,6 +17,13 @@ test('Signal loads its brain only when drawn, and captures the renderer in the s
   assert.equal(loads,1);assert.equal(ctx.images.at(-1)[0],canvas);assert.equal(renders,1);
   core.draw(ctx,400,400,2.001);assert.equal(renders,1);core.dispose();
 });
+test('compact GPU cadence reuses captured pixels between updates',async()=>{
+  let renders=0;const canvas={},core=new Orb({loadRenderer:async()=>({canvas,frameInterval:1/24,render(){renders++;return true;},dispose(){}})}),ctx=context();
+  core.draw(ctx,400,400,1);await settle();core.draw(ctx,400,400,2);
+  core.draw(ctx,400,400,2.034);assert.equal(renders,1);
+  core.draw(ctx,400,400,2.05);assert.equal(renders,2);
+  assert.equal(ctx.images.length,3);assert.ok(ctx.images.every(args=>args[0]===canvas));core.dispose();
+});
 test('asset failure keeps source brain paths visible and does not retry every frame',async()=>{
   let loads=0;const core=new Orb({loadRenderer:async()=>{loads++;throw Error('offline');}}),ctx=context();
   core.draw(ctx,400,400,1);await settle();core.draw(ctx,400,400,2);core.draw(ctx,400,400,3);

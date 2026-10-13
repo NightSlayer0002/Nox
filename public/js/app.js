@@ -54,7 +54,7 @@ function toast(text) {
 const sceneLabels = { none: 'Move your cursor. Click or drag NOX.', gravity: 'Gravity is on. Pick NOX up and let go.', spotlight: 'Move the light with your cursor.', orbit: 'A small universe.', echo: 'An authored scene. Another presence.', takeover: 'Creative control: NOX.' };
 const stage = new Stage($('stage'), action => {
   if(!afterimageDriving)afterimageBridge.stop('scene-change');
-  $('scene-label').textContent = action === 'none' && document.body.dataset.form === 'core' ? 'Drag the brain. Click for a pulse.' : sceneLabels[action];
+  $('scene-label').textContent = action === 'none' && document.body.dataset.form === 'core' ? 'Click to send a wave. Hold and pull.' : sceneLabels[action];
   document.querySelectorAll('[data-scene]').forEach(button => {
     const active = button.dataset.scene === action;
     button.classList.toggle('active', active); button.setAttribute('aria-pressed', active);
@@ -244,7 +244,7 @@ document.querySelectorAll('button[data-form]').forEach(button => button.addEvent
   afterimageBridge.stop('scene-change');
   document.body.dataset.form = button.dataset.form; stage.setForm(button.dataset.form);
   document.querySelectorAll('button[data-form]').forEach(control => control.setAttribute('aria-pressed', control.dataset.form === stage.form));
-  $('stage').setAttribute('aria-label', stage.form !== 'core' ? 'Animated NOX face. Move the cursor to look around. Click to make him smile, double-click or press Space to wink. Drag or use arrow keys to move him. Shake quickly while holding him for spiral eyes.' : 'Animated NOX brain. Move the cursor for parallax, click or press Space for a pulse. Drag or use arrow keys to move the brain.');
+  $('stage').setAttribute('aria-label', stage.form !== 'core' ? 'Animated NOX face. Move the cursor to look around. Click to make him smile, double-click or press Space to wink. Drag or use arrow keys to move him. Shake quickly while holding him for spiral eyes.' : 'Interactive NOX neural brain. Move the cursor to turn it. Click or press Space to release a wave. Hold and pull for stronger bursts. Drag or use arrow keys to move the brain.');
 }));
 document.querySelectorAll('[data-prompt]').forEach(button => button.addEventListener('click', () => send(button.dataset.prompt)));
 $('chat-form').addEventListener('submit', event => { event.preventDefault(); send($('message').value); });
@@ -325,6 +325,14 @@ setInterval(() => {
   $('signal-level').style.width = `${Math.round(signal.energy * 100)}%`;
   $('stage').dataset.renderer = stage.form==='liquid'&&stage.liquidRenderer?'liquid-logo':stage.form === 'face' ? 'canvas-face' : stage.character.renderer?.available ? 'bodyparts3d-brain' : 'lucide-brain';
   $('stage').dataset.form = stage.form;
+  const neuralCanvas=stage.form==='core'?stage.character.material?.canvas:null;
+  $('stage').dataset.neuralNodes=neuralCanvas?.dataset.nodes||'0';
+  $('stage').dataset.neuralEdges=neuralCanvas?.dataset.edges||'0';
+  $('stage').dataset.waveCount=String(signal.waves?.length||0);
+  $('stage').dataset.waveSerial=String(signal.waveSerial||0);
+  $('stage').dataset.brainDrive=(signal.drive||0).toFixed(3);
+  $('stage').dataset.brainPressure=(stage.character.focus?.pressure||0).toFixed(3);
+  $('stage').dataset.brainPixels=String(neuralCanvas?.width||0);
   $('stage').dataset.gazeX = (stage.character.gazeX ?? stage.character.focus?.x ?? 0).toFixed(2);
   $('stage').dataset.gazeY = (stage.character.gazeY ?? stage.character.focus?.y ?? 0).toFixed(2);
   $('stage').dataset.expression=stage.character.features?.(stage.time).expression||stage.character.emotion;
