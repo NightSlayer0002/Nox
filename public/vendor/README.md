@@ -88,3 +88,15 @@ the Liquid Glass layouts are reduced to open columns and dividers. Terafab is a
 composition reference only: no images, branding, copy or proprietary source from
 it ship in NOX. See `docs/SCULPTURE-AND-RESPONSIVENESS.md` for the rendering clocks,
 gesture ownership and adaptation boundaries.
+# Connected brain presentation
+
+The connected-particle rendering pattern follows the official Three.js
+`webgl_buffergeometry_drawrange` example, pinned to commit
+`9b4a2ac29c63ccb43fd51c5661f2f873ac2c39b8` (r186 / 0.186.1).
+The exact upstream example and MIT license are retained in `three-neural/`.
+NOX adapts its `Points`, `LineSegments` and typed-buffer pattern to the sourced
+BodyParts3D anatomy. The static local-neighbour graph and animated illumination
+are artistic activity visualizations, not measured anatomical connections,
+biological neuron simulation or a representation of the LLM's internal weights.
+Desktop uses up to 4,200 anchors and 11,000 connections; compact screens use
+up to 2,000 and 5,000. Existing BodyParts3D attribution continues to apply.

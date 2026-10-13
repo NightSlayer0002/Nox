@@ -1,6 +1,14 @@
 {
   "sources": [
     {
+      "repository": "https://github.com/mrdoob/three.js",
+      "commit": "9b4a2ac29c63ccb43fd51c5661f2f873ac2c39b8",
+      "use": "Official connected-particle Points/LineSegments example adapted to a static anatomical graph with GPU activity",
+      "example": "examples/webgl_buffergeometry_drawrange.html",
+      "exampleSHA256": "943ded3f7eab696cdb76af7b2b44c7560e010b8f8f836ad450035aeb56375efe",
+      "license": "MIT; three-neural/LICENSE; upstream example retained unchanged"
+    },
+    {
       "repository": "https://dbarchive.biosciencedbc.jp/en/bodyparts3d/",
       "archive": "https://dbarchive.biosciencedbc.jp/data/bodyparts3d/LATEST/isa_BP3D_4.0_obj_99.zip",
       "archiveSHA256": "40665852c49f218326590e204db91064a1ecfc3c6f8cbd7bbbcaac62c7cd409e",
