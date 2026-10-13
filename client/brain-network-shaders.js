@@ -87,6 +87,7 @@ export const waveVertexShader=activityUniforms+`
   attribute float aPlane;
   varying float edge;
   varying float brightness;
+  varying vec2 framePosition;
   void main() {
     int slot = int(aWaveSlot + 0.5);
     vec4 wave = brainWaves[slot];
@@ -105,16 +106,22 @@ export const waveVertexShader=activityUniforms+`
     brightness = wave.w * alive * fade * (aPlane < 0.5 ? 0.38 : 0.23);
     edge = position.z;
     gl_Position = projectionMatrix * modelViewMatrix * vec4(wave.xyz + ripple, 1.0);
+    framePosition = gl_Position.xy / gl_Position.w;
   }
 `;
 export const waveFragmentShader=`
   uniform vec3 brainTint;
   varying float edge;
   varying float brightness;
+  varying vec2 framePosition;
   void main() {
     float band = 1.0 - smoothstep(0.06, 1.0, abs(edge));
-    if (brightness * band < 0.002) discard;
-    gl_FragColor = vec4(mix(brainTint, vec3(0.9, 1.0, 1.0), 0.18), brightness * band);
+    // Fade in projected space so off-centre and tilted waves dissolve before
+    // the square capture texture clips them. A radial mask leaves no box edge.
+    float frameFade = 1.0 - smoothstep(0.66, 0.96, length(framePosition));
+    float opacity = brightness * band * frameFade;
+    if (opacity < 0.002) discard;
+    gl_FragColor = vec4(mix(brainTint, vec3(0.9, 1.0, 1.0), 0.18), opacity);
     #include <tonemapping_fragment>
     #include <colorspace_fragment>
   }

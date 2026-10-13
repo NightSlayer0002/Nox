@@ -33,6 +33,8 @@ stage. The brain itself is part of that stage's captured canvas.
    It holds at most eight waves and expires them after 2.7 seconds.
 4. `brain-network-shaders.js` evaluates those events on the GPU. Light travels
    along links, crosses regions as wavefronts and expands beyond the anatomy.
+   A soft radial fade in projected space dissolves rings before the square
+   capture buffer can clip them, including during dragging and parallax.
    Thousands of positions are not rebuilt on the CPU every frame.
 5. `Orb` joins the activity state to NOX's existing state and focus. `Stage`
    remains the only animation clock and recording canvas. There is no second
