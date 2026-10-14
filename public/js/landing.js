@@ -1,5 +1,6 @@
 import { Stage } from './stage.js';
 import {attachPeek} from './peek.js';
+import {attachCinematicHandoff} from './cinematic-presence.js';
 
 // The homepage keeps NOX anchored; Stage retains gaze, reactions and materials.
 export function createLanding(canvas,{onDiscover,onExpression,onScene,peekHost,peekCanvas}={}){
@@ -27,13 +28,16 @@ export function createLanding(canvas,{onDiscover,onExpression,onScene,peekHost,p
     if(next!==expression){expression=next;onExpression?.(next);if(next==='dizzy')onDiscover?.('shake');if(next==='pout')onDiscover?.('pout');}
   };
   const peek=peekHost&&peekCanvas?attachPeek(stage,peekHost,peekCanvas):null;
+  const cinematic=attachCinematicHandoff(stage,peekHost);
   return {
     stage,pose,peek,
+    cinematic(active){cinematic.setActive(active);},
+    cinematicPointer(pointer){cinematic.setPointer(pointer);},
     chapter(){if(!stage.dragging&&stage.scene?.action!=='gravity')manual=false;},
     poke(){stage.character.poke(stage.time);onDiscover?.('poke');},
     material(metal){stage.setForm(metal?'liquid':'face');if(metal)onDiscover?.('liquid');},
     run(action){manual=false;if(stage.scene?.action===action){stage.stopScene(action);return;}stage.run(action);onDiscover?.(action);},
     home(){manual=false;stage.reset();},
-    dispose(){stage.dispose();}
+    dispose(){cinematic.dispose();stage.dispose();}
   };
 }
