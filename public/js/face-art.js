@@ -59,13 +59,17 @@ export function drawEyes(ctx,f,gazeX,gazeY,time,color,reduceMotion){
   for(let side=0;side<2;side++){
     const classic=['neutral','curious'].includes(f.expression),spacing=classic?57:47,eyeWidth=classic?46:38;
     const x=(side?spacing:-spacing)+gazeX,h=(side?f.rightHeight:f.leftHeight)*(classic?1:.82);
-    if(h<5||f.eyeStyle==='closed'){ctx.beginPath();ctx.moveTo(x-17,gazeY+3);ctx.quadraticCurveTo(x,gazeY+10,x+17,gazeY+3);ctx.stroke();}
+    if(f.eyeStyle==='arc'){
+      // Close the existing smile along its own curve. Switching to the generic
+      // downward lid at h<5 made a blink (or left wink) visibly invert the eye.
+      const open=Math.max(0,Math.min(1,h/(100*EXPRESSIONS[f.expression].heights[side]*.82)));
+      ctx.beginPath();ctx.moveTo(x-20,gazeY+8);ctx.quadraticCurveTo(x,gazeY+8-25*open,x+20,gazeY+8);ctx.stroke();
+    }else if(h<5||f.eyeStyle==='closed'){ctx.beginPath();ctx.moveTo(x-17,gazeY+3);ctx.quadraticCurveTo(x,gazeY+10,x+17,gazeY+3);ctx.stroke();}
     else if(f.eyeStyle==='glossy')glossyEye(ctx,x,gazeY,h,gazeX,gazeY);
     else if(f.eyeStyle==='spiral'){
       ctx.beginPath();const phase=reduceMotion?0:Math.sin(time*.8)*.16;
       for(let i=0;i<=55;i++){const a=i/55*Math.PI*5+phase,r=2+i/55*23;const px=x+Math.cos(a)*r,py=gazeY+Math.sin(a)*r;i?ctx.lineTo(px,py):ctx.moveTo(px,py);}ctx.stroke();
     }else if(f.eyeStyle==='star')star(ctx,x,gazeY,27);
-    else if(f.eyeStyle==='arc'){ctx.beginPath();ctx.moveTo(x-20,gazeY+8);ctx.quadraticCurveTo(x,gazeY-17,x+20,gazeY+8);ctx.stroke();}
     else if(f.eyeStyle==='squeezed'){const d=side?-1:1;ctx.beginPath();ctx.moveTo(x-d*19,gazeY-19);ctx.lineTo(x+d*13,gazeY);ctx.lineTo(x-d*19,gazeY+19);ctx.stroke();}
     else {
       const y=gazeY-h/2+(f.eyeStyle==='half'&&!side?9:0);
