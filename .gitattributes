@@ -1,3 +1,4 @@
 # Keep the pinned official example byte-stable when checked out on Windows.
 public/vendor/three-neural/* text eol=lf
 public/vendor/three-cinematic/* text eol=lf
+public/vendor/three-atmosphere/* text eol=lf
