@@ -1,9 +1,20 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {emblemPose,emblemPointer,emblemChapter} from '../public/js/home-choreography.js';
+import {emblemPose,emblemPointer,emblemChapter,finaleEmblemPose} from '../public/js/home-choreography.js';
 import {Vector3,Euler} from 'three';
 
 const anchors=[0,900,1800,3100,4100];
+test('the finale places the complete emblem inside its visible room instead of behind a section edge',()=>{
+  const rect={left:54,top:140,width:1240,height:550};
+  const pose=finaleEmblemPose(rect,{width:1366,height:768});
+  assert.ok(pose.screenX*1366>rect.left+rect.width*.2);
+  assert.ok(pose.screenX*1366<rect.left+rect.width*.4);
+  assert.ok(Math.abs(pose.screenY*768-(rect.top+rect.height*.47))<1);
+  assert.ok(pose.opacity>=.4&&pose.size>.2);
+  const phone=finaleEmblemPose({left:16,top:180,width:358,height:470},{width:390,height:844},true);
+  assert.ok(phone.size<.5&&phone.opacity>=.3);
+  for(const value of Object.values(finaleEmblemPose({left:0,top:0,width:0,height:0},{width:0,height:0})))assert.ok(Number.isFinite(value));
+});
 test('scene navigation selects an anchor landing even with fractional scroll rounding',()=>{
   assert.equal(emblemChapter(899.4,anchors),1);assert.equal(emblemChapter(3099.8,anchors),3);
   assert.equal(emblemChapter(2000,anchors),2);assert.equal(emblemChapter(880,anchors),0);

@@ -221,22 +221,29 @@ body.landing{background:var(--bg);font-family:var(--font-ui)}
  .source-footer{margin:0 7vw;padding-bottom:110px;gap:20px;flex-wrap:wrap}.source-footer>span:nth-child(2){width:auto}
 }
 
-/* Official Three.js spline extrusion study; one live texture of the NOX Stage. */
-.cinematic-section{position:relative;z-index:1;isolation:isolate;overflow:hidden;height:78svh;min-height:530px;max-height:900px;margin:0 0 80px;background:#040809;color:#e0e8e3;contain:layout paint}
+/* Transparent finale: pmndrs MeshLine trails over the original 3D emblem. */
+.cinematic-section{position:relative;z-index:1;margin:110px 4vw 36px;color:#e0e8e3;min-height:650px}
+.cinematic-heading{margin:0 5vw 32px}
+.cinematic-heading h2{margin:0;font:400 clamp(32px,3.5vw,50px)/1.12 var(--font-ui);letter-spacing:-.035em}
+.cinematic-heading p{margin:14px 0 0;color:var(--muted);font-size:17px}
+.cinematic-viewport{position:relative;isolation:isolate;height:72svh;min-height:500px;max-height:780px;border-radius:38px;overflow:hidden;background:#08101312;box-shadow:inset 0 0 0 1px #b6d3c014;contain:layout paint}
 .cinematic-room,.cinematic-atmosphere{position:absolute;inset:0}
-.cinematic-room canvas{display:block;width:100%;height:100%;outline-offset:-8px;touch-action:pan-y}
-.cinematic-room canvas:focus-visible{outline:1px solid #96c4b0}
+.cinematic-room canvas{display:block;width:100%;height:100%;touch-action:pan-y}
 .home-page:has(.cinematic-room[data-active="true"]) .contact-hud{visibility:hidden}
-.cinematic-atmosphere{pointer-events:none;background:radial-gradient(ellipse at 21% 53%,#6d9c9520,transparent 54%),radial-gradient(ellipse at 78% 38%,#7d8b8914,transparent 48%),linear-gradient(#04080988,transparent 27%,transparent 72%,#040809cc)}
-.cinematic-section h2{position:absolute;top:44px;left:9vw;right:9vw;margin:0;font:400 clamp(26px,3vw,42px)/1.2 var(--font-ui);letter-spacing:-.035em;pointer-events:none}
-.cinematic-foot{position:absolute;left:9vw;right:9vw;bottom:30px;display:flex;justify-content:space-between;align-items:center;gap:28px;pointer-events:none;font-size:14px;color:#a6b9b3}
+.cinematic-atmosphere{pointer-events:none;background:radial-gradient(ellipse at 80% 80%,#8bab9c12,transparent 50%),linear-gradient(120deg,#c5dbd508,transparent 60%)}
+.cinematic-nox-handle{position:absolute;top:0;left:0;z-index:3;padding:0;border:0;border-radius:42% 42% 12% 12%;background:transparent!important;box-shadow:none;cursor:grab;touch-action:none;user-select:none;-webkit-user-select:none;outline-offset:5px}
+.cinematic-nox-handle[hidden]{display:none}
+.cinematic-nox-handle[data-dragging=true]{cursor:grabbing}
+.cinematic-nox-handle:focus-visible{outline:1px solid #b4e5cc}
+.cinematic-foot{position:absolute;left:4vw;right:4vw;bottom:24px;display:flex;justify-content:space-between;align-items:center;gap:28px;pointer-events:none;font-size:14px;color:#a6b9b3}
 .cinematic-foot p{margin:0;line-height:1.5;max-width:340px}
-.cinematic-foot button{pointer-events:auto;border:0;border-radius:0;background:none!important;color:#c9d9d1;padding:10px 0;min-height:44px;white-space:nowrap;text-decoration:underline;text-underline-offset:5px;font:inherit;box-shadow:none!important}
-.cinematic-foot button:disabled{opacity:.35;cursor:default}
+.cinematic-foot>span{font-size:10px;letter-spacing:.14em;opacity:.6;white-space:nowrap}
 .cinematic-section[data-state=fallback] .cinematic-room{display:none}
+.cinematic-section[data-state=fallback] .cinematic-foot p::after{content:" The room is resting on this device."}
 @media(max-width:700px){
- .cinematic-section{height:72svh;min-height:500px;margin-bottom:45px}
- .cinematic-section h2{left:7vw;right:7vw;top:32px;font-size:28px;max-width:250px}
- .cinematic-foot{left:7vw;right:7vw;bottom:24px;gap:16px;font-size:12px;align-items:flex-end}
- .cinematic-foot p{max-width:190px}
+ .cinematic-section{margin:70px 4vw 28px;min-height:620px}
+ .cinematic-heading{margin:0 3vw 28px}.cinematic-heading h2{font-size:34px;max-width:300px}.cinematic-heading p{font-size:16px}
+ .cinematic-viewport{height:66svh;min-height:470px;border-radius:28px}
+ .cinematic-foot{left:6vw;right:6vw;bottom:22px;gap:16px;font-size:12px;align-items:flex-end}
+ .cinematic-foot p{max-width:170px}.cinematic-foot>span{font-size:8px}
 }

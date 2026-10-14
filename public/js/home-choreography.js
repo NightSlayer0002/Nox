@@ -31,3 +31,10 @@ export function emblemPointer(pointer,pose){
   if(!pointer||![pointer.x,pointer.y].every(Number.isFinite))return {x:0,y:0};
   return {x:clamp((pointer.y-pose.screenY)*.25,-.1,.1),y:clamp((pointer.x-pose.screenX)*.32,-.16,.16)};
 }
+
+// Position the existing full-size emblem relative to the finale's actual box.
+// The body is a separate shared Stage portrait, never a second character.
+export function finaleEmblemPose(rect,viewport,small=false){
+  const width=Math.max(1,viewport.width||1),height=Math.max(1,viewport.height||1);
+  return {screenX:(rect.left+rect.width*(small?.34:.27))/width,screenY:(rect.top+rect.height*.47)/height,size:rect.width/width*(small?.46:.28),x:.02,y:.18,z:-.04,spread:0,waterTurn:.55,waterX:0,opacity:small?.38:.48};
+}
