@@ -32,6 +32,18 @@ test('pausing freezes drift while the live portrait can continue and resuming ha
   loop.dispose();assert.equal(clock.size,0);
 });
 
+test('a capped renderer receives all simulated time between draws, not just the last animation frame',()=>{
+  const clock=frameClock(),frames=[];
+  const loop=createCinematicLoop({request:clock.request,cancel:clock.cancel,render:frame=>frames.push(frame),fps:24});
+  loop.setVisible(true);
+  for(const time of [0,16,32,48])clock.step(time);
+  assert.equal(frames.length,2);
+  assert.ok(Math.abs(frames[1].dt-.048)<1e-10);
+  loop.setPageVisible(false);loop.setPageVisible(true);clock.step(10000);
+  assert.equal(frames.at(-1).dt,0);
+  loop.dispose();
+});
+
 test('disposing a visible scene releases the character exactly once and cancels its pending render',()=>{
   const clock=frameClock(),presence=[];
   const loop=createCinematicLoop({request:clock.request,cancel:clock.cancel,render(){},presence:active=>presence.push(active)});

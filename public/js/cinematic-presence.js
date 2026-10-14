@@ -1,17 +1,17 @@
 // The scene owns a render loop only while both its section and page are visible.
 // Keep its local clock separate from wall time so returning to it never jumps.
 export function createCinematicLoop({request=requestAnimationFrame,cancel=cancelAnimationFrame,render,presence=()=>{},fps=24}){
-  let visible=false,pageVisible=true,active=false,disposed=false,motion=true,frame=null,previous=null,drawn=null,elapsed=0;
+  let visible=false,pageVisible=true,active=false,disposed=false,motion=true,frame=null,previous=null,drawn=null,elapsed=0,pending=0;
   const tick=timestamp=>{
     frame=null;if(!active||disposed)return;
     const delta=previous===null?0:Math.min(.05,Math.max(0,(timestamp-previous)/1000));previous=timestamp;
-    const dt=motion?delta:0;elapsed+=dt;
-    if(drawn===null||timestamp-drawn>=1000/fps-.5){drawn=timestamp;render({elapsed,dt,motion});}
+    const dt=motion?delta:0;elapsed+=dt;pending+=dt;
+    if(drawn===null||timestamp-drawn>=1000/fps-.5){drawn=timestamp;const step=pending;pending=0;render({elapsed,dt:step,motion});}
     if(active&&!disposed)frame=request(tick);
   };
   const sync=()=>{
     const next=!disposed&&visible&&pageVisible;if(next===active)return;
-    active=next;previous=null;drawn=null;
+    active=next;previous=null;drawn=null;pending=0;
     if(frame!==null){cancel(frame);frame=null;}
     presence(active);if(active)frame=request(tick);
   };
