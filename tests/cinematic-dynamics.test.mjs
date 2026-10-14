@@ -1,9 +1,20 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {createCinematicDynamics} from '../public/js/cinematic-dynamics.js';
+import {createCinematicDynamics,CINEMATIC_MOTION} from '../public/js/cinematic-dynamics.js';
 
 const bounds={left:-5,right:5,bottom:-3,top:3};
 const speed=state=>Math.hypot(state.vx,state.vy);
+test('the finale can throw faster while its initial drift and slowdown stay unchanged',()=>{
+  const profile=CINEMATIC_MOTION;
+  assert.equal(profile.initialVx,.13);assert.equal(profile.initialVy,.05);
+  assert.equal(profile.maxSpeed,2.8);
+  const faster=createCinematicDynamics({vx:profile.initialVx,vy:profile.initialVy,maxSpeed:profile.maxSpeed,bounds});
+  const previous=createCinematicDynamics({vx:.13,vy:.05,maxSpeed:2.2,bounds});
+  for(let i=0;i<100;i++){faster.step(.05);previous.step(.05);}
+  assert.deepEqual(faster.state,previous.state);
+  faster.grab({x:0,y:0},100);faster.drag({x:1,y:1},140);faster.release(145);
+  assert.ok(Math.abs(speed(faster.state)-2.8)<1e-9);
+});
 
 test('a free character drifts without gravity and gradually loses speed',()=>{
   const motion=createCinematicDynamics({x:0,y:0,vx:1,vy:.4,bounds});

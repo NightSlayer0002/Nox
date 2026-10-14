@@ -1,6 +1,7 @@
 const finite=(value,fallback)=>Number.isFinite(value)?value:fallback;
 const clamp=(value,min,max)=>Math.max(min,Math.min(max,value));
 const validPoint=point=>point&&Number.isFinite(point.x)&&Number.isFinite(point.y);
+export const CINEMATIC_MOTION=Object.freeze({initialVx:.13,initialVy:.05,maxSpeed:2.8});
 
 // Positions are on the camera-facing world plane; velocity is world units/second.
 export function createCinematicDynamics({x=0,y=0,vx=.12,vy=.035,bounds:initialBounds,maxSpeed=2.2}={}){
