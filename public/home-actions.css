@@ -1,0 +1,12 @@
+/* Preserve the existing Try NOX typography and palette; add only edge light. */
+.landing :is(.liquid-button,.nav-enter)[href="/guest#conversation"] {
+  transition:box-shadow .42s cubic-bezier(.22,1,.36,1);
+}
+.landing :is(.liquid-button,.nav-enter)[href="/guest#conversation"]:is(:hover,:focus-visible) {
+  background:var(--accent);
+  color:var(--bg);
+  box-shadow:inset 0 0 0 1px #fff5cf,0 0 0 1px #f4e5b699,0 0 18px #f4e5b638;
+}
+@media(prefers-reduced-motion:reduce) {
+  .landing :is(.liquid-button,.nav-enter)[href="/guest#conversation"] {transition:none}
+}
