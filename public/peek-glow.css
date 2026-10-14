@@ -1,0 +1,13 @@
+/* Canvas alpha supplies the silhouette: no rectangle behind the companion.
+ * Leave space for the aura to extend beyond his fixed corner perch. */
+.landing #nox-peek {overflow:visible}
+.landing #peek-stage {
+  filter:drop-shadow(0 0 1px #b8ebca99) drop-shadow(0 0 7px #83c7b34d) drop-shadow(0 0 18px #83c7b32e);
+  transition:filter .34s cubic-bezier(.22,1,.36,1);
+}
+.landing #nox-peek:hover #peek-stage {
+  filter:drop-shadow(0 0 1px #c9f4d8bb) drop-shadow(0 0 9px #83c7b373) drop-shadow(0 0 24px #83c7b345);
+}
+@media(prefers-reduced-motion:reduce) {
+  .landing #peek-stage {transition:none}
+}
