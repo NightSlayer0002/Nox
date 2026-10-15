@@ -18,7 +18,7 @@ import { createPublicQuota } from './server/public-quota.mjs';
 
 const root = path.dirname(fileURLToPath(import.meta.url));
 const publicRoot = path.join(root, 'public');
-const contentTypes = { '.html': 'text/html; charset=utf-8', '.css': 'text/css; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.svg': 'image/svg+xml', '.png': 'image/png', '.jpg': 'image/jpeg', '.ttf': 'font/ttf', '.woff2':'font/woff2', '.bin':'application/octet-stream', '.txt': 'text/plain; charset=utf-8', '.glsl':'text/plain; charset=utf-8', '.vert':'text/plain; charset=utf-8', '.frag':'text/plain; charset=utf-8' };
+const contentTypes = { '.html': 'text/html; charset=utf-8', '.css': 'text/css; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.svg': 'image/svg+xml', '.png': 'image/png', '.jpg': 'image/jpeg', '.ttf': 'font/ttf', '.woff2':'font/woff2', '.bin':'application/octet-stream', '.glb':'model/gltf-binary', '.txt': 'text/plain; charset=utf-8', '.glsl':'text/plain; charset=utf-8', '.vert':'text/plain; charset=utf-8', '.frag':'text/plain; charset=utf-8' };
 
 function sendJson(response, status, body) {
   response.writeHead(status, { 'content-type': 'application/json; charset=utf-8' });
@@ -258,7 +258,7 @@ export function createAppServer({
     if (!type) return sendJson(response, 404, { error: 'Not found.' });
     try {
       const content = await readFile(file);
-      if(/^\/dist\/chunks\/[\w-]+-[A-Z0-9]{8}\.js$/.test(pathname))response.setHeader('cache-control','public, max-age=31536000, immutable');
+      if(/^\/dist\/chunks\/[\w-]+-[A-Z0-9]{8}\.js$/.test(pathname)||/^\/assets\/nox\/body-v\d+\.glb$/.test(pathname))response.setHeader('cache-control','public, max-age=31536000, immutable');
       response.writeHead(200, { 'content-type': type });
       response.end(request.method === 'HEAD' ? undefined : content);
     } catch { sendJson(response, 404, { error: 'Not found.' }); }

@@ -38,6 +38,7 @@ export async function buildVercel(destination = path.join(root,'.vercel/output')
   await writeFile(path.join(output,'config.json'),JSON.stringify({version:3,routes:[
     {src:'/(.*)',headers:securityHeaders,continue:true},
     {src:'/dist/chunks/(.*)-[A-Z0-9]{8}\\.js',headers:{'Cache-Control':'public, max-age=31536000, immutable'},continue:true},
+    {src:'/assets/nox/body-v[0-9]+\\.glb',headers:{'Cache-Control':'public, max-age=31536000, immutable'},continue:true},
     {src:'/',dest:'/index.html'},
     {src:'/app/?',dest:'/app.html'},
     {src:'/guest/?',dest:'/app.html'},

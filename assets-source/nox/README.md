@@ -47,3 +47,7 @@ GLB. The source display material is also excluded from GLB; the browser supplies
 its liquid metal shader. The export contains one indexed closed body, normals,
 UVs and shape-key positions/normals, with no animations, external resources,
 lights or cameras. The asset contract test checks delivery and geometry budgets.
+
+The deployed `body-v1.glb` URL is immutable and cached. For subsequent published
+asset changes, increment the filename version and update the loader URL before
+deployment so returning browsers receive the new model.

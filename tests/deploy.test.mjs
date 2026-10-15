@@ -16,18 +16,21 @@ test('Vercel build contains static module dependencies and all bounded API handl
     assert.equal(routing.version, 3);
     assert.match(routing.routes[0].headers['Content-Security-Policy'],/form-action 'self'/);
     assert.ok(routing.routes.some(route=>route.src.startsWith('/dist/chunks/')&&route.headers?.['Cache-Control'].includes('immutable')));
+    assert.ok(routing.routes.some(route=>route.src.startsWith('/assets/nox/')&&route.headers?.['Cache-Control'].includes('immutable')));
     const homeBundle=await readFile(path.join(output,'static/dist/home.js'),'utf8');
     const workspaceBundle=await readFile(path.join(output,'static/dist/workspace.js'),'utf8');
     assert.match(homeBundle,/\.\/chunks\/source-scene-/);assert.match(workspaceBundle,/\/js\/workbench\.js/);
     assert.ok((await readdir(path.join(output,'static/dist/chunks'))).some(file=>/^source-scene-.*\.js$/.test(file)));
     for(const source of ['liquid-logo/fragment-shader.glsl','liquid-glass-js/glass.frag','sources.json'])assert.ok((await readFile(path.join(output,'static/vendor',source),'utf8')).length>0);
+    const body=await readFile(path.join(output,'static/assets/nox/body-v1.glb'));
+    assert.equal(body.subarray(0,4).toString(),'glTF');assert.ok(body.length<=1048576);
     assert.match(await readFile(path.join(output,'static/index.html'),'utf8'), /NOX/);
     assert.match(await readFile(path.join(output,'static/shared/character.js'),'utf8'), /normalizePacket/);
     const sharedAfterimage=await import(pathToFileURL(path.join(output,'static/shared/afterimage.js')));
     assert.equal(sharedAfterimage.sanitizeAfterimageInput({seed:'A moon',tone:'wonder'}).variation,0);
     assert.throws(()=>sharedAfterimage.normalizeAfterimage({title:'incomplete'}),TypeError);
     const files = await readdir(path.join(output,'static'));
-    for (const secret of ['.env','.git','server.mjs','docs','artifacts']) assert.ok(!files.includes(secret));
+    for (const secret of ['.env','.git','server.mjs','docs','artifacts','assets-source']) assert.ok(!files.includes(secret));
     for (const endpoint of ['status','chat','speech','summary','session','afterimage']) {
       const folder = path.join(output,`functions/api/${endpoint}.func`);
       const config = JSON.parse(await readFile(path.join(folder,'.vc-config.json'),'utf8'));
