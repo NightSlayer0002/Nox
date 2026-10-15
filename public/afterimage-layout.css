@@ -1,0 +1,17 @@
+/* Keep the performance in view; the story editor owns the page's scroll. */
+.workspace[data-view=afterimage]{height:var(--workspace-height,100dvh);min-height:0;overflow:hidden}
+.workspace[data-view=afterimage] .shell{height:100%;display:flex;flex-direction:column}
+.workspace[data-view=afterimage] .header,.workspace[data-view=afterimage] .visit-banner,.workspace[data-view=afterimage] .intro{flex:none}
+.workspace[data-view=afterimage] #workspace-main{flex:1;min-height:0;display:flex;flex-direction:column;padding-bottom:18px}
+.workspace[data-view=afterimage] .studio{flex:1;min-height:0;align-items:stretch}
+.workspace[data-view=afterimage] .stage-column{min-height:0;align-self:start}
+.workspace[data-view=afterimage] .stage-wrap{height:clamp(180px,calc(var(--workspace-height,100dvh) - 285px),360px)}
+.workspace[data-view=afterimage] .afterimage-column{min-height:0;height:100%;overflow-y:auto;overscroll-behavior-y:contain;scrollbar-gutter:stable;padding-right:12px;padding-bottom:20px}
+.workspace[data-view=afterimage] footer{display:none}
+@media(max-width:1000px){
+ .workspace[data-view=afterimage] .studio{grid-template-rows:auto minmax(0,1fr);gap:16px}
+ .workspace[data-view=afterimage] .stage-wrap{height:clamp(140px,calc(var(--workspace-height,100dvh) * .25),240px)}
+ .workspace[data-view=afterimage] .instrument-heading{min-height:28px;margin-bottom:5px}
+ .workspace[data-view=afterimage] .intro{margin:8px 0 12px}
+ .workspace[data-view=afterimage] .intro-note{display:none}
+}
