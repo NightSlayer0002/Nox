@@ -64,9 +64,9 @@ export class Stage {
     return true;
   }
   prepareLiquid(){
-    if(this.liquidRenderer||this.liquidLoading)return;
+    if(this.liquidRenderer||this.liquidLoading||this.liquidFailed)return;
     this.canvas.dataset.liquid='loading';
-    this.liquidLoading=import('/dist/liquid-character.js').then(module=>this.disposed?null:module.createLiquidCharacter()).then(renderer=>{if(!renderer)return;if(this.disposed){renderer.dispose();return;}this.liquidRenderer=renderer;this.canvas.dataset.liquid='ready';this.canvas.dataset.liquidGeometry='rounded-blob-volume';renderer.onRestore=()=>{renderer.dispose();this.liquidRenderer=null;this.liquidReady=false;this.liquidLoading=null;if(!this.disposed)this.prepareLiquid();};}).catch(()=>{if(!this.disposed){this.liquidLoading=null;this.canvas.dataset.liquid='fallback';}});
+    this.liquidLoading=import('/dist/liquid-character.js').then(module=>this.disposed?null:module.createLiquidCharacter({appearance:this.form==='liquid'?'liquid':'face'})).then(renderer=>{if(!renderer)return;if(this.disposed){renderer.dispose();return;}this.liquidRenderer=renderer;this.canvas.dataset.liquid='ready';this.canvas.dataset.liquidGeometry='rounded-blob-volume';renderer.onRestore=()=>{renderer.dispose();this.liquidRenderer=null;this.liquidReady=false;this.liquidLoading=null;if(!this.disposed)this.prepareLiquid();};}).catch(()=>{if(!this.disposed){this.liquidLoading=null;this.liquidFailed=true;this.canvas.dataset.liquid='fallback';}});
   }
   setBackgroundSource(canvas){this.backgroundSource=canvas;}
   drawBackground(ctx,w,h){
@@ -178,14 +178,20 @@ export class Stage {
     const dt = Math.min(.04, Math.max(0, (timestamp - (this.previous || timestamp)) / 1000));
     this.previous = timestamp;
     this.onBeforeFrame?.(this.time,dt);
-    this.materialBlend=(this.materialBlend||0)+((this.form==='liquid'&&this.liquidReady?1:0)-(this.materialBlend||0))*(1-Math.exp(-dt*7));
+    this.materialBlend=(this.materialBlend||0)+((this.form!=='core'&&this.liquidReady?1:0)-(this.materialBlend||0))*(1-Math.exp(-dt*7));
     this.animateScene(dt);
     this.character.update(this.time, dt, this.pointer, this.dragging || this.scene?.action === 'gravity', this.reduceMotion);
-    if(this.liquidRenderer&&(this.form==='liquid'||this.materialBlend>.001)&&this.time-(this.liquidRenderedAt??-1)>=1/30&&!document.hidden&&(this.renderEnabled!==false||this.canvas.dataset.presence==='peeking')){
-      this.liquidReady=this.liquidRenderer.render(this.forms.face,this.time);this.liquidRenderedAt=this.time;this.canvas.dataset.liquid=this.liquidReady?'ready':'fallback';
+    const elsewhere=this.recordingLocked||['peeking','cinematic'].includes(this.canvas.dataset.presence);
+    const box=this.canvas.getBoundingClientRect?.();
+    const inView=elsewhere||(this.renderEnabled!==false&&(!box||box.bottom>0&&box.top<(globalThis.innerHeight??Infinity)));
+    const visibleBody=this.form!=='core'&&this.width>0&&this.height>0&&!document.hidden&&inView;
+    if(visibleBody&&!this.liquidRenderer)this.prepareLiquid();
+    if(this.liquidRenderer&&visibleBody&&this.time-(this.liquidRenderedAt??-1)>=1/30){
+      this.liquidReady=this.liquidRenderer.render(this.forms.face,this.time,this.form);this.liquidRenderedAt=this.time;this.canvas.dataset.liquid=this.liquidReady?'ready':'fallback';
       const body=this.liquidRenderer.canvas.dataset;
       this.canvas.dataset.liquidBody=body.bodySource||'procedural';this.canvas.dataset.liquidHold=body.bodyHold||'0';this.canvas.dataset.liquidWobble=body.bodyWobble||'0';this.canvas.dataset.liquidImpact=body.bodyImpact||'0';
       this.canvas.dataset.liquidFrameDelta=body.bodyFrameDelta||'0';
+      this.canvas.dataset.bodySource=body.bodySource||'procedural';this.canvas.dataset.appearance=body.appearance||this.form;
     }
     if(this.renderEnabled!==false)this.render();
     this.onAfterFrame?.();

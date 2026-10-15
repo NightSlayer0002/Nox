@@ -311,7 +311,7 @@ setInterval(() => {
     document.body.dataset.signal = signal.status; $('signal-state').textContent = signal.status.toUpperCase();
   }
   $('signal-level').style.width = `${Math.round(signal.energy * 100)}%`;
-  $('stage').dataset.renderer = stage.form==='liquid'&&stage.liquidRenderer?'liquid-logo':stage.form === 'face' ? 'canvas-face' : stage.character.renderer?.available ? 'bodyparts3d-brain' : 'lucide-brain';
+  $('stage').dataset.renderer = stage.form==='liquid'&&stage.liquidRenderer?'liquid-logo':stage.form === 'face' ? stage.liquidReady?'blender-presence':'canvas-face' : stage.character.renderer?.available ? 'bodyparts3d-brain' : 'lucide-brain';
   $('stage').dataset.form = stage.form;
   const neuralCanvas=stage.form==='core'?stage.character.material?.canvas:null;
   $('stage').dataset.neuralNodes=neuralCanvas?.dataset.nodes||'0';

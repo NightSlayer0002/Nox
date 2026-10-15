@@ -20,10 +20,11 @@ npm.cmd start
 
 Open http://127.0.0.1:3000 for the landing page, then enter the workspace at `/app`. Dark is the default; a deliberate new Light choice can be saved. NOX follows your cursor across the browser window. Click him, drag him, or double-click to wink. Presence is the soft blob; Liquid Metal applies liquid-logo’s flowing Chrome shader to that same character. Signal is a faceless liquid core. NOX motion stays on with no website switch, including when the browser requests reduced motion as explicitly requested by the owner. ShaderGradient’s Mint water-plane scene animates automatically; GPU drawing is capped at 30 FPS and stops when the page is hidden. Voice starts on and preserves a saved off choice; browser audio still needs interaction. Scene programs stop on a second click. F enters portrait film mode; Escape resets the scene.
 
-Liquid Metal uses an editable Blender body with held stretch, release wobble and
-local impact deformation. The 635 KB model loads on demand; download or WebGL
-failures keep the procedural/Canvas fallback usable. Expressions, narration and
-captioned recording share the existing Stage clock. See the
+Normal NOX uses a soft matte 3D body with warm eyes, a mint rim, held stretch and
+release wobble. Liquid Metal shares that body and loads its Chrome surface only
+when selected. The 635 KB model loads on demand; download or WebGL failures keep
+the procedural/Canvas fallback usable. Expressions, narration and captioned
+recording share the existing Stage clock, including offscreen recording. See the
 [body source and export instructions](assets-source/nox/README.md) to edit or
 re-export the asset.
 
