@@ -181,7 +181,12 @@ export class Stage {
     this.materialBlend=(this.materialBlend||0)+((this.form==='liquid'&&this.liquidReady?1:0)-(this.materialBlend||0))*(1-Math.exp(-dt*7));
     this.animateScene(dt);
     this.character.update(this.time, dt, this.pointer, this.dragging || this.scene?.action === 'gravity', this.reduceMotion);
-    if(this.liquidRenderer&&(this.form==='liquid'||this.materialBlend>.001)&&this.time-(this.liquidRenderedAt??-1)>=1/30&&!document.hidden&&(this.renderEnabled!==false||this.canvas.dataset.presence==='peeking')){this.liquidReady=this.liquidRenderer.render(this.forms.face,this.time);this.liquidRenderedAt=this.time;this.canvas.dataset.liquid=this.liquidReady?'ready':'fallback';}
+    if(this.liquidRenderer&&(this.form==='liquid'||this.materialBlend>.001)&&this.time-(this.liquidRenderedAt??-1)>=1/30&&!document.hidden&&(this.renderEnabled!==false||this.canvas.dataset.presence==='peeking')){
+      this.liquidReady=this.liquidRenderer.render(this.forms.face,this.time);this.liquidRenderedAt=this.time;this.canvas.dataset.liquid=this.liquidReady?'ready':'fallback';
+      const body=this.liquidRenderer.canvas.dataset;
+      this.canvas.dataset.liquidBody=body.bodySource||'procedural';this.canvas.dataset.liquidHold=body.bodyHold||'0';this.canvas.dataset.liquidWobble=body.bodyWobble||'0';this.canvas.dataset.liquidImpact=body.bodyImpact||'0';
+      this.canvas.dataset.liquidFrameDelta=body.bodyFrameDelta||'0';
+    }
     if(this.renderEnabled!==false)this.render();
     this.onAfterFrame?.();
     this.frameId=requestAnimationFrame(next => this.frame(next));

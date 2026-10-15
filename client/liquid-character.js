@@ -1,5 +1,7 @@
 import * as THREE from 'three';
 import {createLiquidGeometry} from './liquid-geometry.js';
+import {createNoxBodyResource} from './nox-body.js';
+import {createBodyMotion} from './nox-body-motion.js';
 import {drawEyes,drawMouth} from '../public/js/face-art.js';
 import {createLiquidLogoRenderer} from '../public/js/source-effects.js';
 import {LIQUID_FRAME_SIZE} from '../public/js/liquid-frame.js';
@@ -13,12 +15,12 @@ export function liquidRotation(face){
 // and the existing NOX brand/acting. Stage is the only animation clock.
 export async function createLiquidCharacter(){
   const chrome=await createLiquidLogoRenderer();
-  let renderer,geometry,material,faceGeometry,faceMaterial,faceTexture,surfaceTexture,environment,pmrem,reflectionTexture;
+  let renderer,geometry,bodyResource,material,faceGeometry,faceMaterial,faceTexture,surfaceTexture,environment,pmrem,reflectionTexture;
   try{
     const canvas=document.createElement('canvas');
     renderer=new THREE.WebGLRenderer({canvas,alpha:true,antialias:true,preserveDrawingBuffer:true,powerPreference:'low-power'});
     renderer.setPixelRatio(1);renderer.setSize(512,512,false);renderer.setClearColor(0,0);
-    renderer.outputColorSpace=THREE.SRGBColorSpace;renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=1.25;
+    renderer.outputColorSpace=THREE.SRGBColorSpace;renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=.95;
     const half=LIQUID_FRAME_SIZE/2,scene=new THREE.Scene(),camera=new THREE.OrthographicCamera(-half,half,half,-half,.1,2000);camera.position.z=600;
     const group=new THREE.Group();scene.add(group);
     const mask=document.createElement('canvas');mask.width=mask.height=512;const maskCtx=mask.getContext('2d');maskCtx.fillStyle='#fff';maskCtx.fillRect(0,0,512,512);chrome.render(mask,2);
@@ -29,12 +31,21 @@ export async function createLiquidCharacter(){
     // looking like creases in an otherwise smooth body.
     pmrem=new THREE.PMREMGenerator(renderer);environment=pmrem.fromEquirectangular(reflectionTexture);
     geometry=createLiquidGeometry();
-    material=new THREE.MeshPhysicalMaterial({color:'#dce5e3',metalness:.94,roughness:.17,clearcoat:1,clearcoatRoughness:.12,map:surfaceTexture,envMap:environment.texture,envMapIntensity:1.5});
+    material=new THREE.MeshPhysicalMaterial({color:'#8daca6',metalness:.96,roughness:.22,clearcoat:.8,clearcoatRoughness:.16,map:surfaceTexture,envMap:environment.texture,envMapIntensity:1.15});
     const wave={value:0};
     // Vertex wave from R3F's ShaderMaterial.tsx demo, adapted from 2-unit
     // demo coordinates to the existing 290-unit NOX outline (2px amplitude).
     material.onBeforeCompile=shader=>{shader.uniforms.noxTime=wave;shader.vertexShader='uniform float noxTime;\n'+shader.vertexShader.replace('#include <begin_vertex>','#include <begin_vertex>\ntransformed.z += sin((position.x / 100.0 + noxTime) * 4.0) * 2.0;');};
-    material.customProgramCacheKey=()=> 'nox-r3f-source-wave-v1';group.add(new THREE.Mesh(geometry,material));
+    material.customProgramCacheKey=()=> 'nox-r3f-source-wave-v1';
+    const bodyMesh=new THREE.Mesh(geometry,material);group.add(bodyMesh);
+    canvas.dataset.bodySource='procedural';
+    bodyResource=createNoxBodyResource({fallbackGeometry:geometry,onChange:body=>{
+      geometry=body.geometry;bodyMesh.geometry=geometry;bodyMesh.updateMorphTargets();bodyMesh.morphTargetDictionary=body.morphTargets;
+      canvas.dataset.bodySource=body.source;
+      canvas.dataset.bodyTriangles=String(geometry.index.count/3);
+    }});
+    const bodyMotion=createBodyMotion();
+    let previousBodyFrame;
     const faceCanvas=document.createElement('canvas');faceCanvas.width=faceCanvas.height=512;const ctx=faceCanvas.getContext('2d');
     faceTexture=new THREE.CanvasTexture(faceCanvas);faceTexture.colorSpace=THREE.SRGBColorSpace;faceTexture.generateMipmaps=false;faceTexture.minFilter=THREE.LinearFilter;
     faceGeometry=new THREE.PlaneGeometry(LIQUID_FRAME_SIZE,LIQUID_FRAME_SIZE);faceMaterial=new THREE.MeshBasicMaterial({map:faceTexture,transparent:true,depthWrite:false,toneMapped:false});
@@ -48,11 +59,17 @@ export async function createLiquidCharacter(){
       if(disposed||lost||renderer.getContext().isContextLost()||!chrome.render(mask,time+2))return false;
       surfaceTexture.needsUpdate=true;wave.value=face.reduceMotion?0:time*.22;
       group.rotation.set(...liquidRotation(face));
+      const weights=bodyMotion.sample(face,time);
+      canvas.dataset.bodyFrameDelta=previousBodyFrame===undefined?'0':(time-previousBodyFrame).toFixed(3);previousBodyFrame=time;
+      for(const [name,index] of Object.entries(bodyResource.morphTargets))bodyMesh.morphTargetInfluences[index]=weights[name]||0;
+      canvas.dataset.bodyHold=weights.Hold.toFixed(3);
+      canvas.dataset.bodyWobble=Math.max(weights.WobbleLeft,weights.WobbleRight).toFixed(3);
+      canvas.dataset.bodyImpact=weights.Impact.toFixed(3);
       const features=face.features(time),red=face.mode==='uncanny'||face.emotion==='uncanny',color=red?'#efbba3':face.mode==='director'?'#eeefd6':'#fff3c9';
       ctx.setTransform(1,0,0,1,0,0);ctx.clearRect(0,0,512,512);ctx.translate(256,256);ctx.scale(512/LIQUID_FRAME_SIZE,512/LIQUID_FRAME_SIZE);
       ctx.shadowColor=red?'#c78361':'#f2d794';ctx.shadowBlur=5;drawEyes(ctx,features,face.gazeX,face.gazeY,time,color,face.reduceMotion);ctx.shadowBlur=2;drawMouth(ctx,features,face.gazeX,face.gazeY,color);faceTexture.needsUpdate=true;
       renderer.render(scene,camera);canvas.dataset.geometry='rounded-blob-volume';return true;
-    },dispose(){if(disposed)return;disposed=true;canvas.removeEventListener('webglcontextlost',lose);canvas.removeEventListener('webglcontextrestored',restore);chrome.onRestore=null;chrome.dispose();geometry.dispose();material.dispose();faceGeometry.dispose();faceMaterial.dispose();faceTexture.dispose();surfaceTexture.dispose();environment.dispose();pmrem.dispose();reflectionTexture.dispose();renderer.dispose();renderer.forceContextLoss();}};
+    },dispose(){if(disposed)return;disposed=true;canvas.removeEventListener('webglcontextlost',lose);canvas.removeEventListener('webglcontextrestored',restore);chrome.onRestore=null;chrome.dispose();bodyResource.dispose();material.dispose();faceGeometry.dispose();faceMaterial.dispose();faceTexture.dispose();surfaceTexture.dispose();environment.dispose();pmrem.dispose();reflectionTexture.dispose();renderer.dispose();renderer.forceContextLoss();}};
     return api;
-  }catch(error){chrome.dispose();geometry?.dispose();material?.dispose();faceGeometry?.dispose();faceMaterial?.dispose();faceTexture?.dispose();surfaceTexture?.dispose();environment?.dispose();pmrem?.dispose();reflectionTexture?.dispose();renderer?.dispose();renderer?.forceContextLoss();throw error;}
+  }catch(error){chrome.dispose();if(bodyResource)bodyResource.dispose();else geometry?.dispose();material?.dispose();faceGeometry?.dispose();faceMaterial?.dispose();faceTexture?.dispose();surfaceTexture?.dispose();environment?.dispose();pmrem?.dispose();reflectionTexture?.dispose();renderer?.dispose();renderer?.forceContextLoss();throw error;}
 }
