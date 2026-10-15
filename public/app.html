@@ -23,14 +23,14 @@
 <div class="intro"><div><h1 id="workspace-heading">Explore</h1><p class="intro-note" id="workspace-note">A place to begin.</p></div><button id="presence-toggle" type="button" class="quiet-button" aria-controls="world" aria-expanded="true">Hide NOX</button></div>
 <div class="studio">
 <section class="stage-column" id="world" aria-label="NOX's world">
-<div class="instrument-heading"><span>NOX</span><a href="#scenes" class="quiet-button">Open studio</a></div>
+<div class="instrument-heading"><span>NOX</span><span id="stage-time" class="stage-clock">00:00</span><a href="#scenes" class="quiet-button">Open studio</a></div>
 <div class="stage-bezel"><div class="stage-wrap" id="stage-wrap">
 <canvas id="stage" aria-label="Animated NOX face. Move the cursor to look around. Click to make him smile, double-click or press Space to wink. Drag or use arrow keys to move him. Shake quickly while holding him for spiral eyes." tabindex="0"></canvas>
 
 <div class="stage-top"><button class="stage-button" id="film-button" aria-pressed="false" title="Portrait film mode (F)"><i class="control-glyph" aria-hidden="true"></i><span>Film mode</span></button></div>
-<div class="stage-bottom"><span id="scene-label">Move your cursor. Click or drag NOX.</span><span id="stage-time">00:00</span></div>
 <button id="exit-film" class="exit-film" hidden>Exit film mode · F</button><button id="film-record" class="film-record">Record clip</button>
 </div></div>
+<p id="scene-label" class="stage-hint">Move your cursor. Click or drag NOX.</p>
 </section>
 <aside class="explore-column" data-panel="explore"><div class="day-card"><p class="eyebrow" id="today-label"></p><h2>What would you like to make?</h2><p>Start with a question, an idea or a scene.</p></div><div class="section-heading"><h3>Pick up where you left off</h3><a href="#library"></a></div><div id="resume-chats" class="resume-chats"></div><div class="section-heading"><h3>Explore with NOX</h3></div><div class="explore-grid"><button data-start="Imagine a strange premise for a short film, then ask me one question to develop it."><b>Brainstorm</b><small>Find something worth making.</small></button><button data-start="Give me a thoughtful, unexpected opinion about creativity."><b>A different angle</b><small>Think a little further.</small></button><button data-start="Write a subtle, unsettling opening line for a fictional horror short." data-persona="uncanny"><b>A strange story</b><small>Leave a little room for mystery.</small></button><button data-start="Help me develop a 20-second creative scene for a video, starting with a strong hook." data-persona="director"><b>Make a scene</b><small>Put an idea in the frame.</small></button></div></aside>
 <aside class="library-column" data-panel="library" hidden><h2>Your conversations</h2><label class="sr-only" for="history-search">Search conversations</label><input id="history-search" class="history-search" type="search" placeholder="Search your conversations…"><div class="library-toolbar"><span id="history-count"></span><button id="export-history" class="quiet-button">Export all </button></div><div id="history-list" class="history-list"></div><p id="history-storage-note" class="demo-note">Saved in this browser. Export a copy before changing devices or domains.</p></aside>

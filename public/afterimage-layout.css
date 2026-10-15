@@ -1,3 +1,8 @@
+/* Caption-safe stage furniture across every workspace view. */
+.workspace .stage-hint{margin:9px 0 0;padding:0;background:none;color:var(--muted);font-size:13px;line-height:1.45}
+.workspace .stage-clock{font-size:12px;font-variant-numeric:tabular-nums;color:var(--muted);margin-left:auto}
+.workspace .instrument-heading{gap:12px}
+.workspace.film .stage-hint{display:none}
 /* Keep the performance in view; the story editor owns the page's scroll. */
 .workspace[data-view=afterimage]{height:var(--workspace-height,100dvh);min-height:0;overflow:hidden}
 .workspace[data-view=afterimage] .shell{height:100%;display:flex;flex-direction:column}
