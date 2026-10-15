@@ -246,7 +246,7 @@ export class Stage {
       ctx.fillStyle = '#c7cbc7'; ctx.font = `${Math.max(9, w / 75)}px Consolas, monospace`;
       ctx.textAlign = 'center'; ctx.fillText('CREATIVE CONTROL: NOX', w * .5, h * .15);
     }
-    if (!this.landing && this.time < this.captionUntil) this.drawCaption(this.caption);
+    if (!this.landing && this.caption && (this.time < this.captionUntil || this.time < this.character.speakingUntil)) this.drawCaption(this.caption);
   }
   drawOrbit(age,layer) {
     if(!this.orbitEffect)this.orbitEffect=createOrbitEffect();

@@ -2,6 +2,7 @@ import { normalizePacket, prepareChatRequest,explicitMemoryRequest } from '../..
 import { demoReply } from './brain.js';
 import { createMemory } from './memory.js';
 import { Stage } from './stage.js';
+import {connectStageControls} from './stage-controls.js';
 import { createVoice, createMicrophone } from './voice.js';
 import { createCamera } from './camera.js';
 import { createRecorder } from './recorder.js';
@@ -44,7 +45,6 @@ function openSettings({owner=false}={}) {
   if(owner)$('owner-token').focus();
 }
 let preferredEngine='natural';
-let afterimageDriving=false;
 
 function toast(text) {
   $('toast').textContent = text; $('toast').hidden = false;
@@ -52,13 +52,16 @@ function toast(text) {
 }
 
 const sceneLabels = { none: 'Move your cursor. Click or drag NOX.', gravity: 'Gravity is on. Pick NOX up and let go.', spotlight: 'Move the light with your cursor.', orbit: 'A small universe.', echo: 'An authored scene. Another presence.', takeover: 'Creative control: NOX.' };
-const stage = new Stage($('stage'), action => {
-  if(!afterimageDriving)afterimageBridge.stop('scene-change');
-  $('scene-label').textContent = action === 'none' && document.body.dataset.form === 'core' ? 'Click to send a wave. Hold and pull.' : sceneLabels[action];
-  document.querySelectorAll('[data-scene]').forEach(button => {
-    const active = button.dataset.scene === action;
-    button.classList.toggle('active', active); button.setAttribute('aria-pressed', active);
-  });
+const stage = new Stage($('stage'));
+connectStageControls(stage,{
+  sceneButtons:[...document.querySelectorAll('[data-scene]')],
+  formButtons:[...document.querySelectorAll('button[data-form]')],
+  sceneLabel:$('scene-label'),labels:sceneLabels,
+  onAction:()=>{if(document.body.dataset.view!=='afterimage')stage.canvas.scrollIntoView({behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'instant':'smooth',block:'center'});},
+  onFormChange:form=>{
+    document.body.dataset.form=form;
+    $('stage').setAttribute('aria-label',form!=='core'?'Animated NOX face. Move the cursor to look around. Click to make him smile, double-click or press Space to wink. Drag or use arrow keys to move him. Shake quickly while holding him for spiral eyes.':'Interactive NOX neural brain. Move the cursor to turn it. Click or press Space to release a wave. Hold and pull for stronger bursts. Drag or use arrow keys to move the brain.');
+  },
 });
 sourceBackground.subscribe(canvas=>stage.setBackgroundSource(canvas));
 for(const expression of Object.keys(EXPRESSIONS)){
@@ -123,14 +126,12 @@ afterimageBridge.connect({
     return response.json();
   },
   cue(value) {
-    afterimageDriving=true;
-    try{const cue=applyAfterimageCue(stage,value);$('mood-label').textContent=cue.emotion;}
-    finally{afterimageDriving=false;}
+    const cue=applyAfterimageCue(stage,value);$('mood-label').textContent=cue.emotion;
   },
   speak: (script,emotion,cues) => voice.speak(script,mode,emotion,cues),
   stop() {
     voice.stop();stage.character.speakingUntil=stage.time;stage.captionUntil=0;
-    afterimageDriving=true;try{stage.reset(false);}finally{afterimageDriving=false;}
+    stage.reset(false);
   },
   record:toggleRecording,
   startRecording:() => recorder.start(),
@@ -232,20 +233,7 @@ async function setMode(next, greet = true) {
   if (greet) await perform({ speech: greetings[mode], emotion: mode === 'uncanny' ? 'uncanny' : 'curious', action: 'none', memory: '' },false,undefined,version);
 }
 
-document.querySelectorAll('[data-scene]').forEach(button => button.addEventListener('click', () => {
-  // Scene controls are immediate physical effects, independent of cloud access.
-  cancelConversation();
-  if (stage.stopScene(button.dataset.scene)) return;
-  stage.run(button.dataset.scene);stage.captionUntil=0;
-  stage.canvas.scrollIntoView({behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'instant':'smooth',block:'center'});
-}));
 document.querySelectorAll('[data-mode]').forEach(button => button.addEventListener('click', () => setMode(button.dataset.mode)));
-document.querySelectorAll('button[data-form]').forEach(button => button.addEventListener('click', () => {
-  afterimageBridge.stop('scene-change');
-  document.body.dataset.form = button.dataset.form; stage.setForm(button.dataset.form);
-  document.querySelectorAll('button[data-form]').forEach(control => control.setAttribute('aria-pressed', control.dataset.form === stage.form));
-  $('stage').setAttribute('aria-label', stage.form !== 'core' ? 'Animated NOX face. Move the cursor to look around. Click to make him smile, double-click or press Space to wink. Drag or use arrow keys to move him. Shake quickly while holding him for spiral eyes.' : 'Interactive NOX neural brain. Move the cursor to turn it. Click or press Space to release a wave. Hold and pull for stronger bursts. Drag or use arrow keys to move the brain.');
-}));
 document.querySelectorAll('[data-prompt]').forEach(button => button.addEventListener('click', () => send(button.dataset.prompt)));
 $('chat-form').addEventListener('submit', event => { event.preventDefault(); send($('message').value); });
 $('message').addEventListener('keydown', event => { if (event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); send(event.currentTarget.value); } });
@@ -261,7 +249,7 @@ for(const voiceControl of [$('voice-button'),$('composer-voice')])voiceControl.a
   const enabled = voice.setEnabled(!voice.enabled);
   showVoice();
   try{disk.setItem('nox.voice.v2',enabled?'on':'off');}catch{}
-  if (enabled && afterimageBridge.snapshot().status!=='playing') voice.speak(lastPacket.speech, mode,lastPacket.emotion);
+  if (enabled && afterimageBridge.snapshot().status!=='playing') {stage.speak({...lastPacket,action:'none'});voice.speak(lastPacket.speech, mode,lastPacket.emotion);}
   else if (!voice.supported) toast('Speech synthesis is unavailable in this browser. You can read NOX’s captions.');
 });
 $('mic-button').addEventListener('click', () => { if (busy) { toast('Let NOX finish this thought first.'); return; } afterimageBridge.stop('conversation');voice.stop(); microphone.start(); });
@@ -276,7 +264,7 @@ $('camera-button').addEventListener('click', async () => {
   } catch (error) { toast(error.message); }
   finally { button.disabled = false; }
 });
-function resetScene() { cancelConversation();stage.reset(); }
+function resetScene() { stage.reset(); }
 $('reset-button').addEventListener('click', resetScene);
 $('intensity').addEventListener('input', event => {
   const value = Number(event.currentTarget.value);
@@ -427,8 +415,8 @@ try{preferredEngine=disk.getItem('nox.voice.engine.v2')||'natural';const savedSp
 voice.setSpeaker($('speaker-select').value);voice.setBrowserVoice(savedBrowserVoice);browserVoices();globalThis.speechSynthesis?.addEventListener('voiceschanged',browserVoices);
 $('speaker-select').addEventListener('change',e=>{voice.setSpeaker(e.target.value);try{disk.setItem('nox.voice.speaker.v2',e.target.value);}catch{}});
 $('browser-speaker').addEventListener('change',e=>{savedBrowserVoice=e.target.value;voice.setBrowserVoice(savedBrowserVoice);try{disk.setItem('nox.voice.browser.v2',savedBrowserVoice);}catch{}});
-$('replay-voice').addEventListener('click',()=>{afterimageBridge.stop('voice-preview');if(!voice.enabled)toast('Turn Voice on to hear this reply.');else voice.speak(spokenPreview(lastPacket.speech),mode,lastPacket.emotion);});
-$('test-voice').addEventListener('click',()=>{afterimageBridge.stop('voice-preview');voice.setEnabled(true);showVoice();voice.speak('Oh, you found me. I was just thinking about something strange. Want to hear it?',mode,mode==='uncanny'?'uncanny':'happy');});
+$('replay-voice').addEventListener('click',()=>{afterimageBridge.stop('voice-preview');if(!voice.enabled)toast('Turn Voice on to hear this reply.');else{const speech=spokenPreview(lastPacket.speech);stage.speak({...lastPacket,speech,action:'none'});voice.speak(speech,mode,lastPacket.emotion);}});
+$('test-voice').addEventListener('click',()=>{afterimageBridge.stop('voice-preview');voice.setEnabled(true);showVoice();const speech='Oh, you found me. I was just thinking about something strange. Want to hear it?',emotion=mode==='uncanny'?'uncanny':'happy';stage.speak({speech,emotion,action:'none'});voice.speak(speech,mode,emotion);});
 try{voice.setEnabled(disk.getItem('nox.voice.v2')!=='off');}catch{voice.setEnabled(true);}showVoice();
 try {await refreshConnection('',initialVisitStatus);if(location.pathname.replace(/\/$/,'')==='/owner'){openSettings({owner:!visit.owner});}}
 catch {connection={};showConnection();$('connection-message').textContent='Could not reach the AI server. Reload to retry. Scenes and touch still work.';toast('The AI server could not be reached. No scripted reply was substituted.');}
