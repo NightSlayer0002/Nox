@@ -33,15 +33,17 @@ export function createReplyDiagnostics({status,metrics,toggle}){
 }
 
 // Measure after removing the previous height so shorter text can shrink as well.
-export function createComposerSizer(message,{windowTarget=globalThis.window,viewport=globalThis.visualViewport,readStyle=element=>globalThis.getComputedStyle?.(element)||{}}={}){
+export function createComposerSizer(message,{form=message.form,windowTarget=globalThis.window,viewport=globalThis.visualViewport,readStyle=element=>globalThis.getComputedStyle?.(element)||{}}={}){
   function resize(){
-    const css=readStyle(message),minimum=parseFloat(css.minHeight)||42;
-    const maximum=Math.max(minimum,parseFloat(css.maxHeight)||140);
+    const css=readStyle(message),minimum=parseFloat(css.minHeight)||32;
+    const maximum=Math.max(minimum,parseFloat(css.maxHeight)||120);
     const borders=(parseFloat(css.borderTopWidth)||0)+(parseFloat(css.borderBottomWidth)||0);
     message.style.height='auto';
     const contentHeight=message.value?message.scrollHeight+borders:minimum;
-    message.style.height=`${Math.max(minimum,Math.min(maximum,contentHeight))}px`;
+    const height=Math.max(minimum,Math.min(maximum,contentHeight));
+    message.style.height=`${height}px`;
     message.style.overflowY=contentHeight>maximum?'auto':'hidden';
+    if(form)form.dataset.expanded=String(height>minimum);
   }
   message.addEventListener('input',resize);
   windowTarget?.addEventListener('resize',resize);
@@ -49,4 +51,21 @@ export function createComposerSizer(message,{windowTarget=globalThis.window,view
   viewport?.addEventListener('resize',resize,{passive:true});
   resize();
   return {resize,setValue(value){message.value=value;resize();}};
+}
+
+// Leave summary activation to the browser; only dismiss the compact options menu.
+export function attachComposerOptions(details,{documentTarget=globalThis.document,windowTarget=globalThis.window,form=details.closest('form')}={}){
+  const summary=details.querySelector('summary');
+  const close=()=>{details.open=false;};
+  documentTarget?.addEventListener('pointerdown',event=>{
+    if(details.open&&!details.contains(event.target))close();
+  });
+  windowTarget?.addEventListener('keydown',event=>{
+    if(!details.open||event.key!=='Escape')return;
+    event.preventDefault();event.stopPropagation();close();summary?.focus();
+  },{capture:true});
+  details.querySelector('#reply-depth')?.addEventListener('change',close);
+  details.querySelector('#knowledge-chat-button')?.addEventListener('click',close);
+  form?.addEventListener('submit',close);
+  return {close};
 }

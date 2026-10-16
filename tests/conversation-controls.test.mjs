@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {createComposerSizer,createReplyDiagnostics} from '../public/js/conversation-controls.js';
+import {attachComposerOptions,createComposerSizer,createReplyDiagnostics} from '../public/js/conversation-controls.js';
 
 function diagnosticElements(){
   return {
@@ -102,4 +102,95 @@ test('keyboard viewport changes recalculate the height and scrolling cap without
   assert.equal(message.style.height,'76px');assert.equal(message.style.overflowY,'auto');
   cap=140;viewport.dispatchEvent(new Event('resize'));
   assert.equal(message.style.height,'120px');assert.equal(message.style.overflowY,'hidden');
+});
+
+test('composer expansion follows measured lines and returns to the tube when a draft shrinks',()=>{
+  const message=textarea();message.form={dataset:{}};message.measuredHeight=32;
+  const composer=createComposerSizer(message,{windowTarget:new EventTarget(),readStyle:()=>({minHeight:'32px',maxHeight:'120px'})});
+  assert.equal(message.form.dataset.expanded,'false');
+  composer.setValue('One line');
+  assert.equal(message.form.dataset.expanded,'false');
+  message.measuredHeight=88;message.dispatchEvent(new Event('input'));
+  assert.equal(message.form.dataset.expanded,'true');
+  message.measuredHeight=32;message.dispatchEvent(new Event('input'));
+  assert.equal(message.form.dataset.expanded,'false');
+  message.measuredHeight=240;message.dispatchEvent(new Event('input'));
+  assert.equal(message.style.height,'120px');
+  assert.equal(message.form.dataset.expanded,'true');
+  composer.setValue('');
+  assert.equal(message.form.dataset.expanded,'false');
+});
+
+function composerOptionsElements(){
+  const documentTarget=new EventTarget(),windowTarget=new EventTarget(),form=new EventTarget();
+  const summary=new EventTarget(),depth=new EventTarget(),notes=new EventTarget();
+  const message=new EventTarget();documentTarget.activeElement=message;
+  summary.focus=()=>{documentTarget.activeElement=summary;};
+  const details=Object.assign(new EventTarget(),{
+    open:false,
+    contains:target=>[details,summary,depth,notes].includes(target),
+    closest:selector=>selector==='form'?form:null,
+    querySelector:selector=>({summary,'#reply-depth':depth,'#knowledge-chat-button':notes}[selector]||null),
+  });
+  return {details,summary,depth,notes,form,message,documentTarget,windowTarget};
+}
+
+function attachOptions(elements){
+  const {documentTarget,windowTarget}=elements;
+  return attachComposerOptions(elements.details,{documentTarget,windowTarget});
+}
+
+function dispatchAt(target,type,properties={}){
+  const event=new Event(type,{cancelable:true});
+  for(const [key,value] of Object.entries(properties))Object.defineProperty(event,key,{value});
+  target.dispatchEvent(event);
+  return event;
+}
+
+test('composer options stay open for internal controls and close on an outside pointer without moving focus',()=>{
+  const elements=composerOptionsElements();attachOptions(elements);elements.details.open=true;
+  for(const target of [elements.summary,elements.depth,elements.notes]){
+    dispatchAt(elements.documentTarget,'pointerdown',{target});
+    assert.equal(elements.details.open,true);
+  }
+  dispatchAt(elements.documentTarget,'pointerdown',{target:elements.message});
+  assert.equal(elements.details.open,false);
+  assert.equal(elements.documentTarget.activeElement,elements.message);
+});
+
+test('Escape closes open composer options and returns focus to their summary',()=>{
+  const elements=composerOptionsElements();attachOptions(elements);elements.details.open=true;
+  const event=dispatchAt(elements.windowTarget,'keydown',{key:'Escape'});
+  assert.equal(elements.details.open,false);
+  assert.equal(elements.documentTarget.activeElement,elements.summary);
+  assert.equal(event.defaultPrevented,true);
+});
+
+test('closed composer options do not intercept Escape or take focus from typing',()=>{
+  const elements=composerOptionsElements();attachOptions(elements);
+  const event=dispatchAt(elements.windowTarget,'keydown',{key:'Escape'});
+  assert.equal(elements.details.open,false);
+  assert.equal(elements.documentTarget.activeElement,elements.message);
+  assert.equal(event.defaultPrevented,false);
+});
+
+test('answer depth, notes, and form submission each close composer options',()=>{
+  const elements=composerOptionsElements();attachOptions(elements);
+  for(const [target,type] of [[elements.depth,'change'],[elements.notes,'click'],[elements.form,'submit']]){
+    elements.details.open=true;dispatchAt(target,type);
+    assert.equal(elements.details.open,false,`${type} closes the disclosure`);
+    assert.equal(elements.documentTarget.activeElement,elements.message);
+  }
+});
+
+test('composer options expose a close hook without changing native summary keyboard behavior',()=>{
+  const elements=composerOptionsElements(),options=attachOptions(elements);elements.details.open=true;
+  for(const key of ['Enter',' ']){
+    const event=dispatchAt(elements.windowTarget,'keydown',{key});
+    assert.equal(event.defaultPrevented,false);
+    assert.equal(elements.details.open,true);
+  }
+  options.close();
+  assert.equal(elements.details.open,false);
+  assert.equal(elements.documentTarget.activeElement,elements.message);
 });

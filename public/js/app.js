@@ -19,7 +19,8 @@ import { spokenPreview } from './reply.js';
 import {sourceBackground} from './source-background.js';
 import { afterimageBridge, applyAfterimageCue } from './afterimage-bridge.js';
 import {visit,initialVisitStatus,requestVisitStatus} from './visit-scope.js';
-import {createComposerSizer,createReplyDiagnostics} from './conversation-controls.js';
+import {attachComposerOptions,createComposerSizer,createReplyDiagnostics} from './conversation-controls.js';
+import {createChatMessage} from './chat-message.js';
 
 const $ = id => document.getElementById(id);
 const releaseViewport=attachWorkspaceViewport();
@@ -39,6 +40,7 @@ const providerControls=createProviderControls([$('provider-select'),$('composer-
 const apiHeaders = (token = ownerToken) => ({'content-type':'application/json',...(token ? {authorization:`Bearer ${token}`} : visit.owner?{'x-nox-owner':'1'}:{'x-nox-guest':'1','x-nox-visit-id':visit.id})});
 const turns = createTurnGate();
 const composer=createComposerSizer($('message'));
+const composerOptions=attachComposerOptions($('composer-options'));
 const replyDiagnostics=createReplyDiagnostics({status:$('reply-timing'),metrics:$('developer-timing'),toggle:$('developer-mode')});
 let lastPacket = { speech: 'Oh. You found me.', emotion: 'curious', action: 'none', memory: '' };
 let toastTimer;
@@ -144,10 +146,8 @@ afterimageBridge.connect({
 });
 
 function addMessage(speaker, text) {
-  const message = document.createElement('div'); message.className = `message ${speaker}`;
-  const label = document.createElement('p'); label.className = 'speaker'; label.textContent = speaker === 'nox' ? 'NOX' : speaker === 'user' ? 'You' : 'Connection';
-  const content = document.createElement('p'); content.textContent = text;
-  message.append(label, content); $('conversation').append(message);
+  const message = createChatMessage(speaker, text, document);
+  $('conversation').append(message);
   $('conversation').scrollTop = $('conversation').scrollHeight;
   return message;
 }
@@ -180,6 +180,7 @@ function setBusy(value) {
 }
 
 async function send(raw) {
+  composerOptions.close();
   const text = raw.trim(); if (!text || busy) return;
   afterimageBridge.stop('conversation');
   const takeover=/^(?:please\s+)?(?:take\s*over(?:\s+(?:the\s+)?(?:screen|stage))?|takeover)[.!]?$/i.test(text);
