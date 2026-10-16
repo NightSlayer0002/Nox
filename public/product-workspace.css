@@ -167,25 +167,32 @@
 .workspace .mode-tabs {gap:6px;margin:7px 0 12px;flex:none}
 .workspace .mode-tabs button {flex:0 1 auto;border:1px solid transparent;border-radius:5px;font-size:14px;padding:7px 10px;min-height:34px;background:transparent}
 .workspace .mode-tabs button.active {border-color:var(--line);background:var(--surface);color:var(--text)}
-.workspace .conversation {height:auto;flex:1;min-height:96px;overflow-y:auto;padding:10px 16px 4px 0;border-top:1px solid var(--line)}
-.workspace .message {margin:0 0 20px;line-height:1.65}
-.workspace .message .speaker {font-size:14px;letter-spacing:normal;margin:0 0 4px;color:var(--muted)}
+.workspace .conversation {display:flex;flex-direction:column;height:auto;flex:1;min-height:96px;overflow-y:auto;padding:8px 16px 18px 0;border:0;scrollbar-width:thin;scrollbar-color:transparent transparent;scroll-behavior:auto}
+.workspace .conversation:is(:hover,:focus-within) {scrollbar-color:var(--line) transparent}
+.workspace .conversation::-webkit-scrollbar {width:3px}
+.workspace .conversation::-webkit-scrollbar-thumb {background:transparent;border-radius:2px}
+.workspace .conversation:is(:hover,:focus-within)::-webkit-scrollbar-thumb {background:var(--line)}
+.workspace .message {flex:none;max-width:100%;margin:0 0 28px;line-height:1.65}
+.workspace .message.nox {align-self:start;max-width:72ch;padding:0 8px 0 0}
+.workspace .message .speaker {font-size:11px;letter-spacing:.1em;margin:0 0 9px;color:var(--muted)}
 .workspace .message>p:not(.speaker) {font-size:18px;line-height:1.65;margin:0;font-weight:400}
-.workspace .message.user {border:0;border-radius:0;background:transparent;padding:0}
-.workspace .message.user .speaker {color:var(--accent)}
+.workspace .message.user {align-self:end;max-width:min(82%,64ch);border:1px solid color-mix(in srgb,var(--line) 40%,transparent);border-radius:8px;background:#181a1b;padding:11px 16px;color:#a0a5a9}
+.workspace .message.user>p:not(.speaker) {font-size:16px;line-height:1.6}
+.workspace .message.user .speaker {position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
+:root[data-theme=light] .workspace .message.user {background:#e8ece9;color:#4b5655}
 .workspace .message.system>p:not(.speaker) {font-size:16px;color:var(--muted)}
 .workspace .reply-timing {font-size:13px;line-height:1.4;margin:4px 0 8px;min-height:0;color:var(--muted)}
 .workspace .reply-timing:empty {display:none}
 .workspace .connection-help {margin:4px 0 10px;padding:8px 12px;border:1px solid var(--line);border-radius:5px;background:var(--surface);font-size:14px;flex:none}
 .workspace .connection-help p {font-size:14px;margin:0 0 6px}
 .workspace .connection-help button {font-size:14px;min-height:34px;padding:6px 8px}
-.workspace .composer.composer-source {padding:10px 12px;border:1px solid var(--line);background:var(--surface);border-radius:6px;flex:none;margin:0;box-shadow:none}
-.workspace .composer.composer-source:focus-within {border-color:var(--accent)}
-.workspace .composer textarea {min-height:62px;height:62px;max-height:140px;font-size:16px;line-height:1.5;padding:0;resize:none;background:transparent}
+.workspace .composer.composer-source {padding:12px 14px;border:1px solid var(--line);background:linear-gradient(130deg,color-mix(in srgb,var(--surface) 97%,#a6d7cd),var(--surface));border-radius:8px;flex:none;margin:0;box-shadow:0 8px 32px #0000000a}
+.workspace .composer.composer-source:focus-within {border-color:color-mix(in srgb,var(--accent) 65%,var(--line));box-shadow:0 0 0 1px color-mix(in srgb,var(--accent) 8%,transparent),0 8px 32px #0000000a}
+.workspace .composer textarea {min-height:42px;height:42px;max-height:140px;font-size:16px;line-height:1.5;padding:0;resize:none;background:transparent;scrollbar-width:thin;scrollbar-color:var(--line) transparent}
 .workspace .composer-footer {display:flex;align-items:center;gap:10px;padding:6px 0 0;flex-wrap:nowrap}
 .workspace .composer-tools {gap:8px;min-width:0}
 .workspace .composer-actions {margin-left:auto;gap:6px}
-.workspace .composer-select select {font-size:14px;height:38px;min-height:38px;padding:7px 23px 7px 8px;border:1px solid var(--line);border-radius:4px;background-color:transparent;width:auto;max-width:160px}
+.workspace .composer-select select {font-size:13px;height:38px;min-height:38px;padding:7px 23px 7px 8px;border:1px solid transparent;border-radius:4px;background-color:transparent;width:auto;max-width:160px}
 .workspace .composer :is(.composer-icon-button,.composer-submit) {border-radius:4px;width:38px;height:38px;min-width:38px;min-height:38px;padding:8px}
 .workspace .composer #composer-voice {width:auto;gap:6px;padding:8px 10px;font-size:13px;white-space:nowrap;border:1px solid var(--line)}
 .workspace .composer .composer-submit {background:var(--accent);color:var(--bg);border-color:var(--accent)}
@@ -341,7 +348,7 @@
  .workspace .message>p:not(.speaker) {font-size:17px}
  .workspace .message .speaker {font-size:13px}
  .workspace .composer.composer-source {padding:10px}
- .workspace .composer textarea {min-height:54px;height:54px;font-size:16px}
+ .workspace .composer textarea {min-height:42px;height:42px;font-size:16px}
  .workspace .composer-footer {gap:6px}
  .workspace .composer-tools {gap:4px}
  .workspace .composer-select select {max-width:108px;font-size:14px;padding-left:6px}
