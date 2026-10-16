@@ -92,3 +92,14 @@ test('restored messages and dictation resize immediately and CSS can adjust the 
   message.measuredHeight=74;composer.resize();
   assert.equal(message.style.height,'76px');
 });
+
+test('keyboard viewport changes recalculate the height and scrolling cap without a window resize',()=>{
+  const message=textarea(),windowTarget=new EventTarget(),viewport=new EventTarget();let cap=140;
+  const composer=createComposerSizer(message,{windowTarget,viewport,readStyle:()=>({minHeight:'42px',maxHeight:`${cap}px`})});
+  message.measuredHeight=120;composer.setValue('A multiline draft written before the keyboard opens');
+  assert.equal(message.style.height,'120px');assert.equal(message.style.overflowY,'hidden');
+  cap=76;viewport.dispatchEvent(new Event('resize'));
+  assert.equal(message.style.height,'76px');assert.equal(message.style.overflowY,'auto');
+  cap=140;viewport.dispatchEvent(new Event('resize'));
+  assert.equal(message.style.height,'120px');assert.equal(message.style.overflowY,'hidden');
+});

@@ -14,6 +14,7 @@ export class Stage {
     this.landing=landing;this.transparent=transparent;this.movable=movable;
     if(landing){this.character.x=this.character.targetX=.76;this.character.y=this.character.targetY=.68;this.character.scale=.85;}
     this.pointer = { x: .5, y: .45 }; this.dragging = false; this.mode = 'companion';
+    this.captionMode = 'linger'; this.narrating = false;
     this.caption = 'Oh. You found me.'; this.captionUntil = 8;
     this.scene = null; this.started = performance.now(); this.time = 0; this.previous = 0;
     this.camera = null; this.onScene = onScene;
@@ -26,6 +27,28 @@ export class Stage {
     this.resizeObserver.observe(canvas);
     this.bindPointer(); this.resize();
     this.frameId=requestAnimationFrame(timestamp => this.frame(timestamp));
+  }
+  get caption() { return this._caption; }
+  set caption(value) {
+    this._caption = value;
+    // Each assignment starts a new caption, including replaying identical text.
+    this.captionSpoken = false; this.captionFadeAt = null;
+  }
+  get narrating() { return this._narrating ?? false; }
+  set narrating(value) {
+    const active = Boolean(value);
+    if (active) { this.captionSpoken = true; this.captionFadeAt = null; }
+    else if (this._narrating && this.captionSpoken) this.captionFadeAt = this.time ?? 0;
+    this._narrating = active;
+  }
+  captionOpacity() {
+    if (this.landing || !this.caption) return 0;
+    if (this.captionMode !== 'speaking' || this.recordingLocked) {
+      return this.time < this.captionUntil || this.time < this.character.speakingUntil ? 1 : 0;
+    }
+    if (this.narrating && this.captionSpoken) return 1;
+    if (this.captionFadeAt == null) return 0;
+    return 1 - smooth(clamp((this.time - this.captionFadeAt) / .45, 0, 1));
   }
   dispose() {
     if(this.disposed)return;
@@ -257,7 +280,8 @@ export class Stage {
       ctx.fillStyle = '#c7cbc7'; ctx.font = `${Math.max(9, w / 75)}px Consolas, monospace`;
       ctx.textAlign = 'center'; ctx.fillText('CREATIVE CONTROL: NOX', w * .5, h * .15);
     }
-    if (!this.landing && this.caption && (this.time < this.captionUntil || this.time < this.character.speakingUntil)) this.drawCaption(this.caption);
+    const captionAlpha = this.captionOpacity();
+    if (captionAlpha > 0) this.drawCaption(this.caption, captionAlpha);
   }
   drawOrbit(age,layer) {
     if(!this.orbitEffect)this.orbitEffect=createOrbitEffect();
@@ -276,8 +300,9 @@ export class Stage {
     ctx.restore();
     ctx.strokeStyle = '#d0dfba30'; ctx.lineWidth = 1; ctx.beginPath(); ctx.roundRect(x, y, cw, ch, 10); ctx.stroke();
   }
-  drawCaption(text) {
+  drawCaption(text, alpha = 1) {
     const ctx = this.ctx, w = this.width, h = this.height;
+    ctx.save(); ctx.globalAlpha *= alpha;
     const fontSize = clamp(w / 48, 12, 17);
     ctx.font = `400 ${fontSize}px system-ui, sans-serif`; ctx.textAlign = 'center';
     const maxWidth = w * .79;
@@ -290,10 +315,13 @@ export class Stage {
     if (line) lines.push(line);
     const shown = lines.slice(0, 4);
     if (lines.length > 4) shown[3] += '…';
-    const baseline = h * .81;
+    const baseline = this.captionMode === 'speaking' && !this.recordingLocked
+      ? Math.min(h * .81, h - 65 - (shown.length - 1) * fontSize * 1.4)
+      : h * .81;
     ctx.save();ctx.fillStyle='#080e11e6';ctx.beginPath();ctx.roundRect(w*.085,baseline-fontSize,w*.83,shown.length*fontSize*1.4+fontSize*.6,9);ctx.fill();ctx.restore();
     ctx.fillStyle = '#b9beb9'; ctx.shadowColor = '#090c0d'; ctx.shadowBlur = 8;
     shown.forEach((value, index) => ctx.fillText(value, w / 2, baseline + index * fontSize * 1.4));
     ctx.shadowBlur = 0;
+    ctx.restore();
   }
 }

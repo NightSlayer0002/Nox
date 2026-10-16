@@ -57,7 +57,7 @@
 .workspace .stage-wrap {aspect-ratio:auto;height:clamp(360px,calc(100svh - 268px),650px);background:var(--surface)}
 .workspace:not(.film) .stage-wrap>canvas {mask-image:none}
 .workspace .stage-top {top:12px;right:12px}
-.workspace .stage-playback {position:absolute;inset:auto 12px 12px;display:flex;align-items:center;justify-content:space-between;gap:12px;pointer-events:none;z-index:3}
+.workspace .stage-playback {position:absolute;inset:auto 12px 12px;display:none;align-items:center;justify-content:space-between;gap:12px;pointer-events:none;z-index:3}
 .workspace .stage-playback #replay-voice {display:none}
 .workspace .stage-playback .stage-clock {margin-left:auto;background:#081011a8;border:1px solid #ffffff12;backdrop-filter:blur(12px);border-radius:5px;padding:6px 9px;color:#c4ceca}
 .workspace .stage-button {font-size:14px;min-height:38px;padding:8px 10px;border-radius:5px;background:var(--bg)}
@@ -151,10 +151,17 @@
 .workspace[data-view=conversation] #workspace-main {padding-top:24px}
 .workspace[data-view=conversation] .intro-note {display:none}
 .workspace[data-view=conversation] #presence-toggle {display:block}
-.workspace[data-view=conversation] .studio {grid-template-columns:minmax(0,1fr) 280px;flex:1;min-height:0;align-items:stretch;gap:28px}
+.workspace[data-view=conversation] .studio {grid-template-columns:minmax(0,1fr) clamp(280px,27vw,360px);flex:1;min-height:0;align-items:stretch;gap:28px}
 .workspace[data-view=conversation] .companion-column {order:-1;display:flex;flex-direction:column;min-height:0;max-width:960px}
 .workspace[data-view=conversation] .stage-column {align-self:start}
-.workspace[data-view=conversation] .stage-wrap {height:270px}
+.workspace[data-view=conversation] .instrument-heading {display:none}
+.workspace[data-view=conversation] .stage-bezel {border-color:color-mix(in srgb,var(--line) 65%,transparent);border-radius:10px;box-shadow:0 12px 36px #00000012}
+.workspace[data-view=conversation] .stage-wrap {height:350px}
+.workspace[data-view=conversation] .stage-playback {display:flex}
+.workspace[data-view=conversation].recording .stage-playback {visibility:hidden}
+.workspace[data-view=conversation] .stage-playback #replay-voice {display:inline-flex;align-items:center;gap:6px;pointer-events:auto;min-height:30px;padding:6px 9px;font-size:11px;background:#081011a8;color:#c4ceca;border:1px solid #ffffff16;backdrop-filter:blur(12px)}
+.workspace[data-view=conversation] .stage-playback .source-icon {width:14px;height:14px}
+.workspace[data-view=conversation] .stage-hint {font-size:12px;color:var(--muted);line-height:1.5;margin-top:10px}
 .workspace[data-view=conversation] .stage-top {display:none}
 .workspace[data-view=conversation] .stage-bottom {font-size:12px}
 .workspace[data-view=conversation][data-presence=hidden] .stage-column {display:none}
@@ -262,8 +269,8 @@
  .workspace .shell {padding:0 22px}
  .workspace .header-right {gap:6px}
  .workspace .lab-toolbar kbd,.workspace .lab-toolbar .theme-label {display:none}
- .workspace[data-view=conversation] .studio {grid-template-columns:minmax(0,1fr) 230px;gap:20px}
- .workspace[data-view=conversation] .stage-wrap {height:230px}
+ .workspace[data-view=conversation] .studio {grid-template-columns:minmax(0,1fr) 250px;gap:20px}
+ .workspace[data-view=conversation] .stage-wrap {height:300px}
  .workspace .studio {grid-template-columns:minmax(0,1fr) 280px;gap:22px}
  .workspace .stage-wrap {height:420px}
 }
@@ -272,11 +279,18 @@
  .workspace[data-view=conversation] .conversation-visit small {display:none}
 }
 /* The keyboard changes available height, never the conversation's scroll owner. */
+.workspace[data-view=conversation][data-keyboard-open=true] :is(.suggestions,.composer-help) {display:none}
+.workspace[data-view=conversation][data-keyboard-open=true] #workspace-main {padding-block:10px 8px}
+.workspace[data-view=conversation][data-keyboard-open=true] .conversation {min-height:0}
+.workspace[data-view=conversation][data-keyboard-open=true] .composer textarea {max-height:76px}
 @media(max-width:900px) and (max-height:600px) {
  .workspace[data-view=conversation] :is(.suggestions,.composer-help) {display:none}
  .workspace[data-view=conversation] #workspace-main {padding-block:10px 8px}
  .workspace[data-view=conversation] .conversation {min-height:0}
  .workspace[data-view=conversation] .composer textarea {max-height:100px}
+}
+@container (max-width:310px) {
+ .workspace .composer.composer-source .composer-footer {flex-wrap:wrap;row-gap:6px}
 }
 @media(max-width:900px) {
  .workspace[data-view=conversation] .studio {grid-template-columns:minmax(0,1fr)}

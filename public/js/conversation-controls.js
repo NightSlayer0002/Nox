@@ -33,7 +33,7 @@ export function createReplyDiagnostics({status,metrics,toggle}){
 }
 
 // Measure after removing the previous height so shorter text can shrink as well.
-export function createComposerSizer(message,{windowTarget=globalThis.window,readStyle=element=>globalThis.getComputedStyle?.(element)||{}}={}){
+export function createComposerSizer(message,{windowTarget=globalThis.window,viewport=globalThis.visualViewport,readStyle=element=>globalThis.getComputedStyle?.(element)||{}}={}){
   function resize(){
     const css=readStyle(message),minimum=parseFloat(css.minHeight)||42;
     const maximum=Math.max(minimum,parseFloat(css.maxHeight)||140);
@@ -46,6 +46,7 @@ export function createComposerSizer(message,{windowTarget=globalThis.window,read
   message.addEventListener('input',resize);
   windowTarget?.addEventListener('resize',resize);
   windowTarget?.addEventListener('pageshow',resize);
+  viewport?.addEventListener('resize',resize,{passive:true});
   resize();
   return {resize,setValue(value){message.value=value;resize();}};
 }

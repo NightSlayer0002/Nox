@@ -11,7 +11,17 @@ export function createNavigation({history,onOpen,onNew,onStart}) {
   window.matchMedia?.('(max-width:700px)').addEventListener('change',event=>{if(!event.matches)setMenu(false);});
   document.body.dataset.presence='visible';
   $('presence-toggle').addEventListener('click',()=>{const visible=document.body.dataset.presence==='hidden';document.body.dataset.presence=visible?'visible':'hidden';$('presence-toggle').setAttribute('aria-expanded',String(visible));$('presence-toggle').textContent=visible?'Hide NOX':'Show NOX';});
-  function applyView(){const view=location.hash.slice(1),current=Object.hasOwn(views,view)?view:'explore';document.body.dataset.view=current;$('view-label').textContent=views[current][0];const [first,,note]=views[current];$('workspace-heading').textContent=first;$('workspace-note').textContent=note;document.querySelectorAll('[data-panel]').forEach(p=>p.hidden=p.dataset.panel!==current);document.querySelectorAll('a[data-view]').forEach(link=>{const active=link.dataset.view===current;link.classList.toggle('selected',active);if(active)link.setAttribute('aria-current','page');else link.removeAttribute('aria-current');});if(currentView&&currentView!==current){setMenu(false);window.scrollTo({top:0,left:0,behavior:'auto'});$('workspace-main').focus({preventScroll:true});}currentView=current;}
+  function applyView(){
+    const view=location.hash.slice(1),current=Object.hasOwn(views,view)?view:'explore';
+    document.body.dataset.view=current;$('view-label').textContent=views[current][0];
+    const [first,,note]=views[current];$('workspace-heading').textContent=first;$('workspace-note').textContent=note;
+    // Keep one clock: chat docks it inside the card; other stages leave the caption band clear.
+    $(current==='conversation'?'stage-playback':'stage-heading').append($('stage-time'));
+    document.querySelectorAll('[data-panel]').forEach(p=>p.hidden=p.dataset.panel!==current);
+    document.querySelectorAll('a[data-view]').forEach(link=>{const active=link.dataset.view===current;link.classList.toggle('selected',active);if(active)link.setAttribute('aria-current','page');else link.removeAttribute('aria-current');});
+    if(currentView&&currentView!==current){setMenu(false);window.scrollTo({top:0,left:0,behavior:'auto'});$('workspace-main').focus({preventScroll:true});}
+    currentView=current;
+  }
   function setView(view){setMenu(false);if(location.hash!==`#${view}`)location.hash=view;applyView();}
   async function open(id){await onOpen(id);setView('conversation');}
   function render(){

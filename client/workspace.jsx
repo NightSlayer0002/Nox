@@ -20,7 +20,7 @@ const commands=[
 ];
 function Dialog({title,children,onClose,kind}){
   const ref=useRef(null),reduce=useReducedMotion();
-  useEffect(()=>{const dialog=ref.current,previous=document.activeElement;dialog.showModal();const close=()=>onClose();dialog.addEventListener('close',close);return()=>{dialog.removeEventListener('close',close);dialog.close();previous?.focus?.();};},[]);
+  useEffect(()=>{const dialog=ref.current,previous=document.activeElement;dialog.showModal();if(kind==='command-dialog')dialog.querySelector('.command-search')?.focus();const close=()=>onClose();dialog.addEventListener('close',close);return()=>{dialog.removeEventListener('close',close);dialog.close();previous?.focus?.();};},[]);
   return <dialog ref={ref} className={`lab-dialog ${kind||''}`} onClick={e=>{if(e.target===ref.current){const rect=ref.current.getBoundingClientRect();if(e.clientX<rect.left||e.clientX>rect.right||e.clientY<rect.top||e.clientY>rect.bottom)onClose();}}} aria-label={title}>
     <motion.div initial={reduce?false:{opacity:0,y:10}} animate={{opacity:1,y:0}} transition={{duration:.2}}>
       <div className="dialog-top"><p className="eyebrow">NOX</p><button type="button" onClick={onClose} aria-label={`Close ${title}`}>×</button></div><h2>{title}</h2>{children}

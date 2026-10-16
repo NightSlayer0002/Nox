@@ -13,7 +13,7 @@ class Element extends EventTarget {
   click(){this.dispatchEvent(new Event('click'));}
 }
 function fixture(hash='#conversation') {
-  const ids=['view-label','workspace-heading','workspace-note','workspace-main','workspace-shell','recent-chats','resume-chats','history-search','history-count','history-list','history-storage-note','new-chat','export-history','today-label','menu-button','close-navigation','workspace-nav','presence-toggle','message'];
+  const ids=['view-label','workspace-heading','workspace-note','workspace-main','workspace-shell','recent-chats','resume-chats','history-search','history-count','history-list','history-storage-note','new-chat','export-history','today-label','menu-button','close-navigation','workspace-nav','presence-toggle','message','stage-time','stage-heading','stage-playback'];
   const nodes=Object.fromEntries(ids.map(id=>[id,new Element()]));
   const panels=['conversation','explore','library','scenes','afterimage'].map(view=>new Element({panel:view}));
   const links=panels.map(panel=>new Element({view:panel.dataset.panel}));
@@ -82,4 +82,15 @@ test('recent rows expose their complete title and identify the active conversati
   assert.equal(nodes['recent-chats'].children[0]?.textContent,thread.title);
   assert.equal(nodes['recent-chats'].children[0]?.getAttribute('title'),thread.title);
   assert.equal(nodes['recent-chats'].children[0]?.getAttribute('aria-current'),'true');
+});
+
+test('the scene clock moves into the Conversation card and returns above other stages',()=>{
+  const {nodes,navigation}=fixture();
+  assert.equal(nodes['stage-playback'].children.at(-1),nodes['stage-time']);
+  navigation.setView('afterimage');
+  assert.equal(nodes['stage-heading'].children.at(-1),nodes['stage-time']);
+  navigation.setView('scenes');
+  assert.equal(nodes['stage-heading'].children.at(-1),nodes['stage-time']);
+  navigation.setView('conversation');
+  assert.equal(nodes['stage-playback'].children.at(-1),nodes['stage-time']);
 });
