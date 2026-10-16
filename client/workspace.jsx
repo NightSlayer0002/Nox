@@ -1,5 +1,6 @@
 import React,{Suspense,lazy,useCallback,useEffect,useRef,useState} from 'react';
 import {createRoot} from 'react-dom/client';
+import {createPortal} from 'react-dom';
 import {AnimatePresence,motion,useReducedMotion} from 'motion/react';
 import {knowledge,knowledgeChanged,downloadText} from '/js/workbench.js';
 import {readTheme,saveTheme,applyTheme} from '/js/preferences.js';
@@ -57,7 +58,7 @@ function System(){return <>
     <article><h3>04 / Voice & camera</h3><p>Troy’s Orpheus voice is available in guest and owner mode, with directions from NOX’s mood. Full answers remain in chat. Camera preview stays local; NOX has no camera vision. New WebM clips include captions and enabled Orpheus audio. Browser speech is not captured.</p></article>
     <article><h3>05 / Access</h3><p>Provider keys stay on the server. Guests get bounded, quick Groq replies without an account. Owner/dev sign-in creates a protected session for up to 12 hours and opens this browser’s saved archive. Sign-out returns to a fresh guest visit.</p></article>
     <article><h3>06 / Your data</h3><p>Guest chats and notes disappear on refresh. Owner history and notes live in plaintext browser storage, without cloud sync. Export before switching devices or domains. Selected context travels to the AI service; deletion cannot retract data already sent.</p></article>
-    <article><h3>07 / Speed</h3><p>Small context budgets, delayed summaries and reusable speech reduce work. Strict Groq output arrives as a validated packet; NVIDIA/Gemini can stream text. The visible timing is measured, rather than a speed guarantee.</p></article>
+    <article><h3>07 / Speed</h3><p>Small context budgets, delayed summaries and reusable speech reduce work. Strict Groq output arrives as a validated packet; NVIDIA/Gemini can stream text. Developer mode in Settings shows measured timing; it is not a speed guarantee.</p></article>
     <article><h3>08 / Boundaries</h3><p>NOX is a fictional AI character. He cannot browse, run arbitrary commands, or act outside his stage. Free services have limits. A model prompt is not a security boundary; server validation and authentication are.</p></article>
   </div>
 </>;}
@@ -71,7 +72,8 @@ function Toolbar(){const [open,setOpen]=useState(null),[dark,setDark]=useState((
   useEffect(()=>{const sync=e=>{if(e.key==='nox.theme.v2')setDark(readTheme()==='dark');};window.addEventListener('storage',sync);return()=>window.removeEventListener('storage',sync);},[]);
   useEffect(()=>{const key=e=>{if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='k'){e.preventDefault();setOpen(current=>current=== 'commands'?null:'commands');}};const notebook=()=>setOpen('knowledge');window.addEventListener('keydown',key);document.getElementById('knowledge-button')?.addEventListener('click',notebook);document.getElementById('knowledge-chat-button')?.addEventListener('click',notebook);return()=>{window.removeEventListener('keydown',key);document.getElementById('knowledge-button')?.removeEventListener('click',notebook);document.getElementById('knowledge-chat-button')?.removeEventListener('click',notebook);};},[]);
   function run(id){setOpen(null);if(['knowledge','system'].includes(id)){setOpen(id);return;}if(id.startsWith('#')){location.hash=id;setTimeout(()=>{if(id==='#conversation')document.getElementById('message')?.focus();},0);return;}setTimeout(()=>{if(id.startsWith('scene:')){location.hash='#scenes';document.querySelector(`[data-scene="${id.slice(6)}"]`)?.click();}else document.getElementById(id)?.click();},0);}
-  return <><div className="lab-toolbar"><button onClick={()=>setOpen('commands')} aria-label="Open command palette"><span>Navigate</span> <kbd>Ctrl K</kbd></button><button onClick={()=>setOpen('system')}>About NOX</button><button onClick={()=>setDark(!dark)} aria-label={dark?'Switch to light room':'Switch to dark room'}><span>{dark?'Light':'Dark'}</span></button></div>{open==='commands'?<Palette onClose={()=>setOpen(null)} run={run}/>:open&&<Workbench key={open} initial={open} onClose={()=>setOpen(null)}/>}</>;
+  const tools=document.getElementById('settings-workspace-tools');
+  return <><div className="lab-toolbar"><button onClick={()=>setOpen('commands')} aria-label="Open command palette"><span>Navigate</span><kbd>Ctrl K</kbd></button></div>{tools&&createPortal(<><button type="button" onClick={()=>{document.getElementById('inside-dialog')?.close();setOpen('system');}}>About NOX</button><button type="button" onClick={()=>setDark(!dark)} aria-label={dark?'Switch to light room':'Switch to dark room'}>{dark?'Light room':'Dark room'}</button></>,tools)}{open==='commands'?<Palette onClose={()=>setOpen(null)} run={run}/>:open&&<Workbench key={open} initial={open} onClose={()=>setOpen(null)}/>}</>;
 }
 const mount=document.getElementById('workspace-controls');if(mount)createRoot(mount).render(<Toolbar/>);
 function ReceiverRoute(){

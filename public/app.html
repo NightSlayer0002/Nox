@@ -17,18 +17,38 @@
 <div class="rail-bottom"><a href="/" class="rail-version">NOX home</a></div>
 </aside>
 <div id="workspace-shell" class="shell">
-<header class="header"><button id="menu-button" type="button" class="quiet-button mobile-only" aria-controls="workspace-nav" aria-expanded="false">Menu</button><span class="eyebrow" id="view-label">YOUR SPACE / EXPLORE</span><div class="header-right"><span id="brain-status" class="status"><i></i> Connecting…</span><div id="workspace-controls"></div><button id="settings-button" class="quiet-button">Settings</button><button id="inside-button" hidden type="button" tabindex="-1" aria-hidden="true">Settings</button></div></header>
+<header class="header">
+  <button id="menu-button" type="button" class="quiet-button mobile-only" aria-controls="workspace-nav" aria-expanded="false">Menu</button>
+  <span class="eyebrow" id="view-label">Explore</span>
+  <div class="conversation-controls">
+    <div class="mode-tabs" role="group" aria-label="NOX persona">
+      <button data-mode="companion" class="active" aria-pressed="true" title="Warm company, curious questions and dry humour">Companion</button>
+      <button data-mode="director" aria-pressed="false" title="Creative direction, scene ideas and a more confident voice">Director</button>
+      <button data-mode="uncanny" aria-pressed="false" title="Quiet suspense, stranger observations and a warmer tint">Uncanny</button>
+    </div>
+    <span id="mood-label" class="mood-indicator" aria-label="NOX mood" title="NOX’s current mood">Curious</span>
+  </div>
+  <div class="header-right">
+    <span class="conversation-visit"><span class="guest-only">Guest visit <small>Temporary</small></span><span class="owner-only">Owner workspace <small>Local</small></span></span>
+    <span id="brain-status" class="status"><i></i> Connecting…</span>
+    <div id="workspace-controls"></div>
+    <button id="settings-button" class="quiet-button">Settings</button>
+    <button id="presence-toggle" type="button" class="quiet-button" aria-controls="world" aria-expanded="true">Hide NOX</button>
+    <button id="inside-button" hidden type="button" tabindex="-1" aria-hidden="true">Settings</button>
+  </div>
+</header>
 <main id="workspace-main" tabindex="-1">
-<div class="visit-banner"><p id="visit-note" role="status">Checking visit privacy…</p><div><a class="owner-link" href="/owner#conversation">Owner sign-in</a></div></div>
-<div class="intro"><div><h1 id="workspace-heading">Explore</h1><p class="intro-note" id="workspace-note">A place to begin.</p></div><button id="presence-toggle" type="button" class="quiet-button" aria-controls="world" aria-expanded="true">Hide NOX</button></div>
+<div class="visit-banner"><p id="visit-note" role="status">Checking visit privacy…</p></div>
+<div class="intro"><div><h1 id="workspace-heading">Explore</h1><p class="intro-note" id="workspace-note">A place to begin.</p></div></div>
 <div class="studio">
 <section class="stage-column" id="world" aria-label="NOX's world">
-<div class="instrument-heading"><span>NOX</span><span id="stage-time" class="stage-clock">00:00</span><a href="#scenes" class="quiet-button">Open studio</a></div>
+<div class="instrument-heading"><span>NOX</span><a href="#scenes" class="quiet-button">Open studio</a></div>
 <div class="stage-bezel"><div class="stage-wrap" id="stage-wrap">
 <canvas id="stage" aria-label="Animated NOX face. Move the cursor to look around. Click to make him smile, double-click or press Space to wink. Drag or use arrow keys to move him. Shake quickly while holding him for spiral eyes." tabindex="0"></canvas>
 
 <div class="stage-top"><button class="stage-button" id="film-button" aria-pressed="false" title="Portrait film mode (F)"><i class="control-glyph" aria-hidden="true"></i><span>Film mode</span></button></div>
 <button id="exit-film" class="exit-film" hidden>Exit film mode · F</button><button id="film-record" class="film-record">Record clip</button>
+<div class="stage-playback"><button id="replay-voice" class="quiet-button" type="button" title="Replay NOX’s last spoken reply"><i class="source-icon icon-voice" aria-hidden="true"></i><span>Replay voice</span></button><span id="stage-time" class="stage-clock" aria-label="Scene elapsed time">00:00</span></div>
 </div></div>
 <p id="scene-label" class="stage-hint">Move your cursor. Click or drag NOX.</p>
 </section>
@@ -56,17 +76,15 @@
 <a class="outline-button" href="#conversation">Continue in conversation</a></aside>
 <aside class="afterimage-column" data-panel="afterimage" hidden><div id="afterimage-root"><p class="eyebrow">AFTERIMAGE / RECEIVER</p><p>Waiting for the receiver…</p></div></aside>
 <aside class="companion-column" id="chat" data-panel="conversation" hidden>
-<div class="connection-heading"><h2 id="chat-title">New conversation</h2><button id="replay-voice" class="quiet-button">Replay voice</button></div>
-<div class="persona-header"><span>Conversation mode</span><span id="mood-label">Curious</span></div>
-<div class="mode-tabs" role="group" aria-label="NOX persona"><button data-mode="companion" class="active" aria-pressed="true">Companion</button><button data-mode="director" aria-pressed="false">Director</button><button data-mode="uncanny" aria-pressed="false">Uncanny</button></div>
+<h2 id="chat-title" class="sr-only">New conversation</h2>
 <div class="conversation" id="conversation" aria-live="polite" aria-label="Conversation with NOX"></div>
 <p id="reply-timing" class="reply-timing" role="status"></p><div id="connection-help" class="connection-help"><p id="connection-message">Checking the AI connection…</p><button id="unlock-ai" class="quiet-button">Connect AI </button></div>
 <!-- Native adaptation of Vercel AI Elements PromptInput/InputGroup; licensed sources in /vendor/ai-elements. -->
 <form id="chat-form" class="composer composer-source" aria-describedby="composer-help depth-note">
-  <label class="sr-only" for="message">Say something to NOX</label><textarea id="message" data-slot="input-group-control" placeholder="What’s on your mind?" maxlength="1200" rows="2"></textarea>
+  <label class="sr-only" for="message">Say something to NOX</label><textarea id="message" data-slot="input-group-control" placeholder="What’s on your mind?" maxlength="1200" rows="1"></textarea>
   <div class="composer-footer" data-align="block-end">
     <div class="composer-tools"><button class="composer-icon-button" id="knowledge-chat-button" type="button" title="Add context from your notes" aria-label="Open notes"><i class="source-icon icon-notes" aria-hidden="true"></i></button><div class="composer-select depth-select"><label class="sr-only" for="reply-depth">Answer depth</label><select id="reply-depth" title="Answer depth"><option value="quick">Quick</option><option value="balanced" selected>Balanced</option><option value="deep">Deep</option></select></div></div>
-    <div class="composer-actions"><button id="mic-button" class="composer-icon-button" type="button" title="Dictate a message" aria-label="Dictate a message" aria-pressed="false"><i class="source-icon icon-mic" aria-hidden="true"></i><span class="sr-only">Talk</span></button><button id="composer-voice" class="composer-icon-button" type="button" title="NOX voice on" aria-label="NOX voice on" aria-pressed="true"><i class="source-icon icon-voice" aria-hidden="true"></i></button><button id="cancel-reply" type="button" class="composer-submit" title="Stop reply" aria-label="Stop reply" hidden><i class="source-icon icon-stop" aria-hidden="true"></i></button><button id="send-button" class="composer-submit" type="submit" title="Send message" aria-label="Send message" disabled><i class="source-icon icon-send" aria-hidden="true"></i></button></div>
+    <div class="composer-actions"><button id="mic-button" class="composer-icon-button" type="button" title="Dictate a message" aria-label="Dictate a message" aria-pressed="false"><i class="source-icon icon-mic" aria-hidden="true"></i><span class="sr-only">Talk</span></button><button id="composer-voice" class="composer-icon-button" type="button" title="Spoken replies on" aria-label="NOX voice on" aria-pressed="true"><i class="source-icon icon-voice" aria-hidden="true"></i><span class="composer-voice-label">Voice on</span></button><button id="cancel-reply" type="button" class="composer-submit" title="Stop reply" aria-label="Stop reply" hidden><i class="source-icon icon-stop" aria-hidden="true"></i></button><button id="send-button" class="composer-submit" type="submit" title="Send message" aria-label="Send message" disabled><i class="source-icon icon-send" aria-hidden="true"></i></button></div>
   </div>
 </form><p id="composer-help" class="composer-help">Enter to send <span>·</span> Shift + Enter for a new line</p>
 <p class="knowledge-sources" id="knowledge-context" hidden></p>
@@ -79,12 +97,17 @@
 </div>
 <div id="toast" role="status" hidden></div>
 <dialog id="inside-dialog"><div class="dialog-top"><p class="eyebrow">Settings</p><button id="close-inside" aria-label="Close">×</button></div><h2>Settings</h2>
+<div id="settings-workspace-tools" class="settings-workspace-tools"></div>
 <div class="settings-panel"><details class="advanced-model"><summary>AI provider and answer settings</summary><div class="setting-row"><label for="provider-select">AI provider</label><select id="provider-select"><option value="">Connecting…</option></select></div><p id="provider-note">Providers appear once their server keys are configured.</p><div hidden>    <div class="composer-select model-select"><label class="sr-only" for="composer-provider">AI provider</label><select id="composer-provider" title="Switch AI provider" disabled><option value="">Connecting…</option></select></div>
 </div><p class="lab-note" id="depth-note">Balanced answers take a little more time. Voice reads a concise opening.</p></details><div class="setting-row"><label for="voice-engine">Voice</label><select id="voice-engine"><option value="browser">Browser · free</option><option id="natural-option" value="natural" disabled>Natural · Groq Orpheus</option></select></div><p id="voice-note">Browser voice quality depends on the voices installed on your device.</p>
 <details id="owner-access" class="owner-access"><summary>Owner access</summary><form id="owner-form" hidden><label for="owner-token">Owner/dev sign-in</label><div class="unlock-row"><input id="owner-token" type="password" autocomplete="off" placeholder="Your NOX access token"><button type="submit">Sign in</button></div><p>Use your NOX owner token for saved history and the full studio. Voice and the guest trial need no owner token. The owner session lasts up to 12 hours.</p></form><button id="lock-owner" class="quiet-button" hidden>Sign out of owner mode</button><p id="owner-status" role="status"></p></details></div>
 <div class="setting-row"><label for="speaker-select">Orpheus character voice</label><select id="speaker-select"><option value="troy" selected>Troy · NOX</option><option value="austin">Austin</option><option value="daniel">Daniel</option></select></div><div class="setting-row"><label for="browser-speaker">Browser voice</label><select id="browser-speaker"><option value="">Automatic</option></select></div><button id="test-voice" class="outline-button">Try this voice </button>
 <details class="conversation-context"><summary>Conversation context</summary><div class="notebook" id="notebook"><div class="notebook-head"><span class="eyebrow">Remembered facts</span><button id="clear-memory">Clear notebook</button></div><p id="memory-summary">A fresh start. Tell him your name.</p><div id="memory-facts"></div></div>
-<p id="summary-note" class="demo-note"></p><p class="demo-note" id="brain-note">Checking the AI connection…</p></details><details class="visual-sources"><summary>Visual sources</summary><p>Signal uses anatomical geometry, adapted with lighting and materials for NOX.</p><p>BodyParts3D, © The Database Center for Life Science licensed under CC Attribution 4.0 International.</p><p><a href="https://dbarchive.biosciencedbc.jp/en/bodyparts3d/lic.html" target="_blank" rel="noopener noreferrer">Dataset and license</a></p><p>Source Sans 3 by Adobe (SIL OFL). Controls use Vercel AI Elements (Apache-2.0) and Lucide icons (ISC). Source files and notices are included with NOX.</p></details><details class="developer-inspector"><summary>Developer inspector</summary><p id="inspector-brain"></p><pre id="packet-view"></pre></details></dialog>
+<p id="summary-note" class="demo-note"></p><p class="demo-note" id="brain-note">Checking the AI connection…</p></details>
+<details class="persona-guide"><summary>About the three modes</summary><dl><dt>Companion</dt><dd>Warm company, curious questions and dry humour.</dd><dt>Director</dt><dd>A creative collaborator with confident delivery and an eye for the scene.</dd><dt>Uncanny</dt><dd>Quieter pacing, subtle suspense and stranger observations.</dd></dl><p>Modes guide the replies and voice performance, with subtle expression and colour changes. They use the same AI connection and tools.</p></details>
+<details class="visual-sources"><summary>Visual sources</summary><p>Signal uses anatomical geometry, adapted with lighting and materials for NOX.</p><p>BodyParts3D, © The Database Center for Life Science licensed under CC Attribution 4.0 International.</p><p><a href="https://dbarchive.biosciencedbc.jp/en/bodyparts3d/lic.html" target="_blank" rel="noopener noreferrer">Dataset and license</a></p><p>Source Sans 3 by Adobe (SIL OFL). Controls use Vercel AI Elements (Apache-2.0) and Lucide icons (ISC). Source files and notices are included with NOX.</p></details>
+<label class="developer-toggle"><input id="developer-mode" type="checkbox">Developer mode <small>Show diagnostics for this visit</small></label>
+<details class="developer-inspector"><summary>Developer inspector</summary><p id="developer-timing" hidden></p><p id="inspector-brain"></p><pre id="packet-view"></pre></details></dialog>
 <dialog id="clip-dialog"><div class="dialog-top"><p class="eyebrow">Recording</p><button id="close-clip" aria-label="Close clip preview">×</button></div><h2>Your clip</h2><video id="clip-video" controls playsinline preload="metadata" aria-label="Recorded NOX clip"></video><p id="clip-meta"></p><a id="save-clip" class="save-clip">Save clip </a><p class="dialog-foot">Orpheus voice is included when enabled. Browser voice and microphone audio are not captured.</p></dialog>
 <script type="module" src="/js/app.js"></script>
 <script type="module" src="/dist/workspace.js"></script>

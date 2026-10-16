@@ -21,7 +21,9 @@
 .workspace .sidebar nav .selected {box-shadow:inset 2px 0 var(--accent)}
 .workspace .rail-label {font-size:14px;margin:4px 10px -10px;text-transform:none}
 .workspace .recent-chats {min-height:0;overflow:auto}
-.workspace .recent-chats :is(button,.empty) {font-size:14px;line-height:1.45;padding:8px 10px;white-space:normal}
+.workspace .recent-chats :is(button,.empty) {font-size:14px;line-height:1.45;padding:8px 10px}
+.workspace .recent-chats button {display:block;width:100%;min-width:0;margin:0 0 3px;text-align:left;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;border:1px solid transparent;background:transparent;color:var(--muted)}
+.workspace .recent-chats button:is(.active,:hover) {background:var(--surface);color:var(--text)}
 .workspace .rail-bottom {margin-top:auto;padding:16px 10px 0}
 .workspace .rail-version {font-size:14px;color:var(--muted)}
 .workspace .shell {margin-left:208px;padding:0 32px;max-width:none}
@@ -33,6 +35,9 @@
 .workspace .lab-toolbar {gap:4px}
 .workspace .lab-toolbar button {font-size:14px;min-height:38px;padding:8px 10px}
 .workspace .lab-toolbar kbd {font-size:12px;letter-spacing:normal}
+.workspace .conversation-controls,.workspace .conversation-visit {display:none}
+.workspace .settings-workspace-tools {display:flex;gap:8px;margin:0 0 20px}
+.workspace .settings-workspace-tools button {border:1px solid var(--line);padding:8px 14px;background:var(--surface)}
 .workspace #inside-button {display:none}
 .workspace .visit-banner {padding:9px 0;gap:12px;margin:0;border:0;font-size:14px;line-height:1.4;align-items:center;color:var(--muted)}
 .workspace .visit-banner p {margin:0}
@@ -52,6 +57,9 @@
 .workspace .stage-wrap {aspect-ratio:auto;height:clamp(360px,calc(100svh - 268px),650px);background:var(--surface)}
 .workspace:not(.film) .stage-wrap>canvas {mask-image:none}
 .workspace .stage-top {top:12px;right:12px}
+.workspace .stage-playback {position:absolute;inset:auto 12px 12px;display:flex;align-items:center;justify-content:space-between;gap:12px;pointer-events:none;z-index:3}
+.workspace .stage-playback #replay-voice {display:none}
+.workspace .stage-playback .stage-clock {margin-left:auto;background:#081011a8;border:1px solid #ffffff12;backdrop-filter:blur(12px);border-radius:5px;padding:6px 9px;color:#c4ceca}
 .workspace .stage-button {font-size:14px;min-height:38px;padding:8px 10px;border-radius:5px;background:var(--bg)}
 .workspace .stage-bottom {bottom:12px;left:12px;right:12px;font-size:13px;gap:10px;letter-spacing:normal}
 .workspace .stage-bottom>span {background:var(--bg);color:var(--muted);border-radius:4px;padding:5px 7px;line-height:1.4}
@@ -123,7 +131,24 @@
 .workspace[data-view=conversation] {height:var(--workspace-height,100dvh);min-height:0;overflow:hidden}
 .workspace[data-view=conversation] .shell {height:100%;display:flex;flex-direction:column}
 .workspace[data-view=conversation] #workspace-main {flex:1;display:flex;flex-direction:column;min-height:0;outline-offset:-3px;padding-bottom:18px}
-.workspace[data-view=conversation] .intro {margin:10px 0 16px;flex:none}
+.workspace[data-view=conversation] :is(.intro,.visit-banner,#view-label,#brain-status) {display:none}
+.workspace[data-view=conversation] .header {min-height:64px;flex:none;gap:16px;padding:10px 0;border-color:color-mix(in srgb,var(--line) 65%,transparent)}
+.workspace[data-view=conversation] .conversation-controls {display:flex;align-items:center;gap:18px;min-width:0}
+.workspace[data-view=conversation] .header-right {margin-left:auto;gap:8px;flex:none}
+.workspace[data-view=conversation] .header-right>.quiet-button {padding:8px;font-size:13px;min-height:34px;white-space:nowrap}
+.workspace[data-view=conversation] .conversation-visit {display:block;font-size:12px;color:var(--text);white-space:nowrap;margin-right:6px}
+.workspace .conversation-visit small {color:var(--muted);font-size:11px;margin-left:6px}
+.workspace .owner-only,.workspace[data-visit=owner] .guest-only {display:none}
+.workspace[data-visit=owner] .owner-only {display:inline}
+.workspace[data-view=conversation] .mode-tabs {margin:0;gap:2px;border:1px solid var(--line);border-radius:6px;padding:3px;background:color-mix(in srgb,var(--surface) 60%,transparent)}
+.workspace[data-view=conversation] .mode-tabs button {font-size:13px;min-height:32px;padding:6px 10px;border:0;color:var(--muted)}
+.workspace[data-view=conversation] .mode-tabs button.active {background:var(--surface);color:var(--text);box-shadow:inset 0 0 0 1px var(--line)}
+.workspace .mood-indicator {font-size:12px;color:var(--muted);white-space:nowrap;text-transform:capitalize}
+.workspace .mood-indicator::before {content:'';display:inline-block;width:5px;height:5px;border-radius:50%;background:var(--mint,#a5dcd2);box-shadow:0 0 8px #a5dcd250;margin-right:7px;vertical-align:2px}
+.workspace[data-view=conversation] .lab-toolbar button {min-height:34px;padding:7px 8px}
+.workspace[data-view=conversation] .lab-toolbar button>span {display:none}
+.workspace[data-view=conversation] .lab-toolbar kbd {display:inline;font-size:12px;color:var(--muted);border:0;padding:0}
+.workspace[data-view=conversation] #workspace-main {padding-top:24px}
 .workspace[data-view=conversation] .intro-note {display:none}
 .workspace[data-view=conversation] #presence-toggle {display:block}
 .workspace[data-view=conversation] .studio {grid-template-columns:minmax(0,1fr) 280px;flex:1;min-height:0;align-items:stretch;gap:28px}
@@ -162,6 +187,7 @@
 .workspace .composer-actions {margin-left:auto;gap:6px}
 .workspace .composer-select select {font-size:14px;height:38px;min-height:38px;padding:7px 23px 7px 8px;border:1px solid var(--line);border-radius:4px;background-color:transparent;width:auto;max-width:160px}
 .workspace .composer :is(.composer-icon-button,.composer-submit) {border-radius:4px;width:38px;height:38px;min-width:38px;min-height:38px;padding:8px}
+.workspace .composer #composer-voice {width:auto;gap:6px;padding:8px 10px;font-size:13px;white-space:nowrap;border:1px solid var(--line)}
 .workspace .composer .composer-submit {background:var(--accent);color:var(--bg);border-color:var(--accent)}
 .workspace .composer-source #send-button,.workspace .composer-source #cancel-reply {border-radius:4px}
 .workspace .composer-source textarea {field-sizing:fixed}
@@ -184,6 +210,17 @@
 .workspace .setting-row label {font-size:16px;text-transform:none}
 .workspace .setting-row select {font-size:15px;min-height:40px;max-width:60%;padding:8px;border-radius:5px;background:var(--surface)}
 .workspace .settings-panel p,.workspace #voice-note,.workspace #provider-note {font-size:14px;line-height:1.6}
+.workspace .persona-guide {margin:18px 0;border-bottom:1px solid var(--line);padding-bottom:12px}
+.workspace .persona-guide dl {font-size:14px;margin:8px 0}
+.workspace .persona-guide dt {color:var(--text);margin-top:10px}
+.workspace .persona-guide dd {margin:2px 0;color:var(--muted)}
+.workspace .persona-guide p {font-size:14px;line-height:1.6;color:var(--muted)}
+.workspace .developer-toggle {display:flex;align-items:center;flex-wrap:wrap;gap:9px;font-size:14px;margin-top:18px}
+.workspace .developer-toggle input {accent-color:var(--accent)}
+.workspace .developer-toggle small {font-size:12px;color:var(--muted)}
+.workspace .developer-inspector {display:none}
+.workspace:has(#developer-mode:checked) .developer-inspector {display:block}
+.workspace #developer-timing {font-size:13px;line-height:1.6;color:var(--muted);font-variant-numeric:tabular-nums}
 .workspace .advanced-model,.workspace .owner-access,.workspace .conversation-context {padding:10px 0;border-bottom:1px solid var(--line)}
 .workspace .advanced-model .composer-select {min-width:0;max-width:60%}
 .workspace .advanced-model .composer-select select {max-width:100%;font-size:15px;height:40px;min-height:40px;border:1px solid var(--line);border-radius:5px;background:var(--surface);padding:8px}
@@ -223,38 +260,16 @@
  .workspace .studio {grid-template-columns:minmax(0,1fr) 280px;gap:22px}
  .workspace .stage-wrap {height:420px}
 }
-/* Compact only the supporting chrome while a small viewport/keyboard is active. */
-@media(max-width:900px){
-.workspace[data-view=conversation][data-keyboard-open=true] :is(.intro,.persona-header,.suggestions,.composer-help){display:none!important}
-.workspace[data-view=conversation][data-keyboard-open=true] .header{min-height:46px;padding:3px 0}
-.workspace[data-view=conversation][data-keyboard-open=true] .visit-banner{padding:4px 0;font-size:12px}
-.workspace[data-view=conversation][data-keyboard-open=true] .visit-banner a{font-size:12px}
-.workspace[data-view=conversation][data-keyboard-open=true] #workspace-main{padding-bottom:8px}
-.workspace[data-view=conversation][data-keyboard-open=true] .connection-heading{min-height:28px;margin:4px 0}
-.workspace[data-view=conversation][data-keyboard-open=true] .connection-heading #chat-title{font-size:16px}
-.workspace[data-view=conversation][data-keyboard-open=true] .mode-tabs{margin:3px 0 5px}
-.workspace[data-view=conversation][data-keyboard-open=true] .mode-tabs button{min-height:30px;padding:4px 9px}
-.workspace[data-view=conversation][data-keyboard-open=true] .conversation{min-height:0;padding-top:6px}
-.workspace[data-view=conversation][data-keyboard-open=true] .composer.composer-source{padding:8px 10px}
-.workspace[data-view=conversation][data-keyboard-open=true] .composer textarea{min-height:42px;height:42px;max-height:76px}
-.workspace[data-view=conversation][data-keyboard-open=true] .reply-timing{margin:2px 0 4px;font-size:12px}
-.workspace[data-view=conversation][data-keyboard-open=true] .connection-help{margin:3px 0;padding:6px 8px}
+@media(max-width:1200px) {
+ .workspace[data-view=conversation] .mood-indicator {display:none}
+ .workspace[data-view=conversation] .conversation-visit small {display:none}
 }
-@media(max-width:900px) and (max-height:600px){
-.workspace[data-view=conversation] :is(.intro,.persona-header,.suggestions,.composer-help){display:none!important}
-.workspace[data-view=conversation] .header{min-height:46px;padding:3px 0}
-.workspace[data-view=conversation] .visit-banner{padding:4px 0;font-size:12px}
-.workspace[data-view=conversation] .visit-banner a{font-size:12px}
-.workspace[data-view=conversation] #workspace-main{padding-bottom:8px}
-.workspace[data-view=conversation] .connection-heading{min-height:28px;margin:4px 0}
-.workspace[data-view=conversation] .connection-heading #chat-title{font-size:16px}
-.workspace[data-view=conversation] .mode-tabs{margin:3px 0 5px}
-.workspace[data-view=conversation] .mode-tabs button{min-height:30px;padding:4px 9px}
-.workspace[data-view=conversation] .conversation{min-height:0;padding-top:6px}
-.workspace[data-view=conversation] .composer.composer-source{padding:8px 10px}
-.workspace[data-view=conversation] .composer textarea{min-height:42px;height:42px;max-height:76px}
-.workspace[data-view=conversation] .reply-timing{margin:2px 0 4px;font-size:12px}
-.workspace[data-view=conversation] .connection-help{margin:3px 0;padding:6px 8px}
+/* The keyboard changes available height, never the conversation's scroll owner. */
+@media(max-width:900px) and (max-height:600px) {
+ .workspace[data-view=conversation] :is(.suggestions,.composer-help) {display:none}
+ .workspace[data-view=conversation] #workspace-main {padding-block:10px 8px}
+ .workspace[data-view=conversation] .conversation {min-height:0}
+ .workspace[data-view=conversation] .composer textarea {max-height:100px}
 }
 @media(max-width:900px) {
  .workspace[data-view=conversation] .studio {grid-template-columns:minmax(0,1fr)}
@@ -292,6 +307,12 @@
  .workspace .lab-toolbar kbd {display:none}
  .workspace #settings-button {font-size:14px;padding:7px;min-height:38px}
  .workspace .header .status {display:none}
+ .workspace[data-view=conversation] .header {display:grid;grid-template-columns:auto minmax(0,1fr);gap:8px;min-height:0;padding:10px 0}
+ .workspace[data-view=conversation] .conversation-controls {justify-self:end}
+ .workspace[data-view=conversation] .header-right {grid-column:1/-1;width:100%;margin:0;justify-content:end;gap:8px}
+ .workspace[data-view=conversation] .conversation-visit {margin-right:auto}
+ .workspace[data-view=conversation] .mode-tabs button {min-height:32px;font-size:13px;padding:6px 9px}
+ .workspace[data-view=conversation] #workspace-main {padding-top:16px}
  .workspace .visit-banner {font-size:13px;gap:8px;padding:8px 0;flex-wrap:nowrap}
  .workspace .visit-banner a {font-size:13px;white-space:nowrap}
  .workspace .intro {margin:16px 0 20px}

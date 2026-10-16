@@ -20,7 +20,7 @@ function fixture(hash='#conversation') {
   globalThis.document={body:{dataset:{visit:'guest'}},getElementById:id=>nodes[id],createElement:()=>new Element(),querySelectorAll:selector=>selector==='[data-panel]'?panels:selector==='a[data-view]'?links:[]};
   globalThis.location={get hash(){return hash;},set hash(value){hash=value.startsWith('#')?value:`#${value}`;}};globalThis.window=new EventTarget();window.scrollTo=()=>{};
   const calls=[];
-  const thread={id:'a',turns:[]};const history={list:()=>[],active:()=>thread,persistent:false};
+  const thread={id:'a',turns:[],updated:Date.now()};const history={list:()=>[thread],active:()=>thread,persistent:false};
   const navigation=createNavigation({history,onOpen:id=>calls.push(['open',id]),onNew:()=>calls.push(['new']),onStart:text=>calls.push(['start',text])});
   return {nodes,panels,links,calls,navigation,thread};
 }
@@ -72,4 +72,14 @@ test('supporting NOX panel can collapse without switching route or clearing the 
   assert.equal(document.body.dataset.presence,'visible');
   assert.equal(document.body.dataset.view,'conversation');
   assert.equal(nodes.message.value,'A draft');
+});
+
+test('recent rows expose their complete title and identify the active conversation',()=>{
+  const {nodes,thread,navigation}=fixture();
+  thread.title='A long creative thought that is truncated only visually';
+  thread.turns.push({role:'user',content:'Hello'});
+  navigation.render();
+  assert.equal(nodes['recent-chats'].children[0]?.textContent,thread.title);
+  assert.equal(nodes['recent-chats'].children[0]?.getAttribute('title'),thread.title);
+  assert.equal(nodes['recent-chats'].children[0]?.getAttribute('aria-current'),'true');
 });

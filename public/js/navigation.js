@@ -17,7 +17,12 @@ export function createNavigation({history,onOpen,onNew,onStart}) {
   function render(){
     document.body.dataset.conversationStarted=String(history.active().turns.some(turn=>turn.role==='user'));
     const all=history.list().filter(t=>t.turns.length),active=history.active().id;
-    $('recent-chats').replaceChildren();all.filter(t=>t.turns.length).slice(0,6).forEach(t=>{const b=document.createElement('button');b.textContent=t.title;b.classList.toggle('active',t.id===active);b.addEventListener('click',()=>open(t.id));$('recent-chats').append(b);});
+    $('recent-chats').replaceChildren();
+    all.slice(0,6).forEach(t=>{
+      const b=document.createElement('button');b.textContent=t.title;b.setAttribute('title',t.title);
+      b.classList.toggle('active',t.id===active);if(t.id===active)b.setAttribute('aria-current','true');
+      b.addEventListener('click',()=>open(t.id));$('recent-chats').append(b);
+    });
     if(!$('recent-chats').children.length){const p=document.createElement('p');p.className='empty';p.textContent='Your first conversation starts here.';$('recent-chats').append(p);}
     $('resume-chats').replaceChildren();all.filter(t=>t.turns.length).slice(0,3).forEach(t=>{const b=document.createElement('button');b.className='resume-row';const icon=document.createElement('span'),content=document.createElement('span'),title=document.createElement('b'),meta=document.createElement('small'),arrow=document.createElement('span');icon.textContent='NOX';title.textContent=t.title;meta.textContent=`${t.turns.length} messages · ${new Date(t.updated).toLocaleDateString(undefined,{month:'short',day:'numeric'})}`;arrow.textContent='';content.append(title,meta);b.append(icon,content,arrow);b.addEventListener('click',()=>open(t.id));$('resume-chats').append(b);});
     if(!$('resume-chats').children.length){const p=document.createElement('p');p.className='empty-state';p.textContent='A fresh start. Choose a thought below, or start a conversation of your own.';$('resume-chats').append(p);}
