@@ -64,8 +64,8 @@ export function attachComposerOptions(details,{documentTarget=globalThis.documen
     if(!details.open||event.key!=='Escape')return;
     event.preventDefault();event.stopPropagation();close();summary?.focus();
   },{capture:true});
-  details.querySelector('#reply-depth')?.addEventListener('change',close);
-  details.querySelector('#knowledge-chat-button')?.addEventListener('click',close);
+  // Native select arrows can fire change before a keyboard user commits a choice.
+  details.querySelector('#knowledge-chat-button')?.addEventListener('click',()=>{close();summary?.focus();});
   form?.addEventListener('submit',close);
   return {close};
 }

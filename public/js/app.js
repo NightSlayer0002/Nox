@@ -56,7 +56,7 @@ function toast(text) {
   clearTimeout(toastTimer); toastTimer = setTimeout(() => { $('toast').hidden = true; }, 6500);
 }
 
-const sceneLabels = { none: 'Move your cursor. Click or drag NOX.', gravity: 'Gravity is on. Pick NOX up and let go.', spotlight: 'Move the light with your cursor.', orbit: 'A small universe.', echo: 'An authored scene. Another presence.', takeover: 'Creative control: NOX.' };
+const sceneLabels = { none: 'Click to react. Drag to play.', gravity: 'Gravity is on. Pick NOX up and let go.', spotlight: 'Move the light with your cursor.', orbit: 'A small universe.', echo: 'An authored scene. Another presence.', takeover: 'Creative control: NOX.' };
 const stage = new Stage($('stage'));
 connectStageControls(stage,{
   sceneButtons:[...document.querySelectorAll('[data-scene]')],

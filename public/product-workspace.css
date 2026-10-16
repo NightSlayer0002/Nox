@@ -151,17 +151,17 @@
 .workspace[data-view=conversation] #workspace-main {padding-top:24px}
 .workspace[data-view=conversation] .intro-note {display:none}
 .workspace[data-view=conversation] #presence-toggle {display:block}
-.workspace[data-view=conversation] .studio {grid-template-columns:minmax(0,1fr) clamp(280px,27vw,360px);flex:1;min-height:0;align-items:stretch;gap:28px}
+.workspace[data-view=conversation] .studio {grid-template-columns:minmax(0,1fr) 250px;flex:1;min-height:0;align-items:stretch;gap:32px}
 .workspace[data-view=conversation] .companion-column {order:-1;display:flex;flex-direction:column;min-height:0;max-width:960px}
 .workspace[data-view=conversation] .stage-column {align-self:start}
 .workspace[data-view=conversation] .instrument-heading {display:none}
 .workspace[data-view=conversation] .stage-bezel {border-color:color-mix(in srgb,var(--line) 65%,transparent);border-radius:10px;box-shadow:0 12px 36px #00000012}
-.workspace[data-view=conversation] .stage-wrap {height:350px}
+.workspace[data-view=conversation] .stage-wrap {height:300px}
 .workspace[data-view=conversation] .stage-playback {display:flex}
 .workspace[data-view=conversation].recording .stage-playback {visibility:hidden}
 .workspace[data-view=conversation] .stage-playback #replay-voice {display:inline-flex;align-items:center;gap:6px;pointer-events:auto;min-height:30px;padding:6px 9px;font-size:11px;background:#081011a8;color:#c4ceca;border:1px solid #ffffff16;backdrop-filter:blur(12px)}
 .workspace[data-view=conversation] .stage-playback .source-icon {width:14px;height:14px}
-.workspace[data-view=conversation] .stage-hint {font-size:12px;color:var(--muted);line-height:1.5;margin-top:10px}
+.workspace[data-view=conversation] .stage-hint {font-size:11px;color:var(--muted);line-height:1.5;margin-top:8px}
 .workspace[data-view=conversation] .stage-top {display:none}
 .workspace[data-view=conversation] .stage-bottom {font-size:12px}
 .workspace[data-view=conversation][data-presence=hidden] .stage-column {display:none}
@@ -283,7 +283,7 @@
  .workspace .shell {padding:0 22px}
  .workspace .header-right {gap:6px}
  .workspace .lab-toolbar kbd,.workspace .lab-toolbar .theme-label {display:none}
- .workspace[data-view=conversation] .studio {grid-template-columns:minmax(0,1fr) 250px;gap:20px}
+ .workspace[data-view=conversation] .studio {grid-template-columns:minmax(0,1fr) 220px;gap:20px}
  .workspace[data-view=conversation] .stage-wrap {height:300px}
  .workspace .studio {grid-template-columns:minmax(0,1fr) 280px;gap:22px}
  .workspace .stage-wrap {height:420px}
@@ -307,7 +307,6 @@
  .workspace .composer-source textarea {grid-column:1/-1}
  .workspace .composer-source .composer-tools {grid-column:1}
  .workspace .composer-source .composer-actions {grid-column:2/4;justify-self:end}
- .workspace .composer-options-panel {left:0;right:auto}
 }
 @media(max-width:900px) {
  .workspace[data-view=conversation] .studio {grid-template-columns:minmax(0,1fr)}
@@ -379,6 +378,7 @@
  .workspace .message>p:not(.speaker) {font-size:16px}
  .workspace .message .speaker {font-size:13px}
  .workspace .composer.composer-source {padding:8px 9px 8px 14px}
+ .workspace .composer-options-panel {left:-8px;right:auto}
  .workspace .composer textarea {min-height:32px;height:32px;font-size:16px}
  .workspace .composer-footer {gap:6px}
  .workspace .composer-tools {gap:4px}

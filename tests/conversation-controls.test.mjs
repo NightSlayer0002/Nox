@@ -174,13 +174,26 @@ test('closed composer options do not intercept Escape or take focus from typing'
   assert.equal(event.defaultPrevented,false);
 });
 
-test('answer depth, notes, and form submission each close composer options',()=>{
+test('answer depth changes stay open so keyboard users can reach every option',()=>{
+  const elements=composerOptionsElements();attachOptions(elements);elements.details.open=true;
+  elements.documentTarget.activeElement=elements.depth;
+  for(let selection=0;selection<2;selection++)dispatchAt(elements.depth,'change');
+  assert.equal(elements.details.open,true);
+  assert.equal(elements.documentTarget.activeElement,elements.depth);
+});
+
+test('notes closes options with a visible focus target for the modal to restore',()=>{
+  const elements=composerOptionsElements();attachOptions(elements);elements.details.open=true;
+  elements.documentTarget.activeElement=elements.notes;dispatchAt(elements.notes,'click');
+  assert.equal(elements.details.open,false);
+  assert.equal(elements.documentTarget.activeElement,elements.summary);
+});
+
+test('form submission closes composer options without stealing focus',()=>{
   const elements=composerOptionsElements();attachOptions(elements);
-  for(const [target,type] of [[elements.depth,'change'],[elements.notes,'click'],[elements.form,'submit']]){
-    elements.details.open=true;dispatchAt(target,type);
-    assert.equal(elements.details.open,false,`${type} closes the disclosure`);
-    assert.equal(elements.documentTarget.activeElement,elements.message);
-  }
+  elements.details.open=true;dispatchAt(elements.form,'submit');
+  assert.equal(elements.details.open,false);
+  assert.equal(elements.documentTarget.activeElement,elements.message);
 });
 
 test('composer options expose a close hook without changing native summary keyboard behavior',()=>{
