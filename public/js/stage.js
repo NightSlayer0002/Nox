@@ -43,6 +43,7 @@ export class Stage {
   }
   captionOpacity() {
     if (this.landing || !this.caption) return 0;
+    if(this.captionMode==='hidden'&&!this.recordingLocked)return 0;
     if (this.captionMode !== 'speaking' || this.recordingLocked) {
       return this.time < this.captionUntil || this.time < this.character.speakingUntil ? 1 : 0;
     }

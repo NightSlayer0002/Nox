@@ -273,6 +273,7 @@
 .workspace[data-view=afterimage] .studio {grid-template-columns:minmax(250px,.7fr) minmax(0,1.3fr)}
 .workspace[data-view=afterimage] .stage-wrap {height:360px}
 .workspace .mobile-only {display:none}
+.workspace .presence-mobile-copy {display:none}
 .workspace.film .stage-column {display:block!important;position:fixed;inset:0;z-index:70;pointer-events:none}
 .workspace.film .instrument-heading {display:none}
 .workspace.film .stage-wrap {aspect-ratio:9/16;height:calc(100svh - 36px);border-radius:8px;pointer-events:auto}
@@ -309,9 +310,27 @@
  .workspace .composer-source .composer-actions {grid-column:2/4;justify-self:end}
 }
 @media(max-width:900px) {
- .workspace[data-view=conversation] .studio {grid-template-columns:minmax(0,1fr)}
- .workspace[data-view=conversation] .stage-column {display:none}
- .workspace[data-view=conversation] #presence-toggle {display:none}
+ .workspace[data-view=conversation] .studio {grid-template-columns:minmax(0,1fr);grid-template-rows:auto minmax(0,1fr);gap:10px}
+ .workspace[data-view=conversation] .stage-column {display:flex;order:-2;gap:16px;align-items:center;min-height:96px;align-self:stretch}
+ .workspace[data-view=conversation] .stage-bezel {width:112px;flex:none;border:0;background:transparent;box-shadow:none}
+ .workspace[data-view=conversation] .stage-wrap {height:96px;background:transparent}
+ .workspace[data-view=conversation] :is(.stage-playback,.stage-hint) {display:none}
+ .workspace[data-view=conversation] .presence-mobile-copy {display:flex;flex:1;flex-direction:column;align-items:start;min-width:0;gap:2px;font-size:14px}
+ .workspace .presence-mobile-copy small {color:var(--muted);font-size:13px}
+ .workspace .presence-mobile-copy button {font-size:12px;min-height:40px;padding:7px 0;color:var(--muted)}
+ .workspace[data-view=conversation][data-presence-expanded=true] .stage-column {align-items:start}
+ .workspace[data-view=conversation][data-presence-expanded=true] .stage-bezel {width:58%;max-width:320px}
+ .workspace[data-view=conversation][data-presence-expanded=true] .stage-wrap {height:220px}
+ .workspace[data-view=conversation][data-keyboard-open=true] .stage-column {min-height:72px}
+ .workspace[data-view=conversation][data-keyboard-open=true] .stage-wrap {height:72px}
+ .workspace[data-view=conversation][data-keyboard-open=true] .stage-bezel {width:88px}
+ .workspace[data-view=conversation][data-keyboard-open=true] .presence-mobile-copy button {display:none}
+ .workspace[data-view=conversation] #presence-toggle {display:block}
+ .workspace[data-view=conversation][data-presence=hidden] .stage-column {display:none}
+ .workspace.film[data-view=conversation] .stage-column {display:block}
+ .workspace.film[data-view=conversation] .stage-bezel {width:auto;max-width:none}
+ .workspace.film[data-view=conversation] .stage-wrap {height:calc(100svh - 36px)}
+ .workspace.film[data-view=conversation] .presence-mobile-copy {display:none}
  .workspace .header .status {font-size:13px}
  .workspace .lab-toolbar button:nth-child(2) {display:none}
  .workspace .studio {grid-template-columns:1fr}

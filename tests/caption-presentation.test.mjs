@@ -132,3 +132,15 @@ test('Scene studio and recorded captions retain their original vertical position
     assert.ok(Math.abs(lines[0].y-275.4)<1e-10);
   }
 });
+
+test('hidden stage captions stay off screen while the same spoken text remains in recordings',()=>{
+  const {stage,render}=fixture('hidden');stage.speak(packet);stage.narrating=true;
+  stage.character.speakingUntil=Infinity;
+  assert.deepEqual(render(1),[]);
+  stage.recordingLocked=true;
+  assert.equal(textDraws(render(1))[0].text,packet.speech);
+  assert.equal(textDraws(render(30))[0].alpha,1);
+  stage.recordingLocked=false;
+  assert.deepEqual(render(30),[]);
+  assert.equal(stage.character.speakingUntil,Infinity);
+});

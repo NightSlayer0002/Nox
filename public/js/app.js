@@ -92,7 +92,18 @@ const voice = createVoice({
     return blob;
   },
 });
-stage.onBeforeFrame=()=>{stage.character.mouthLevel=voice.mouthLevel;stage.captionMode=document.body.dataset.view==='conversation'?'speaking':'linger';};
+const compactPresence=matchMedia('(max-width:900px)');
+$('presence-size').addEventListener('click',()=>{
+  const expanded=document.body.dataset.presenceExpanded!=='true';
+  document.body.dataset.presenceExpanded=String(expanded);
+  $('presence-size').setAttribute('aria-expanded',String(expanded));
+  $('presence-size').textContent=expanded?'Minimize NOX':'Enlarge NOX';
+});
+stage.onBeforeFrame=()=>{
+  stage.character.mouthLevel=voice.mouthLevel;
+  const chatting=document.body.dataset.view==='conversation';
+  stage.captionMode=chatting&&compactPresence.matches&&document.body.dataset.presenceExpanded!=='true'&&!document.body.classList.contains('film')?'hidden':chatting?'speaking':'linger';
+};
 const camera = createCamera();
 const recorder = createRecorder($('stage'), (active, clip) => {
   stage.lockRecording(active);
@@ -311,6 +322,7 @@ window.addEventListener('pagehide', () => { afterimageBridge.stop('pagehide');ow
 window.addEventListener('hashchange',()=>{if(location.hash==='#afterimage')cancelConversation();else afterimageBridge.stop('navigation');requestAnimationFrame(composer.resize);});
 setInterval(() => { const seconds = Math.floor(stage.time); $('stage-time').textContent = `${String(Math.floor(seconds / 60)).padStart(2, '0')}:${String(seconds % 60).padStart(2, '0')}`; }, 1000);
 setInterval(() => {
+  $('presence-mobile-status').textContent=stage.narrating?'Speaking with you.':busy?'Thinking about your message…':microphone.active?'Listening…':'Ready when you are.';
   const signal = stage.character.signal;
   if (document.body.dataset.signal !== signal.status) {
     document.body.dataset.signal = signal.status; $('signal-state').textContent = signal.status.toUpperCase();
