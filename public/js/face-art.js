@@ -39,6 +39,16 @@ function star(ctx,x,y,r){
   ctx.beginPath();for(let i=0;i<10;i++){const a=-Math.PI/2+i*Math.PI/5,rr=i%2?r*.44:r;const px=x+Math.cos(a)*rr,py=y+Math.sin(a)*rr;i?ctx.lineTo(px,py):ctx.moveTo(px,py);}ctx.closePath();ctx.fill();
 }
 
+let angerMark;
+function angerMarkAsset(){
+  if(!angerMark&&typeof Image==='function'){
+    angerMark=new Image();angerMark.decoding='async';
+    // Use the supplied curved ikari reference unchanged.
+    angerMark.src='/assets/nox/ikari.png';
+  }
+  return angerMark?.complete&&angerMark.naturalWidth>0?angerMark:null;
+}
+
 function glossyEye(ctx,x,y,h,gazeX,gazeY){
   ctx.save();ctx.shadowBlur=0;
   ctx.beginPath();ctx.ellipse(x,y,32,h*.48,0,0,Math.PI*2);ctx.fillStyle='#f7f1df';ctx.fill();
@@ -104,7 +114,14 @@ export function drawEyes(ctx,f,gazeX,gazeY,time,color,reduceMotion){
   }
   if(f.marks==='anger'){
     ctx.save();ctx.globalAlpha*=f.markOpacity??1;ctx.translate(88,-111);ctx.scale(f.markScale??1,f.markScale??1);ctx.strokeStyle='#f07c68';ctx.shadowColor='#d85440';ctx.shadowBlur=3;ctx.lineWidth=4;
-    for(let i=0;i<4;i++){ctx.beginPath();ctx.moveTo(5,-5);ctx.lineTo(5,-16);ctx.lineTo(16,-16);ctx.stroke();ctx.rotate(Math.PI/2);}ctx.restore();
+    const mark=angerMarkAsset();
+    if(mark)ctx.drawImage(mark,-20,-20,40,40);
+    else{
+      // Curved, disconnected veins while the reference image loads.
+      ctx.lineWidth=5;
+      for(let i=0;i<4;i++){ctx.beginPath();ctx.moveTo(-5,-19);ctx.bezierCurveTo(0,-6,2,-6,14,-14);ctx.stroke();ctx.rotate(Math.PI/2);}
+    }
+    ctx.restore();
   }
 }
 
