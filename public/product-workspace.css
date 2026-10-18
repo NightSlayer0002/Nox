@@ -85,6 +85,12 @@
 .workspace .form-switch button[aria-pressed=true] {background:var(--accent);color:var(--bg);border-color:var(--accent)}
 .workspace .neural-help {display:none;margin:12px 0 0}
 .workspace[data-form=core] .neural-help {display:block}
+.workspace .signal-activity {display:none}
+.workspace[data-form=core] .signal-activity {display:block}
+.workspace .signal-activity #activity-label {font-size:16px;color:var(--text);margin:0 0 6px}
+.workspace .signal-activity details p {margin:8px 0 12px}
+.workspace #activity-events {margin:0;padding-left:20px;font-size:13px;color:var(--muted);font-variant-numeric:tabular-nums}
+.workspace #activity-events li {padding:3px 0}
 .workspace .expression-lab {margin:0;padding:0;border:0}
 .workspace .expression-lab>label {font-size:14px;color:var(--muted)}
 .workspace .expression-controls {display:flex;gap:8px;margin:8px 0}
@@ -107,6 +113,27 @@
 .workspace .explore-column {order:-1;max-width:760px}
 .workspace[data-view=explore] .studio {grid-template-columns:minmax(0,1fr) minmax(260px,.65fr)}
 .workspace[data-view=explore] .stage-wrap {height:380px}
+.workspace .explore-feature {padding:24px;border-radius:8px;background:var(--surface);margin:0 0 24px}
+.workspace .explore-column .explore-feature h2 {font-size:28px;line-height:1.2;margin:0 0 18px}
+.workspace .explore-feature blockquote {font-size:23px;line-height:1.4;font-weight:400;max-width:30ch;margin:0 0 16px;color:var(--text)}
+.workspace .explore-feature>p {font-size:16px;line-height:1.6;max-width:56ch;margin:0;color:var(--muted)}
+.workspace .explore-feature-actions {display:flex;flex-wrap:wrap;align-items:center;gap:10px 16px;margin-top:22px}
+.workspace .explore-primary {display:inline-flex;align-items:center;justify-content:center;min-height:44px;padding:11px 16px;border:1px solid var(--accent);border-radius:5px;background:var(--accent);color:var(--bg);font-size:15px;font-weight:600;text-decoration:none;transition:background-color 160ms ease,border-color 160ms ease,transform 120ms ease}
+.workspace .explore-primary:hover {background:color-mix(in srgb,var(--accent) 88%,var(--text));border-color:color-mix(in srgb,var(--accent) 88%,var(--text))}
+.workspace .explore-primary:active {transform:scale(.98)}
+.workspace .explore-feature-actions small {font-size:13px;line-height:1.5;color:var(--muted)}
+.workspace .explore-destinations {display:flex;flex-direction:column;gap:0}
+.workspace .explore-destinations>a {display:grid;grid-template-columns:130px minmax(0,1fr);gap:12px 20px;padding:18px 0;border-bottom:1px solid var(--line);text-decoration:none;min-height:64px}
+.workspace .explore-destinations .explore-route-name {font-size:18px;line-height:1.4;font-weight:500;color:var(--text);text-decoration:underline;text-decoration-color:var(--line);text-underline-offset:5px}
+.workspace .explore-destinations>a>span:last-child {font-size:15px;line-height:1.6;color:var(--muted)}
+.workspace .explore-destinations>a:hover .explore-route-name {text-decoration-color:var(--accent);color:var(--accent)}
+.workspace .explore-starters {display:flex;flex-wrap:wrap;gap:8px}
+.workspace .explore-starters button {padding:10px 12px;min-height:44px;border:1px solid var(--line);border-radius:5px;background:transparent;font-size:14px;text-align:left}
+.workspace .explore-starters button:hover {background:var(--surface);border-color:var(--muted)}
+.workspace .explore-recent .section-heading {gap:12px;flex-wrap:wrap}
+.workspace .explore-recent .section-heading>a {font-size:14px;min-height:44px;display:inline-flex;align-items:center;text-decoration:underline;text-underline-offset:4px}
+.workspace .explore-date {font-size:12px;color:var(--muted);margin:12px 0 0;font-variant-numeric:tabular-nums}
+.workspace :is(.explore-primary,.explore-destinations>a,.explore-starters button):focus-visible {outline:2px solid var(--accent);outline-offset:4px}
 .workspace .day-card {padding:0;margin:0 0 28px;border:0;background:transparent}
 .workspace .day-card .eyebrow {font-size:14px;color:var(--muted);margin:0 0 14px}
 .workspace .day-card p {font-size:16px;margin:0;color:var(--muted)}
@@ -304,6 +331,7 @@
 .workspace[data-view=conversation][data-keyboard-open=true] #workspace-main {padding-block:10px 8px}
 .workspace[data-view=conversation][data-keyboard-open=true] .conversation {min-height:0}
 .workspace[data-view=conversation][data-keyboard-open=true] .composer textarea {max-height:76px}
+.workspace[data-view=conversation][data-presence=hidden] .studio {grid-template-rows:minmax(0,1fr)}
 @media(max-width:900px) and (max-height:600px) {
  .workspace[data-view=conversation] :is(.suggestions,.composer-help) {display:none}
  .workspace[data-view=conversation] #workspace-main {padding-block:10px 8px}
@@ -389,6 +417,11 @@
  .workspace .form-switch button,.workspace .experiment-buttons button {font-size:15px;min-height:44px}
  .workspace .explore-grid {grid-template-columns:1fr}
  .workspace .explore-grid button {min-height:90px}
+ .workspace .explore-feature {padding:20px}
+ .workspace .explore-column .explore-feature h2 {font-size:26px}
+ .workspace .explore-feature blockquote {font-size:21px}
+ .workspace .explore-feature-actions {align-items:start;flex-direction:column;gap:10px}
+ .workspace .explore-destinations>a {grid-template-columns:1fr;gap:6px;padding:18px 0}
  .workspace .studio>aside h2 {font-size:22px}
  .workspace .studio-control h2 {font-size:18px}
  .workspace[data-view=conversation] .intro {margin:8px 0 12px}
