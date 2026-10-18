@@ -2,6 +2,7 @@ import { normalizeAfterimage } from '../../shared/afterimage.js';
 import { buildSelectedPerformance, createAfterimageController } from './afterimage-engine.js';
 import { sanitizeAfterimageMetrics } from './afterimage-store.js';
 import { normalizePacket } from '../../shared/character.js';
+import {DEFAULT_EXPORT_PROFILE,resolveExportProfile} from './export-profile.js';
 
 export function applyAfterimageCue(stage,value) {
   const cue=normalizePacket({...value,memory:''});
@@ -21,7 +22,7 @@ export function createAfterimageBridge(options = {}) {
     const current=adapter?.getState?.() ?? {};
     if(current.recording===false)ownsRecording=false;
     const connection=current.connection ?? {kind:'loading'};
-    state=Object.freeze({...controller.snapshot(),connected:Boolean(adapter),voiceEnabled:current.voiceEnabled === true,recording:current.recording === true,recordSupported:current.recordSupported === true,connection:Object.freeze({kind:connection.kind ?? 'loading',...(connection.provider ? {provider:Object.freeze({id:connection.provider.id,name:connection.provider.name,model:connection.provider.model})} : {})})});
+    state=Object.freeze({...controller.snapshot(),connected:Boolean(adapter),voiceEnabled:current.voiceEnabled === true,recording:current.recording === true,recordSupported:current.recordSupported === true,exportProfile:resolveExportProfile(current.exportProfile||DEFAULT_EXPORT_PROFILE).id,connection:Object.freeze({kind:connection.kind ?? 'loading',...(connection.provider ? {provider:Object.freeze({id:connection.provider.id,name:connection.provider.name,model:connection.provider.model})} : {})})});
     for (const listener of listeners) { try { listener(state); } catch {} }
     return state;
   }
@@ -85,6 +86,7 @@ export function createAfterimageBridge(options = {}) {
     stop,
     record() { if (ownsRecording) stop('recording-stopped');else adapter?.record?.();refreshState(); },
     setVoice(enabled) { adapter?.setVoice?.(Boolean(enabled));refreshState();return state.voiceEnabled; },
+    setExportProfile(value){const profile=resolveExportProfile(value);if(state.recording)return state.exportProfile;adapter?.setExportProfile?.(profile.id);refreshState();return state.exportProfile;},
     dispose() { if (disposed) return;stop('disposed');disposed=true;controller.dispose();visibilityTarget?.removeEventListener('visibilitychange',hidden);adapter=null;listeners.clear();refreshState(); },
   };
 }

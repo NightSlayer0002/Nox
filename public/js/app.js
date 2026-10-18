@@ -6,6 +6,7 @@ import {connectStageControls} from './stage-controls.js';
 import { createVoice, createMicrophone } from './voice.js';
 import { createCamera } from './camera.js';
 import { createRecorder } from './recorder.js';
+import {DEFAULT_EXPORT_PROFILE,resolveExportProfile} from './export-profile.js';
 import { createTurnGate } from './turns.js';
 import { createHistory } from './history.js';
 import { createNavigation } from './navigation.js';
@@ -44,6 +45,8 @@ const composerOptions=attachComposerOptions($('composer-options'));
 const replyDiagnostics=createReplyDiagnostics({status:$('reply-timing'),metrics:$('developer-timing'),toggle:$('developer-mode')});
 let lastPacket = { speech: 'Oh. You found me.', emotion: 'curious', action: 'none', memory: '' };
 let toastTimer;
+let captureProfile=DEFAULT_EXPORT_PROFILE;
+try{captureProfile=resolveExportProfile(disk.getItem('nox.export.profile.v1')||DEFAULT_EXPORT_PROFILE);}catch{}
 function openSettings({owner=false}={}) {
   if(owner)$('owner-access').open=true;
   $('inside-dialog').showModal();
@@ -106,7 +109,8 @@ stage.onBeforeFrame=()=>{
 };
 const camera = createCamera();
 const recorder = createRecorder($('stage'), (active, clip) => {
-  stage.lockRecording(active);
+  if(!active)stage.lockRecording(false);
+  $('export-profile').disabled=active;
   stage.character.react?.(active?'excited':'content',stage.time,2);
   $('record-button').classList.toggle('recording', active);
   $('record-button').querySelector('span').textContent = active ? 'Stop & save' : 'Record clip';
@@ -116,7 +120,7 @@ const recorder = createRecorder($('stage'), (active, clip) => {
   if (clip) {
     $('clip-video').src = clip.url;
     $('save-clip').href = clip.url; $('save-clip').download = clip.filename;
-    $('clip-meta').textContent = `${(clip.blob.size / 1024).toFixed(0)} KB · WebM · ${clip.audio?'NOX audio track':'video only'}`;
+    $('clip-meta').textContent = `${clip.width} × ${clip.height} · ${clip.frameRate} fps · ${(clip.blob.size / 1024).toFixed(0)} KB · WebM · ${clip.audio?'NOX audio track':'video only'}`;
     $('clip-dialog').showModal();
   }
 },{getAudioStream:()=>voice.prepareCapture()});
@@ -150,11 +154,25 @@ afterimageBridge.connect({
     stage.reset(false);
   },
   record:toggleRecording,
-  startRecording:() => recorder.start(),
+  startRecording,
   stopRecording:() => recorder.stop(),
   setVoice(value){voice.setEnabled(value);showVoice();try{disk.setItem('nox.voice.v2',voice.enabled?'on':'off');}catch{}},
-  getState:() => ({voiceEnabled:voice.enabled,recording:recorder.active,recordSupported:recorder.supported,connection:connectionState(connection,selectedProvider)}),
+  setExportProfile,
+  getState:() => ({voiceEnabled:voice.enabled,recording:recorder.active,recordSupported:recorder.supported,exportProfile:captureProfile.id,connection:connectionState(connection,selectedProvider)}),
 });
+$('export-profile').value=captureProfile.id;
+$('export-profile').addEventListener('change',event=>setExportProfile(event.target.value));
+function setExportProfile(value){
+  if(recorder.active)throw new Error('Save the current recording before changing its format.');
+  captureProfile=resolveExportProfile(value);$('export-profile').value=captureProfile.id;
+  try{disk.setItem('nox.export.profile.v1',captureProfile.id);}catch{}
+  afterimageBridge.refreshState();return captureProfile.id;
+}
+function startRecording(){
+  if(recorder.active)return;
+  stage.lockRecording(true,captureProfile);
+  try{return recorder.start(captureProfile);}catch(error){stage.lockRecording(false);throw error;}
+}
 
 function addMessage(speaker, text) {
   const message = createChatMessage(speaker, text, document);
@@ -297,7 +315,7 @@ $('film-button').addEventListener('click', toggleFilm); $('exit-film').addEventL
 function toggleRecording() {
   try {
     if (recorder.active) recorder.stop();
-    else { recorder.start(); toast(voice.engine==='natural'?'Recording NOX, captions and his voice. Stops after 60 seconds.':'Recording the stage. Choose Orpheus for captured voice; browser speech cannot be recorded.'); }
+    else { startRecording(); toast(voice.engine==='natural'?'Recording NOX, captions and his voice. Stops after 60 seconds.':'Recording the stage. Choose Orpheus for captured voice; browser speech cannot be recorded.'); }
   } catch (error) { toast(error.message); }
 }
 $('record-button').addEventListener('click', toggleRecording);

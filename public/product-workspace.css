@@ -73,6 +73,12 @@
 .workspace .scene-column {display:flex;flex-direction:column;gap:16px}
 .workspace .studio-control {border-bottom:1px solid var(--line);padding:0 0 14px}
 .workspace .studio-control h2 {font-size:18px;margin:0 0 12px}
+.workspace .capture-profile {display:flex;flex-wrap:wrap;align-items:center;gap:8px 16px;margin:0 0 16px}
+.workspace .capture-profile label {font-size:14px;color:var(--text)}
+.workspace .capture-profile select {min-width:0;max-width:100%;padding:9px 12px;min-height:44px;font-size:14px;border:1px solid var(--line);border-radius:5px;background:var(--surface);color:var(--text)}
+.workspace .capture-profile small {flex-basis:100%;font-size:13px;color:var(--muted)}
+.workspace .receiver-handoffs {display:flex;flex-wrap:wrap;gap:18px;margin:18px 0}
+.workspace .receiver-handoffs a {font-size:14px;text-decoration:underline;text-underline-offset:4px;padding:8px 0}
 .workspace .studio-control p,.workspace .studio-help,.workspace .studio-advanced p {font-size:14px;color:var(--muted);line-height:1.5;margin:0 0 12px}
 .workspace .form-switch {display:flex;flex-wrap:wrap;gap:6px}
 .workspace .form-switch button {padding:9px 11px;font-size:14px;border:1px solid var(--line);background:transparent;border-radius:5px}

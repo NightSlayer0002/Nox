@@ -254,3 +254,17 @@ for(const end of ['native stop','encoding error'])test(`${end} releases rehearsa
     if(previous===undefined)delete globalThis.MediaRecorder;else globalThis.MediaRecorder=previous;
   }
 });
+
+test('capture format stays shared across surfaces and cannot change during recording',()=>{
+  const bridge=createAfterimageBridge(),fixture=adapters();let profile='landscape';
+  const original=fixture.adapter.getState;
+  fixture.adapter.getState=()=>({...original(),exportProfile:profile});
+  fixture.adapter.setExportProfile=value=>{profile=value;};bridge.connect(fixture.adapter);
+  assert.equal(bridge.snapshot().exportProfile,'landscape');
+  assert.equal(bridge.setExportProfile('portrait'),'portrait');
+  bridge.recordAndPlay(packet());
+  assert.equal(bridge.setExportProfile('square'),'portrait');
+  bridge.stop();assert.equal(bridge.setExportProfile('square'),'square');
+  assert.throws(()=>bridge.setExportProfile({id:'square',width:4000}),RangeError);
+  bridge.dispose();
+});

@@ -2,6 +2,7 @@ import { Orb } from './orb.js';
 import { Face } from './face.js';
 import { ACTIONS } from '../../shared/character.js';
 import {createOrbitEffect} from './orbit-effect.js';
+import {resolveExportProfile} from './export-profile.js';
 
 const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
 const smooth = value => value * value * (3 - 2 * value);
@@ -65,13 +66,32 @@ export class Stage {
     if (this.recordingLocked) return;
     const box = this.canvas.getBoundingClientRect();
     this.width = box.width; this.height = box.height;
-    const ratio = Math.min(devicePixelRatio || 1, 2);
+    const ratio = Math.min(globalThis.devicePixelRatio || 1, 2);
     this.canvas.width = Math.round(box.width * ratio); this.canvas.height = Math.round(box.height * ratio);
     this.ratio = ratio;
   }
-  lockRecording(active) {
-    this.recordingLocked = active;
-    if (!active) this.resize();
+  lockRecording(active, profile) {
+    if(active) {
+      if(this.recordingLocked)return this.recordingProfile;
+      const selected=profile===undefined?null:resolveExportProfile(profile);
+      this.recordingLocked=true;
+      this.recordingProfile=selected;
+      if(selected) {
+        this.width=this.canvas.width=selected.width;
+        this.height=this.canvas.height=selected.height;
+        this.ratio=1;
+        if(this.canvas.style) {
+          this.recordingObjectFit=this.canvas.style.objectFit;
+          this.canvas.style.objectFit='contain';
+        }
+        // Resizing clears the canvas. Compose a complete export frame before captureStream.
+        this.render();
+      }
+      return selected;
+    }
+    if(this.recordingProfile&&this.canvas.style)this.canvas.style.objectFit=this.recordingObjectFit??'';
+    this.recordingLocked=false;this.recordingProfile=null;
+    this.resize();
   }
   setMotion(enabled) {
     this.motionOverride = enabled===null?null:Boolean(enabled); this.reduceMotion = this.motionOverride===null?this.motionQuery.matches:!this.motionOverride; this.reset();
@@ -102,6 +122,12 @@ export class Stage {
     const eventTime=()=>Number.isFinite(this.started)?(performance.now()-this.started)/1000:this.time;
     const locate = event => {
       const box = this.canvas.getBoundingClientRect();
+      if(this.recordingProfile&&box.width>0&&box.height>0) {
+        const scale=Math.min(box.width/this.width,box.height/this.height);
+        const width=this.width*scale,height=this.height*scale;
+        const left=box.left+(box.width-width)/2,top=box.top+(box.height-height)/2;
+        return {x:clamp((event.clientX-left)/width,0,1),y:clamp((event.clientY-top)/height,0,1)};
+      }
       return { x: clamp((event.clientX - box.left) / box.width, 0, 1), y: clamp((event.clientY - box.top) / box.height, 0, 1) };
     };
     listen(globalThis.document,'pointermove', event => {
@@ -304,7 +330,7 @@ export class Stage {
   drawCaption(text, alpha = 1) {
     const ctx = this.ctx, w = this.width, h = this.height;
     ctx.save(); ctx.globalAlpha *= alpha;
-    const fontSize = clamp(w / 48, 12, 17);
+    const fontSize = this.recordingProfile?clamp(Math.min(w,h)/28,24,38):clamp(w / 48, 12, 17);
     ctx.font = `400 ${fontSize}px system-ui, sans-serif`; ctx.textAlign = 'center';
     const maxWidth = w * .79;
     const words = text.split(/\s+/), lines = []; let line = '';

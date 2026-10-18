@@ -16,11 +16,11 @@ const bundle=await build({entryPoints:[path.join(root,'client/afterimage.jsx')],
   builder.onResolve({filter:/^\/js\//},args=>({path:path.join(root,'public',args.path.slice(1))}));
 }}]});
 
-function receiver({owner=false,kind='live',receive=async()=>{throw Error('Unexpected generation');}}={}){
-  let slots=[],cursor=0,pendingEffects=[],tree,plays=[],requests=[],state={connected:true,status:'idle',connection:{kind},recordSupported:true,voiceEnabled:false};
+function receiver({owner=false,kind='live',exportProfile='landscape',recording=false,receive=async()=>{throw Error('Unexpected generation');}}={}){
+  let slots=[],cursor=0,pendingEffects=[],tree,plays=[],requests=[],state={connected:true,status:'idle',connection:{kind},recordSupported:true,voiceEnabled:false,exportProfile,recording};
   const subscribers=new Set(),data=new Map(),storage={temporary:!owner,getItem:key=>data.get(key)??null,setItem:(key,value)=>data.set(key,value)};
   const react={createElement:(type,props,...children)=>({type,props:{...props,children}}),Suspense:'suspense',lazy:()=> 'lattice',useRef(value){const index=cursor++;return slots[index]??= {current:value};},useState(initial){const index=cursor++;if(!slots[index])slots[index]={value:typeof initial==='function'?initial():initial};return [slots[index].value,value=>{slots[index].value=typeof value==='function'?value(slots[index].value):value;}];},useEffect(effect,deps){const index=cursor++,old=slots[index];if(!old||deps.some((value,i)=>value!==old.deps[i])){pendingEffects.push(()=>{old?.cleanup?.();slots[index]={deps,cleanup:effect()};});}},useReducedMotion:()=>false};
-  const bridge={snapshot:()=>state,subscribe(fn){subscribers.add(fn);return()=>subscribers.delete(fn);},stop(){state={...state,status:'stopped'};for(const fn of subscribers)fn();},play(...args){plays.push(args);state={...state,status:'playing'};for(const fn of subscribers)fn();return true;},recordAndPlay(...args){plays.push(args);return true;},receive(options){requests.push(options);return receive(options);},setVoice(value){state={...state,voiceEnabled:value};}};
+  const bridge={snapshot:()=>state,subscribe(fn){subscribers.add(fn);return()=>subscribers.delete(fn);},stop(){state={...state,status:'stopped'};for(const fn of subscribers)fn();},play(...args){plays.push(args);state={...state,status:'playing'};for(const fn of subscribers)fn();return true;},recordAndPlay(...args){plays.push(args);return true;},receive(options){requests.push(options);return receive(options);},setVoice(value){state={...state,voiceEnabled:value};},setExportProfile(value){state={...state,exportProfile:value};for(const fn of subscribers)fn();}};
   const mocks={'react':react,'react-dom':{createPortal:children=>children},'motion/react':{AnimatePresence:'presence',motion:{div:'motion-div'},useReducedMotion:react.useReducedMotion},'test-lattice':{},'/js/afterimage-bridge.js':{afterimageBridge:bridge},'/js/visit-scope.js':{visit:{owner,storage}},'/js/workbench.js':{downloadText(){}}};
   const module={exports:{}};
   vm.runInNewContext(bundle.outputFiles[0].text,{module,exports:module.exports,require:id=>mocks[id]??nativeRequire(id),window:{innerWidth:1400,matchMedia:()=>({matches:false})},document:{body:{},getElementById:()=>null},AbortController,Date,console,setTimeout,clearTimeout});
@@ -72,4 +72,26 @@ test('cancelled and failed generation preserve the existing story and seed',asyn
   assert.equal(ui.find(node=>node.props?.id==='afterimage-seed').props.value,'Keep this seed');
   assert.equal(ui.text(ui.find(node=>node.props?.className==='reception-title')),title);
   assert.equal(ui.text(ui.find(node=>node.props?.role==='alert')),'Provider unavailable');
+});
+
+test('capture format follows the shared bridge selection and updates the exported dimensions',()=>{
+  const ui=receiver({exportProfile:'portrait'});
+  const select=()=>ui.find(node=>node.type==='select'&&node.props.id==='afterimage-export-profile');
+  assert.ok(select(),'capture format must be available before recording');
+  assert.equal(select().props.value,'portrait');
+  assert.deepEqual(ui.nodes().filter(node=>node.type==='option').map(node=>node.props.value),['landscape','portrait','square']);
+  select().props.onChange({target:{value:'square'}});ui.render();
+  assert.equal(ui.bridge.snapshot().exportProfile,'square');
+  assert.equal(select().props.value,'square');
+  assert.match(ui.text(ui.find(node=>node.props?.id==='afterimage-capture-note')),/1080 × 1080/);
+  ui.bridge.setExportProfile('landscape');ui.render();
+  assert.equal(select().props.value,'landscape');
+});
+
+test('capture format is locked while recording but remains available for the next rehearsal cut',()=>{
+  const recording=receiver({recording:true});
+  const select=recording.find(node=>node.props?.id==='afterimage-export-profile');
+  assert.ok(select);assert.equal(select.props.disabled,true);
+  const rehearsal=receiver();rehearsal.button('Play this cut').props.onClick();rehearsal.render();
+  assert.equal(rehearsal.find(node=>node.props?.id==='afterimage-export-profile').props.disabled,false);
 });
