@@ -3,7 +3,7 @@
 export const EXPRESSIONS = Object.freeze({
   neutral:{eyes:'pill',heights:[1,1]},curious:{eyes:'pill',heights:[1,1]},
   happy:{eyes:'arc',heights:[.73,.73]},content:{eyes:'arc',heights:[.55,.55]},
-  skeptical:{eyes:'half',heights:[.44,.83],brows:'skeptical'},annoyed:{eyes:'half',heights:[.3,.3],brows:'angry'},
+  skeptical:{eyes:'half',heights:[.44,.83],brows:'skeptical'},annoyed:{eyes:'half',heights:[.42,.42],brows:'angry'},
   sleepy:{eyes:'closed',heights:[.18,.18],marks:'sleep'},yawning:{eyes:'closed',heights:[.18,.18]},
   uncanny:{eyes:'pill',heights:[1.06,1.06]},surprised:{eyes:'ring',heights:[1.14,1.14],brows:'raised'},
   shy:{eyes:'arc',heights:[.6,.6],marks:'blush'},worried:{eyes:'pill',heights:[.6,.64],brows:'worried',marks:'sweat'},
@@ -72,7 +72,7 @@ export function drawEyes(ctx,f,gazeX,gazeY,time,color,reduceMotion){
     }else if(f.eyeStyle==='star')star(ctx,x,gazeY,27);
     else if(f.eyeStyle==='squeezed'){const d=side?-1:1;ctx.beginPath();ctx.moveTo(x-d*19,gazeY-19);ctx.lineTo(x+d*13,gazeY);ctx.lineTo(x-d*19,gazeY+19);ctx.stroke();}
     else {
-      const y=gazeY-h/2+(f.eyeStyle==='half'&&!side?9:0);
+      const y=gazeY-h/2+(f.eyeStyle==='half'&&!side&&f.expression!=='annoyed'?9:0);
       ctx.beginPath();ctx.roundRect(x-eyeWidth/2,y,eyeWidth,Math.max(3,h),f.eyeStyle==='half'?8:eyeWidth/2);
       f.eyeStyle==='ring'?ctx.stroke():ctx.fill();
     }
