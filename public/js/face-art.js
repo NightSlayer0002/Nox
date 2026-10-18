@@ -103,7 +103,7 @@ export function drawEyes(ctx,f,gazeX,gazeY,time,color,reduceMotion){
     ctx.restore();
   }
   if(f.marks==='anger'){
-    ctx.save();ctx.translate(88,-111);ctx.strokeStyle='#f07c68';ctx.shadowColor='#d85440';ctx.shadowBlur=3;ctx.lineWidth=4;
+    ctx.save();ctx.globalAlpha*=f.markOpacity??1;ctx.translate(88,-111);ctx.scale(f.markScale??1,f.markScale??1);ctx.strokeStyle='#f07c68';ctx.shadowColor='#d85440';ctx.shadowBlur=3;ctx.lineWidth=4;
     for(let i=0;i<4;i++){ctx.beginPath();ctx.moveTo(5,-5);ctx.lineTo(5,-16);ctx.lineTo(16,-16);ctx.stroke();ctx.rotate(Math.PI/2);}ctx.restore();
   }
 }

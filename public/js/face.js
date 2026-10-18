@@ -18,12 +18,18 @@ export class Face extends OrbSignal {
     this.previousActivity='idle';this.activitySince=0;
     this.previewUntil=0;this.previewExpression='neutral';
     this.annoyanceEpisodes=0;this.inAnnoyanceBurst=false;this.annoyancePose='annoyed';
+    this.angerAt=-100;this.angerUntil=0;
     this.signal = this.sample(0, 0);
   }
   say(text, now) { this.speakingUntil = now + Math.min(12, Math.max(2.5, text.length / 18)); }
   poke(now) {
     this.previewUntil=0;
     this.lastInteraction=now;
+    if(now<this.speakingUntil){
+      if(now>=this.angerUntil)this.angerAt=now;
+      this.angerUntil=now+1.4;this.squeezeUntil=0;this.pulseAt=now;
+      return;
+    }
     this.pokes=this.pokes.filter(time=>now-time<1.2);
     if(!this.pokes.length)this.inAnnoyanceBurst=false;
     this.pokes.push(now);
@@ -66,7 +72,7 @@ export class Face extends OrbSignal {
     this.dragPrevious=null;this.dragVector=null;this.dragStroke=0;this.reversals=[];
     if(!cancelled&&!gravity)this.react('content',now,1);
   }
-  clearTouch(){this.previewUntil=0;this.held=false;this.falling=false;this.dragPrevious=null;this.dragVector=null;this.dragStroke=0;this.reversals=[];this.reactionUntil=0;this.squeezeUntil=0;this.impactAt=-100;this.bounced=false;}
+  clearTouch(){this.previewUntil=0;this.held=false;this.falling=false;this.dragPrevious=null;this.dragVector=null;this.dragStroke=0;this.reversals=[];this.reactionUntil=0;this.squeezeUntil=0;this.angerUntil=0;this.impactAt=-100;this.bounced=false;}
   land(speed,now){
     if(speed>.45&&now-this.impactAt>.5){this.impactAt=now;this.impactStrength=Math.min(1,speed);this.bounced=true;this.react('ouch',now,.45);}
     else if(speed<.12&&this.bounced){this.bounced=false;this.react('content',now,.9);}
@@ -112,8 +118,11 @@ export class Face extends OrbSignal {
     const talking = this.signal.status === 'speaking'&&(level===null||level>.015);
     const impactAge=time-this.impactAt;
     const squash=this.reduceMotion?0:impactAge>=0&&impactAge<.32?Math.sin(impactAge/.32*Math.PI)*this.impactStrength*.22:0;
+    const anger=time>=this.angerAt&&time<this.angerUntil,angerAge=time-this.angerAt;
+    const markOpacity=anger&&!this.reduceMotion?clamp(angerAge/.08,0,1)*clamp((this.angerUntil-time)/.25,0,1):1;
     return {
-      expression:emotion,brows:expression.brows,marks:expression.marks==='sleep'&&this.signal.status==='speaking'?undefined:expression.marks,squash,
+      expression:emotion,brows:expression.brows,marks:anger?'anger':expression.marks==='sleep'&&this.signal.status==='speaking'?undefined:expression.marks,squash,
+      markOpacity,markScale:anger&&!this.reduceMotion?1+.12*Math.sin(Math.min(1,angerAge/.25)*Math.PI)*Math.exp(-angerAge*8):1,
       bodyTilt:this.reduceMotion?0:emotion==='dizzy'?Math.sin(time*3)*.07:this.liftTilt,
       eyeStyle:!this.held&&!this.falling&&time<this.squeezeUntil&&emotion!=='dizzy'?'squeezed':expression.eyes,held:this.held,falling:this.falling,
       leftHeight: 100*expression.heights[0]*blink*wink,
