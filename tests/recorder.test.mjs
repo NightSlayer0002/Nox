@@ -2,16 +2,16 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createRecorder} from '../public/js/recorder.js';
 
-function setup(t,{width=1280,height=720,startError=false,captureError=false,stopError=false}={}) {
+function setup(t,{width=1280,height=720,startError=false,captureError=false,stopError=false,empty=false}={}) {
   t.mock.timers.enable({apis:['setTimeout']});
-  const instances=[],states=[],tracks=[],captures=[];
+  const instances=[],states=[],tracks=[],captures=[],errors=[];
   const track=kind=>({kind,stopped:false,stop(){this.stopped=true;},clone(){return track(kind);}});
   const voice=track('audio');
   class Encoder {
     static isTypeSupported(type){return type.includes('opus');}
     constructor(stream,options){this.stream=stream;this.options=options;this.state='inactive';instances.push(this);}
     start(){if(startError)throw Error('encoder failed');this.state='recording';}
-    stop(){if(stopError)throw Error('stop failed');this.state='inactive';this.ondataavailable({data:new Blob(['encoded'])});this.onstop();}
+    stop(){if(stopError)throw Error('stop failed');this.state='inactive';this.ondataavailable({data:new Blob(empty?[]:['encoded'])});this.onstop();}
   }
   const previous=globalThis.MediaRecorder;globalThis.MediaRecorder=Encoder;
   t.after(()=>{if(previous===undefined)delete globalThis.MediaRecorder;else globalThis.MediaRecorder=previous;});
@@ -20,9 +20,9 @@ function setup(t,{width=1280,height=720,startError=false,captureError=false,stop
     captures.push({width:this.width,height:this.height,frameRate});tracks.push(track('video'));
     return {getTracks:()=>tracks,addTrack:audio=>tracks.push(audio)};
   }};
-  const recorder=createRecorder(canvas,(active,clip)=>states.push({active,clip}),{getAudioStream:()=>({getAudioTracks:()=>[voice]})});
+  const recorder=createRecorder(canvas,(active,clip)=>states.push({active,clip}),{getAudioStream:()=>({getAudioTracks:()=>[voice]}),onError:message=>errors.push(message)});
   t.after(()=>{for(const state of states)if(state.clip)URL.revokeObjectURL(state.clip.url);});
-  return {recorder,canvas,instances,states,tracks,captures,voice};
+  return {recorder,canvas,instances,states,tracks,captures,voice,errors};
 }
 
 test('a default landscape clip reports fixed dimensions and captures natural voice',t=>{
@@ -71,6 +71,16 @@ test('an encoder error discards its partial clip and unlocks only once',t=>{
   f.instances[0].onerror();f.instances[0].onstop();
   assert.equal(f.recorder.active,false);assert.ok(f.tracks.every(track=>track.stopped));
   assert.deepEqual(f.states,[{active:true,clip:false},{active:false,clip:null}]);
+  assert.equal(f.errors.length,1);
+});
+
+test('an empty encoded recording reports a recoverable error instead of silently disappearing',t=>{
+  const f=setup(t,{empty:true});f.recorder.start();f.recorder.stop();
+  assert.equal(f.recorder.active,false);
+  assert.equal(f.states.at(-1).clip,null);
+  assert.equal(f.errors.length,1);
+  assert.match(f.errors[0],/record.*again/i);
+  assert.ok(f.tracks.every(track=>track.stopped));
 });
 
 for(const profile of ['4k',{id:'landscape',width:3840,height:2160},{id:'landscape',frameRate:120}]) {

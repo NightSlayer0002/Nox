@@ -153,7 +153,7 @@ const recorder = createRecorder($('stage'), (active, clip) => {
     $('clip-meta').textContent = `${clip.width} × ${clip.height} · ${clip.frameRate} fps · ${(clip.blob.size / 1024).toFixed(0)} KB · WebM · ${clip.audio?'NOX audio track':'video only'}`;
     $('clip-dialog').showModal();
   }
-},{getAudioStream:()=>voice.prepareCapture()});
+},{getAudioStream:()=>voice.prepareCapture(),onError:toast});
 let dictating=false;
 const microphone = createMicrophone({
   onText: text => { composer.setValue(text);contextPreview();send(text); },

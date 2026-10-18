@@ -1,7 +1,7 @@
 // Natural voice is routed through Web Audio; OS/browser speech is not capturable.
 import {resolveExportProfile} from './export-profile.js';
 
-export function createRecorder(canvas, onState, {getAudioStream}={}) {
+export function createRecorder(canvas, onState, {getAudioStream,onError}={}) {
   let session = null;
   let lastUrl = null;
   const supported = Boolean(canvas.captureStream && globalThis.MediaRecorder);
@@ -28,7 +28,10 @@ export function createRecorder(canvas, onState, {getAudioStream}={}) {
           const {id,width,height,aspectRatio,frameRate}=current.profile;
           clip = { blob, url: lastUrl, audio:current.audio, profile:id,width,height,aspectRatio,frameRate, filename: `nox-${new Date().toISOString().replace(/[:.]/g, '-')}.webm` };
         }
-        if (session === current) { session = null; onState(false, clip); }
+        if (session === current) {
+          session = null; onState(false, clip);
+          if(!clip&&(!current.failed||current.encodingError))onError?.('This recording could not be saved. Try recording again, or choose another video format.');
+        }
       };
       current.finish=finish;
       try {
@@ -46,7 +49,7 @@ export function createRecorder(canvas, onState, {getAudioStream}={}) {
         current.recorder = new MediaRecorder(current.stream, { mimeType: type, videoBitsPerSecond: current.profile.videoBitsPerSecond });
         current.recorder.ondataavailable = event => { if (event.data.size) current.chunks.push(event.data); };
         current.recorder.onstop = finish;
-        current.recorder.onerror = () => { current.failed = true; finish(); };
+        current.recorder.onerror = () => { current.failed = true;current.encodingError=true;finish(); };
         session = current;
         current.recorder.start(250);
         current.timer = setTimeout(() => this.stop(), 60000);

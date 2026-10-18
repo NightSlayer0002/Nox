@@ -58,12 +58,20 @@ export function createVoice({ onStart, onEnd, onError, onState, requestAudio, re
     })().catch(error=>{entry.error=error;entry.loading=false;entry.status='error';if(audioCache.get(key)===entry)audioCache.delete(key);wake(entry);updateState();});
     return entry;
   }
-  let audioContext,audioDestination,audioSource;
+  let audioContext,audioDestination,audioSource,captureSilence;
   const synth = globalThis.speechSynthesis;
   function prepareCapture(){
     if(engine!=='natural'||!AudioContextCtor)return null;
     try{
-      if(!audioContext){audioContext=new AudioContextCtor();audioDestination=audioContext.createMediaStreamDestination();}
+      if(!audioContext){
+        audioContext=new AudioContextCtor();audioDestination=audioContext.createMediaStreamDestination();
+        // A fresh capture must have audio frames before the first spoken reply.
+        // Feed digital silence only to the recording bus, never the speakers.
+        if(audioContext.createConstantSource){
+          captureSilence=audioContext.createConstantSource();captureSilence.offset.value=0;
+          captureSilence.connect(audioDestination);captureSilence.start();
+        }
+      }
       audioContext.resume().catch(()=>onError?.('Tap Voice to allow audio playback.'));
       return audioDestination.stream;
     }catch{return null;}

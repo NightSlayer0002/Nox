@@ -23,3 +23,21 @@ test('natural voice feeds both audible speakers and the reusable capture destina
 test('browser speech reports no capturable audio stream',()=>{
   const voice=createVoice();assert.equal(voice.prepareCapture(),null);
 });
+
+test('a fresh natural-voice capture emits silence before any reply has played',()=>{
+  const destinations=[],sources=[],stream={getAudioTracks:()=>[{kind:'audio'}]};
+  class Context{
+    constructor(){this.destination={kind:'speakers'};}
+    createMediaStreamDestination(){const node={stream};destinations.push(node);return node;}
+    createConstantSource(){const node={offset:{value:1},connections:[],started:0,connect(target){this.connections.push(target);},start(){this.started++;}};sources.push(node);return node;}
+    resume(){return Promise.resolve();}
+  }
+  const voice=createVoice({AudioContextCtor:Context,AudioCtor:class{},requestAudio:async()=>{throw Error('Recording must not synthesize speech.');}});
+  voice.configureNatural(true);voice.setEngine('natural');
+  assert.equal(voice.prepareCapture(),stream);
+  assert.equal(voice.prepareCapture(),stream);
+  assert.equal(sources.length,1);
+  assert.equal(sources[0].offset.value,0);
+  assert.equal(sources[0].started,1);
+  assert.deepEqual(sources[0].connections,[destinations[0]]);
+});
