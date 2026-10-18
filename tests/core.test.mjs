@@ -17,9 +17,40 @@ test('untrusted packets cannot execute unknown actions or inject objects', () =>
 
 test('packets bound speech and memory instead of retaining huge model output', () => {
   const packet = normalizePacket({ speech: 'x'.repeat(2000), emotion: 'happy', action: 'gravity', memory: 'm'.repeat(300) });
-  assert.equal(packet.speech.length, 420);
+  assert.ok(packet.speech.length <= 420);
+  assert.match(packet.speech, /[.!?]$/);
+  assert.doesNotMatch(packet.speech, /^x+$/);
   assert.equal(packet.memory.length, 120);
   assert.equal(packet.action, 'gravity');
+});
+
+test('over-budget replies retain a complete thought instead of cutting a sentence at character 420', () => {
+  const complete='An LLM learns patterns in text, then predicts useful next words.';
+  const speech=complete+' '+ 'The next explanation keeps going through many details '.repeat(12)+'until it finally ends.';
+  assert.equal(normalizePacket({speech}).speech,complete);
+});
+
+test('every answer depth preserves complete replies within its own budget', () => {
+  for(const [depth,repetitions] of [['quick',3],['balanced',30],['deep',80]]) {
+    const speech='A useful point.\n'.repeat(repetitions).trim();
+    assert.equal(normalizePacket({speech},depth).speech,speech);
+  }
+});
+
+test('an over-budget first sentence ends at a word boundary without splitting Unicode', () => {
+  const packet=normalizePacket({speech:'A little 🌙 in a large sky '.repeat(30)});
+  assert.ok(packet.speech.length<=420);
+  assert.match(packet.speech, /(?:little|🌙|in|a|large|sky)…$/u);
+  assert.doesNotMatch(packet.speech, /[\uD800-\uDBFF]$/u);
+});
+
+test('over-budget multilingual replies preserve their last complete sentence', () => {
+  const complete='月は静かです。';
+  assert.equal(normalizePacket({speech:complete+'空'.repeat(500)}).speech,complete);
+});
+
+test('speech containing only control characters is rejected after cleaning', () => {
+  assert.throws(()=>normalizePacket({speech:'\u0000\u0007'}),/speech/i);
 });
 
 test('model context discards unexpected fields and bounds the conversation', () => {

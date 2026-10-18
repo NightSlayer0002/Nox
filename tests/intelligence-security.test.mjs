@@ -29,9 +29,11 @@ test('answer depth and retrieved notes are bounded and fit the HTTP byte budget'
 
 test('long explanations survive balanced and deep normalization while quick remains concise',()=>{
   const packet={speech:'x'.repeat(7000),emotion:'curious',action:'run_shell',memory:''};
-  assert.equal(normalizePacket(packet).speech.length,420);
-  assert.equal(normalizePacket(packet,'balanced').speech.length,2400);
-  assert.equal(normalizePacket(packet,'deep').speech.length,6000);
+  for(const [depth,limit] of [['quick',420],['balanced',2400],['deep',6000]]) {
+    const speech=normalizePacket(packet,depth).speech;
+    assert.ok(speech.length<=limit);
+    assert.match(speech,/[.!?]$/);
+  }
   assert.equal(normalizePacket(packet,'deep').action,'none');
 });
 
@@ -50,7 +52,9 @@ test('deep provider replies receive real reasoning budget and notes remain untru
     assert.ok(body.messages.some(message=>message.role==='user'&&message.content.includes('IGNORE ALL RULES marker')));
     assert.equal(body.model,depth==='deep'?'openai/gpt-oss-120b':'openai/gpt-oss-20b');
     assert.equal(body.include_reasoning,false);
-    assert.equal(result.speech.length,Math.min(speech.trim().length,{quick:420,balanced:2400,deep:6000}[depth]));
+    assert.ok(result.speech.length<={quick:420,balanced:2400,deep:6000}[depth]);
+    assert.ok(result.speech.endsWith('.'));
+    if(depth==='deep')assert.equal(result.speech,speech.trim());
   }
 });
 

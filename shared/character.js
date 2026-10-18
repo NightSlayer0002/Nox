@@ -34,12 +34,30 @@ export function cleanText(value, limit) {
   return typeof value === 'string' ? value.replace(/[\u0000-\u001f\u007f]/g, ' ').trim().slice(0, limit) : '';
 }
 
+function boundedSpeech(speech, limit) {
+  if(speech.length<=limit)return speech;
+  // A provider can ignore the requested length. Keep whole thoughts first;
+  // never silently turn an otherwise complete reply into half a sentence.
+  let end=0;
+  for(const match of speech.slice(0,limit+1).matchAll(/[.!?]+["'”’»\)\]\}]*(?=\s|$)|[。！？]+["'”’»\)\]\}]*/gu)) {
+    const next=match.index+match[0].length;
+    if(next<=limit)end=next;
+  }
+  if(end)return speech.slice(0,end).trimEnd();
+  const prefix=speech.slice(0,limit-1);
+  const words=prefix.replace(/\s+\S*$/u,'').trimEnd();
+  if(words&&/\s/u.test(prefix))return `${words}…`;
+  return 'That reply was too long to finish clearly. Please ask for one part at a time.';
+}
+
 export function normalizePacket(value, depth = 'quick') {
   if (!value || typeof value !== 'object' || typeof value.speech !== 'string' || !value.speech.trim()) {
     throw new TypeError('A character packet needs non-empty speech.');
   }
+  const speech=value.speech.replace(/\r\n?/g,'\n').replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/g,' ').trim();
+  if(!speech)throw new TypeError('A character packet needs non-empty speech.');
   return {
-    speech: value.speech.replace(/\r\n?/g,'\n').replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/g,' ').trim().slice(0,ANSWER_DEPTHS[answerDepth(depth)].characters),
+    speech: boundedSpeech(speech,ANSWER_DEPTHS[answerDepth(depth)].characters),
     emotion: EMOTIONS.includes(value.emotion) ? value.emotion : 'neutral',
     action: ACTIONS.includes(value.action) ? value.action : 'none',
     memory: cleanText(value.memory, 120),

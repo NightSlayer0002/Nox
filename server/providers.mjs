@@ -86,10 +86,14 @@ export async function requestProvider(input, {provider, apiKey, model, deepModel
       const reason=provider==='gemini'?choice?.finishReason:choice?.finish_reason;
       if(reason){if(!['STOP','stop'].includes(reason))throw Object.assign(Error('AI provider did not finish its reply.'),{code:['length','MAX_TOKENS'].includes(reason)?'output_limit':'finish_reason'});finished=true;}
       raw+=provider==='gemini'?(choice?.content?.parts||[]).filter(p=>!p.thought).map(p=>p.text||'').join(''):choice?.delta?.content||'';
-      const speech=partialSpeech(raw,ANSWER_DEPTHS[context.depth].characters);if(speech&&speech!==previous){previous=speech;onText(speech);}
+      const partial=partialSpeech(raw,6000);
+      const speech=partial.trim()?normalizePacket({speech:partial},context.depth).speech:'';
+      if(speech&&speech!==previous){previous=speech;onText(speech);}
     },signal,{quick:128000,balanced:512000,deep:1024000}[context.depth]);
     if(!finished)throw Error('AI provider did not finish its stream.');
-    return normalizePacket(JSON.parse(raw.trim().replace(/^```(?:json)?\s*([\s\S]*?)\s*```$/,'$1')),context.depth);
+    const packet=normalizePacket(JSON.parse(raw.trim().replace(/^```(?:json)?\s*([\s\S]*?)\s*```$/,'$1')),context.depth);
+    if(packet.speech!==previous)onText(packet.speech);
+    return packet;
   }
   const data=await response.json();
   let text;

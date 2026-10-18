@@ -20,7 +20,7 @@ Return exactly the requested structured packet.`;
 export function answerInstructions(context) {
   const depth=answerDepth(context.depth);
   const style={quick:'Give a direct conversational reply, usually 1–3 sentences. Use no more than 420 characters.',balanced:'Explain the useful reasoning and next steps in short paragraphs. Use examples where they help. Use no more than 2400 characters.',deep:'Give a thorough, structured explanation with concrete examples, assumptions, tradeoffs, and checks where relevant. Explain the reasoning concisely without exposing private hidden chain of thought. Use no more than 6000 characters.'}[depth];
-  return `Current persona: ${context.mode}. Answer depth: ${depth}. ${style}`;
+  return `Current persona: ${context.mode}. Answer depth: ${depth}. ${style} Finish the thought within that speech budget. Prefer fewer complete points over starting an explanation you cannot finish. If your draft is too long, rewrite it concisely before returning the packet; never end mid-sentence or mid-word.`;
 }
 
 export function contextMessages(context) {
