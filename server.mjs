@@ -1,5 +1,6 @@
 import http from 'node:http';
 import { isIP } from 'node:net';
+import {once} from 'node:events';
 import { readFile } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import path from 'node:path';
@@ -9,7 +10,7 @@ import {capabilitiesForModel} from './shared/product-capabilities.js';
 import { requestNox, explicitMemoryRequest } from './server/ai.mjs';
 import { getProviders, providerKey, requestProvider, requestSummary, modelForDepth } from './server/providers.mjs';
 import { createCache } from './server/cache.mjs';
-import { requestSpeech,normalizeSpeechCues } from './server/speech.mjs';
+import { requestSpeech,requestSpeechClips,normalizeSpeechCues } from './server/speech.mjs';
 import { createHash, timingSafeEqual, randomUUID } from 'node:crypto';
 import { mintSession, validSession, sessionFromCookie, sessionCookie, createUnlockThrottle } from './server/session.mjs';
 import { sanitizeAfterimageInput } from './shared/afterimage.js';
@@ -24,6 +25,11 @@ const contentTypes = { '.html': 'text/html; charset=utf-8', '.css': 'text/css; c
 function sendJson(response, status, body) {
   response.writeHead(status, { 'content-type': 'application/json; charset=utf-8' });
   response.end(JSON.stringify(body));
+}
+
+async function writeSpeechRecord(response,value,signal) {
+  signal.throwIfAborted();
+  if(!response.write(`${JSON.stringify(value)}\n`))await once(response,'drain',{signal});
 }
 
 function readJson(request) {
@@ -60,7 +66,9 @@ function chatFailure(error,task='chat'){
 
 export function createAppServer({
   apiKey = process.env.OPENAI_API_KEY || '', model = process.env.OPENAI_MODEL || 'gpt-4.1-mini', chat = requestNox,
-  speech = requestSpeech, naturalVoice = process.env.NOX_NATURAL_VOICE === '1', speechVoice = process.env.NOX_SPEECH_VOICE || 'cedar',
+  speech = requestSpeech,
+  speechClips = speech===requestSpeech?requestSpeechClips:async function*(input,options){yield await speech(input,options);},
+  naturalVoice = process.env.NOX_NATURAL_VOICE === '1', speechVoice = process.env.NOX_SPEECH_VOICE || 'cedar',
   providers = getProviders(), defaultProvider = process.env.NOX_PROVIDER || providers[0]?.id || 'openai', providerRequest = requestProvider,
   summary = requestSummary,
   speechProvider = process.env.NOX_SPEECH_PROVIDER || 'groq', speechKey = process.env.GROQ_API_KEY || '',
@@ -167,21 +175,41 @@ export function createAppServer({
           if(locked){const wait=publicQuota.take(createHash('sha256').update(clientIP).digest('hex'));if(wait){response.setHeader('retry-after',wait);return sendJson(response,429,{error:'NOX needs a short voice break. Try again in a minute.'});}}
           if (Date.now()-windowStart>60000) {windowStart=Date.now();requests=0;}
           if(++requests>30) return sendJson(response,429,{error:'Give NOX a moment before requesting more voice.'});
+          const controller=input.stream===true?new AbortController():null;
+          if(controller)response.once('close',()=>{if(!response.writableEnded)controller.abort();});
           try {
             const voice=speechProvider==='groq'?(['troy','austin','daniel'].includes(input.voice)?input.voice:'troy'):speechVoice;
             const acting={text:input.text.trim(),mode:sanitizeContext({mode:input.mode}).mode,emotion:EMOTIONS.includes(input.emotion)?input.emotion:'neutral',...(speechCues?{speechCues}:{})};
             // A visit ID namespaces cache entries; it never changes authorization or IP quotas.
             const visitID=request.headers['x-nox-visit-id'];
             const cacheScope=owner?'owner':`guest:${typeof visitID==='string'&&/^[a-f0-9-]{36}$/i.test(visitID)?visitID:randomUUID()}`;
+            const speechOptions={apiKey:voiceKey,voice,provider:speechProvider,clipCache:speechClipCache,cacheScope};
+            if(controller) {
+              let count=0,size=0;
+              for await(const clip of speechClips(acting,{...speechOptions,signal:controller.signal})) {
+                controller.signal.throwIfAborted();
+                if(!(clip instanceof Uint8Array)||!clip.byteLength||count>=4||(size+=clip.byteLength)>2*1024*1024)throw Error('Speech stream exceeded its bounded audio allowance.');
+                if(!response.headersSent)response.writeHead(200,{'content-type':'application/x-ndjson; charset=utf-8','x-accel-buffering':'no'});
+                await writeSpeechRecord(response,{index:count++,audio:Buffer.from(clip).toString('base64'),type:speechProvider==='groq'?'audio/wav':'audio/mpeg'},controller.signal);
+              }
+              if(!count)throw Error('Speech stream returned no audio.');
+              await writeSpeechRecord(response,{done:true},controller.signal);
+              response.end();return;
+            }
             const key=createHash('sha256').update(JSON.stringify([cacheScope,voiceKey,voice,speechProvider,acting])).digest('hex');
-            const {value:audio,hit}=await audioCache.getOrCreate(key,()=>speech(acting,{apiKey:voiceKey,voice,provider:speechProvider,clipCache:speechClipCache,cacheScope}));
+            const {value:audio,hit}=await audioCache.getOrCreate(key,()=>speech(acting,speechOptions));
             response.writeHead(200,{'content-type':speechProvider==='groq'?'audio/wav':'audio/mpeg','x-nox-audio-cache':hit?'hit':'miss'}); response.end(audio); return;
           } catch(error) {
+            if(controller?.signal.aborted||response.destroyed)return;
             const categories=['terms_required','input_limit','model_permission','quota','credentials','provider_http','invalid_audio_type'];
             const reason=categories.includes(error.code)?error.code:error.name==='TimeoutError'?'timeout':'other';
             const status=Number.isInteger(error.providerStatus)?error.providerStatus:'none';
             const format=['application/octet-stream','application/json','text/html','other'].includes(error.audioType)?error.audioType:'none';
             console.warn(`[NOX speech] reason=${reason} status=${status} format=${format}`);
+            if(response.headersSent) {
+              try {await writeSpeechRecord(response,{error:'Natural voice could not respond. Check model access and account limits, or choose Browser voice.'},controller.signal);}catch{/* A disconnected receiver needs no error record. */}
+              if(!response.destroyed)response.end();return;
+            }
             return sendJson(response,502,{error:reason==='terms_required'?'Groq requires you to review and accept the speech model’s terms in its console before Orpheus can speak. Browser voice remains available.':'Natural voice could not respond. Check model access and account limits, or choose Browser voice.'});
           }
         }

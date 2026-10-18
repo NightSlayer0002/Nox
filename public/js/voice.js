@@ -8,10 +8,56 @@ export function selectBrowserVoice(voices) {
     || english.find(voice => !voice.localService)
     || english.find(voice => /Daniel|Guy|David/i.test(voice.name)) || english[0];
 }
-export function createVoice({ onStart, onEnd, onError, requestAudio, AudioCtor = globalThis.Audio, AudioContextCtor=globalThis.AudioContext||globalThis.webkitAudioContext, urls = URL, now=()=>performance.now()/1000 } = {}) {
+export function createVoice({ onStart, onEnd, onError, onState, requestAudio, requestClips, AudioCtor = globalThis.Audio, AudioContextCtor=globalThis.AudioContext||globalThis.webkitAudioContext, urls = URL, now=()=>performance.now()/1000 } = {}) {
   let enabled = false, generation = 0, engine = 'browser', natural = false,speaker='troy',browserName='';
   let mouthPlayback=null,gapTimer,currentUtterance=null;
-  let controller, player, objectUrl;
+  let player, objectUrl, currentAudio=null, preparedAudio=null, state='idle';
+  const audioCache=new Map();
+  const setState=value=>{if(state!==value){state=value;onState?.(value);}};
+  function updateState(){
+    if(mouthPlayback&&mouthPlayback.active!==false)setState('speaking');
+    else if(currentAudio?.loading||preparedAudio?.status==='pending')setState('preparing');
+    else if(currentAudio?.status==='ready'||preparedAudio?.status==='ready')setState('ready');
+    else setState('idle');
+  }
+  const discard=entry=>{
+    if(!entry)return;
+    if(entry.loading){entry.controller.abort();entry.loading=false;entry.status='aborted';wake(entry);}
+    if(audioCache.get(entry.key)===entry)audioCache.delete(entry.key);
+    if(preparedAudio===entry)preparedAudio=null;
+  };
+  function wake(entry){for(const resolve of entry.waiters)resolve();entry.waiters.clear();}
+  async function clipAt(entry,index){
+    while(!entry.clips[index]&&entry.loading&&!entry.controller.signal.aborted)await new Promise(resolve=>entry.waiters.add(resolve));
+    return entry.controller.signal.aborted?null:entry.clips[index]||null;
+  }
+  function audioFor(text,mode,emotion,cues){
+    const speechCues=cues?.map(cue=>({speech:cue.speech,emotion:cue.emotion}));
+    const key=JSON.stringify([text,mode,emotion,speaker,speechCues]);
+    let entry=preparedAudio?.key===key?preparedAudio:audioCache.get(key);
+    if(entry){audioCache.delete(key);audioCache.set(key,entry);return entry;}
+    if(preparedAudio&&preparedAudio!==currentAudio)discard(preparedAudio);
+    // Keep at most the active/recent reply and the next reply, each up to 2 MiB.
+    while(audioCache.size>=2){const oldest=[...audioCache.values()].find(value=>value!==currentAudio);if(!oldest)break;discard(oldest);}
+    entry={key,status:'pending',loading:true,clips:[],waiters:new Set(),controller:new AbortController()};audioCache.set(key,entry);
+    // Start the provider before returning, so history writes and rendering can overlap it.
+    entry.promise=clipAt(entry,0);
+    entry.completion=(async()=>{
+      const source=requestClips?await requestClips(text,mode,entry.controller.signal,emotion,speaker,speechCues):[{blob:await requestAudio(text,mode,entry.controller.signal,emotion,speaker,speechCues)}];
+      let size=0;
+      for await(const clip of source){
+        if(entry.controller.signal.aborted)return;
+        const blob=clip.blob;
+        size+=blob.size;if(!blob.size||size>2*1024*1024||entry.clips.length>=4)throw Error('Natural voice returned invalid audio.');
+        const envelope=clip.envelope??wavEnvelope(await blob.arrayBuffer());
+        if(entry.controller.signal.aborted)return;
+        entry.clips.push({blob,envelope});entry.status='ready';wake(entry);updateState();
+      }
+      if(!entry.clips.length)throw Error('Natural voice returned no audio.');
+      entry.loading=false;wake(entry);updateState();
+    })().catch(error=>{entry.error=error;entry.loading=false;entry.status='error';if(audioCache.get(key)===entry)audioCache.delete(key);wake(entry);updateState();});
+    return entry;
+  }
   let audioContext,audioDestination,audioSource;
   const synth = globalThis.speechSynthesis;
   function prepareCapture(){
@@ -24,15 +70,20 @@ export function createVoice({ onStart, onEnd, onError, requestAudio, AudioCtor =
   }
   const cleanup = () => {
     clearTimeout(gapTimer);gapTimer=null;mouthPlayback=null;currentUtterance=null;
-    controller?.abort(); controller = null;
     audioSource?.disconnect();audioSource=null;
     if(player) {player.onplaying = player.onended = player.onerror = player.onpause = player.onwaiting = null; player.pause(); player = null;}
     if(objectUrl) {urls.revokeObjectURL(objectUrl); objectUrl = null;}
   };
-  const stop = () => { generation++; cleanup(); synth?.cancel(); onEnd?.(); };
+  const stopPlayback = retained => {
+    generation++;cleanup();
+    for(const entry of audioCache.values())if(entry!==retained&&entry.loading)discard(entry);
+    currentAudio=null;preparedAudio=retained||null;synth?.cancel();onEnd?.();updateState();
+  };
+  const stop=()=>{stopPlayback();preparedAudio=null;updateState();};
   return {
     get enabled() { return enabled; },
     get engine() { return engine; },
+    get state() { return state; },
     get mouthTiming(){return mouthPlayback?.envelope?'audio':mouthPlayback?.boundary?'word boundary':mouthPlayback?'estimated':'idle';},
     get mouthLevel(){
       if(!mouthPlayback||mouthPlayback.active===false)return 0;
@@ -43,35 +94,53 @@ export function createVoice({ onStart, onEnd, onError, requestAudio, AudioCtor =
     setSpeaker(value){speaker=['austin','troy','daniel'].includes(value)?value:'troy';stop();},
     setBrowserVoice(value){browserName=typeof value==='string'?value:'';stop();},
     get supported() { return engine === 'natural' ? natural : Boolean(synth); },
-    configureNatural(value) { natural = Boolean(value && requestAudio && AudioCtor); if (!natural && engine === 'natural') this.setEngine('browser'); },
+    configureNatural(value) { natural = Boolean(value && (requestAudio||requestClips) && AudioCtor); if (!natural && engine === 'natural') this.setEngine('browser'); },
     setEngine(value) { stop(); engine = value === 'natural' && natural ? 'natural' : 'browser'; if(!this.supported) enabled = false; return engine; },
     setEnabled(value) { enabled = Boolean(value && this.supported); if (!enabled) stop(); return enabled; },
     stop,
     prepareCapture,
+    prepare(text,mode='companion',emotion='neutral',cues){
+      if(!enabled||engine!=='natural'||!natural||!text?.trim())return Promise.resolve(null);
+      preparedAudio=audioFor(text,mode,emotion,cues);updateState();return preparedAudio.promise;
+    },
     async speak(text, mode = 'companion', emotion = 'neutral', cues) {
       if (!enabled || !this.supported) return;
-      stop(); const version = generation;
+      const entry=engine==='natural'?audioFor(text,mode,emotion,cues):null;
+      stopPlayback(entry); const version = generation;
       if(engine === 'natural') {
-        controller = new AbortController();
-        try {
-          const blob = await requestAudio(text,mode,controller.signal,emotion,speaker,cues?.map(cue=>({speech:cue.speech,emotion:cue.emotion})));
-          if(version !== generation) return;
-          const envelope=wavEnvelope(await blob.arrayBuffer());if(version!==generation)return;
-          objectUrl = urls.createObjectURL(blob); player = new AudioCtor(objectUrl);
-          if(prepareCapture()){
-            audioSource=audioContext.createMediaElementSource(player);
-            audioSource.connect(audioContext.destination);audioSource.connect(audioDestination);
-          }
-          player.onplaying = () => {if(version === generation) {mouthPlayback={envelope,timeline:speechTimeline(text),start:now()};onStart?.();}};
-          player.onwaiting=player.onpause=()=>{if(version===generation&&mouthPlayback)mouthPlayback.active=false;};
-          player.playbackRate=1.04;player.preservesPitch=false;
-          player.onended = () => {if(version === generation) {cleanup(); onEnd?.();}};
-          player.onerror = () => {if(version === generation) {cleanup(); onEnd?.(); onError?.('Natural voice could not play. Captions remain available; try Browser voice.');}};
-          await player.play();
-        } catch(error) {
-          if(version !== generation || error.name === 'AbortError') return;
-          cleanup(); onEnd?.(); onError?.(error.message || 'Natural voice could not play. Try Browser voice.');
-        }
+        currentAudio=entry;preparedAudio=null;updateState();
+        let narrationStarted=false,finished=false;
+        const finish=error=>{
+          if(version!==generation||finished)return;
+          finished=true;
+          if(error||entry.loading)discard(entry);
+          cleanup();currentAudio=null;updateState();onEnd?.();
+          if(error&&error.name!=='AbortError')onError?.(error.message||'Natural voice could not play. Try Browser voice.');
+        };
+        const playClip=async index=>{
+          try{
+            const audio=await clipAt(entry,index);
+            if(version!==generation||finished)return;
+            if(!audio){finish(entry.error);return;}
+            const {blob,envelope}=audio;
+            objectUrl=urls.createObjectURL(blob);player=new AudioCtor(objectUrl);
+            const clipPlayer=player,isCurrent=()=>version===generation&&!finished&&player===clipPlayer;
+            if(prepareCapture()){
+              audioSource=audioContext.createMediaElementSource(player);
+              audioSource.connect(audioContext.destination);audioSource.connect(audioDestination);
+            }
+            player.onplaying=()=>{if(isCurrent()){
+              mouthPlayback={envelope,timeline:speechTimeline(text),start:now()};updateState();
+              if(!narrationStarted){narrationStarted=true;onStart?.();}
+            }};
+            player.onwaiting=player.onpause=()=>{if(isCurrent()&&mouthPlayback){mouthPlayback.active=false;setState('preparing');}};
+            player.playbackRate=1.04;player.preservesPitch=false;
+            player.onended=()=>{if(isCurrent()){cleanup();updateState();void playClip(index+1);}};
+            player.onerror=()=>{if(isCurrent())finish(Error('Natural voice could not play. Captions remain available; try Browser voice.'));};
+            await player.play();
+          }catch(error){finish(error);}
+        };
+        await playClip(0);
         return;
       }
       const voices = synth.getVoices();
@@ -83,15 +152,15 @@ export function createVoice({ onStart, onEnd, onError, requestAudio, AudioCtor =
         const utterance=new SpeechSynthesisUtterance(chunks[index]);if(preferred)utterance.voice=preferred;
         currentUtterance=utterance;
         utterance.rate=rate;utterance.pitch=mode==='uncanny'?.97:emotion==='happy'?1.16:emotion==='annoyed'?1.04:1.1;
-        utterance.onstart=()=>{if(version===generation&&currentUtterance===utterance){mouthPlayback={timeline:speechTimeline(chunks[index],rate),start:now()};onStart?.();}};
+        utterance.onstart=()=>{if(version===generation&&currentUtterance===utterance){mouthPlayback={timeline:speechTimeline(chunks[index],rate),start:now()};updateState();onStart?.();}};
         utterance.onboundary=event=>{
           if(version!==generation||currentUtterance!==utterance||!mouthPlayback)return;
           if(event.name==='sentence'){mouthPlayback.boundary={start:now(),duration:0};return;}
           const word=chunks[index].slice(event.charIndex).match(/^[\p{L}\p{N}'’-]+/u)?.[0];
           mouthPlayback.boundary={start:now(),duration:word?Math.min(.6,.07+word.length*.038)/rate:0};
         };
-        utterance.onend=()=>{if(version!==generation||currentUtterance!==utterance)return;currentUtterance=null;mouthPlayback=null;if(index+1<chunks.length)gapTimer=setTimeout(()=>begin(index+1),180);else onEnd?.();};
-        utterance.onerror=event=>{if(version!==generation||currentUtterance!==utterance)return;cleanup();onEnd?.();if(!['canceled','interrupted'].includes(event.error))onError?.('Your browser could not speak that reply. The caption is still here.');};
+        utterance.onend=()=>{if(version!==generation||currentUtterance!==utterance)return;currentUtterance=null;mouthPlayback=null;updateState();if(index+1<chunks.length)gapTimer=setTimeout(()=>begin(index+1),180);else onEnd?.();};
+        utterance.onerror=event=>{if(version!==generation||currentUtterance!==utterance)return;cleanup();updateState();onEnd?.();if(!['canceled','interrupted'].includes(event.error))onError?.('Your browser could not speak that reply. The caption is still here.');};
         synth.speak(utterance);
       };
       if(chunks.length)begin(0);

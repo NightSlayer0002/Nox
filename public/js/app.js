@@ -11,6 +11,7 @@ import { createTurnGate } from './turns.js';
 import { createHistory } from './history.js';
 import { createNavigation } from './navigation.js';
 import { readChatStream } from './stream.js';
+import {readSpeechClips} from './speech-stream.js';
 import { connectionState } from './connection.js';
 import {createProviderControls} from './provider-controls.js';
 import {attachWorkspaceViewport} from './workspace-viewport.js';
@@ -85,14 +86,24 @@ stage.setMotion(true);
 const voice = createVoice({
   onStart: () => { stage.narrating=true;stage.character.speakingUntil = Infinity; },
   onEnd: () => { stage.narrating=false;stage.character.speakingUntil = stage.time; }, onError: toast,
-  requestAudio: async (text,mode,signal,emotion,speaker,speechCues) => {
+  onState:state=>{
+    document.body.dataset.voiceState=state;
+    if(state==='preparing'&&document.body.dataset.view==='conversation')replyDiagnostics.setStatus('Preparing NOX’s voice…');
+    else if($('reply-timing').textContent==='Preparing NOX’s voice…')replyDiagnostics.setStatus('');
+  },
+  requestClips: async function* (text,mode,signal,emotion,speaker,speechCues) {
     const start=performance.now(),timingVersion=replyDiagnostics.capture();
-    const response = await fetch('/api/speech',{method:'POST',headers:apiHeaders(),body:JSON.stringify({text,mode,emotion,voice:speaker,...(speechCues?{speechCues}:{})}),signal});
+    const response = await fetch('/api/speech',{method:'POST',headers:apiHeaders(),body:JSON.stringify({text,mode,emotion,voice:speaker,...(speechCues?{speechCues}:{stream:true})}),signal});
     if(!response.ok) {const error=await response.json();throw new Error(error.error||'Natural voice is unavailable.');}
-    if(!response.headers.get('content-type')?.startsWith('audio/')) throw new Error('Natural voice did not return audio.');
-    const blob=await response.blob(); if(!blob.size || blob.size>2*1024*1024) throw new Error('Natural voice returned invalid audio.');
-    if(!signal.aborted&&afterimageBridge.snapshot().status!=='playing')replyDiagnostics.voice(timingVersion,performance.now()-start,response.headers.get('x-nox-audio-cache')||'unknown');
-    return blob;
+    const clips=speechCues?(async function*(){
+      if(!response.headers.get('content-type')?.startsWith('audio/'))throw new Error('Natural voice did not return audio.');
+      const blob=await response.blob();if(!blob.size||blob.size>2*1024*1024)throw new Error('Natural voice returned invalid audio.');yield {blob};
+    })():readSpeechClips(response,{signal});
+    let first=true;
+    for await(const clip of clips){
+      if(first&&!signal.aborted&&afterimageBridge.snapshot().status!=='playing')replyDiagnostics.voice(timingVersion,performance.now()-start,response.headers.get('x-nox-audio-cache')||'clips');
+      first=false;yield clip;
+    }
   },
 });
 const compactPresence=matchMedia('(max-width:900px)');
@@ -124,9 +135,11 @@ const recorder = createRecorder($('stage'), (active, clip) => {
     $('clip-dialog').showModal();
   }
 },{getAudioStream:()=>voice.prepareCapture()});
+let dictating=false;
 const microphone = createMicrophone({
   onText: text => { composer.setValue(text);contextPreview();send(text); },
   onState: active => {
+    dictating=active;
     $('mic-button').classList.toggle('listening', active); $('mic-button').querySelector('span').textContent = active ? 'Listening…' : 'Talk';
     $('mic-button').setAttribute('aria-pressed',active);$('mic-button').setAttribute('aria-label',active?'Stop dictation':'Dictate a message');$('mic-button').title=active?'Stop dictation':'Dictate a message';
     stage.character.activity = busy ? 'thinking' : active ? 'listening' : 'idle';
@@ -191,12 +204,15 @@ function updateMemory() {
 }
 
 async function perform(value, save = true, draft, version, depth='quick',rememberAllowed=false) {
+  if(version!==undefined&&!turns.isCurrent(version))return;
   const packet = normalizePacket(value,depth); lastPacket = packet;
+  const spoken=spokenPreview(packet.speech);
+  voice.prepare(spoken,mode,packet.emotion);
   if (packet.memory&&rememberAllowed) memory.remember(packet.memory);
-  if (save && !await history.append('assistant', packet.speech)) return;
+  if (save && !await history.append('assistant', packet.speech)) {voice.stop();return;}
   if(version!==undefined&&!turns.isCurrent(version))return;
   if(draft){draft.classList.remove('draft');draft.lastChild.textContent=packet.speech;}else addMessage('nox', packet.speech);
-  const spoken=spokenPreview(packet.speech);stage.speak({...packet,speech:spoken});voice.speak(spoken, mode, packet.emotion);
+  stage.speak({...packet,speech:spoken});voice.speak(spoken, mode, packet.emotion);
   if(packet.action==='takeover')stage.canvas.scrollIntoView({behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'instant':'smooth',block:'center'});
   $('mood-label').textContent = packet.emotion;
   $('packet-view').textContent = JSON.stringify(value.metrics?{...packet,metrics:value.metrics}:packet, null, 2); updateMemory();navigation?.render();
@@ -340,7 +356,7 @@ window.addEventListener('pagehide', () => { afterimageBridge.stop('pagehide');ow
 window.addEventListener('hashchange',()=>{if(location.hash==='#afterimage')cancelConversation();else afterimageBridge.stop('navigation');requestAnimationFrame(composer.resize);});
 setInterval(() => { const seconds = Math.floor(stage.time); $('stage-time').textContent = `${String(Math.floor(seconds / 60)).padStart(2, '0')}:${String(seconds % 60).padStart(2, '0')}`; }, 1000);
 setInterval(() => {
-  $('presence-mobile-status').textContent=stage.narrating?'Speaking with you.':busy?'Thinking about your message…':microphone.active?'Listening…':'Ready when you are.';
+  $('presence-mobile-status').textContent=voice.state==='preparing'?'Preparing voice…':stage.narrating?'Speaking with you.':busy?'Thinking about your message…':dictating?'Listening…':'Ready when you are.';
   const signal = stage.character.signal;
   if (document.body.dataset.signal !== signal.status) {
     document.body.dataset.signal = signal.status; $('signal-state').textContent = signal.status.toUpperCase();

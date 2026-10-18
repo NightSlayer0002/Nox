@@ -8,6 +8,14 @@ const directions = {
   uncanny: 'Speak quietly with subtle suspense and unhurried pauses. An intimate fictional performance, no shouting and no exaggerated villain voice.',
 };
 const MAX_AUDIO = 2*1024*1024;
+function awaitSpeech(promise,signal){
+  if(signal.aborted)return Promise.reject(signal.reason);
+  return new Promise((resolve,reject)=>{
+    const abort=()=>{signal.removeEventListener('abort',abort);reject(signal.reason);};
+    signal.addEventListener('abort',abort,{once:true});
+    promise.then(value=>{signal.removeEventListener('abort',abort);resolve(value);},error=>{signal.removeEventListener('abort',abort);reject(error);});
+  });
+}
 const actingDirection=(emotion,mode)=>({happy:'[cheerful] [excited] ',skeptical:'[deadpan] [skeptical] ',sleepy:'[sleepy] [breathy] ',uncanny:'[gravelly whisper] [dramatic] ',curious:'[curious] [warm] ',annoyed:'[sarcastic] [exasperated] ',surprised:'[surprised] [excited] ',shy:'[shy] [breathy] ',neutral:mode==='uncanny'?'[whisper] ':mode==='director'?'[confidently] [deadpan] ':''}[emotion]||'');
 export function normalizeSpeechCues(text,value){
   if(value===undefined)return undefined;
@@ -17,22 +25,42 @@ export function normalizeSpeechCues(text,value){
   return lines;
 }
 
-export async function requestSpeech({text,mode='companion',emotion,speechCues}, {apiKey,voice='cedar',provider='openai',fetchImpl=fetch,clipCache,cacheScope='private'}={}) {
+export async function requestSpeech(input,options={}) {
+  const clips=[];
+  for await(const clip of requestSpeechClips(input,options))clips.push(clip);
+  return options.provider==='groq'&&clips.length>1?joinWav(clips,MAX_AUDIO):clips[0];
+}
+
+// Same bounded synthesis plan as requestSpeech; expose each clip without waiting
+// for a slower later clip. Consumers must preserve this iteration order.
+export async function* requestSpeechClips({text,mode='companion',emotion,speechCues}, {apiKey,voice='cedar',provider='openai',fetchImpl=fetch,clipCache,cacheScope='private',signal:callerSignal}={}) {
   if (typeof text !== 'string' || !text.trim() || text.length > 420) throw new Error('Speech needs 1–420 characters.');
   if(!['openai','groq'].includes(provider)) throw new Error('Unknown speech provider.');
   const groq = provider === 'groq';
-  const signal=AbortSignal.timeout(20000);
+  const deadline=AbortSignal.timeout(20000),signal=callerSignal?AbortSignal.any([callerSignal,deadline]):deadline;
   const cues=normalizeSpeechCues(text,speechCues);
   const getClip=async input=>{
-    const create=()=>requestClip(input,mode,{apiKey,voice,groq,fetchImpl,signal});
+    // Cached work may have multiple callers. One departing caller cannot own
+    // its lifetime; each iterator below still cancels its own wait promptly.
+    const create=()=>requestClip(input,mode,{apiKey,voice,groq,fetchImpl,signal:clipCache?deadline:signal});
     if(!clipCache)return create();
     const key=createHash('sha256').update(JSON.stringify([cacheScope,apiKey,voice,provider,mode,input])).digest('hex');
     return (await clipCache.getOrCreate(key,create)).value;
   };
-  if(!groq)return getClip(text);
-  const segments=(cues||[{speech:text.trim(),emotion}]).flatMap(cue=>{const direction=actingDirection(cue.emotion,mode);return splitSpeech(cue.speech,200-direction.length).map(chunk=>direction+chunk);});
-  const clips=await Promise.all(segments.map(getClip));
-  return clips.length===1?clips[0]:joinWav(clips,MAX_AUDIO);
+  const segments=groq?(cues||[{speech:text.trim(),emotion}]).flatMap(cue=>{const direction=actingDirection(cue.emotion,mode);return splitSpeech(cue.speech,200-direction.length).map(chunk=>direction+chunk);}):[text];
+  let size=0;
+  // Handle every promise immediately, including a later segment that rejects
+  // while an earlier one is still pending.
+  const pending=segments.map(input=>getClip(input).then(audio=>{
+    size+=audio.byteLength;if(size>MAX_AUDIO)throw new Error('Combined speech audio is too large.');
+    return {audio};
+  }).catch(error=>({error})));
+  for(const next of pending){
+    const result=await awaitSpeech(next,signal);
+    if(signal.aborted)throw signal.reason;
+    if(result.error)throw result.error;
+    yield result.audio;
+  }
 }
 
 async function requestClip(text,mode,{apiKey,voice,groq,fetchImpl,signal}) {
