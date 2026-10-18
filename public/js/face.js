@@ -25,9 +25,10 @@ export class Face extends OrbSignal {
   poke(now) {
     this.previewUntil=0;
     this.lastInteraction=now;
+    if(now>=this.angerUntil)this.angerAt=now;
+    this.angerUntil=now+1.4;
     if(now<this.speakingUntil){
-      if(now>=this.angerUntil)this.angerAt=now;
-      this.angerUntil=now+1.4;this.squeezeUntil=0;this.pulseAt=now;
+      this.squeezeUntil=0;this.pulseAt=now;
       return;
     }
     this.pokes=this.pokes.filter(time=>now-time<1.2);

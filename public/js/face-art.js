@@ -113,7 +113,8 @@ export function drawEyes(ctx,f,gazeX,gazeY,time,color,reduceMotion){
     ctx.restore();
   }
   if(f.marks==='anger'){
-    ctx.save();ctx.globalAlpha*=f.markOpacity??1;ctx.translate(88,-111);ctx.scale(f.markScale??1,f.markScale??1);ctx.strokeStyle='#f07c68';ctx.shadowColor='#d85440';ctx.shadowBlur=3;ctx.lineWidth=4;
+    const markScale=1.25*(f.markScale??1);
+    ctx.save();ctx.globalAlpha*=f.markOpacity??1;ctx.translate(88,-111);ctx.scale(markScale,markScale);ctx.strokeStyle='#f07c68';ctx.shadowColor='#d85440';ctx.shadowBlur=3;ctx.lineWidth=4;
     const mark=angerMarkAsset();
     if(mark)ctx.drawImage(mark,-20,-20,40,40);
     else{

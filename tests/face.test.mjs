@@ -51,13 +51,16 @@ test('speech animates the mouth then returns to the selected expression', () => 
   assert.ok(face.features(1).leftHeight < face.features(1).rightHeight);
 });
 
-test('a poke gives a temporary smile without overwriting dialogue emotion', () => {
+test('an idle poke gives a temporary smile and ikari without overwriting dialogue emotion', () => {
   const face = new Face(); face.emotion = 'skeptical'; face.poke(2);
   face.update(2.3, .016, { x: .5, y: .46 }, false, false);
   assert.equal(face.features(2.3).mouth, 'happy');
+  assert.equal(face.features(2.3).marks, 'anger');
+  assert.ok(face.features(2.3).markOpacity > 0);
   assert.equal(face.emotion, 'skeptical');
   face.update(4, .016, { x: .5, y: .46 }, false, false);
   assert.equal(face.features(4).mouth, 'skeptical');
+  assert.notEqual(face.features(4).marks, 'anger');
 });
 
 test('poking a speaking NOX adds an ikari mark without changing his eyes or interrupting speech',()=>{
