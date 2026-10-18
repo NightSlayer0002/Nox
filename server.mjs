@@ -5,6 +5,7 @@ import { existsSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { normalizePacket, sanitizeContext, answerDepth, EMOTIONS } from './shared/character.js';
+import {capabilitiesForModel} from './shared/product-capabilities.js';
 import { requestNox, explicitMemoryRequest } from './server/ai.mjs';
 import { getProviders, providerKey, requestProvider, requestSummary, modelForDepth } from './server/providers.mjs';
 import { createCache } from './server/cache.mjs';
@@ -210,7 +211,7 @@ export function createAppServer({
           const selectedModel=modelForDepth(selected.id,selected.model,prompt.context.depth,groqDeepModel);
           const controller=new AbortController(),started=performance.now();
           response.on('close',()=>{if(!response.writableEnded)controller.abort();});
-          const options={apiKey:selected.id==='openai'?apiKey:providerKey(selected.id),model:selectedModel,signal:controller.signal,provider:selected.id,deepModel:groqDeepModel};
+          const options={apiKey:selected.id==='openai'?apiKey:providerKey(selected.id),model:selectedModel,signal:controller.signal,provider:selected.id,deepModel:groqDeepModel,productCapabilities:capabilitiesForModel({owner,naturalVoice:Boolean(naturalVoice&&voiceKey&&(!locked||speechProvider==='groq'))})};
           const finish=packet=>{
             const result=normalizePacket(packet,prompt.context.depth);
             if(guestChat||!explicitMemoryRequest(prompt.message))result.memory='';
