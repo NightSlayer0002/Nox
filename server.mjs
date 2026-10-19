@@ -5,7 +5,7 @@ import { readFile } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-import { normalizePacket, sanitizeContext, answerDepth, EMOTIONS } from './shared/character.js';
+import { normalizePacket, sanitizeContext, answerDepth, EMOTIONS, CHAT_INPUT_CHARACTERS, CHAT_REQUEST_BYTES } from './shared/character.js';
 import {capabilitiesForModel} from './shared/product-capabilities.js';
 import { requestNox, explicitMemoryRequest } from './server/ai.mjs';
 import { getProviders, providerKey, requestProvider, requestSummary, modelForDepth } from './server/providers.mjs';
@@ -16,11 +16,11 @@ import { mintSession, validSession, sessionFromCookie, sessionCookie, createUnlo
 import { sanitizeAfterimageInput } from './shared/afterimage.js';
 import { createAfterimageCache } from './server/afterimage-cache.mjs';
 import { requestAfterimageGeneration } from './server/afterimage-generation.mjs';
-import { createPublicQuota } from './server/public-quota.mjs';
+import { createGuestAllowance } from './server/guest-allowance.mjs';
 
 const root = path.dirname(fileURLToPath(import.meta.url));
 const publicRoot = path.join(root, 'public');
-const contentTypes = { '.html': 'text/html; charset=utf-8', '.css': 'text/css; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.svg': 'image/svg+xml', '.png': 'image/png', '.jpg': 'image/jpeg', '.ttf': 'font/ttf', '.woff2':'font/woff2', '.bin':'application/octet-stream', '.glb':'model/gltf-binary', '.txt': 'text/plain; charset=utf-8', '.glsl':'text/plain; charset=utf-8', '.vert':'text/plain; charset=utf-8', '.frag':'text/plain; charset=utf-8' };
+const contentTypes = { '.html': 'text/html; charset=utf-8', '.css': 'text/css; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.svg': 'image/svg+xml', '.png': 'image/png', '.jpg': 'image/jpeg', '.ttf': 'font/ttf', '.woff2':'font/woff2', '.bin':'application/octet-stream', '.glb':'model/gltf-binary', '.txt': 'text/plain; charset=utf-8', '.glsl':'text/plain; charset=utf-8', '.vert':'text/plain; charset=utf-8', '.frag':'text/plain; charset=utf-8', '.webmanifest':'application/manifest+json', '.webm':'video/webm', '.ogg':'audio/ogg' };
 
 function sendJson(response, status, body) {
   response.writeHead(status, { 'content-type': 'application/json; charset=utf-8' });
@@ -32,14 +32,14 @@ async function writeSpeechRecord(response,value,signal) {
   if(!response.write(`${JSON.stringify(value)}\n`))await once(response,'drain',{signal});
 }
 
-function readJson(request) {
+function readJson(request,limit=16384) {
   return new Promise((resolve, reject) => {
     let size = 0;
     const chunks = [];
     let failed = false;
     request.on('data', chunk => {
       size += chunk.length;
-      if (size > 16384) {
+      if (size > limit) {
         if (!failed) reject(Object.assign(new Error('Request is too large.'), { status: 413 }));
         failed = true;
       } else if (!failed) chunks.push(chunk);
@@ -74,16 +74,21 @@ export function createAppServer({
   speechProvider = process.env.NOX_SPEECH_PROVIDER || 'groq', speechKey = process.env.GROQ_API_KEY || '',
   hosted = Boolean(process.env.VERCEL), accessToken = process.env.NOX_ACCESS_TOKEN || '',
   groqDeepModel = process.env.GROQ_DEEP_MODEL || 'openai/gpt-oss-120b', now = Date.now,
+  guestAllowance = createGuestAllowance({now}),
   publicHosts = [process.env.VERCEL_URL, process.env.VERCEL_BRANCH_URL, process.env.VERCEL_PROJECT_PRODUCTION_URL, process.env.NOX_PUBLIC_ORIGIN].filter(Boolean).map(value => new URL(value.startsWith('https://') ? value : `https://${value}`).host),
 } = {}) {
-  let windowStart = Date.now();
+  let windowStart = now();
   let requests = 0;
+  const sharedWait=()=>{if(now()-windowStart>=60000){windowStart=now();requests=0;}return ++requests>30?Math.max(1,Math.ceil((windowStart+60000-now())/1000)):0;};
   const audioCache=createCache();
   const speechClipCache=createCache();
   const afterimageCache=createAfterimageCache({now});
   const unlockThrottle=createUnlockThrottle({now});
-  const publicQuota=createPublicQuota({now});
-  const guestChatQuota=createPublicQuota({now});
+  const allowanceFailure=(response,decision,kind)=>{
+    response.setHeader('retry-after',decision.retryAfter);
+    const error=decision.code==='allowance_unavailable'?'NOX cannot check the public allowance right now. Your draft is safe; please try again shortly.':decision.code==='daily_limit'?(kind==='speech'?'This network has used its natural voice allowance for today. Text remains available within its own allowance.':'This network has used its free messages for today. Your draft is safe; the allowance resets at the time shown.'):(kind==='speech'?'NOX needs a short voice break. Text has its own allowance.':'A few replies arrived quickly. Give NOX a moment; your draft is safe.');
+    return sendJson(response,decision.code==='allowance_unavailable'?503:429,{error,code:decision.code,retryAfter:decision.retryAfter,usage:decision.usage});
+  };
   const available = [...providers];
   if(apiKey) available.push({id:'openai',name:'OpenAI',model});
   const preferred = available.find(p=>p.id===defaultProvider) || available[0];
@@ -118,6 +123,7 @@ export function createAppServer({
     const requestedGuest=request.headers['x-nox-guest']==='1';
     const owner=!requestedGuest&&(authorized||!hosted&&!accessToken);
     const locked = Boolean(hasCloud && (hosted || accessToken) && !owner);
+    const sharedFailure=async(wait,error)=>{response.setHeader('retry-after',wait);return sendJson(response,429,{error,code:'rate_limit',retryAfter:wait,usage:owner?null:await guestAllowance.status(clientIP)});};
     if(request.headers['x-nox-owner']==='1'&&!owner)return sendJson(response,401,{error:'Your owner session ended. Continue as a guest or sign in again.'});
     if(pathname==='/api/session'&&['POST','DELETE'].includes(request.method)){
       if(request.headers.origin!==`${hosted?'https':'http'}://${host}`)return sendJson(response,403,{error:'Unlock from NOX’s own page.'});
@@ -133,6 +139,7 @@ export function createAppServer({
       voice: voiceKey && (!locked||speechProvider==='groq') && naturalVoice ? 'natural' : 'browser', access: locked ? 'locked' : 'open',
       providers: !locked ? available : [], provider: !locked ? preferred?.id || null : null,
       owner,guestProvider,
+      usage:owner?null:await guestAllowance.status(clientIP),
     });
     if (['/api/chat','/api/speech','/api/summary','/api/afterimage'].includes(pathname) && request.method === 'POST') {
       const origin = request.headers.origin;
@@ -143,15 +150,14 @@ export function createAppServer({
       if (locked&&!publicSpeech&&!guestChat) return sendJson(response, 401, { error: 'Unlock owner access in Settings before using cloud AI.' });
       if (!request.headers['content-type']?.startsWith('application/json')) return sendJson(response, 415, { error: 'Send application/json.' });
       try {
-        const input = await readJson(request);
+        const input = await readJson(request,pathname==='/api/chat'?CHAT_REQUEST_BYTES:16384);
         if(pathname==='/api/afterimage'){
           let creative;
           try{creative=sanitizeAfterimageInput(input);}catch{return sendJson(response,400,{error:'Send a seed of 1–600 characters, a wonder/uncanny/bold tone, and an optional variation from 0 to 1024 or configured provider.'});}
           const eligible=available.filter(p=>['groq','gemini','nvidia'].includes(p.id));
           const selected=creative.provider?eligible.find(p=>p.id===creative.provider):eligible.find(p=>p.id===preferred?.id)||eligible.find(p=>p.id==='groq')||eligible[0];
           if(!selected)return sendJson(response,503,{error:'Configure a Groq, Gemini or NVIDIA server key to receive an AFTERIMAGE.'});
-          if(Date.now()-windowStart>60000){windowStart=Date.now();requests=0;}
-          if(++requests>30)return sendJson(response,429,{error:'Give NOX a moment before receiving another AFTERIMAGE.'});
+          const wait=sharedWait();if(wait)return sharedFailure(wait,'Give NOX a moment before receiving another AFTERIMAGE.');
           const controller=new AbortController(),started=performance.now(),selectedModel=modelForDepth(selected.id,selected.model,'quick');
           response.on('close',()=>{if(!response.writableEnded)controller.abort();});
           const key=createHash('sha256').update(JSON.stringify([host,creative.seed,creative.tone,creative.variation,selected.id,selectedModel])).digest('hex');
@@ -172,9 +178,8 @@ export function createAppServer({
           if (!voiceKey || !naturalVoice) return sendJson(response,503,{error:'Natural voice is not configured. Browser voice is still available.'});
           if (!input || typeof input.text !== 'string' || !input.text.trim() || input.text.length>420) return sendJson(response,400,{error:'Speech must contain 1–420 characters.'});
           let speechCues;try{speechCues=normalizeSpeechCues(input.text,input.speechCues);}catch{return sendJson(response,400,{error:'Speech cues must match four bounded script lines and known emotions.'});}
-          if(locked){const wait=publicQuota.take(createHash('sha256').update(clientIP).digest('hex'));if(wait){response.setHeader('retry-after',wait);return sendJson(response,429,{error:'NOX needs a short voice break. Try again in a minute.'});}}
-          if (Date.now()-windowStart>60000) {windowStart=Date.now();requests=0;}
-          if(++requests>30) return sendJson(response,429,{error:'Give NOX a moment before requesting more voice.'});
+          const wait=sharedWait();if(wait)return sharedFailure(wait,'Give NOX a moment before requesting more voice.');
+          if(!owner){const decision=await guestAllowance.take(clientIP,'speech');if(!decision.allowed)return allowanceFailure(response,decision,'speech');response.setHeader('x-nox-usage',JSON.stringify(decision.usage));}
           const controller=input.stream===true?new AbortController():null;
           if(controller)response.once('close',()=>{if(!response.writableEnded)controller.abort();});
           try {
@@ -217,24 +222,23 @@ export function createAppServer({
           if(!input||!Array.isArray(input.turns)||input.turns.length<1||input.turns.length>24||input.turns.some(t=>!t||!['user','assistant'].includes(t.role)||typeof t.content!=='string'||t.content.length>1200)||typeof input.previous!=='undefined'&&typeof input.previous!=='string')return sendJson(response,400,{error:'Send 1–24 conversation turns and an optional previous summary.'});
           const selected=input.provider?available.find(p=>p.id===input.provider):preferred;
           if(!selected||selected.id==='openai')return sendJson(response,400,{error:'Choose a configured Groq, Gemini or NVIDIA provider for summaries.'});
-          if(Date.now()-windowStart>60000){windowStart=Date.now();requests=0;}
-          if(++requests>30)return sendJson(response,429,{error:'Give NOX a moment before summarizing more conversation.'});
+          const wait=sharedWait();if(wait)return sharedFailure(wait,'Give NOX a moment before summarizing more conversation.');
           try {return sendJson(response,200,{summary:await summary(input,{provider:selected.id,apiKey:providerKey(selected.id),model:selected.model})});}
           catch{return sendJson(response,502,{error:'The conversation summary could not finish. Your saved transcript is unchanged.'});}
         }
-        const messageLimit=guestChat?600:1200;
+        const messageLimit=CHAT_INPUT_CHARACTERS;
         if (!input || typeof input.message !== 'string' || !input.message.trim() || input.message.length > messageLimit) {
           return sendJson(response, 400, { error: `Message must contain 1–${messageLimit} characters.` });
         }
         if (!preferred) return sendJson(response, 503, { error: 'Add a Groq, Gemini, or NVIDIA API key to server environment settings and restart or redeploy NOX.' });
-        if(guestChat&&input.provider&&input.provider!=='groq')return sendJson(response,400,{error:'Guest trial uses the free Groq connection.'});
-        if(guestChat){const wait=guestChatQuota.take(createHash('sha256').update(clientIP).digest('hex'));if(wait){response.setHeader('retry-after',wait);return sendJson(response,429,{error:'Guest trial needs a short break. Try again in a minute.'});}}
+        if(guestChat&&input.provider&&input.provider!=='groq')return sendJson(response,400,{error:'NOX Free uses its configured public connection.'});
         const selected = guestChat?guestProvider:input.provider ? available.find(p=>p.id===input.provider) : preferred;
         if(!selected) return sendJson(response,400,{error:'That provider is not configured on this server.'});
-        if (Date.now() - windowStart > 60000) { windowStart = Date.now(); requests = 0; }
-        if (++requests > 30) return sendJson(response, 429, { error: 'Thirty turns in a minute. Give NOX a moment.' });
+        const wait=sharedWait();if(wait)return sharedFailure(wait,'Several requests arrived quickly. Give NOX a moment.');
+        let usage=null;
+        if(guestChat){const decision=await guestAllowance.take(clientIP,'text');if(!decision.allowed)return allowanceFailure(response,decision,'text');usage=decision.usage;}
         try {
-          const prompt = { message: input.message.trim(), context: sanitizeContext(guestChat?{mode:input.context?.mode,depth:'quick',history:Array.isArray(input.context?.history)?input.context.history.slice(-8):[]}:input.context) };
+          const prompt = { message: input.message.trim(), context: sanitizeContext(guestChat?{...sanitizeContext(input.context),depth:input.context?.depth==='quick'?'quick':'balanced'}:input.context) };
           prompt.context.depth=answerDepth(prompt.context.depth);
           const selectedModel=modelForDepth(selected.id,selected.model,prompt.context.depth,groqDeepModel);
           const controller=new AbortController(),started=performance.now();
@@ -260,13 +264,13 @@ export function createAppServer({
             try {
               const packet=finish(selected.id==='openai'?await chat(prompt,options):await providerRequest(prompt,{...options,onText}));
               onText(packet.speech);
-              emit('final',{...packet,metrics:metrics(firstTextMs)});
+              emit('final',{...packet,metrics:metrics(firstTextMs),usage});
             }catch(error) {if(!controller.signal.aborted)emit('error',{error:chatFailure(error)});}
             response.end();return;
           }
           const packet = selected.id==='openai' ? await chat(prompt,options) : await providerRequest(prompt,options);
           if(controller.signal.aborted)return;
-          return sendJson(response, 200, {...finish(packet),metrics:metrics(Math.round(performance.now()-started))});
+          return sendJson(response, 200, {...finish(packet),metrics:metrics(Math.round(performance.now()-started)),usage});
         } catch(error) {
           return sendJson(response, 502, { error: chatFailure(error) });
         }

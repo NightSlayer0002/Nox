@@ -63,7 +63,7 @@ test('an error inside a provider SSE stream retains only a safe quota category',
   await assert.rejects(requestProvider({message:'Hi'},{provider:'groq',model:'fixture-stream-model',apiKey:'private-key',onText(){},fetchImpl:async()=>new Response('data: {"error":{"code":"rate_limit_exceeded","message":"PRIVATE BODY"}}\n\n',{headers:{'content-type':'text/event-stream'}})}),error=>error.code==='quota'&&!JSON.stringify(error).includes('PRIVATE BODY'));
 });
 
-test('overlong strict replies finish a concise thought without a second model request',async()=>{
+test('strict written replies beyond the requested target remain complete without a second model request',async()=>{
   let calls=0;
   const complete='A language model predicts useful next words from patterns it learned.';
   const speech=complete+' '+'A second explanation extends beyond the small reply allowance '.repeat(12)+'and ends here.';
@@ -73,19 +73,19 @@ test('overlong strict replies finish a concise thought without a second model re
     assert.equal(body.max_tokens,900);
     return Response.json({choices:[{finish_reason:'stop',message:{content:JSON.stringify({...packet,speech})}}]});
   }});
-  assert.equal(result.speech,complete);
+  assert.equal(result.speech,speech);
   assert.equal(calls,1);
 });
 
 test('the final streamed text matches the normalized reply when a provider ignores its length instruction',async()=>{
   const complete='Start with one clear idea.';
   const raw=JSON.stringify({...packet,speech:complete+' '+'This extra paragraph is much too long for a quick reply '.repeat(15)+'and finishes.'});
+  const speech=JSON.parse(raw).speech;
   const shown=[];
   const wire=`data: ${JSON.stringify({choices:[{delta:{content:raw},finish_reason:null}]})}\n\ndata: {"choices":[{"delta":{},"finish_reason":"stop"}]}\n\n`;
   const result=await requestProvider({message:'Explain'},{provider:'nvidia',apiKey:'fixture',onText:value=>shown.push(value),fetchImpl:async()=>new Response(wire,{headers:{'content-type':'text/event-stream'}})});
-  assert.equal(result.speech,complete);
-  assert.equal(shown.at(-1),complete);
-  assert.ok(shown.every(value=>value.length<=420));
+  assert.equal(result.speech,speech);
+  assert.equal(shown.at(-1),speech);
 });
 
 test('malformed provider JSON never becomes a successful character reply',async()=>{

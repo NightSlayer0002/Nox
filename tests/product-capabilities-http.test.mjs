@@ -31,7 +31,7 @@ test('chat HTTP routes derive capabilities from verified access instead of forge
       assert.ok(guestCall.options.productCapabilities,'The server must supply trusted product capabilities.');
       assert.equal(guestCall.options.productCapabilities.visit,'guest');
       assert.equal(guestCall.options.productCapabilities.afterimage.customGeneration,false);
-      assert.equal(guestCall.options.productCapabilities.conversation.notebookContext,false);
+      assert.equal(guestCall.options.productCapabilities.conversation.notebookContext,true);
       assert.equal(guestCall.options.productCapabilities.voice.natural,true);
       assert.equal(guestCall.input.context.productCapabilities,undefined);
       assert.equal(guestCall.input.context.capabilities,undefined);

@@ -21,7 +21,14 @@ Return exactly the requested structured packet.`;
 export function answerInstructions(context) {
   const depth=answerDepth(context.depth);
   const style={quick:'Give a direct conversational reply, usually 1–3 sentences. Use no more than 420 characters.',balanced:'Explain the useful reasoning and next steps in short paragraphs. Use examples where they help. Use no more than 2400 characters.',deep:'Give a thorough, structured explanation with concrete examples, assumptions, tradeoffs, and checks where relevant. Explain the reasoning concisely without exposing private hidden chain of thought. Use no more than 6000 characters.'}[depth];
-  return `Current persona: ${context.mode}. Answer depth: ${depth}. ${style} Finish the thought within that speech budget. Prefer fewer complete points over starting an explanation you cannot finish. If your draft is too long, rewrite it concisely before returning the packet; never end mid-sentence or mid-word.`;
+  const preferences=context.preferences||{},activity=context.activity||'conversation';
+  const adaptive=[];
+  if(preferences.answerLength)adaptive.push({short:'Prefer a brief, complete answer.',balanced:'Give enough explanation to be useful without padding.',detailed:'Use helpful detail and examples within the selected answer budget.'}[preferences.answerLength]);
+  if(activity==='explore'&&preferences.learningStyle)adaptive.push(preferences.learningStyle==='hints'?'Start with a helpful hint or question so the user can work it out; explain directly when asked.':'Explain the idea clearly before asking a follow-up.');
+  if(activity==='mystery'&&preferences.storyIntensity)adaptive.push(preferences.storyIntensity==='gentle'?'Keep fictional mystery gentle, curious, and free of graphic scares.':'Use atmospheric, non-graphic fictional suspense; never imply a real threat.');
+  if(activity==='guessing'&&preferences.gameQuestionLimit)adaptive.push(`For a guessing game, keep a visible count and use at most ${preferences.gameQuestionLimit} questions per round.`);
+  if(activity==='guessing'&&typeof preferences.gameHints==='boolean')adaptive.push(preferences.gameHints?'Offer optional hints without revealing the answer.':'Wait for the user to request a hint.');
+  return `Current persona: ${context.mode}. Activity: ${activity}. Answer depth: ${depth}. ${style} ${adaptive.join(' ')} This is the written-answer budget; natural voice may read only a concise opening. Finish the thought within the written budget. Prefer fewer complete points over starting an explanation you cannot finish. If your draft is too long, rewrite it concisely before returning the packet; never end mid-sentence or mid-word.`;
 }
 
 export function contextMessages(context) {

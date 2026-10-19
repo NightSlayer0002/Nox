@@ -59,7 +59,7 @@ test('streaming chat delivers text then a normalized final packet with timings',
 test('server status describes demo mode without exposing the key', async () => {
   await withServer({ apiKey: '' }, async base => {
     const response = await fetch(`${base}/api/status`);
-    assert.deepEqual(await response.json(), { brain: 'demo', model: null, voice: 'browser', access: 'open',providers:[],provider:null,owner:true,guestProvider:null });
+    assert.deepEqual(await response.json(), { brain: 'demo', model: null, voice: 'browser', access: 'open',providers:[],provider:null,owner:true,guestProvider:null,usage:null });
     assert.equal((await fetch(`${base}/.env`)).status, 404);
     assert.equal((await fetch(`${base}/package.json`)).status, 404);
     assert.equal((await fetch(`${base}/shared/character.js`)).status, 200);
@@ -73,7 +73,7 @@ test('hosted paid endpoints require owner access and accept only the configured 
     speech:async () => {calls++; return Buffer.from('ID3');}},async base => {
     const headers={host:'nox.example','content-type':'application/json',origin:'https://nox.example'};
     const locked=await hostedRequest(`${base}/api/status`,{headers:{host:'nox.example'}});
-    assert.deepEqual(await locked.json(),{brain:'demo',model:null,voice:'browser',access:'locked',providers:[],provider:null,owner:false,guestProvider:null});
+    const {usage,...status}=await locked.json();assert.deepEqual(status,{brain:'demo',model:null,voice:'browser',access:'locked',providers:[],provider:null,owner:false,guestProvider:null});assert.equal(usage.mode,'preview');assert.equal(usage.text.limit,null);
     for (const endpoint of ['chat','speech']) {
       const body=JSON.stringify(endpoint==='chat'?{message:'Hi'}:{text:'Hi',mode:'companion'});
       assert.equal((await hostedRequest(`${base}/api/${endpoint}`,{method:'POST',headers,body})).status,401);
@@ -117,7 +117,7 @@ test('only configured provider IDs can be selected and the model stays server-ow
 
 test('chat rejects malformed, oversized, and foreign-origin input before calling a model', async () => {
   await withServer({ apiKey: 'test-key', chat: async () => { throw new Error('must not run'); } }, async base => {
-    for (const body of ['{broken', JSON.stringify({ message: '' }), JSON.stringify({ message: 'x'.repeat(1201) }), 'x'.repeat(17000)]) {
+    for (const body of ['{broken', JSON.stringify({ message: '' }), JSON.stringify({ message: 'x'.repeat(6001) }), 'x'.repeat(65537)]) {
       const response = await fetch(`${base}/api/chat`, { method: 'POST', headers: { 'content-type': 'application/json' }, body });
       assert.ok([400, 413].includes(response.status), `unexpected ${response.status}`);
     }

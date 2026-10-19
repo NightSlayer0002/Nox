@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { normalizePacket, sanitizeContext, prepareChatRequest } from '../shared/character.js';
+import { normalizePacket, sanitizeContext, prepareChatRequest, CHAT_REQUEST_BYTES, MAX_PACKET_CHARACTERS } from '../shared/character.js';
 import { createMemory } from '../public/js/memory.js';
 import { demoReply } from '../public/js/brain.js';
 
@@ -15,19 +15,18 @@ test('untrusted packets cannot execute unknown actions or inject objects', () =>
   assert.throws(() => normalizePacket({ speech: { html: 'bad' } }), /speech/i);
 });
 
-test('packets bound speech and memory instead of retaining huge model output', () => {
+test('packets preserve written text and bound memory, rejecting output beyond the absolute ceiling', () => {
   const packet = normalizePacket({ speech: 'x'.repeat(2000), emotion: 'happy', action: 'gravity', memory: 'm'.repeat(300) });
-  assert.ok(packet.speech.length <= 420);
-  assert.match(packet.speech, /[.!?]$/);
-  assert.doesNotMatch(packet.speech, /^x+$/);
+  assert.equal(packet.speech,'x'.repeat(2000));
+  assert.throws(()=>normalizePacket({speech:'x'.repeat(MAX_PACKET_CHARACTERS+1)}),/absolute output limit/);
   assert.equal(packet.memory.length, 120);
   assert.equal(packet.action, 'gravity');
 });
 
-test('over-budget replies retain a complete thought instead of cutting a sentence at character 420', () => {
+test('written replies are not cut at the 420-character natural-speech budget', () => {
   const complete='An LLM learns patterns in text, then predicts useful next words.';
   const speech=complete+' '+ 'The next explanation keeps going through many details '.repeat(12)+'until it finally ends.';
-  assert.equal(normalizePacket({speech}).speech,complete);
+  assert.equal(normalizePacket({speech}).speech,speech);
 });
 
 test('every answer depth preserves complete replies within its own budget', () => {
@@ -37,16 +36,15 @@ test('every answer depth preserves complete replies within its own budget', () =
   }
 });
 
-test('an over-budget first sentence ends at a word boundary without splitting Unicode', () => {
+test('written Unicode replies preserve the entire sentence', () => {
   const packet=normalizePacket({speech:'A little 🌙 in a large sky '.repeat(30)});
-  assert.ok(packet.speech.length<=420);
-  assert.match(packet.speech, /(?:little|🌙|in|a|large|sky)…$/u);
+  assert.equal(packet.speech,'A little 🌙 in a large sky '.repeat(30).trim());
   assert.doesNotMatch(packet.speech, /[\uD800-\uDBFF]$/u);
 });
 
-test('over-budget multilingual replies preserve their last complete sentence', () => {
+test('long multilingual written replies are preserved rather than silently shortened', () => {
   const complete='月は静かです。';
-  assert.equal(normalizePacket({speech:complete+'空'.repeat(500)}).speech,complete);
+  assert.equal(normalizePacket({speech:complete+'空'.repeat(500)}).speech,complete+'空'.repeat(500));
 });
 
 test('speech containing only control characters is rejected after cleaning', () => {
@@ -119,9 +117,9 @@ test('long Unicode conversation fits the HTTP budget while retaining the current
   const message = 'न'.repeat(1200);
   const body = prepareChatRequest(message, { name: 'Abhi', facts: ['न'.repeat(120)], history: Array.from({ length: 24 }, () => ({ role: 'user', content: 'न'.repeat(600) })) });
   assert.equal(body.message, message);
-  assert.ok(new TextEncoder().encode(JSON.stringify(body)).byteLength <= 16384);
+  assert.ok(new TextEncoder().encode(JSON.stringify(body)).byteLength <= CHAT_REQUEST_BYTES);
   assert.ok(body.context.history.length > 0);
-  assert.ok(body.context.history.length < 12);
+  assert.ok(body.context.history.length <= 16);
 });
 
 test('provider metadata is included in the Unicode request budget',()=>{
@@ -129,6 +127,6 @@ test('provider metadata is included in the Unicode request budget',()=>{
   const context={facts:Array(12).fill('你'.repeat(120)),history:Array(12).fill({role:'user',content:'你'.repeat(600)})};
   const body=prepareChatRequest(message,context,'groq');
   assert.equal(body.provider,'groq');
-  assert.ok(new TextEncoder().encode(JSON.stringify(body)).byteLength<=16384);
+  assert.ok(new TextEncoder().encode(JSON.stringify(body)).byteLength<=CHAT_REQUEST_BYTES);
   assert.equal(body.message,message);
 });

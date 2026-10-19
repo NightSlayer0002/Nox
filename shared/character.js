@@ -8,6 +8,9 @@ export const ANSWER_DEPTHS = Object.freeze({
   deep: Object.freeze({characters:6000,tokens:4000,reasoning:'high'}),
 });
 export const answerDepth = value => Object.hasOwn(ANSWER_DEPTHS,value) ? value : 'quick';
+export const CHAT_INPUT_CHARACTERS=6000;
+export const CHAT_REQUEST_BYTES=65536;
+export const MAX_PACKET_CHARACTERS=12000;
 
 // Shared by the cloud and explicit demo paths. Memory mutation needs a direct
 // request in the current user message; quoted examples and recollections do not.
@@ -34,34 +37,31 @@ export function cleanText(value, limit) {
   return typeof value === 'string' ? value.replace(/[\u0000-\u001f\u007f]/g, ' ').trim().slice(0, limit) : '';
 }
 
-function boundedSpeech(speech, limit) {
-  if(speech.length<=limit)return speech;
-  // A provider can ignore the requested length. Keep whole thoughts first;
-  // never silently turn an otherwise complete reply into half a sentence.
-  let end=0;
-  for(const match of speech.slice(0,limit+1).matchAll(/[.!?]+["'”’»\)\]\}]*(?=\s|$)|[。！？]+["'”’»\)\]\}]*/gu)) {
-    const next=match.index+match[0].length;
-    if(next<=limit)end=next;
-  }
-  if(end)return speech.slice(0,end).trimEnd();
-  const prefix=speech.slice(0,limit-1);
-  const words=prefix.replace(/\s+\S*$/u,'').trimEnd();
-  if(words&&/\s/u.test(prefix))return `${words}…`;
-  return 'That reply was too long to finish clearly. Please ask for one part at a time.';
-}
-
 export function normalizePacket(value, depth = 'quick') {
   if (!value || typeof value !== 'object' || typeof value.speech !== 'string' || !value.speech.trim()) {
     throw new TypeError('A character packet needs non-empty speech.');
   }
   const speech=value.speech.replace(/\r\n?/g,'\n').replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/g,' ').trim();
   if(!speech)throw new TypeError('A character packet needs non-empty speech.');
+  // Depth is an instruction/token budget, not a destructive text formatter.
+  // Reject malformed oversized output instead of silently clipping the answer.
+  if(speech.length>MAX_PACKET_CHARACTERS)throw Object.assign(new RangeError('Character reply exceeded its absolute output limit.'),{code:'output_limit'});
   return {
-    speech: boundedSpeech(speech,ANSWER_DEPTHS[answerDepth(depth)].characters),
+    speech,
     emotion: EMOTIONS.includes(value.emotion) ? value.emotion : 'neutral',
     action: ACTIONS.includes(value.action) ? value.action : 'none',
     memory: cleanText(value.memory, 120),
   };
+}
+
+export function sanitizePreferences(value={}) {
+  if(!value||typeof value!=='object'||Array.isArray(value))return {};
+  const preferences={};
+  for(const [key,choices] of Object.entries({answerLength:['short','balanced','detailed'],learningStyle:['hints','explain'],storyIntensity:['gentle','mysterious']}))if(choices.includes(value[key]))preferences[key]=value[key];
+  if(typeof value.speechPace==='number'&&Number.isFinite(value.speechPace)&&value.speechPace>=.75&&value.speechPace<=1.25)preferences.speechPace=value.speechPace;
+  if(Number.isInteger(value.gameQuestionLimit)&&value.gameQuestionLimit>=5&&value.gameQuestionLimit<=20)preferences.gameQuestionLimit=value.gameQuestionLimit;
+  if(typeof value.gameHints==='boolean')preferences.gameHints=value.gameHints;
+  return preferences;
 }
 
 export function sanitizeContext(value = {}) {
@@ -74,9 +74,12 @@ export function sanitizeContext(value = {}) {
     remaining-=id.length+title.length+text.length;
     return [{id,title,text}];
   });
+  const preferences=sanitizePreferences(value.preferences);
   return {
     mode: MODES.includes(value.mode) ? value.mode : 'companion',
     ...(Object.hasOwn(value,'depth') ? {depth:answerDepth(value.depth)} : {}),
+    ...(['conversation','explore','guessing','mystery'].includes(value.activity)?{activity:value.activity}:{}),
+    ...(Object.keys(preferences).length?{preferences}:{}),
     name: cleanText(value.name, 40),
     facts: Array.isArray(value.facts) ? value.facts.map(fact => cleanText(fact, 120)).filter(Boolean).slice(-12) : [],
     ...(cleanText(value.summary,1200) ? {summary:cleanText(value.summary,1200)} : {}),
@@ -84,7 +87,7 @@ export function sanitizeContext(value = {}) {
     ...(knowledge.length ? {knowledge} : {}),
     history: Array.isArray(value.history) ? value.history
       .filter(turn => turn && ['user', 'assistant'].includes(turn.role) && typeof turn.content === 'string')
-      .slice(-12).map(turn => ({ role: turn.role, content: cleanText(turn.content, 600) })) : [],
+      .slice(-16).map(turn => ({ role: turn.role, content: cleanText(turn.content, 1200) })) : [],
   };
 }
 
@@ -94,7 +97,7 @@ export function prepareChatRequest(message, context, provider, stream=false) {
   if(stream)body.stream=true;
   const encoder = new TextEncoder();
   // Keep the latest message. Drop oldest context if multibyte text fills the budget.
-  while (encoder.encode(JSON.stringify(body)).byteLength > 16384) {
+  while (encoder.encode(JSON.stringify(body)).byteLength > CHAT_REQUEST_BYTES) {
     if (body.context.history.length) body.context.history.shift();
     else if (body.context.knowledge?.length) body.context.knowledge.pop();
     else if (body.context.bridge) delete body.context.bridge;
