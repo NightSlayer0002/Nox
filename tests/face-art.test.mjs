@@ -51,7 +51,7 @@ test('an intentional wink closes the left smile smoothly while the right smile k
 test('angry eyes share a baseline and stay open enough to read as eyes',()=>{
   const face=new Face();face.preview('annoyed',0);
   const rectangles=[];
-  const ctx={beginPath(){},stroke(){},fill(){},moveTo(){},lineTo(){},roundRect(x,y,w,h){rectangles.push({x,y,w,h});}};
+  const ctx={globalAlpha:1,save(){},restore(){},translate(){},scale(){},rotate(){},bezierCurveTo(){},beginPath(){},stroke(){},fill(){},moveTo(){},lineTo(){},roundRect(x,y,w,h){rectangles.push({x,y,w,h});}};
   drawEyes(ctx,face.features(.3),0,0,.3,'#fff',false);
   assert.equal(rectangles.length,2);
   assert.equal(rectangles[0].y,rectangles[1].y);

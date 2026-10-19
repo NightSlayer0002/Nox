@@ -3,7 +3,7 @@
 export const EXPRESSIONS = Object.freeze({
   neutral:{eyes:'pill',heights:[1,1]},curious:{eyes:'pill',heights:[1,1]},
   happy:{eyes:'arc',heights:[.73,.73]},content:{eyes:'arc',heights:[.55,.55]},
-  skeptical:{eyes:'half',heights:[.44,.83],brows:'skeptical'},annoyed:{eyes:'half',heights:[.42,.42],brows:'angry'},
+  skeptical:{eyes:'half',heights:[.44,.83],brows:'skeptical'},annoyed:{eyes:'half',heights:[.42,.42],brows:'angry',marks:'anger'},
   sleepy:{eyes:'closed',heights:[.18,.18],marks:'sleep'},yawning:{eyes:'closed',heights:[.18,.18]},
   uncanny:{eyes:'pill',heights:[1.06,1.06]},surprised:{eyes:'ring',heights:[1.14,1.14],brows:'raised'},
   shy:{eyes:'arc',heights:[.6,.6],marks:'blush'},worried:{eyes:'pill',heights:[.6,.64],brows:'worried',marks:'sweat'},

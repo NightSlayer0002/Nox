@@ -25,20 +25,17 @@ export class Face extends OrbSignal {
   poke(now) {
     this.previewUntil=0;
     this.lastInteraction=now;
-    if(now>=this.angerUntil)this.angerAt=now;
-    this.angerUntil=now+1.4;
-    if(now<this.speakingUntil){
-      this.squeezeUntil=0;this.pulseAt=now;
-      return;
-    }
     this.pokes=this.pokes.filter(time=>now-time<1.2);
     if(!this.pokes.length)this.inAnnoyanceBurst=false;
     this.pokes.push(now);
     if(this.reaction==='dizzy'&&now<this.reactionUntil)return;
     if(this.pokes.length>=4){
+      if(now>=this.angerUntil)this.angerAt=now;
+      this.angerUntil=now+2;
       if(!this.inAnnoyanceBurst){this.inAnnoyanceBurst=true;this.annoyanceEpisodes=(this.annoyanceEpisodes+1)%7;this.annoyancePose=this.annoyanceEpisodes===0?'pout':'annoyed';}
       this.reaction=this.annoyancePose;
-    }else this.reaction='happy';
+    }else if(now<this.speakingUntil){this.squeezeUntil=0;this.pulseAt=now;return;}
+    else this.reaction='happy';
     this.squeezeUntil=this.pokes.length%2===0&&this.reaction==='happy'?now+.28:0;
     this.blinkStart=this.reaction==='pout'?-100:now;this.reactionUntil=now+(this.reaction==='happy'?1.5:2);this.pulseAt=now;
   }
@@ -119,7 +116,7 @@ export class Face extends OrbSignal {
     const talking = this.signal.status === 'speaking'&&(level===null||level>.015);
     const impactAge=time-this.impactAt;
     const squash=this.reduceMotion?0:impactAge>=0&&impactAge<.32?Math.sin(impactAge/.32*Math.PI)*this.impactStrength*.22:0;
-    const anger=time>=this.angerAt&&time<this.angerUntil,angerAge=time-this.angerAt;
+    const anger=['annoyed','pout'].includes(emotion)&&time>=this.angerAt&&time<this.angerUntil,angerAge=time-this.angerAt;
     const markOpacity=anger&&!this.reduceMotion?clamp(angerAge/.08,0,1)*clamp((this.angerUntil-time)/.25,0,1):1;
     return {
       expression:emotion,brows:expression.brows,marks:anger?'anger':expression.marks==='sleep'&&this.signal.status==='speaking'?undefined:expression.marks,squash,

@@ -51,59 +51,63 @@ test('speech animates the mouth then returns to the selected expression', () => 
   assert.ok(face.features(1).leftHeight < face.features(1).rightHeight);
 });
 
-test('an idle poke gives a temporary smile and ikari without overwriting dialogue emotion', () => {
+test('an idle poke gives a temporary smile without an ikari or overwriting dialogue emotion', () => {
   const face = new Face(); face.emotion = 'skeptical'; face.poke(2);
   face.update(2.3, .016, { x: .5, y: .46 }, false, false);
   assert.equal(face.features(2.3).mouth, 'happy');
-  assert.equal(face.features(2.3).marks, 'anger');
-  assert.ok(face.features(2.3).markOpacity > 0);
+  assert.notEqual(face.features(2.3).marks, 'anger');
   assert.equal(face.emotion, 'skeptical');
   face.update(4, .016, { x: .5, y: .46 }, false, false);
   assert.equal(face.features(4).mouth, 'skeptical');
   assert.notEqual(face.features(4).marks, 'anger');
 });
 
-test('poking a speaking NOX adds an ikari mark without changing his eyes or interrupting speech',()=>{
+test('one speaking poke preserves his eyes and speech without an ikari mark',()=>{
   const face=new Face();face.speakingUntil=Infinity;face.mouthLevel=.7;
   face.update(1,.016,{x:.5,y:.46},false,false);
   const before=face.features(1);face.poke(1.1);
   face.update(1.2,.016,{x:.5,y:.46},false,false);
   const after=face.features(1.2);
-  assert.equal(after.marks,'anger');assert.ok(after.markOpacity>0);
+  assert.notEqual(after.marks,'anger');
   assert.equal(after.expression,before.expression);assert.equal(after.eyeStyle,before.eyeStyle);
   assert.equal(after.leftHeight,before.leftHeight);assert.equal(after.rightHeight,before.rightHeight);
   assert.equal(after.mouth,'talking');assert.equal(after.open,before.open);
   assert.equal(face.speakingUntil,Infinity);assert.equal(face.emotion,'curious');
 });
 
-test('repeated speech pokes refresh the mark without flicker or spending the rare outrage cadence',()=>{
+test('continuous speech pokes trigger annoyed eyes and ikari without interrupting audio',()=>{
   const face=new Face();face.speakingUntil=Infinity;face.mouthLevel=0;
   face.update(1,.016,{x:.5,y:.46},false,false);face.poke(1);
-  const visible=face.features(1.2).markOpacity;
+  assert.notEqual(face.features(1.1).marks,'anger');
   for(let i=0;i<8;i++)face.poke(1.2+i*.05);
   const after=face.features(1.6);
-  assert.equal(after.marks,'anger');assert.equal(after.markOpacity,visible);
-  assert.equal(after.eyeStyle,'pill');assert.equal(after.mouth,'rest');
-  assert.equal(face.annoyanceEpisodes,0);
+  assert.equal(after.marks,'anger');assert.equal(after.markOpacity,1);
+  assert.equal(after.expression,'annoyed');assert.equal(after.eyeStyle,'half');assert.equal(after.mouth,'rest');
+  assert.equal(face.annoyanceEpisodes,1);
   assert.notEqual(face.features(4).marks,'anger');
   assert.equal(face.speakingUntil,Infinity);
 });
 
-test('the speech ikari fades out, resets cleanly and stays readable with reduced motion',()=>{
-  const face=new Face();face.speakingUntil=Infinity;face.poke(1);
-  face.update(1.2,.016,{x:.5,y:.46},false,false);
-  assert.ok(face.features(1.2).markOpacity>face.features(2.3).markOpacity);
-  assert.notEqual(face.features(3).marks,'anger');
-  face.poke(4);face.update(4.1,.016,{x:.5,y:.46},false,true);
-  assert.equal(face.features(4.1).marks,'anger');assert.equal(face.features(4.1).markOpacity,1);
-  face.clearTouch();assert.notEqual(face.features(4.2).marks,'anger');
+test('annoyed ikari fades with the reaction, resets cleanly and stays readable with reduced motion',()=>{
+  const face=new Face();face.speakingUntil=Infinity;
+  for(let i=0;i<4;i++)face.poke(1+i*.15);
+  face.update(1.6,.016,{x:.5,y:.46},false,false);
+  assert.ok(face.features(1.6).markOpacity>face.features(3.4).markOpacity);
+  assert.notEqual(face.features(3.5).marks,'anger');
+  for(let i=0;i<4;i++)face.poke(4+i*.15);
+  face.update(4.6,.016,{x:.5,y:.46},false,true);
+  assert.equal(face.features(4.6).marks,'anger');assert.equal(face.features(4.6).markOpacity,1);
+  face.setHeld(true,4.7);assert.notEqual(face.features(4.7).marks,'anger');
+  face.clearTouch();assert.notEqual(face.features(4.8).marks,'anger');
 });
 
 test('rapid pokes squeeze his eyes then annoy him, without changing dialogue emotion',()=>{
   const face=new Face();face.emotion='curious';face.poke(1);face.poke(1.2);
   assert.equal(face.features(1.25).eyeStyle,'squeezed');
+  assert.notEqual(face.features(1.25).marks,'anger');
   face.poke(1.4);face.poke(1.6);face.wink(1.61);
   assert.equal(face.features(1.8).mouth,'annoyed');assert.equal(face.emotion,'curious');
+  assert.equal(face.features(1.8).marks,'anger');
   assert.equal(face.features(5).mouth,'curious');
 });
 
