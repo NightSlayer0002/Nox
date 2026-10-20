@@ -1,0 +1,16 @@
+{
+  "id": "/",
+  "name": "NOX — A little intelligence of your own",
+  "short_name": "NOX",
+  "description": "Talk things through, explore an idea, or play something together.",
+  "start_url": "/guest#conversation",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#101213",
+  "theme_color": "#101213",
+  "icons": [
+    {"src":"/assets/nox/icon-192.png","sizes":"192x192","type":"image/png","purpose":"any maskable"},
+    {"src":"/assets/nox/icon-512.png","sizes":"512x512","type":"image/png","purpose":"any maskable"},
+    {"src":"/icon.svg","sizes":"any","type":"image/svg+xml","purpose":"any"}
+  ]
+}
