@@ -85,7 +85,7 @@ function toast(text) {
 }
 
 const sceneLabels = { none: 'Click to react. Drag to play.', gravity: 'Gravity is on. Pick NOX up and let go.', spotlight: 'Move the light with your cursor.', orbit: 'A small universe.', echo: 'An authored scene. Another presence.', takeover: 'Creative control: NOX.' };
-const stage = new Stage($('stage'));
+const stage = new Stage($('stage'),undefined,{captionTarget:$('stage-caption')});
 connectStageControls(stage,{
   sceneButtons:[...document.querySelectorAll('[data-scene]')],
   formButtons:[...document.querySelectorAll('button[data-form]')],
@@ -150,6 +150,7 @@ $('presence-size').addEventListener('click',()=>{
 stage.onBeforeFrame=()=>{
   stage.character.mouthLevel=voice.mouthLevel;
   const chatting=document.body.dataset.view==='conversation';
+  stage.captionTargetEnabled=chatting&&!document.body.classList.contains('film');
   stage.captionMode=chatting&&compactPresence.matches&&document.body.dataset.presenceExpanded!=='true'&&!document.body.classList.contains('film')?'hidden':chatting?'speaking':'linger';
 };
 const camera = createCamera();

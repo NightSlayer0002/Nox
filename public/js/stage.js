@@ -8,14 +8,14 @@ const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
 const smooth = value => value * value * (3 - 2 * value);
 
 export class Stage {
-  constructor(canvas, onScene, {landing=false,transparent=false,movable=true}={}) {
+  constructor(canvas, onScene, {landing=false,transparent=false,movable=true,captionTarget=null}={}) {
     this.canvas = canvas; this.ctx = canvas.getContext('2d');
     this.events = new AbortController();
     this.forms = { face: new Face() }; this.form = 'face'; this.character = this.forms.face;
     this.landing=landing;this.transparent=transparent;this.movable=movable;
     if(landing){this.character.x=this.character.targetX=.76;this.character.y=this.character.targetY=.68;this.character.scale=.85;}
     this.pointer = { x: .5, y: .45 }; this.dragging = false; this.mode = 'companion';
-    this.captionMode = 'linger'; this.narrating = false;
+    this.captionMode = 'linger'; this.narrating = false; this.captionTarget=captionTarget;
     this.caption = 'Oh. You found me.'; this.captionUntil = 8;
     this.scene = null; this.started = performance.now(); this.time = 0; this.previous = 0;
     this.camera = null; this.onScene = onScene;
@@ -308,7 +308,17 @@ export class Stage {
       ctx.textAlign = 'center'; ctx.fillText('CREATIVE CONTROL: NOX', w * .5, h * .15);
     }
     const captionAlpha = this.captionOpacity();
-    if (captionAlpha > 0) this.drawCaption(this.caption, captionAlpha);
+    // Conversation text lives outside the artwork's CSS mask. Recordings and
+    // film/studio views still burn their captions into the capture canvas.
+    const externalCaption=this.captionTarget&&this.captionTargetEnabled!==false&&this.captionMode==='speaking'&&!this.recordingLocked;
+    if(this.captionTarget){
+      this.captionTarget.hidden=!externalCaption||captionAlpha<=0;
+      if(externalCaption){
+        if(this.captionTarget.textContent!==this.caption)this.captionTarget.textContent=this.caption;
+        const opacity=String(captionAlpha);if(this.captionTarget.style.opacity!==opacity)this.captionTarget.style.opacity=opacity;
+      }
+    }
+    if (captionAlpha > 0&&!externalCaption) this.drawCaption(this.caption, captionAlpha);
   }
   drawOrbit(age,layer) {
     if(!this.orbitEffect)this.orbitEffect=createOrbitEffect();

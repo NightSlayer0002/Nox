@@ -261,8 +261,12 @@
 .workspace[data-view=conversation] .companion-welcome{padding:24px 0}
 .workspace[data-view=conversation][data-conversation-started=true] .companion-column{justify-content:initial}
 .workspace[data-view=conversation] .conversation{padding:24px 4px 36px 0}
-.workspace[data-view=conversation] .stage-column{align-self:center;top:0;min-width:0}
-.workspace[data-view=conversation] .stage-wrap{height:clamp(220px,48vh,420px)}
+.workspace[data-view=conversation] .stage-column{--presence-stage-height:clamp(220px,48vh,420px);align-self:center;top:0;min-width:0}
+.workspace[data-view=conversation] .stage-wrap{height:var(--presence-stage-height)}
+.workspace .stage-caption-band{display:none}
+.workspace[data-view=conversation]:not(.film) .stage-caption-band{display:flex;justify-content:center;position:relative;z-index:1;min-height:92px;margin-top:calc(var(--presence-stage-height) * -.12);padding:4px 10px 0;pointer-events:none}
+.workspace .stage-caption{margin:0;max-width:34ch;font:400 14px/1.5 var(--font-ui);text-align:center;text-wrap:pretty;color:var(--text);background:none;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:4;overflow:hidden}
+.workspace .stage-caption[hidden]{display:none}
 .workspace[data-view=conversation][data-form=core] .stage-wrap>canvas{mask-image:radial-gradient(ellipse at center,#000 48%,transparent 76%)}
 .workspace[data-view=conversation] .stage-hint{display:none}
 .workspace .conversation-dock{grid-column:1/-1;grid-row:2;min-width:0;width:100%;padding:0 0 4px}

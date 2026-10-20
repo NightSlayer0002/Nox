@@ -144,3 +144,27 @@ test('hidden stage captions stay off screen while the same spoken text remains i
   assert.deepEqual(render(30),[]);
   assert.equal(stage.character.speakingUntil,Infinity);
 });
+
+test('a conversation caption target keeps text outside the masked artwork canvas',()=>{
+  const {stage,render}=fixture(),target={hidden:true,textContent:'',style:{}};
+  stage.captionTarget=target;stage.speak(packet);stage.narrating=true;
+  assert.deepEqual(textDraws(render(1)),[],'do not duplicate subtitles under the artwork mask');
+  assert.equal(target.hidden,false);assert.equal(target.textContent,packet.speech);
+  assert.equal(target.style.opacity,'1');
+  stage.scene={action:'gravity',start:0,velocity:1};stage.character.y=.8;
+  render(2);assert.equal(target.style.opacity,'1');assert.equal(target.textContent,packet.speech);
+  stage.narrating=false;render(2.5);assert.equal(target.hidden,true);
+});
+
+test('recording and film presentations retain embedded captions without restarting narration',()=>{
+  const {stage,render}=fixture(),target={hidden:true,textContent:'',style:{}};
+  stage.captionTarget=target;stage.speak(packet);stage.narrating=true;stage.character.speakingUntil=Infinity;
+  render(1);assert.equal(target.hidden,false);
+  stage.recordingLocked=true;
+  assert.equal(textDraws(render(2))[0].text,packet.speech);assert.equal(target.hidden,true);
+  stage.recordingLocked=false;stage.captionTargetEnabled=false;
+  assert.equal(textDraws(render(3))[0].text,packet.speech);assert.equal(target.hidden,true);
+  stage.captionTargetEnabled=true;
+  assert.deepEqual(textDraws(render(4)),[]);assert.equal(target.hidden,false);
+  assert.equal(stage.narrating,true);assert.equal(stage.character.speakingUntil,Infinity);
+});
