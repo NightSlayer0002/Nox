@@ -62,6 +62,10 @@
 .workspace .message-actions img,.workspace .presence-controls img{filter:invert(.8)}
 :root[data-theme=light] .workspace :is(.message-actions,.presence-controls) img{filter:none}
 .workspace .message-actions button:hover{color:var(--accent)}
+.workspace #conversation .message-actions button{width:24px;height:26px;min-width:24px;min-height:26px;padding:4px;border:0;background:transparent;box-shadow:none;opacity:.72}
+.workspace #conversation .message-actions button:is(:hover,:active,:focus-visible){background:transparent;border:0;box-shadow:none;opacity:1}
+.workspace #conversation .message-actions button:focus-visible{outline:1px solid var(--accent);outline-offset:1px}
+.workspace #conversation .message-actions img{width:14px;height:14px}
 .workspace .composer{flex-shrink:0;margin-top:auto;border:1px solid var(--line);background:var(--surface);border-radius:26px;padding:8px 12px 8px 18px;box-shadow:none}
 .workspace .composer:focus-within{border-color:color-mix(in srgb,var(--accent) 45%,transparent);box-shadow:0 3px 18px #00000012}
 .workspace .composer textarea{font-size:16px;min-height:36px;max-height:180px;padding:8px 4px 2px;background:transparent;line-height:1.5}
@@ -226,9 +230,9 @@
 .workspace .composer.composer-source .composer-options-panel{left:auto;right:8px;bottom:calc(100% + 8px);max-width:calc(100vw - 52px)}
 .workspace .presence-controls{display:none}
 .workspace[data-view=conversation] .presence-controls{display:flex;justify-content:center;align-items:center;flex-wrap:wrap;gap:5px}
-.workspace .presence-appearance{margin-bottom:2px}
+.workspace .presence-appearance{margin:0}
 .workspace[data-view=conversation] .stage-bezel{width:100%;padding:0}
-.workspace .presence-effects{margin:8px -4px 0}
+.workspace .presence-effects{margin:0}
 .workspace .presence-controls :is(button,select){display:inline-flex;align-items:center;gap:5px;min-height:32px;padding:5px 8px;border:1px solid transparent;border-radius:6px;font-size:13px;font-weight:400;color:var(--muted);background:transparent;box-shadow:none;white-space:nowrap}
 .workspace .presence-controls button[aria-pressed=true]{color:var(--accent);border-color:var(--line);background:color-mix(in srgb,var(--accent) 4%,transparent)}
 .workspace .presence-controls select{max-width:110px;cursor:pointer}
@@ -247,4 +251,60 @@
  .workspace .composer.composer-source .composer-tools,.workspace .composer.composer-source .composer-actions{gap:0}
  .workspace .composer #composer-voice{width:36px;min-width:36px;padding:0}
  .workspace .composer .composer-voice-label{display:none}
+}
+
+/* A single conversation surface: dialogue and NOX share the input below them. */
+.workspace .rail-chat-index{display:block;min-height:24px;line-height:24px;text-decoration:none;font-size:13px;margin-bottom:-16px}
+.workspace .rail-chat-index:is(:hover,.selected){color:var(--accent)}
+.workspace[data-view=conversation] .studio{display:grid;width:100%;max-width:1280px;align-self:center;grid-template-columns:minmax(0,1fr) clamp(300px,28vw,400px);grid-template-rows:minmax(0,1fr) auto;gap:16px clamp(24px,3vw,48px);align-items:stretch}
+.workspace[data-view=conversation] .companion-column{grid-column:1;grid-row:1;width:100%;margin:0;padding-top:0!important;justify-content:center}
+.workspace[data-view=conversation] .companion-welcome{padding:24px 0}
+.workspace[data-view=conversation][data-conversation-started=true] .companion-column{justify-content:initial}
+.workspace[data-view=conversation] .conversation{padding:24px 4px 36px 0}
+.workspace[data-view=conversation] .stage-column{align-self:center;top:0;min-width:0}
+.workspace[data-view=conversation] .stage-wrap{height:clamp(220px,48vh,420px)}
+.workspace[data-view=conversation][data-form=core] .stage-wrap>canvas{mask-image:radial-gradient(ellipse at center,#000 48%,transparent 76%)}
+.workspace[data-view=conversation] .stage-hint{display:none}
+.workspace .conversation-dock{grid-column:1/-1;grid-row:2;min-width:0;width:100%;padding:0 0 4px}
+.workspace .conversation-dock[hidden]{display:none}
+.workspace .conversation-dock .composer.composer-source{width:100%;max-width:none;margin:0}
+.workspace .conversation-dock .composer-help{text-align:center;margin:8px 0 0}
+.workspace[data-view=conversation][data-presence=hidden] .studio{grid-template-columns:minmax(0,1fr)}
+.workspace .presence-toolbar{display:none}
+.workspace[data-view=conversation] .presence-toolbar{position:absolute;top:20%;right:10%;display:block;min-height:28px}
+.workspace[data-view=conversation] .presence-toolbar .stage-playback{position:static;inset:auto;display:flex;width:auto;gap:8px;margin:0;padding:0;transform:none;pointer-events:auto}
+.workspace[data-view=conversation]:not([data-conversation-started=true]) .presence-toolbar .stage-playback{display:none}
+.workspace .presence-menu{position:relative;z-index:12}
+.workspace .presence-menu summary{display:flex;align-items:center;justify-content:center;width:28px;min-height:28px;padding:0;color:var(--muted);opacity:.7;list-style:none;cursor:pointer}
+.workspace .presence-menu summary::-webkit-details-marker{display:none}
+.workspace .presence-menu summary img{filter:invert(.8)}
+:root[data-theme=light] .workspace .presence-menu summary img{filter:none}
+.workspace .presence-menu summary:is(:hover,:focus-visible){color:var(--accent);opacity:1}
+.workspace .presence-menu-panel{position:absolute;right:0;top:calc(100% + 8px);width:280px;max-width:calc(100vw - 36px);max-height:calc(var(--workspace-height,100dvh) - 180px);overflow-y:auto;display:grid;gap:16px;padding:18px;border:1px solid var(--line);border-radius:12px;background:var(--bg);box-shadow:0 12px 36px #0004}
+.workspace .presence-menu-panel fieldset{border:0;padding:0;margin:0;min-width:0}
+.workspace .presence-menu-panel legend,.workspace .presence-expression-label{padding:0;font-size:12px;color:var(--muted);line-height:1.5}
+.workspace .presence-menu-panel legend{margin-bottom:6px}
+.workspace .presence-menu-panel .presence-controls{justify-content:flex-start;gap:4px}
+.workspace .presence-menu-panel :is(button,select){font-size:13px;min-height:34px;padding:5px 8px;border-radius:5px}
+.workspace .presence-menu-panel button{border-color:transparent;background:transparent;box-shadow:none;font-weight:400}
+.workspace .presence-menu-panel button:is(:hover,[aria-pressed=true]){background:var(--surface);color:var(--accent);box-shadow:none}
+.workspace .presence-expression-label{display:grid;grid-template-columns:auto 1fr;align-items:center;gap:12px}
+.workspace .presence-expression-label select{width:100%;min-width:0;max-width:none;background:var(--surface);border:1px solid var(--line);color:var(--text)}
+.workspace .presence-menu-panel>a{font-size:13px;color:var(--muted);text-underline-offset:4px}
+.workspace.film .presence-toolbar{display:none}
+@media(min-width:901px) and (max-width:1150px){.workspace[data-view=conversation] .studio{grid-template-columns:minmax(0,1fr) 280px;column-gap:24px}}
+@media(max-width:900px){
+ .workspace[data-view=conversation] .studio{grid-template-columns:minmax(0,1fr);gap:12px 0;max-width:none}
+ .workspace[data-view=conversation] .companion-column{min-height:0;grid-column:1;grid-row:1}
+ .workspace[data-view=conversation] .companion-welcome{padding:128px 0 20px}
+ .workspace[data-view=conversation][data-conversation-started=true] .conversation{padding-top:128px}
+ .workspace[data-view=conversation] .stage-column{grid-column:auto;grid-row:auto}
+ .workspace[data-view=conversation] .presence-toolbar{position:absolute;top:0;right:0;min-height:28px;pointer-events:auto}
+ .workspace[data-view=conversation] .presence-toolbar .stage-playback{display:none}
+ .workspace .presence-menu summary{min-width:28px;min-height:28px;justify-content:center;padding:0}
+ .workspace .presence-menu-panel{top:calc(100% + 8px);bottom:auto;right:0;width:264px}
+ .workspace[data-view=conversation] .presence-menu-panel .presence-controls{display:flex}
+ .workspace #conversation .message-actions button{width:32px;height:32px;min-width:32px;min-height:32px;padding:8px}
+ .workspace[data-keyboard-open=true][data-view=conversation] .companion-welcome{padding-top:72px;padding-bottom:8px}
+ .workspace[data-keyboard-open=true][data-view=conversation] .conversation{padding-top:74px}
 }

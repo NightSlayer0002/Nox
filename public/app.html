@@ -12,8 +12,8 @@
 <aside id="workspace-nav" class="sidebar" aria-label="Workspace navigation"><button id="close-navigation" type="button" class="quiet-button mobile-only">Close menu</button>
 <a class="brand" href="/" aria-label="NOX home"><span class="brand-mark" aria-hidden="true"><i></i><i></i></span><span>NOX</span></a>
 <button id="new-chat" class="new-chat">New conversation</button>
-<nav aria-label="Workspace"><a href="#conversation" data-view="conversation" class="selected"><i class="source-icon icon-voice" aria-hidden="true"></i>NOX</a><a href="#library" data-view="library"><i class="source-icon icon-notes" aria-hidden="true"></i>Chats</a><a href="#discover" data-view="discover"><i class="source-icon icon-orbit" aria-hidden="true"></i>Discover</a></nav>
-<p class="rail-label">Recent conversations</p><div id="recent-chats" class="recent-chats"></div>
+<nav aria-label="Workspace"><a href="#conversation" data-view="conversation" class="selected"><i class="source-icon icon-voice" aria-hidden="true"></i>NOX</a><a href="#discover" data-view="discover"><i class="source-icon icon-orbit" aria-hidden="true"></i>Discover</a></nav>
+<a class="rail-label rail-chat-index" href="#library" data-view="library" title="Search and manage your chats">Chats</a><div id="recent-chats" class="recent-chats"></div>
 <div class="rail-bottom"><a href="#memory">Preferences</a><button id="knowledge-button" class="quiet-button">Notes for this visit</button><a href="#access">Free &amp; Plus</a><a href="/" class="rail-version">NOX home</a></div>
 </aside>
 <div id="workspace-shell" class="shell">
@@ -43,7 +43,6 @@
 <div class="intro"><div><h1 id="workspace-heading">Explore</h1><p class="intro-note" id="workspace-note">A place to begin.</p></div></div>
 <div class="studio">
 <section class="stage-column" id="world" aria-label="NOX's world">
-<div class="presence-controls presence-appearance" role="group" aria-label="NOX appearance"><button type="button" data-form="face" aria-pressed="true">Presence</button><button type="button" data-form="liquid" aria-pressed="false">Liquid metal</button><button type="button" data-form="core" aria-pressed="false">Signal</button></div>
 <div id="stage-heading" class="instrument-heading"><span>NOX</span><span id="stage-time" class="stage-clock" aria-label="Scene elapsed time">00:00</span><a href="#scenes" class="quiet-button">Open studio</a></div>
 <div class="stage-bezel"><div class="stage-wrap" id="stage-wrap">
 <canvas id="stage" aria-label="Animated NOX face. Move the cursor to look around. Click to make him smile, double-click or press Space to wink. Drag or use arrow keys to move him. Shake quickly while holding him for spiral eyes." tabindex="0"></canvas>
@@ -52,7 +51,11 @@
 <button id="exit-film" class="exit-film" hidden>Exit film mode · F</button><button id="film-record" class="film-record">Record clip</button>
 <div id="stage-playback" class="stage-playback"><button id="replay-voice" class="quiet-button" type="button" title="Replay NOX’s last spoken reply"><i class="source-icon icon-voice" aria-hidden="true"></i><span>Replay voice</span></button><button id="stop-speaking" class="quiet-button" type="button">Stop speaking</button></div>
 </div></div>
-<div class="presence-controls presence-effects" role="group" aria-label="Play with NOX"><button type="button" data-scene="gravity" aria-pressed="false"><img src="/vendor/lucide/arrow-down-to-line.svg" width="15" height="15" alt="" aria-hidden="true">Gravity</button><button type="button" data-scene="takeover" aria-pressed="false"><img src="/vendor/lucide/maximize.svg" width="15" height="15" alt="" aria-hidden="true">Takeover</button><select id="presence-expression" aria-label="NOX expression"><option value="">Expression</option></select></div>
+<div id="presence-toolbar" class="presence-toolbar"><details id="presence-menu" class="presence-menu"><summary aria-label="Play with NOX" title="Play with NOX: appearance, expression and effects"><img src="/vendor/lucide/orbit.svg" width="15" height="15" alt="" aria-hidden="true"></summary><div id="presence-menu-panel" class="presence-menu-panel">
+<fieldset><legend>Appearance</legend><div class="presence-controls presence-appearance"><button type="button" data-form="face" aria-pressed="true">Presence</button><button type="button" data-form="liquid" aria-pressed="false">Liquid metal</button><button type="button" data-form="core" aria-pressed="false">Signal</button></div></fieldset>
+<fieldset><legend>Effects</legend><div class="presence-controls presence-effects"><button type="button" data-scene="gravity" aria-pressed="false"><img src="/vendor/lucide/arrow-down-to-line.svg" width="15" height="15" alt="" aria-hidden="true">Gravity</button><button type="button" data-scene="takeover" aria-pressed="false"><img src="/vendor/lucide/maximize.svg" width="15" height="15" alt="" aria-hidden="true">Takeover</button></div></fieldset>
+<label class="presence-expression-label" for="presence-expression">Expression<select id="presence-expression"><option value="">Choose expression</option></select></label><a href="#scenes">Open studio</a>
+</div></details></div>
 <p id="scene-label" class="stage-hint">Click to react. Drag to play.</p>
 <div class="presence-mobile-copy"><span>NOX is here</span><small id="presence-mobile-status">Ready when you are.</small><button id="presence-size" type="button" class="quiet-button" aria-controls="stage-wrap" aria-expanded="false">Enlarge NOX</button></div>
 </section>
@@ -94,6 +97,8 @@
 <h2 id="chat-title" class="sr-only">New conversation</h2>
 <div id="conversation-welcome"></div>
 <div class="conversation" id="conversation" aria-live="polite" aria-label="Conversation with NOX"></div>
+</aside>
+<section class="conversation-dock" data-panel="conversation" aria-label="Message composer" hidden>
 <p id="reply-timing" class="reply-timing" role="status"></p><div id="connection-help" class="connection-help"><p id="connection-message">Checking the AI connection…</p><button id="unlock-ai" class="quiet-button">Connect AI </button></div>
 <!-- Native adaptation of Vercel AI Elements PromptInput/InputGroup; licensed sources in /vendor/ai-elements. -->
 <form id="chat-form" class="composer composer-source" aria-describedby="composer-help depth-note">
@@ -106,7 +111,7 @@
 <p class="knowledge-sources" id="knowledge-context" hidden></p>
 
 
-</aside>
+</section>
 </div>
 <footer><span>NOX</span><span>Double-click to wink · F for film mode · Escape to reset</span></footer>
 </main>

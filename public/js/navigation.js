@@ -16,8 +16,10 @@ export function createNavigation({history,onOpen,onNew,onStart}) {
     const view=location.hash.slice(1),current=Object.hasOwn(views,view)?view:'conversation';
     document.body.dataset.view=current;$('view-label').textContent=views[current][0];
     const [first,,note]=views[current];$('workspace-heading').textContent=first;$('workspace-note').textContent=note;
-    // Keep one clock: chat docks it inside the card; other stages leave the caption band clear.
+    // Reparent the existing controls, never the canvas or narration state.
+    $(current==='conversation'?'presence-menu-panel':'stage-wrap').append($('stage-playback'));
     $(current==='conversation'?'stage-playback':'stage-heading').append($('stage-time'));
+    $('presence-menu').open=false;
     const panel=current==='guessing'?'learn':current==='explore'?'discover':current;
     document.querySelectorAll('[data-panel]').forEach(p=>p.hidden=p.dataset.panel!==panel);
     document.querySelectorAll('a[data-view]').forEach(link=>{const active=link.dataset.view===current||current==='explore'&&link.dataset.view==='discover';link.classList.toggle('selected',active);if(active)link.setAttribute('aria-current','page');else link.removeAttribute('aria-current');});

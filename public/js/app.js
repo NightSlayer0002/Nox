@@ -21,7 +21,7 @@ import { spokenPreview } from './reply.js';
 import {sourceBackground} from './source-background.js';
 import { afterimageBridge, applyAfterimageCue } from './afterimage-bridge.js';
 import {visit,initialVisitStatus,requestVisitStatus} from './visit-scope.js';
-import {attachComposerOptions,createComposerSizer,createReplyDiagnostics} from './conversation-controls.js';
+import {attachComposerOptions,attachDetailsMenu,createComposerSizer,createReplyDiagnostics} from './conversation-controls.js';
 import {createChatMessage} from './chat-message.js';
 import {createActivitySignal} from './activity-signal.js';
 import {approvedPreferences,companionBridge,companionChanged,rememberActivity} from './companion-context.js';
@@ -47,6 +47,12 @@ const apiHeaders = (token = ownerToken) => ({'content-type':'application/json',.
 const turns = createTurnGate();
 const composer=createComposerSizer($('message'));
 const composerOptions=attachComposerOptions($('composer-options'));
+attachDetailsMenu($('presence-menu'));
+function closePresenceMenu(){
+  $('presence-menu').open=false;
+  $('presence-menu').querySelector('summary').focus({preventScroll:true});
+}
+$('presence-menu').addEventListener('click',event=>{if(event.target.closest('button[data-form],button[data-scene]'))closePresenceMenu();});
 const replyDiagnostics=createReplyDiagnostics({status:$('reply-timing'),metrics:$('developer-timing'),toggle:$('developer-mode')});
 let activityTurn;
 const activity=createActivitySignal({onChange:renderActivity});

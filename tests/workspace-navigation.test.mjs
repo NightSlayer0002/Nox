@@ -13,7 +13,7 @@ class Element extends EventTarget {
   click(){this.dispatchEvent(new Event('click'));}
 }
 function fixture(hash='#conversation') {
-  const ids=['view-label','workspace-heading','workspace-note','workspace-main','workspace-shell','recent-chats','resume-chats','history-search','history-count','history-list','history-storage-note','new-chat','export-history','today-label','menu-button','close-navigation','workspace-nav','presence-toggle','message','stage-time','stage-heading','stage-playback'];
+  const ids=['view-label','workspace-heading','workspace-note','workspace-main','workspace-shell','recent-chats','resume-chats','history-search','history-count','history-list','history-storage-note','new-chat','export-history','today-label','menu-button','close-navigation','workspace-nav','presence-toggle','message','stage-time','stage-heading','stage-playback','stage-wrap','presence-toolbar','presence-menu','presence-menu-panel'];
   const nodes=Object.fromEntries(ids.map(id=>[id,new Element()]));
   const panels=['conversation','explore','library','scenes','afterimage'].map(view=>new Element({panel:view}));
   const links=panels.map(panel=>new Element({view:panel.dataset.panel}));
@@ -93,4 +93,16 @@ test('the scene clock moves into the Conversation card and returns above other s
   assert.equal(nodes['stage-heading'].children.at(-1),nodes['stage-time']);
   navigation.setView('conversation');
   assert.equal(nodes['stage-playback'].children.at(-1),nodes['stage-time']);
+});
+
+test('conversation shares its input dock and moves playback controls without rebuilding the stage',()=>{
+  const {nodes,panels,navigation}=fixture(),dock=new Element({panel:'conversation'});
+  panels.push(dock);nodes.message.value='A thought still being written';
+  navigation.setView('conversation');assert.equal(dock.hidden,false);
+  assert.equal(nodes['presence-menu-panel'].children.at(-1),nodes['stage-playback']);
+  nodes['presence-menu'].open=true;
+  navigation.setView('afterimage');assert.equal(dock.hidden,true);assert.equal(nodes['presence-menu'].open,false);
+  assert.equal(nodes['stage-wrap'].children.at(-1),nodes['stage-playback']);
+  navigation.setView('conversation');assert.equal(dock.hidden,false);
+  assert.equal(nodes.message.value,'A thought still being written');
 });

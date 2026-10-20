@@ -69,3 +69,6 @@ export function attachComposerOptions(details,{documentTarget=globalThis.documen
   form?.addEventListener('submit',close);
   return {close};
 }
+
+// Both menus share native activation, outside-click dismissal and Escape focus.
+export const attachDetailsMenu=attachComposerOptions;
