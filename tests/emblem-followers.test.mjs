@@ -6,18 +6,24 @@ const pose={screenX:.75,screenY:.49,size:.34,opacity:1};
 const frame={pose,width:1280,height:800,time:0,delta:1/60,pointer:null};
 const centroid=agents=>({x:agents.reduce((n,a)=>n+a.x,0)/agents.length,y:agents.reduce((n,a)=>n+a.y,0)/agents.length});
 
-test('a few robotic followers chase the cursor with momentum and leave a real movement history',()=>{
-  const followers=createEmblemFollowers(),initial=followers.update(frame),start=centroid(initial.agents);
-  assert.ok(initial.agents.length>=2&&initial.agents.length<=5);
-  const pointer={x:.2,y:.35,at:0};
-  const first=followers.update({...frame,pointer,time:1/60}),moved=centroid(first.agents);
-  assert.ok(moved.x<start.x&&moved.x>256,'approach the cursor rather than teleport');
-  for(let i=2;i<=120;i++)followers.update({...frame,pointer:{...pointer,at:i/60},time:i/60});
-  const after=followers.update({...frame,pointer:{...pointer,at:2},time:2});
-  assert.ok(Math.abs(centroid(after.agents).x-256)<150);
-  for(const agent of after.agents){
-    assert.ok(agent.trailCount>2);
-    assert.ok(Math.hypot(agent.trail[0]-agent.trail[agent.trail.length-3],agent.trail[1]-agent.trail[agent.trail.length-2])>2);
+test('the three followers stay with the emblem regardless of cursor activity',()=>{
+  const calm=createEmblemFollowers(),pointed=createEmblemFollowers();
+  for(let i=0;i<=240;i++){
+    const input={...frame,time:i/60,pose:{...pose,screenX:.75-i/240*.5}};
+    const expected=calm.update(input),actual=pointed.update({...input,pointer:{x:i%2,y:.1,at:i/60}});
+    assert.equal(actual.agents.length,3);
+    assert.deepEqual(actual.agents.map(a=>[a.x,a.y]),expected.agents.map(a=>[a.x,a.y]));
+  }
+});
+
+test('the robotic followers remain evenly divided around the eyes-and-smile face',()=>{
+  const followers=createEmblemFollowers();
+  for(let i=0;i<=1200;i++){
+    const {agents}=followers.update({...frame,time:i/60});
+    if(i%120)continue;
+    const center=centroid(agents),angles=agents.map(a=>Math.atan2((a.y-center.y)/.83,a.x-center.x)).sort((a,b)=>a-b);
+    assert.ok(Math.hypot(center.x-pose.screenX*frame.width,center.y-pose.screenY*frame.height)<1);
+    for(let n=0;n<3;n++)assert.ok(Math.abs((angles[(n+1)%3]-angles[n]+Math.PI*2)%(Math.PI*2)-Math.PI*2/3)<.02,'preserve equal spacing as they fly');
   }
 });
 
@@ -46,13 +52,13 @@ for(const fps of [30,60,144])test(`flight ribbons retain about one second of act
   }
 });
 
-test('reduced motion removes autonomous flight and long trails but still acknowledges pointer movement',()=>{
+test('reduced motion freezes the formation while still following the emblem',()=>{
   const followers=createEmblemFollowers(),before=followers.update({...frame,reduceMotion:true}).agents.map(a=>({x:a.x,y:a.y}));
   const still=followers.update({...frame,time:30,reduceMotion:true});
   assert.deepEqual(still.agents.map(a=>({x:a.x,y:a.y})),before);
-  const pointed=followers.update({...frame,time:31,pointer:{x:.2,y:.4,at:31},reduceMotion:true});
-  assert.ok(centroid(pointed.agents).x<500,'direct interaction remains visible');
-  assert.ok(pointed.agents.every(a=>a.trailCount===1));
+  const moved=followers.update({...frame,pose:{...pose,screenX:.23},time:31,reduceMotion:true});
+  assert.ok(centroid(moved.agents).x<500,'scrolling still places them around the face');
+  assert.ok(moved.agents.every(a=>a.trailCount===1));
 });
 
 test('resizing or resuming a hidden tab resets trails instead of drawing a line across the page',()=>{
@@ -65,10 +71,10 @@ test('resizing or resuming a hidden tab resets trails instead of drawing a line 
   }
 });
 
-test('cursor followers leave the headline and its controls clear instead of sitting over the copy',()=>{
-  const followers=createEmblemFollowers(),avoid=[{left:0,right:1280,top:0,bottom:80},{left:110,right:740,top:110,bottom:470}];
+test('text regions do not deflect the followers or cut their trails',()=>{
+  const free=createEmblemFollowers(),overText=createEmblemFollowers(),avoid=[{left:700,right:1250,top:100,bottom:700}];
   for(let i=0;i<240;i++){
-    const result=followers.update({...frame,time:i/60,pointer:{x:.3,y:.3,at:i/60},avoid});
-    for(const a of result.agents)for(const r of avoid)assert.ok(!(a.x>r.left-20&&a.x<r.right+20&&a.y>r.top-20&&a.y<r.bottom+20));
+    const expected=free.update({...frame,time:i/60}),actual=overText.update({...frame,time:i/60,avoid});
+    assert.deepEqual(actual.agents.map(a=>[a.x,a.y,a.trailCount,...a.trail]),expected.agents.map(a=>[a.x,a.y,a.trailCount,...a.trail]));
   }
 });

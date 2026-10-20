@@ -88,16 +88,16 @@ body.landing {overflow-x:clip;-webkit-font-smoothing:antialiased}
 .material-label small{font-size:9px;color:var(--muted);letter-spacing:.025em}
 .material-help{font-size:10px;line-height:1.7;margin:15px 0 0;color:var(--muted)}
 
-/*! R3F viewport mapping: the brand emblem is a background scene, not a panel. */
-.contact-emblem{position:fixed;inset:0;z-index:-1;pointer-events:none;overflow:hidden}
-.source-logo{position:relative;width:100%;height:100%;pointer-events:none}
-.logo-canvas{position:absolute;inset:0;pointer-events:none}
+/*! The shared visual crosses the copy; its hit target stays below the controls. */
+.contact-emblem,.source-logo{display:contents;pointer-events:none}
+.logo-canvas{position:fixed;inset:0;z-index:5;pointer-events:none}
 .logo-canvas canvas{pointer-events:none}
 .logo-static{position:absolute;left:64%;top:25%;width:25%;height:40%;display:grid;place-items:center;pointer-events:none;opacity:.4}
+.contact-emblem>.logo-static{position:fixed}
 .logo-static img{width:70%;max-width:210px}
 .logo-loading{position:absolute;inset:0;pointer-events:none;z-index:1}
 .logo-loading[hidden]{display:none}
-.logo-fallback{position:absolute;inset:0}
+.logo-fallback{position:fixed;inset:0;z-index:0}
 .source-logo[data-state=fallback] .logo-canvas{visibility:hidden}
 #features .contact-copy,#about .contact-copy{margin-left:auto;width:46vw}
 #features .chapter-margin,#about .chapter-margin{right:auto;left:9vw;text-align:left}
@@ -111,7 +111,6 @@ body.landing {overflow-x:clip;-webkit-font-smoothing:antialiased}
 @media(max-width:700px){
  #home.contact-chapter{padding-bottom:90px;min-height:100svh}
  #features .contact-copy,#about .contact-copy{margin-left:0;width:100%}
- .contact-emblem{opacity:.7}
  .hero-visual{position:relative;left:auto;right:auto;top:auto;bottom:auto;width:100%;height:260px;margin-top:12px}
  .mascot-room{right:-10px;bottom:-30px;width:155px;height:180px}
  .nox-peek{width:120px;height:140px}
@@ -152,8 +151,7 @@ body.landing{background:#050909}
 .contact-copy h1{font-size:clamp(52px,5.9vw,102px);font-weight:400;letter-spacing:-.055em;line-height:1.03;margin:30px 0}
 .contact-copy h2{font-weight:400;font-size:clamp(48px,5.4vw,86px);line-height:1.07;letter-spacing:-.05em}
 .contact-description{font-size:clamp(14px,1.15vw,18px);line-height:1.7;max-width:450px}
-.contact-emblem{z-index:0}
-.logo-touch-target{position:absolute;top:0;left:0;padding:0;border:0;background:transparent;border-radius:50%;pointer-events:auto;cursor:grab;touch-action:pan-y;opacity:1}
+.logo-touch-target{position:fixed;z-index:1;top:0;left:0;padding:0;border:0;background:transparent;border-radius:50%;pointer-events:auto;cursor:grab;touch-action:pan-y;opacity:1}
 .logo-touch-target:hover,.logo-touch-target:active{background:transparent;border:0;box-shadow:none}
 .logo-touch-target:active{cursor:grabbing}.logo-touch-target:focus-visible{outline:1px solid var(--accent);outline-offset:-25px}
 .hero-actions{display:flex;align-items:center;gap:28px;flex-wrap:wrap}

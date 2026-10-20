@@ -7,8 +7,8 @@ import {readMotionPreference} from '../public/js/preferences.js';
 
 // Three small dimensional heads, rendered in the emblem's existing context.
 // Trails record their actual flight; they are soft ribbons, not fixed orbits.
-export function EmblemFollowers({pose,pointer}){
-  const heads=useRef([]),eyes=useRef([]),reduceMotion=useRef(!readMotionPreference()),flight=useMemo(()=>createEmblemFollowers(),[]),protectedAreas=useRef({at:-1,rects:[],dirty:true});
+export function EmblemFollowers({pose}){
+  const heads=useRef([]),eyes=useRef([]),reduceMotion=useRef(!readMotionPreference()),flight=useMemo(()=>createEmblemFollowers(),[]);
   const {viewport,size,gl,camera}=useThree();
   const assets=useMemo(()=>{
     const body=new RoundedBoxGeometry(1.28,.96,.4,3,.16);
@@ -33,16 +33,11 @@ export function EmblemFollowers({pose,pointer}){
     return {body,plate,eye,fin,mouth,hull,face,light,trailMaterial,trails};
   },[]);
   useEffect(()=>{
-    const dirty=()=>{protectedAreas.current.dirty=true;};
-    document.addEventListener('scroll',dirty,{capture:true,passive:true});window.addEventListener('resize',dirty);
-    return()=>{document.removeEventListener('scroll',dirty,true);window.removeEventListener('resize',dirty);for(const value of Object.values(assets))if(Array.isArray(value))value.forEach(g=>g.dispose());else value.dispose();};
+    return()=>{for(const value of Object.values(assets))if(Array.isArray(value))value.forEach(g=>g.dispose());else value.dispose();};
   },[assets]);
   useFrame((_,delta)=>{
     const time=performance.now()/1000;
-    if(protectedAreas.current.dirty||time-protectedAreas.current.at>.15){
-      protectedAreas.current={at:time,dirty:false,rects:[...document.querySelectorAll('.contact-copy,.contact-nav')].map(el=>el.getBoundingClientRect()).filter(r=>r.bottom>0&&r.top<size.height)};
-    }
-    const state=flight.update({pose,pointer:pointer.current,width:size.width,height:size.height,time,delta,reduceMotion:reduceMotion.current,avoid:protectedAreas.current.rects});
+    const state=flight.update({pose,width:size.width,height:size.height,time,delta,reduceMotion:reduceMotion.current});
     const pixel=viewport.width/size.width,unit=pixel*(size.width<=700?19:24);
     for(let i=0;i<state.agents.length;i++){
       const a=state.agents[i],head=heads.current[i],vertices=assets.trails[i].attributes.position;
@@ -61,7 +56,7 @@ export function EmblemFollowers({pose,pointer}){
       vertices.needsUpdate=true;assets.trails[i].setDrawRange(0,Math.max(0,a.trailCount-1)*6);
     }
     assets.hull.opacity=assets.face.opacity=state.opacity*.92;assets.light.opacity=state.opacity;assets.trailMaterial.uniforms.uOpacity.value=state.opacity;
-    gl.domElement.dataset.followers='3';gl.domElement.dataset.followerMotion=reduceMotion.current?'direct':'flight';
+    gl.domElement.dataset.followers='3';gl.domElement.dataset.followerMotion=reduceMotion.current?'direct':'emblem-orbit';
     gl.domElement.dataset.followerX=state.agents.map(a=>Math.round(a.x)).join(',');
   });
   return <group dispose={null}>{[0,1,2].map(i=><React.Fragment key={i}>
