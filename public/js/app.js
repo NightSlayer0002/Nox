@@ -83,6 +83,7 @@ const stage = new Stage($('stage'));
 connectStageControls(stage,{
   sceneButtons:[...document.querySelectorAll('[data-scene]')],
   formButtons:[...document.querySelectorAll('button[data-form]')],
+  expressionControls:[$('presence-expression')],
   sceneLabel:$('scene-label'),labels:sceneLabels,
   onAction:()=>{if(document.body.dataset.view!=='afterimage')stage.canvas.scrollIntoView({behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'instant':'smooth',block:'center'});},
   onFormChange:form=>{
@@ -92,7 +93,9 @@ connectStageControls(stage,{
 });
 sourceBackground.subscribe(canvas=>stage.setBackgroundSource(canvas));
 for(const expression of Object.keys(EXPRESSIONS)){
-  const option=document.createElement('option');option.value=expression;option.textContent=expression==='pout'?'Cute outrage':expression[0].toUpperCase()+expression.slice(1);$('expression-preview').append(option);
+  for(const select of [$('expression-preview'),$('presence-expression')]){
+    const option=document.createElement('option');option.value=expression;option.textContent=expression==='pout'?'Cute outrage':expression[0].toUpperCase()+expression.slice(1);select.append(option);
+  }
 }
 $('preview-expression').addEventListener('click',()=>{
   if(stage.form==='core'){toast('Choose Presence or Liquid Metal to try his expressions.');return;}
@@ -223,8 +226,13 @@ function addMessage(speaker, text,turn) {
 function attachMessageActions(message,turn){
   if(!message||message.querySelector('.message-actions')||!turn)return;
   const actions=document.createElement('div');actions.className='message-actions';
-  const copy=document.createElement('button');copy.type='button';copy.textContent='Copy';copy.setAttribute('aria-label',`Copy ${turn.role==='user'?'your message':'NOX’s reply'}`);copy.addEventListener('click',async()=>{try{await navigator.clipboard.writeText(turn.content);toast('Copied.');}catch{toast('Copy is unavailable. Select the text and copy it with your keyboard.');}});actions.append(copy);
-  const revise=document.createElement('button');revise.type='button';revise.textContent=turn.role==='user'?'Edit':'Try again';revise.addEventListener('click',async()=>{if(busy){toast('Stop the current reply before revising this conversation.');return;}cancelConversation();if(turn.role==='user'){editTarget=turn.seq;composer.setValue(turn.content);replyDiagnostics.setStatus('Editing this message. Sending replaces the replies after it.');$('message').focus();}else{const result=await history.retryFrom(turn.seq);if(!result){toast('That reply changed. Reopen the conversation and try again.');return;}await restoreConversation({retrying:true});await send(result.draft,{recorded:true});}});actions.append(revise);message.append(actions);
+  const copy=messageAction('copy',`Copy ${turn.role==='user'?'your message':'NOX’s reply'}`);copy.addEventListener('click',async()=>{try{await navigator.clipboard.writeText(turn.content);toast('Copied.');}catch{toast('Copy is unavailable. Select the text and copy it with your keyboard.');}});actions.append(copy);
+  const revise=messageAction(turn.role==='user'?'pencil':'rotate-ccw',turn.role==='user'?'Edit your message':'Retry NOX’s reply');revise.addEventListener('click',async()=>{if(busy){toast('Stop the current reply before revising this conversation.');return;}cancelConversation();if(turn.role==='user'){editTarget=turn.seq;composer.setValue(turn.content);replyDiagnostics.setStatus('Editing this message. Sending replaces the replies after it.');$('message').focus();}else{const result=await history.retryFrom(turn.seq);if(!result){toast('That reply changed. Reopen the conversation and try again.');return;}await restoreConversation({retrying:true});await send(result.draft,{recorded:true});}});actions.append(revise);message.append(actions);
+}
+function messageAction(icon,label){
+  const button=document.createElement('button');button.type='button';button.title=label;button.setAttribute('aria-label',label);
+  const image=document.createElement('img');image.src=`/vendor/lucide/${icon}.svg`;image.alt='';image.width=16;image.height=16;image.setAttribute('aria-hidden','true');
+  button.append(image);return button;
 }
 
 function updateMemory() {

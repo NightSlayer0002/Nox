@@ -18,13 +18,22 @@ function fixture(){
   stage.bindPointer();
   const sceneButtons=['gravity','orbit','takeover'].map(scene=>new Button({scene})),formButtons=['face','liquid','core'].map(form=>new Button({form}));
   const labels={none:'Ready',gravity:'Gravity',orbit:'Orbit',takeover:'Takeover'},label={};
-  connectStageControls(stage,{sceneButtons,formButtons,sceneLabel:label,labels});
+  const expression=new Button({});expression.value='';
+  connectStageControls(stage,{sceneButtons,formButtons,expressionControls:[expression],sceneLabel:label,labels});
   let stopCount=0,speechCount=0;
   const bridge=createAfterimageBridge({now:()=>0,setTimer:()=>1,clearTimer(){}});
   bridge.connect({cue:value=>applyAfterimageCue(stage,value),speak(){speechCount++;stage.character.speakingUntil=Infinity;},stop(){stopCount++;stage.character.speakingUntil=stage.time;stage.captionUntil=0;},getState:()=>({})});
   const fire=(type,x=290,y=156)=>handlers.get(type)({type,clientX:x,clientY:y,pointerId:1});
-  return {stage,sceneButtons,formButtons,label,bridge,fire,get stops(){return stopCount;},get speeches(){return speechCount;}};
+  return {stage,sceneButtons,formButtons,expression,label,bridge,fire,get stops(){return stopCount;},get speeches(){return speechCount;}};
 }
+test('quick expression controls preserve narration and disable for the faceless Signal form',()=>{
+  const f=fixture();f.stage.speak({speech:'Still finishing this thought.',emotion:'curious',action:'none'});f.stage.character.speakingUntil=Infinity;
+  f.expression.value='happy';f.expression.dispatchEvent(new Event('change'));
+  assert.equal(f.stage.character.features(f.stage.time+.1).expression,'happy');
+  assert.equal(f.stage.character.speakingUntil,Infinity);assert.equal(f.stage.caption,'Still finishing this thought.');
+  f.formButtons[2].click();assert.equal(f.expression.disabled,true);
+  f.formButtons[0].click();assert.equal(f.expression.disabled,false);assert.equal(f.stops,0);f.bridge.dispose();
+});
 test('Afterimage keeps its narration and cue captions while NOX is tapped, dragged, or changed by effects',()=>{
   const f=fixture();f.bridge.play(FIRST_CONTACT,0,0);
   const caption=f.stage.caption,until=f.stage.captionUntil;
