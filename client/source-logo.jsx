@@ -7,6 +7,7 @@ import {useSpring} from '@react-spring/web';
 import * as THREE from 'three';
 import {SVGLoader} from 'three/addons/loaders/SVGLoader.js';
 import {SourceBoundary} from './source-boundary.jsx';
+import {EmblemFireflies} from './emblem-fireflies.jsx';
 import {createLogoReadiness,createLogoGesture,emblemFeatures,releaseLogoInteraction} from '/js/logo-interaction.js';
 import {emblemPointer} from '/js/home-choreography.js';
 import {createFrameBudget,createLiquidLogoRenderer} from '/js/source-effects.js';
@@ -69,7 +70,7 @@ function LogoModel({pose,matter,pointer,rotation,spring,onStatus,gesture,target}
     const active=resources.current;if(active.renderer&&textureDue.current(now)){const available=active.renderer.render(active.mask,(now-active.started)/1000,{pressure});if(available){active.texture.needsUpdate=true;}else if(front.map){front.map=null;front.needsUpdate=true;readiness.current?.setPhase('solid');}}
     gl.render(scene,camera);gl.domElement.dataset.source='r3f-liquid-logo';gl.domElement.dataset.geometry='nox-icon-extrusion';gl.domElement.dataset.screenX=pose.screenX.toFixed(3);gl.domElement.dataset.screenY=pose.screenY.toFixed(3);gl.domElement.dataset.tiltY=inner.current.rotation.y.toFixed(3);gl.domElement.dataset.scrollY=outer.current.rotation.y.toFixed(3);gl.domElement.dataset.pressure=pressure.toFixed(3);gl.domElement.dataset.frame=String(++frames.current);
   },1);
-  return <group ref={outer}><group ref={inner}><group scale={[.08,-.08,.08]} position={[-2.56,2.65,0]} dispose={null}>{parts.map((geometry,index)=><mesh ref={mesh=>{meshes.current[index]=mesh;}} key={index} geometry={geometry} material={index<2?[front,side]:front}/>)}</group></group></group>;
+  return <><group ref={outer}><group ref={inner}><group scale={[.08,-.08,.08]} position={[-2.56,2.65,0]} dispose={null}>{parts.map((geometry,index)=><mesh ref={mesh=>{meshes.current[index]=mesh;}} key={index} geometry={geometry} material={index<2?[front,side]:front}/>)}</group></group></group>{parts.length>0&&<EmblemFireflies pose={pose}/>}</>;
 }
 
 export default function SourceLogo({pose,matter,onPoke}){
