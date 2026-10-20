@@ -1,5 +1,6 @@
 const $=id=>document.getElementById(id);
 const views={explore:['Explore','','A place to begin.'],conversation:['Conversation','','Think something through with NOX.'],scenes:['Scene studio','','Shape a performance and capture it.'],library:['Library','','Return to a conversation.'],afterimage:['Afterimage','','A fictional transmission you can change.']};
+Object.assign(views,{discover:['Discover','','Follow your curiosity.'],continue:['Continue','','Saved on this device.'],memory:['What NOX remembers','','Only what you approve.'],access:['Your access','','Free now. Plus when it is ready.'],learn:['Explore together','','Bring an idea or try an example.'],guessing:['Play together','','Ask questions. Follow the clues.']});
 export function createNavigation({history,onOpen,onNew,onStart}) {
   let currentView;
   function setMenu(open,restoreFocus=false){document.body.dataset.menuOpen=String(open);$('menu-button').setAttribute('aria-expanded',String(open));$('workspace-shell').inert=open;if(restoreFocus)$('menu-button').focus();}
@@ -12,13 +13,14 @@ export function createNavigation({history,onOpen,onNew,onStart}) {
   document.body.dataset.presence='visible';
   $('presence-toggle').addEventListener('click',()=>{const visible=document.body.dataset.presence==='hidden';document.body.dataset.presence=visible?'visible':'hidden';$('presence-toggle').setAttribute('aria-expanded',String(visible));$('presence-toggle').textContent=visible?'Hide NOX':'Show NOX';});
   function applyView(){
-    const view=location.hash.slice(1),current=Object.hasOwn(views,view)?view:'explore';
+    const view=location.hash.slice(1),current=Object.hasOwn(views,view)?view:'conversation';
     document.body.dataset.view=current;$('view-label').textContent=views[current][0];
     const [first,,note]=views[current];$('workspace-heading').textContent=first;$('workspace-note').textContent=note;
     // Keep one clock: chat docks it inside the card; other stages leave the caption band clear.
     $(current==='conversation'?'stage-playback':'stage-heading').append($('stage-time'));
-    document.querySelectorAll('[data-panel]').forEach(p=>p.hidden=p.dataset.panel!==current);
-    document.querySelectorAll('a[data-view]').forEach(link=>{const active=link.dataset.view===current;link.classList.toggle('selected',active);if(active)link.setAttribute('aria-current','page');else link.removeAttribute('aria-current');});
+    const panel=current==='guessing'?'learn':current==='explore'?'discover':current;
+    document.querySelectorAll('[data-panel]').forEach(p=>p.hidden=p.dataset.panel!==panel);
+    document.querySelectorAll('a[data-view]').forEach(link=>{const active=link.dataset.view===current||current==='explore'&&link.dataset.view==='discover';link.classList.toggle('selected',active);if(active)link.setAttribute('aria-current','page');else link.removeAttribute('aria-current');});
     if(currentView&&currentView!==current){setMenu(false);window.scrollTo({top:0,left:0,behavior:'auto'});$('workspace-main').focus({preventScroll:true});}
     currentView=current;
   }

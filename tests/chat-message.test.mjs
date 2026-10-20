@@ -21,7 +21,7 @@ class Element {
 // Run the app's integration function without starting the canvas, network, or voice.
 // A minimal DOM is enough for this boundary; it also rejects unsafe HTML writes.
 const appSource=await readFile(new URL('../public/js/app.js',import.meta.url),'utf8');
-const addMessageSource=appSource.match(/function addMessage\(speaker, text\) \{[\s\S]*?\n\}/)?.[0];
+const addMessageSource=appSource.match(/function addMessage\(speaker, text(?:,turn)?\) \{[\s\S]*?\n\}/)?.[0];
 function fixture(){
   assert.ok(addMessageSource,'the app exposes its message insertion boundary');
   const conversation=new Element('div');conversation.scrollHeight=180;conversation.scrollTop=0;

@@ -1,7 +1,8 @@
-import { cleanText, MODES } from '../../shared/character.js';
+import { cleanText, MODES, CHAT_INPUT_CHARACTERS, MAX_PACKET_CHARACTERS } from '../../shared/character.js';
+import { safeDeviceValue } from './continuity.js';
 
 const KEY='nox.chats.v1',queues=new WeakMap();
-const turnText=(value,role)=>typeof value==='string'?value.replace(/\r\n?/g,'\n').replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/g,' ').trim().slice(0,role==='assistant'?6000:1200):'';
+const turnText=(value,role)=>typeof value==='string'?value.replace(/\r\n?/g,'\n').replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/g,' ').trim().slice(0,role==='assistant'?MAX_PACKET_CHARACTERS:CHAT_INPUT_CHARACTERS):'';
 const newThread=()=>({id:crypto.randomUUID(),title:'New conversation',updated:Date.now(),mode:'companion',turns:[],summary:'',summaryThrough:0,next:1});
 async function serialize(storage,action){
   if(globalThis.navigator?.locks?.request)return navigator.locks.request('nox.chat-history.write',action);
@@ -29,6 +30,26 @@ export async function createHistory(storage,legacy=[]){
     if(!state.threads.length){const t=newThread();state.threads.push(t);currentId=t.id;for(const turn of legacy.slice(-24))if(['user','assistant'].includes(turn.role))t.turns.push({role:turn.role,content:cleanText(turn.content,1200),seq:t.next++});if(t.turns.length)t.title=cleanText(t.turns.find(v=>v.role==='user')?.content,60)||'Earlier conversation';save();}
   });
   const write=action=>serialize(storage,()=>{if(persistent)load();const result=action();choose();save();return result;});
+  function loadSaved(input){
+    const saved=input?.kind==='conversation'?input.state:input;
+    if(!saved||!safeDeviceValue(input)||!Array.isArray(saved.turns)||!saved.turns.length||saved.turns.length>200)return Promise.resolve(null);
+    if(saved.turns.some(turn=>!turn||!['user','assistant'].includes(turn.role)||typeof turn.content!=='string'||!turn.content.trim()||turn.content.length>(turn.role==='assistant'?MAX_PACKET_CHARACTERS:CHAT_INPUT_CHARACTERS)))return Promise.resolve(null);
+    return write(()=>{
+      const t=newThread();t.mode=MODES.includes(saved.mode)?saved.mode:'companion';
+      t.title=cleanText(input.title||saved.title,60)||cleanText(saved.turns.find(turn=>turn.role==='user')?.content,60)||'Saved conversation';
+      t.turns=saved.turns.map((turn,index)=>({role:turn.role,content:turnText(turn.content,turn.role),seq:index+1}));t.next=t.turns.length+1;
+      state.threads.push(t);state.threads=state.threads.sort((a,b)=>a.updated-b.updated).slice(-40);currentId=t.id;return structuredClone(t);
+    });
+  }
+  function replaceFrom(seq,content){
+    const id=currentId,text=turnText(content,'user');if(!Number.isSafeInteger(seq)||!text||typeof content!=='string'||content.length>CHAT_INPUT_CHARACTERS)return Promise.resolve(null);
+    return write(()=>{
+      const t=state.threads.find(thread=>thread.id===id),index=t?.turns.findIndex(turn=>turn.seq===seq&&turn.role==='user');
+      if(!t||index<0)return null;
+      t.turns=t.turns.slice(0,index+1);t.turns[index].content=text;t.next=seq+1;t.summary='';t.summaryThrough=0;t.updated=Date.now();
+      if(index===0)t.title=cleanText(text,60);return {draft:text,seq,thread:structuredClone(t)};
+    });
+  }
   async function refresh(){return serialize(storage,()=>{const before=JSON.stringify(active()),id=currentId;if(persistent)load();choose();const currentChanged=id!==currentId||before!==JSON.stringify(active());listeners.forEach(fn=>fn({currentChanged}));});}
   globalThis.window?.addEventListener('storage',event=>{if(event.key===KEY&&(!event.storageArea||event.storageArea===storage))void refresh();});
   return {
@@ -36,6 +57,8 @@ export async function createHistory(storage,legacy=[]){
     get crossTabSafe(){return !globalThis.window||Boolean(globalThis.navigator?.locks?.request);},
     subscribe(fn){listeners.add(fn);return ()=>listeners.delete(fn);},
     refresh,
+    loadSaved,importThread:loadSaved,replaceFrom,
+    retryFrom(seq){const turns=active()?.turns??[],index=turns.findIndex(turn=>turn.seq===seq);if(index<0)return Promise.resolve(null);const user=turns.slice(0,index+1).findLast(turn=>turn.role==='user');return user?replaceFrom(user.seq,user.content):Promise.resolve(null);},
     active:()=>structuredClone(active()),
     list(query=''){const q=query.toLowerCase().trim();return structuredClone(state.threads.filter(t=>!q||`${t.title} ${t.turns.map(v=>v.content).join(' ')}`.toLowerCase().includes(q)).sort((a,b)=>b.updated-a.updated));},
     create(){return write(()=>{if(active()&&!active().turns.length)return structuredClone(active());const t=newThread();state.threads.push(t);state.threads=state.threads.sort((a,b)=>a.updated-b.updated).slice(-40);currentId=t.id;return structuredClone(t);});},
