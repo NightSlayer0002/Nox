@@ -207,20 +207,18 @@
 /* The existing ShaderGradient scene is the shared atmosphere, not a second card. */
 .workspace{--muted:#b6bcb7}
 :root[data-theme=light] .workspace{--muted:#465b54}
-.workspace .workspace-background{opacity:.22;mask-image:radial-gradient(ellipse at 88% 35%,#000 12%,transparent 90%);transition:opacity 280ms ease-out}
+.workspace .workspace-background{opacity:.62;mask-image:none}
+.workspace .workspace-background::after{content:"";position:absolute;inset:0;background:linear-gradient(90deg,color-mix(in srgb,var(--bg) 46%,transparent),transparent 82%),linear-gradient(0deg,color-mix(in srgb,var(--bg) 30%,transparent),transparent 40%)}
+:root[data-theme=light] .workspace .workspace-background{opacity:.34}
 .workspace[data-view=conversation] .studio{grid-template-columns:minmax(0,1fr) 310px}
 @media(min-width:901px) and (max-width:1150px){.workspace[data-view=conversation] .studio{grid-template-columns:minmax(0,1fr) 210px}}
-.workspace[data-activity=thinking] .workspace-background,.workspace[data-activity=preparing] .workspace-background{animation:nox-response-light 1.8s ease-in-out infinite alternate}
-.workspace[data-voice-state=speaking] .workspace-background{opacity:.28}
 .workspace .header-right .quiet-button,.workspace .stage-hint,.workspace .rail-bottom :is(a,button),.workspace .composer #composer-voice{color:var(--muted)}
 .workspace .composer.composer-source{background:color-mix(in srgb,var(--surface) 93%,#39564b);border-color:color-mix(in srgb,var(--accent) 24%,transparent)}
 .workspace .composer .composer-asset-icon{filter:invert(.8)}
 .workspace .composer .composer-submit .composer-asset-icon{filter:none}
 .workspace .composer-help{font-size:12px}
 .workspace .message-actions button{font-size:13px}
-@keyframes nox-response-light{from{opacity:.22}to{opacity:.36}}
-@media(prefers-reduced-motion:reduce){.workspace .workspace-background{animation:none!important;transition:none}}
-@media(max-width:900px){.workspace .workspace-background{opacity:.15}.workspace[data-activity=thinking] .workspace-background{animation:none;opacity:.23}}
+@media(max-width:900px){.workspace .workspace-background{opacity:.56}}
 
 /* One-line prompt at rest, with the existing measured textarea growth. */
 .workspace .composer.composer-source{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:6px;min-height:48px;padding:5px 7px 5px 14px;border-radius:27px;container-type:normal}

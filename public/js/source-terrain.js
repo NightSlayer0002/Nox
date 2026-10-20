@@ -3,7 +3,7 @@
 const bounded=(value,min,max)=>Number.isFinite(value)?Math.max(min,Math.min(max,value)):0;
 const approach=(value,target,dt,seconds)=>value+(target-value)*(1-Math.exp(-dt/seconds));
 export function createTerrainMotion(){
-  return {time:0,pointerX:0,pointerY:0,scroll:0,impulse:0,energy:0,x:0,y:0,turn:0,tiltX:0,tiltY:0,strength:3.4,density:1.2};
+  return {time:0,pointerX:0,pointerY:0,scroll:0,impulse:0,energy:0,x:0,y:0,turn:0,tiltX:0,tiltY:0,strength:3.6,density:1.12};
 }
 export function advanceTerrain(previous,input={},delta=0){
   const dt=bounded(delta,0,.1),reduced=Boolean(input.reduced);
@@ -19,12 +19,14 @@ export function advanceTerrain(previous,input={},delta=0){
   const time=previous.time+(reduced?0:dt*(1+energy*.45+Math.abs(impulse)*.15));
   return {
     time,pointerX:px,pointerY:py,scroll:travel,impulse,energy,
-    x:reduced?0:Math.sin(time*.15)*.105+px*.1+travel*.06,
-    y:reduced?0:Math.sin(time*.11)*.045+py*.045,
-    turn:reduced?0:Math.sin(time*.1)*.012+px*.012+impulse*.006,
-    tiltX:reduced?0:py*.016+Math.sin(time*.12)*.004,
-    tiltY:reduced?0:px*.022,
-    strength:3.4+energy*(reduced?.06:.22)+py*(reduced?.012:.07)+(reduced?0:Math.sin(time*.31)*.055+impulse*.03),
-    density:1.2+travel*.018+px*.015+energy*.025+(reduced?0:Math.sin(time*.17)*.025),
+    // Broad, overlapping currents cross a visible distance in an eight-second
+    // glance. They move the existing material, never its light or exposure.
+    x:reduced?0:Math.sin(time*.19)*.28+Math.sin(time*.073)*.07+px*.18+travel*.12,
+    y:reduced?0:Math.sin(time*.14)*.14+py*.065,
+    turn:reduced?0:Math.sin(time*.13)*.045+px*.02+impulse*.008,
+    tiltX:reduced?0:py*.035+Math.sin(time*.17)*.016,
+    tiltY:reduced?0:px*.045+Math.sin(time*.11)*.012,
+    strength:3.6+energy*(reduced?.06:.36)+py*(reduced?.012:.1)+(reduced?0:Math.sin(time*.35)*.19+impulse*.07),
+    density:1.12+travel*.04+px*.025+energy*.04+(reduced?0:Math.sin(time*.21)*.075),
   };
 }

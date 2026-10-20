@@ -59,8 +59,8 @@ body.landing {overflow-x:clip;-webkit-font-smoothing:antialiased}
 .content__title .word{display:inline-block;white-space:nowrap}
 .content__title .char{display:inline-block;transform-style:preserve-3d}
 .liquid-button canvas{filter:brightness(.45)}
-:root[data-theme=light] .contact-water{opacity:.2}
-:root[data-theme=light] .contact-water::after{background:rgba(234,240,237,.6)}
+:root[data-theme=light] .contact-water{opacity:.42}
+:root[data-theme=light] .contact-water::after{background:rgba(234,240,237,.28)}
 :root[data-theme=light] .liquid-button canvas{filter:brightness(1.6);opacity:.22}
 @media(min-width:1700px){.contact-copy{max-width:770px}.contact-chapter{padding-left:11vw}}
 @media(max-width:1000px){.contact-copy{max-width:52vw}.contact-coordinate{display:none}.scene-map{left:14px}.contact-description{font-size:15px}.scroll-cue{display:none}}
@@ -177,7 +177,7 @@ body.landing{background:#050909}
 
 /* Quiet landing composition; the source scene/scroll pose is unchanged. */
 body.landing{background:var(--bg);font-family:var(--font-ui)}
-.contact-water{opacity:.36}.contact-water::after{background:color-mix(in srgb,var(--bg) 42%,transparent)}
+.contact-water{opacity:.84}.contact-water::after{background:linear-gradient(100deg,color-mix(in srgb,var(--bg) 46%,transparent),transparent 72%),linear-gradient(0deg,color-mix(in srgb,var(--bg) 24%,transparent),transparent 38%)}
 .contact-nav{padding:24px 7vw;background:linear-gradient(color-mix(in srgb,var(--bg) 95%,transparent),transparent);gap:24px}
 .contact-nav .brand{font-size:18px;font-weight:600;letter-spacing:.3em}
 .home-links{font-size:16px}.home-links>a:first-child{color:var(--muted)}

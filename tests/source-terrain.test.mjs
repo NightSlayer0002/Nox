@@ -4,17 +4,35 @@ import {createTerrainMotion,advanceTerrain} from '../public/js/source-terrain.js
 
 const settle=(input,seconds=4)=>{let state=createTerrainMotion();for(let frame=0;frame<seconds*24;frame++)state=advanceTerrain(state,input,1/24);return state;};
 
-test('the terrain deforms and drifts while idle within a small physical envelope',()=>{
+test('the terrain deforms and drifts while idle within a bounded physical envelope',()=>{
   let state=createTerrainMotion();const first=advanceTerrain(state,{},0);
   for(let frame=0;frame<24*90;frame++){
     state=advanceTerrain(state,{},1/24);
-    assert.ok(Math.abs(state.x)<.24&&Math.abs(state.y)<.15);
-    assert.ok(Math.abs(state.turn)<.025);
-    assert.ok(state.strength>=3.1&&state.strength<=3.8);
+    assert.ok(Math.abs(state.x)<.36&&Math.abs(state.y)<.15);
+    assert.ok(Math.abs(state.turn)<.05);
+    assert.ok(state.strength>=3.2&&state.strength<=4.1);
   }
   assert.ok(state.time>80);
   assert.notEqual(state.x,first.x);
   assert.notEqual(state.density,first.density);
+});
+
+test('each eight-second idle passage has visible material travel without a brightness pulse',()=>{
+  let state=createTerrainMotion();
+  for(let passage=0;passage<12;passage++){
+    let travel=0,strengthMin=Infinity,strengthMax=-Infinity,densityMin=Infinity,densityMax=-Infinity;
+    for(let frame=0;frame<8*24;frame++){
+      const next=advanceTerrain(state,{},1/24);
+      const step=Math.hypot(next.x-state.x,next.y-state.y);
+      assert.ok(step<.004,'idle material moves smoothly at the 24fps budget');
+      travel+=step;strengthMin=Math.min(strengthMin,next.strength);strengthMax=Math.max(strengthMax,next.strength);
+      densityMin=Math.min(densityMin,next.density);densityMax=Math.max(densityMax,next.density);
+      state=next;
+    }
+    assert.ok(travel>.14,'the field must visibly travel inside an ordinary viewing interval');
+    assert.ok(strengthMax-strengthMin>.06||densityMax-densityMin>.04,'ridges must deform as well as translate');
+    assert.ok(!('brightness' in state)&&!('opacity' in state));
+  }
 });
 
 test('pointer and scroll guide the same terrain without an instant camera jump',()=>{

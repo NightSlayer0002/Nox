@@ -13,6 +13,29 @@ class Boundary extends Component{
   componentDidCatch(){this.props.onError?.();}
   render(){return this.state.failed?<div className="source-fallback" aria-hidden="true"/>:this.props.children;}
 }
+function revealTerrain(material){
+  if(material.userData.terrainRelief)return;
+  material.userData.terrainRelief=true;
+  const compile=material.onBeforeCompile;
+  // Keep the licensed water geometry and its animated noise. Its displaced
+  // height becomes broad mineral shelves, so depth reads even in a dark room.
+  material.onBeforeCompile=function(shader,...args){
+    compile.call(this,shader,...args);
+    shader.fragmentShader=shader.fragmentShader.replace(
+      'gl_FragColor = vec4(color1 * vPos.x + color2 * vPos.y + color3 * vPos.z, 1.);',
+      `float elevation = clamp(vPos.z * 0.24 + 0.5, 0.0, 1.0);
+       vec3 terrainColor = mix(color1, color2, smoothstep(0.12, 0.68, elevation));
+       terrainColor = mix(terrainColor, color3, smoothstep(0.60, 0.91, elevation) * 0.74);
+       vec3 reliefNormal = normalize(cross(dFdx(vPos), dFdy(vPos)));
+       float relief = 0.72 + 0.28 * abs(dot(reliefNormal, normalize(vec3(-0.3, 0.5, 1.0))));
+       float mineralSeam = 1.0 - smoothstep(0.012, 0.055, abs(elevation - 0.67));
+       terrainColor = mix(terrainColor * relief, vec3(0.56, 0.47, 0.33), mineralSeam * 0.075);
+       gl_FragColor = vec4(terrainColor, 1.0);`
+    );
+  };
+  material.customProgramCacheKey=()=> 'nox-water-relief-v1';
+  material.needsUpdate=true;
+}
 function Budget({onCanvas,tilt,sculpture,pose}){
   const {gl,setFrameloop,invalidate}=useThree(),due=useRef(createFrameBudget(24));
   const terrain=useRef(createTerrainMotion()),lastFrame=useRef(null);
@@ -69,6 +92,7 @@ function Budget({onCanvas,tilt,sculpture,pose}){
         mesh.rotation.x=tilt.rotateX.get()*Math.PI/180;mesh.rotation.y=tilt.rotateY.get()*Math.PI/180;
         gl.domElement.dataset.tiltY=mesh.rotation.y.toFixed(3);
       }else{
+        revealTerrain(mesh.material);
         const input=signals.current;
         terrain.current=advanceTerrain(terrain.current,{...input,activity:document.body.dataset.activity,voice:document.body.dataset.voiceState,typing:now<input.typingUntil?1:0},delta);
         input.scrollImpulse=0;
@@ -102,7 +126,7 @@ export default function SourceScene({onCanvas,interactive=false,className='',var
   return <div ref={host} className={`source-scene ${className}`} aria-hidden="true" data-effect={failed?'fallback':'shadergradient'}>
     <div className="source-fallback"/>{ready&&!failed&&<Boundary onError={()=>setFailed(true)}><div className="source-scene-spring">
       <ShaderGradientCanvas pixelDensity={.65} pointerEvents="none" lazyLoad={false} preserveDrawingBuffer powerPreference="low-power">
-        {sculpture?<ShaderGradient type="sphere" animate="on" cAzimuthAngle={250} cDistance={1.5} cPolarAngle={90} cameraZoom={3.2} color1="#83bdb6" color2="#1b4c58" color3="#d1dcd2" brightness={1.5} lightType="3d" grain="off" positionX={0} positionY={0} positionZ={0} reflection={.5} rotationX={0} rotationY={0} rotationZ={140} shader="defaults" uAmplitude={7} uDensity={.8} uFrequency={5.5} uSpeed={.3} uStrength={.4} uTime={0} wireframe={false}/>:<ShaderGradient type="waterPlane" animate="off" cAzimuthAngle={170} cDistance={4.4} cPolarAngle={70} cameraZoom={1} color1="#03090d" color2="#124146" color3="#345554" brightness={.72} lightType="3d" grain="off" positionX={0} positionY={.9} positionZ={-.3} reflection={.04} rotationX={45} rotationY={0} rotationZ={0} shader="defaults" uAmplitude={0} uDensity={1.2} uFrequency={0} uSpeed={.2} uStrength={3.4} uTime={0} wireframe={false}/>}
+        {sculpture?<ShaderGradient type="sphere" animate="on" cAzimuthAngle={250} cDistance={1.5} cPolarAngle={90} cameraZoom={3.2} color1="#83bdb6" color2="#1b4c58" color3="#d1dcd2" brightness={1.5} lightType="3d" grain="off" positionX={0} positionY={0} positionZ={0} reflection={.5} rotationX={0} rotationY={0} rotationZ={140} shader="defaults" uAmplitude={7} uDensity={.8} uFrequency={5.5} uSpeed={.3} uStrength={.4} uTime={0} wireframe={false}/>:<ShaderGradient type="waterPlane" animate="off" cAzimuthAngle={170} cDistance={4.4} cPolarAngle={70} cameraZoom={1} color1="#182c3e" color2="#4e7779" color3="#7e8b75" brightness={.72} lightType="3d" grain="off" positionX={0} positionY={.9} positionZ={-.3} reflection={.04} rotationX={45} rotationY={0} rotationZ={0} shader="defaults" uAmplitude={0} uDensity={1.12} uFrequency={0} uSpeed={.32} uStrength={3.6} uTime={0} wireframe={false}/>}
         <Budget onCanvas={onCanvas} tilt={{rotateX,rotateY}} sculpture={sculpture} pose={pose}/>
       </ShaderGradientCanvas>
     </div></Boundary>}

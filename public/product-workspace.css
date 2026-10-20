@@ -3,7 +3,7 @@
 .workspace {font-size:16px;line-height:1.5;background:var(--bg);color:var(--text)}
 .workspace [hidden] {display:none!important}
 .workspace :is(dialog,.lab-dialog){max-height:calc(var(--workspace-height,100dvh) - 32px);overflow:auto}
-.workspace .workspace-background {opacity:.025}
+.workspace .workspace-background {opacity:.62;mask-image:none}
 .workspace :is(h1,h2,h3,p,button,a,label,summary,select,textarea,input,.eyebrow) {letter-spacing:normal}
 .workspace :is(h1,h2,h3) {font-family:inherit;font-style:normal}
 .workspace :is(button,a,input,select,textarea,summary) {font-family:inherit}
