@@ -5,6 +5,8 @@ import {ShaderGradient,ShaderGradientCanvas} from '@shadergradient/react';
 import {useFrame,useThree} from '@react-three/fiber';
 import {useSpring} from '@react-spring/web';
 import {createFrameBudget} from '/js/source-effects.js';
+import {createTerrainMotion,advanceTerrain} from '/js/source-terrain.js';
+import {readMotionPreference} from '/js/preferences.js';
 
 class Boundary extends Component{
   state={failed:false};static getDerivedStateFromError(){return {failed:true};}
@@ -13,14 +15,82 @@ class Boundary extends Component{
 }
 function Budget({onCanvas,tilt,sculpture,pose}){
   const {gl,setFrameloop,invalidate}=useThree(),due=useRef(createFrameBudget(24));
+  const terrain=useRef(createTerrainMotion()),lastFrame=useRef(null);
+  const signals=useRef({pointerX:0,pointerY:0,scroll:0,scrollImpulse:0,typingUntil:0,reduced:!readMotionPreference()});
+  useEffect(()=>{
+    if(sculpture)return;
+    const input=signals.current;
+    // Use the same explicit app motion choice as NOX and his companions.
+    input.reduced=!readMotionPreference();
+    const pointer=event=>{
+      if(event.pointerType==='touch'||!event.isPrimary)return;
+      input.pointerX=event.clientX/Math.max(1,innerWidth)*2-1;
+      input.pointerY=event.clientY/Math.max(1,innerHeight)*2-1;
+    };
+    const reset=()=>{input.pointerX=0;input.pointerY=0;input.typingUntil=0;};
+    const leave=event=>{if(!event.relatedTarget)reset();};
+    const scroll=event=>{
+      const node=event?.target===document||!event?document.scrollingElement:event.target;
+      if(!node||!Number.isFinite(node.scrollTop))return;
+      const next=node.scrollTop/Math.max(1,node.scrollHeight-node.clientHeight);
+      input.scrollImpulse=Math.max(-1,Math.min(1,input.scrollImpulse+(next-input.scroll)*4));
+      input.scroll=next;
+    };
+    const typing=event=>{
+      const target=event.target;
+      // Only the fact of editing is observed. No entered text leaves its field.
+      if(target?.isContentEditable||target?.tagName==='TEXTAREA'||target?.tagName==='INPUT'&&['text','search','email','url','tel','password'].includes(target.type))input.typingUntil=performance.now()+850;
+    };
+    scroll();
+    document.addEventListener('pointermove',pointer,{passive:true});
+    document.addEventListener('pointerout',leave,{passive:true});
+    document.addEventListener('scroll',scroll,{passive:true,capture:true});
+    document.addEventListener('input',typing,{passive:true});
+    window.addEventListener('blur',reset);
+    return()=>{
+      document.removeEventListener('pointermove',pointer);document.removeEventListener('pointerout',leave);
+      document.removeEventListener('scroll',scroll,true);document.removeEventListener('input',typing);
+      window.removeEventListener('blur',reset);
+    };
+  },[sculpture]);
   useEffect(()=>{
     onCanvas?.(gl.domElement);
-    let visible=true;const visibility=()=>{setFrameloop(document.hidden||!visible?'never':'always');if(!document.hidden&&visible)invalidate();};
+    let visible=true;const visibility=()=>{lastFrame.current=null;setFrameloop(document.hidden||!visible?'never':'always');if(!document.hidden&&visible)invalidate();};
     const observer=new IntersectionObserver(entries=>{visible=entries[0].isIntersecting;visibility();});observer.observe(gl.domElement);
     document.addEventListener('visibilitychange',visibility);visibility();
     return()=>{observer.disconnect();document.removeEventListener('visibilitychange',visibility);onCanvas?.(null);};
   },[gl,setFrameloop,invalidate,onCanvas]);
-  useFrame(({gl,scene,camera,clock})=>{if(!due.current(performance.now()))return;const mesh=scene.getObjectByName('shadergradient-mesh');if(mesh){if(sculpture){mesh.rotation.x=tilt.rotateX.get()*Math.PI/180;mesh.rotation.y=tilt.rotateY.get()*Math.PI/180;gl.domElement.dataset.tiltY=mesh.rotation.y.toFixed(3);}else if(pose){mesh.rotation.z=pose.waterTurn;mesh.position.x=pose.waterX;gl.domElement.dataset.scrollTurn=pose.waterTurn.toFixed(3);}}gl.render(scene,camera);gl.domElement.dataset.source='shadergradient';gl.domElement.dataset.geometry=sculpture?'icosahedron':'water-plane';gl.domElement.dataset.frame=String(Math.round(clock.elapsedTime*30));},1);
+  useFrame(({gl,scene,camera,clock})=>{
+    const now=performance.now();if(!due.current(now))return;
+    const delta=lastFrame.current===null?1/24:(now-lastFrame.current)/1000;lastFrame.current=now;
+    const mesh=scene.getObjectByName('shadergradient-mesh');
+    if(mesh){
+      if(sculpture){
+        mesh.rotation.x=tilt.rotateX.get()*Math.PI/180;mesh.rotation.y=tilt.rotateY.get()*Math.PI/180;
+        gl.domElement.dataset.tiltY=mesh.rotation.y.toFixed(3);
+      }else{
+        const input=signals.current;
+        terrain.current=advanceTerrain(terrain.current,{...input,activity:document.body.dataset.activity,voice:document.body.dataset.voiceState,typing:now<input.typingUntil?1:0},delta);
+        input.scrollImpulse=0;
+        const water=terrain.current,uniforms=mesh.material.userData;
+        // These are the incumbent water shader's actual deformation uniforms.
+        // Advancing them here keeps shape updates inside the 24fps render budget.
+        if(uniforms.uTime)uniforms.uTime.value=water.time;
+        if(uniforms.uNoiseStrength)uniforms.uNoiseStrength.value=water.strength;
+        if(uniforms.uNoiseDensity)uniforms.uNoiseDensity.value=water.density;
+        mesh.rotation.set(Math.PI/4+water.tiltX,water.tiltY,(pose?.waterTurn||0)+water.turn);
+        mesh.position.set((pose?.waterX||0)+water.x,.9+water.y,-.3);
+        gl.domElement.dataset.scrollTurn=(pose?.waterTurn||0).toFixed(3);
+        gl.domElement.dataset.motion=input.reduced?'reduced':'flow';
+        gl.domElement.dataset.terrainTime=uniforms.uTime?uniforms.uTime.value.toFixed(2):'unavailable';
+        gl.domElement.dataset.terrainEnergy=water.energy.toFixed(3);
+        gl.domElement.dataset.terrainDrift=water.x.toFixed(3);
+      }
+    }
+    gl.render(scene,camera);gl.domElement.dataset.source='shadergradient';
+    gl.domElement.dataset.geometry=sculpture?'icosahedron':'water-plane';
+    gl.domElement.dataset.frame=String(Math.round(clock.elapsedTime*30));
+  },1);
   return null;
 }
 export default function SourceScene({onCanvas,interactive=false,className='',variant='water',pose}){
@@ -32,7 +102,7 @@ export default function SourceScene({onCanvas,interactive=false,className='',var
   return <div ref={host} className={`source-scene ${className}`} aria-hidden="true" data-effect={failed?'fallback':'shadergradient'}>
     <div className="source-fallback"/>{ready&&!failed&&<Boundary onError={()=>setFailed(true)}><div className="source-scene-spring">
       <ShaderGradientCanvas pixelDensity={.65} pointerEvents="none" lazyLoad={false} preserveDrawingBuffer powerPreference="low-power">
-        {sculpture?<ShaderGradient type="sphere" animate="on" cAzimuthAngle={250} cDistance={1.5} cPolarAngle={90} cameraZoom={3.2} color1="#83bdb6" color2="#1b4c58" color3="#d1dcd2" brightness={1.5} lightType="3d" grain="off" positionX={0} positionY={0} positionZ={0} reflection={.5} rotationX={0} rotationY={0} rotationZ={140} shader="defaults" uAmplitude={7} uDensity={.8} uFrequency={5.5} uSpeed={.3} uStrength={.4} uTime={0} wireframe={false}/>:<ShaderGradient type="waterPlane" animate="on" cAzimuthAngle={170} cDistance={4.4} cPolarAngle={70} cameraZoom={1} color1="#03090d" color2="#124146" color3="#345554" brightness={.72} lightType="3d" grain="off" positionX={0} positionY={.9} positionZ={-.3} reflection={.04} rotationX={45} rotationY={0} rotationZ={0} shader="defaults" uAmplitude={0} uDensity={1.2} uFrequency={0} uSpeed={.2} uStrength={3.4} uTime={0} wireframe={false}/>}
+        {sculpture?<ShaderGradient type="sphere" animate="on" cAzimuthAngle={250} cDistance={1.5} cPolarAngle={90} cameraZoom={3.2} color1="#83bdb6" color2="#1b4c58" color3="#d1dcd2" brightness={1.5} lightType="3d" grain="off" positionX={0} positionY={0} positionZ={0} reflection={.5} rotationX={0} rotationY={0} rotationZ={140} shader="defaults" uAmplitude={7} uDensity={.8} uFrequency={5.5} uSpeed={.3} uStrength={.4} uTime={0} wireframe={false}/>:<ShaderGradient type="waterPlane" animate="off" cAzimuthAngle={170} cDistance={4.4} cPolarAngle={70} cameraZoom={1} color1="#03090d" color2="#124146" color3="#345554" brightness={.72} lightType="3d" grain="off" positionX={0} positionY={.9} positionZ={-.3} reflection={.04} rotationX={45} rotationY={0} rotationZ={0} shader="defaults" uAmplitude={0} uDensity={1.2} uFrequency={0} uSpeed={.2} uStrength={3.4} uTime={0} wireframe={false}/>}
         <Budget onCanvas={onCanvas} tilt={{rotateX,rotateY}} sculpture={sculpture} pose={pose}/>
       </ShaderGradientCanvas>
     </div></Boundary>}
