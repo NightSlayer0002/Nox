@@ -108,6 +108,7 @@ body.landing {overflow-x:clip;-webkit-font-smoothing:antialiased}
 .nox-peek canvas{width:100%;height:100%}
 .scroll-cue{margin-right:140px}
 @media(max-width:1000px) and (min-width:701px){#features .contact-copy,#about .contact-copy{width:46vw}.contact-copy h2{font-size:clamp(48px,6vw,75px)}}
+@media(min-width:701px) and (max-width:1200px){.contact-chapter .contact-copy{max-width:42vw}}
 @media(max-width:700px){
  #home.contact-chapter{padding-bottom:90px;min-height:100svh}
  #features .contact-copy,#about .contact-copy{margin-left:0;width:100%}
