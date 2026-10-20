@@ -7,7 +7,7 @@ import {useSpring} from '@react-spring/web';
 import * as THREE from 'three';
 import {SVGLoader} from 'three/addons/loaders/SVGLoader.js';
 import {SourceBoundary} from './source-boundary.jsx';
-import {EmblemFireflies} from './emblem-fireflies.jsx';
+import {EmblemFollowers} from './emblem-followers.jsx';
 import {createLogoReadiness,createLogoGesture,emblemFeatures,releaseLogoInteraction} from '/js/logo-interaction.js';
 import {emblemPointer} from '/js/home-choreography.js';
 import {createFrameBudget,createLiquidLogoRenderer} from '/js/source-effects.js';
@@ -70,14 +70,14 @@ function LogoModel({pose,matter,pointer,rotation,spring,onStatus,gesture,target}
     const active=resources.current;if(active.renderer&&textureDue.current(now)){const available=active.renderer.render(active.mask,(now-active.started)/1000,{pressure});if(available){active.texture.needsUpdate=true;}else if(front.map){front.map=null;front.needsUpdate=true;readiness.current?.setPhase('solid');}}
     gl.render(scene,camera);gl.domElement.dataset.source='r3f-liquid-logo';gl.domElement.dataset.geometry='nox-icon-extrusion';gl.domElement.dataset.screenX=pose.screenX.toFixed(3);gl.domElement.dataset.screenY=pose.screenY.toFixed(3);gl.domElement.dataset.tiltY=inner.current.rotation.y.toFixed(3);gl.domElement.dataset.scrollY=outer.current.rotation.y.toFixed(3);gl.domElement.dataset.pressure=pressure.toFixed(3);gl.domElement.dataset.frame=String(++frames.current);
   },1);
-  return <><group ref={outer}><group ref={inner}><group scale={[.08,-.08,.08]} position={[-2.56,2.65,0]} dispose={null}>{parts.map((geometry,index)=><mesh ref={mesh=>{meshes.current[index]=mesh;}} key={index} geometry={geometry} material={index<2?[front,side]:front}/>)}</group></group></group>{parts.length>0&&<EmblemFireflies pose={pose}/>}</>;
+  return <><group ref={outer}><group ref={inner}><group scale={[.08,-.08,.08]} position={[-2.56,2.65,0]} dispose={null}>{parts.map((geometry,index)=><mesh ref={mesh=>{meshes.current[index]=mesh;}} key={index} geometry={geometry} material={index<2?[front,side]:front}/>)}</group></group></group>{parts.length>0&&<EmblemFollowers pose={pose} pointer={pointer}/>}</>;
 }
 
 export default function SourceLogo({pose,matter,onPoke}){
   const pointer=useRef(null),gesture=useRef(createLogoGesture()),target=useRef(),start=useRef();
   const [status,setStatus]=useState('loading'),[{x,y},spring]=useSpring(()=>({x:0,y:0,config:{mass:.55,tension:500,friction:32}}));
   const changeStatus=useCallback(value=>{if(value==='fallback'||value==='loading')releaseLogoInteraction(gesture.current,target.current,start.current?.id,()=>spring.start({x:0,y:0}));setStatus(value);},[spring]);
-  useEffect(()=>{const move=event=>{if(event.pointerType!=='touch')pointer.current={x:event.clientX/innerWidth,y:event.clientY/innerHeight};},blur=()=>{pointer.current=null;gesture.current.reset();spring.start({x:0,y:0});};document.addEventListener('pointermove',move,{passive:true});window.addEventListener('blur',blur);return()=>{document.removeEventListener('pointermove',move);window.removeEventListener('blur',blur);};},[spring]);
+  useEffect(()=>{const move=event=>{if(event.pointerType!=='touch')pointer.current={x:event.clientX/innerWidth,y:event.clientY/innerHeight,at:performance.now()/1000};},blur=()=>{pointer.current=null;gesture.current.reset();spring.start({x:0,y:0});};document.addEventListener('pointermove',move,{passive:true});window.addEventListener('blur',blur);return()=>{document.removeEventListener('pointermove',move);window.removeEventListener('blur',blur);};},[spring]);
   const release=e=>{if(!gesture.current.end(e.pointerId))return;if(e.type==='pointerup'&&Math.hypot(e.clientX-start.current.x,e.clientY-start.current.y)<6)onPoke?.();gesture.current.reset();};
   return <div className="source-logo" data-state={status}>
     <div className="logo-canvas" aria-hidden="true">
