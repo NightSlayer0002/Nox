@@ -54,9 +54,11 @@ export async function createHistory(storage,legacy=[]){
     setMode(mode){const id=currentId;return write(()=>{const t=state.threads.find(t=>t.id===id);if(!t)return false;t.mode=MODES.includes(mode)?mode:'companion';return true;});},
     append(role,content){const id=currentId,text=turnText(content,role);return write(()=>{if(!['user','assistant'].includes(role)||!text)return false;const t=state.threads.find(t=>t.id===id);if(!t)return false;t.turns.push({role,content:text,seq:t.next++});t.turns=t.turns.slice(-200);t.updated=Date.now();if(role==='user'&&t.title==='New conversation')t.title=cleanText(text,60);return true;});},
     remove(id){return write(()=>{state.threads=state.threads.filter(t=>t.id!==id);});},
-    context(){const t=active(),pending=t.turns.filter(v=>v.seq>t.summaryThrough);if(pending.length<=12)return {summary:t.summary,history:pending.map(({role,content})=>({role,content}))};
+    context(){const t=active(),pending=t.turns.filter(v=>v.seq>t.summaryThrough),opening=t.turns.find(v=>v.seq===1&&v.role==='user');
+      const dialogue=turns=>(opening&&!turns.includes(opening)?[opening,...turns]:turns).map(({role,content})=>({role,content}));
+      if(pending.length<=12)return {summary:t.summary,history:dialogue(pending)};
       const recent=t.turns.slice(-8),older=pending.filter(v=>v.seq<recent[0].seq);const excerpts=older.length<=10?older:[...older.slice(0,6),...older.slice(-4)];
-      return {summary:t.summary,bridge:cleanText(excerpts.map(v=>`${v.role}: ${cleanText(v.content,130)}`).join(' | '),1600),history:recent.map(({role,content})=>({role,content}))};
+      return {summary:t.summary,bridge:cleanText(excerpts.map(v=>`${v.role}: ${cleanText(v.content,130)}`).join(' | '),1600),history:dialogue(recent)};
     },
     summaryWork(){const t=active(),older=t.turns.slice(0,-8).filter(v=>v.seq>t.summaryThrough);if(older.length<12)return null;const turns=older.slice(0,24).map(v=>({...v,content:cleanText(v.content,600)}));while(new TextEncoder().encode(JSON.stringify({previous:t.summary,turns})).byteLength>12000&&turns.length>1)turns.pop();return {id:t.id,through:turns.at(-1).seq,previous:t.summary,turns:turns.map(({role,content})=>({role,content}))};},
     applySummary(id,through,text){return write(()=>{const t=state.threads.find(t=>t.id===id);if(!t||through<=t.summaryThrough||!t.turns.some(v=>v.seq===through)||typeof text!=='string'||!text.trim())return false;t.summary=cleanText(text,1200);t.summaryThrough=through;return true;});},

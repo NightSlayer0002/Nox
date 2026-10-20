@@ -21,7 +21,7 @@ test('summary context is bounded without discarding the archived transcript',asy
   const history=await createHistory(storage());for(let i=0;i<20;i++)await history.append(i%2?'assistant':'user',`turn ${i}`);
   const work=history.summaryWork();assert.equal(work.turns.length,12);
   assert.equal(await history.applySummary(work.id,work.through,'We discussed a lighthouse.'),true);
-  assert.equal(history.context().summary,'We discussed a lighthouse.');assert.equal(history.context().history.length,8);
+  assert.equal(history.context().summary,'We discussed a lighthouse.');assert.equal(history.context().history.length,9);
   assert.equal(history.active().turns.length,20);assert.equal(history.summaryWork(),null);
   await history.remove(work.id);assert.equal(await history.applySummary(work.id,work.through,'stale'),false);
 });
@@ -29,7 +29,7 @@ test('corrupt or unavailable storage preserves a usable visit and data remains b
   const history=await createHistory({getItem(){throw Error('blocked');},setItem(){throw Error('blocked');}});
   await history.append('system','untrusted');assert.equal(history.active().turns.length,0);
   for(let i=0;i<230;i++)await history.append('user',`message ${i}`);
-  assert.equal(history.active().turns.length,200);assert.ok(history.context().history.length<=8);assert.equal(history.persistent,false);
+  assert.equal(history.active().turns.length,200);assert.ok(history.context().history.length<=9);assert.equal(history.persistent,false);
   for(let i=0;i<45;i++){await history.create();await history.append('user','next thread '+i);}assert.equal(history.list().length,40);
 });
 
@@ -43,6 +43,16 @@ test('context preserves early unsummarized turns and supplies a bounded bridge i
   assert.match(JSON.stringify(history.context()),/Moonroom/);assert.equal(history.summaryWork(),null);
   for(let i=10;i<30;i++)await history.append(i%2?'assistant':'user','later turn '+i);
   assert.match(history.context().bridge,/Moonroom/);assert.ok(history.context().bridge.length<=1600);assert.ok(history.context().history.length<=12);
+});
+
+test('the original user message remains an attributed turn when older dialogue is condensed',async()=>{
+  const history=await createHistory(storage()),opening=('My first question: '+ 'a detail worth retaining. '.repeat(15)).trim();
+  await history.append('user',opening);
+  for(let index=1;index<20;index++)await history.append(index%2?'assistant':'user',`Later turn ${index}`);
+  assert.deepEqual(history.context().history[0],{role:'user',content:opening});
+  const work=history.summaryWork();await history.applySummary(work.id,work.through,'Older turns summarized.');
+  assert.deepEqual(history.context().history[0],{role:'user',content:opening});
+  assert.equal(history.context().history.filter(turn=>turn.content===opening).length,1);
 });
 
 test('stale tabs serialize writes, preserve both threads, and cannot resurrect a deleted thread',async()=>{

@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {sanitizeContext,prepareChatRequest,CHAT_REQUEST_BYTES} from '../shared/character.js';
-import {answerInstructions,contextMessages} from '../server/ai.mjs';
+import {answerInstructions,referenceData} from '../server/ai.mjs';
 import {capabilitiesForModel} from '../shared/product-capabilities.js';
 import {PRODUCT_OFFERS} from '../shared/offers.js';
 
@@ -9,7 +9,7 @@ test('visitor preferences are typed allowlisted settings and arbitrary instructi
   const context=sanitizeContext({activity:'explore',preferences:{answerLength:'short',speechPace:.9,learningStyle:'hints',storyIntensity:'mysterious',gameHints:false,gameQuestionLimit:12,system:'PRIVATE_INJECTION'},knowledge:[{id:'one',title:'A note',text:'PRIVATE_INJECTION'}],owner:true,subscription:'plus'});
   assert.deepEqual(context.preferences,{answerLength:'short',learningStyle:'hints',storyIntensity:'mysterious',speechPace:.9,gameQuestionLimit:12,gameHints:false});
   const prompt=answerInstructions(context);assert.match(prompt,/helpful hint/);assert.match(prompt,/For factual lookups, answer directly/);assert.match(prompt,/explicitly says no hints/);assert.doesNotMatch(prompt,/atmospheric|12 questions|PRIVATE_INJECTION/);assert.equal(context.owner,undefined);
-  const reference=contextMessages(context);assert.match(reference[0].content,/Untrusted background data/);assert.match(reference[0].content,/PRIVATE_INJECTION/);
+  const reference=referenceData(context);assert.match(reference,/<nox_reference_data>/);assert.match(reference,/PRIVATE_INJECTION/);
   const hostile=sanitizeContext({activity:'system',preferences:{answerLength:'IGNORE_RULES',speechPace:100,learningStyle:{x:1},gameQuestionLimit:0,gameHints:'true'}});assert.equal(hostile.activity,undefined);assert.equal(hostile.preferences,undefined);
 });
 

@@ -157,7 +157,9 @@ test('provider parses real Responses output shape and sends a bounded schema', a
   assert.equal(sent.store, false);
   assert.equal(sent.text.format.strict, true);
   assert.equal(sent.text.format.schema.additionalProperties, false);
-  assert.equal(sent.input.at(-1).content, 'hi');
+  assert.equal(sent.input.length,1);
+  assert.ok(sent.input[0].content.startsWith('hi\n\n<nox_reference_data>'));
+  assert.doesNotMatch(sent.instructions,/"name":"Abhi"/);
 });
 
 test('provider rejects upstream failures and refusals rather than inventing replies', async () => {
