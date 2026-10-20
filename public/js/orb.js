@@ -50,7 +50,7 @@ export class Orb extends OrbSignal{
     const base=this.sample(time,delta,reduceMotion),activity=this.neural.step(delta,{status:base.status,audioLevel:Number.isFinite(this.mouthLevel)?this.mouthLevel:base.envelope,reduceMotion});
     this.signal={...base,...activity};
   }
-  diameter(w,h,scale=this.scale){return Math.min(w*.65,h*.88)*scale;}
+  diameter(w,h,scale=this.scale){return Math.min(w,h)*.94*scale;}
   hitTest(p,w,h){const size=this.diameter(w,h);return ((p.x-this.x)*w/(size*.39))**2+((p.y-this.y)*h/(size*.37))**2<1;}
   draw(ctx,w,h,time,{alpha=1,x=this.x,y=this.y,scale=this.scale}={}){
     if(this.disposed)return;

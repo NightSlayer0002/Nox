@@ -11,6 +11,17 @@ test.afterEach(()=>{globalThis.document=originalDocument;globalThis.Path2D=origi
 function context(){const result={images:[],strokes:[],arcs:[],transforms:[]};return Object.assign(result,{save(){},restore(){},translate(...v){this.transforms.push(v);},rotate(){},scale(){},drawImage(...v){this.images.push(v);},stroke(p){this.strokes.push(p);},beginPath(){},arc(...v){this.arcs.push(v);},fill(){}});}
 const settle=()=>new Promise(resolve=>setImmediate(resolve));
 
+test('Signal fills its preview while keeping a margin for its fading wave envelope',()=>{
+  const core=new Orb({loadRenderer:async()=>{throw Error('unused');}});
+  for(const width of [128,320,420]){
+    const size=core.diameter(width,width);
+    assert.ok(size>=width*.9,'the sourced brain must not sit inside an undersized texture');
+    assert.ok(size<=width*.96,'leave room for the soft edge fade');
+    assert.equal(core.hitTest({x:.5,y:.46},width,width),true);
+  }
+  core.dispose();
+});
+
 test('Signal loads its brain only when drawn, and captures the renderer in the stage canvas',async()=>{
   let loads=0,renders=0;const canvas={},core=new Orb({loadRenderer:async()=>{loads++;return {canvas,render(){renders++;return true;},dispose(){}};}}),ctx=context();
   assert.equal(loads,0);core.draw(ctx,400,400,1);await settle();core.draw(ctx,400,400,2);
