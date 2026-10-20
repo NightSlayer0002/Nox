@@ -27,7 +27,7 @@ test('all chat APIs get guest-safe product facts and ignore forged client capabi
     const facts=productData(instructions);
     assert.equal(facts.visit,'guest');
     assert.deepEqual(facts.conversation.depths,['quick','balanced']);
-    assert.equal(facts.conversation.savedHistory,true);
+    assert.equal(facts.conversation.savedHistory,false);
     assert.equal(facts.conversation.notebookContext,true);
     assert.equal(facts.afterimage.customGeneration,false);
     assert.equal(facts.afterimage.authoredExample,true);

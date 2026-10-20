@@ -7,7 +7,6 @@ export function createEverydayBridge(){
     ask(message,{activity}={}){if(typeof message!=='string'||!message.trim())throw new Error('Add an idea or passage first.');const request=message.trim();if(request.length>6000)throw new Error('This request is too long. Shorten the passage before opening a conversation.');return requireHandler('ask')(request,{activity});},
     speak(value,{activity}={}){if(typeof value!=='string'||!value.trim())return false;return requireHandler('speak')(value.trim().slice(0,1600),{activity:['explore','guessing'].includes(activity)?activity:undefined});},
     stop(){return adapter?.stop?.();},
-    save(value){if(!value||!['explore','guessing'].includes(value.kind)||!value.state)throw new Error('This activity cannot be saved yet.');return requireHandler('save')({...value,title:String(value.title||'NOX activity').slice(0,100)});},
     proposePreference(value){return requireHandler('proposePreference')(value);},
   });
 }

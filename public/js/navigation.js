@@ -1,6 +1,6 @@
 const $=id=>document.getElementById(id);
 const views={explore:['Explore','','A place to begin.'],conversation:['Conversation','','Think something through with NOX.'],scenes:['Scene studio','','Shape a performance and capture it.'],library:['Library','','Return to a conversation.'],afterimage:['Afterimage','','A fictional transmission you can change.']};
-Object.assign(views,{discover:['Discover','','Follow your curiosity.'],continue:['Continue','','Saved on this device.'],memory:['What NOX remembers','','Only what you approve.'],access:['Your access','','Free now. Plus when it is ready.'],learn:['Explore together','','Bring an idea or try an example.'],guessing:['Play together','','Ask questions. Follow the clues.']});
+Object.assign(views,{discover:['Discover','','Follow your curiosity.'],memory:['Preferences','','Only what you approve.'],access:['Your access','','Free now. Plus when it is ready.'],learn:['Explore together','','Bring an idea or try an example.'],guessing:['Play together','','Ask questions. Follow the clues.']});
 export function createNavigation({history,onOpen,onNew,onStart}) {
   let currentView;
   function setMenu(open,restoreFocus=false){document.body.dataset.menuOpen=String(open);$('menu-button').setAttribute('aria-expanded',String(open));$('workspace-shell').inert=open;if(restoreFocus)$('menu-button').focus();}

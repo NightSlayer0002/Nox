@@ -139,7 +139,7 @@ test('accepting installation waits for browser confirmation before claiming NOX 
 
 test('offline UI preserves access to loaded local content without promising offline AI',()=>{
   const ui=installUI({online:false}),status=ui.elements.get('network-status');assert.equal(status.hidden,false);assert.equal(ui.elements.get('header').id,'header');
-  assert.match(status.textContent,/loaded local activities/);assert.match(status.textContent,/AI replies need a connection/);
+  assert.match(status.textContent,/local activities/);assert.match(status.textContent,/AI replies need a connection/);
   ui.navigator.onLine=true;ui.events.get('online')();assert.equal(status.hidden,true);
 });
 

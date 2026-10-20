@@ -6,15 +6,9 @@ Live website: [nox-iota-lemon.vercel.app](https://nox-iota-lemon.vercel.app/). S
 
 Try the [temporary guest visit](https://nox-iota-lemon.vercel.app/guest#conversation).
 Guest chats, notes and receptions stay in memory and disappear on refresh. Your
-visit never loads the owner's local archive. Explicit **Keep this** saves a copy
-on this device, available through Continue after a refresh. Approved preferences
-are also device-local and can be edited or forgotten. Simply navigating away
-does not save an activity to disk. The free experience uses the public Groq
-connection with Quick or Balanced replies and male Orpheus voice when available.
-[Owner workspace](https://nox-iota-lemon.vercel.app/owner#conversation) uses the
-private NOX owner token to open this browser's owner archive and developer tools.
-There is no shared chat database or cross-device account sync. **Plus is not for
-sale; owner access is private developer access, not a paid plan.**
+visit never loads the owner’s local archive. Guest chats, activities, notes and
+approved preferences clear on refresh. There is no public login or cloud saving.
+Conversation and story exports remain available as files.
 
 ## Start locally
 
@@ -23,7 +17,7 @@ npm.cmd ci --ignore-scripts
 npm.cmd start
 ```
 
-Open http://127.0.0.1:3000 for the landing page, then enter the workspace at `/app`. Dark is the default; a deliberate new Light choice can be saved. NOX follows your cursor across the browser window. Click him, drag him, or double-click to wink. Presence is the soft blob; Liquid Metal applies liquid-logo’s flowing Chrome shader to that same character. Signal is a faceless liquid core. NOX motion stays on with no website switch, including when the browser requests reduced motion as explicitly requested by the owner. ShaderGradient’s Mint water-plane scene animates automatically; GPU drawing is capped at 30 FPS and stops when the page is hidden. Voice starts on and preserves a saved off choice; browser audio still needs interaction. Scene programs stop on a second click. F enters portrait film mode; Escape resets the scene.
+Open http://127.0.0.1:3000 for the landing page, then enter the workspace at `/app`. Dark is the default; a deliberate new Light choice can be saved. NOX follows your cursor across the browser window. Click him, drag him, or double-click to wink. Presence is the soft blob; Liquid Metal applies liquid-logo’s flowing Chrome shader to that same character. Signal is a faceless liquid core. NOX motion stays on with no website switch, including when the browser requests reduced motion as explicitly requested by the owner. ShaderGradient’s Mint water-plane scene animates automatically; GPU drawing is capped at 30 FPS and stops when the page is hidden. Voice starts off; enable it when you want spoken replies. Browser audio still needs interaction. Scene programs stop on a second click. F enters portrait film mode; Escape resets the scene.
 
 Normal NOX uses a soft matte 3D body with warm eyes, a mint rim, held stretch and
 release wobble. Liquid Metal shares that body and loads its Chrome surface only

@@ -12,9 +12,9 @@
 <aside id="workspace-nav" class="sidebar" aria-label="Workspace navigation"><button id="close-navigation" type="button" class="quiet-button mobile-only">Close menu</button>
 <a class="brand" href="/" aria-label="NOX home"><span class="brand-mark" aria-hidden="true"><i></i><i></i></span><span>NOX</span></a>
 <button id="new-chat" class="new-chat">New conversation</button>
-<nav aria-label="Workspace"><a href="#conversation" data-view="conversation" class="selected"><i class="source-icon icon-voice" aria-hidden="true"></i>NOX</a><a href="#continue" data-view="continue"><i class="source-icon icon-notes" aria-hidden="true"></i>Continue</a><a href="#discover" data-view="discover"><i class="source-icon icon-orbit" aria-hidden="true"></i>Discover</a></nav>
+<nav aria-label="Workspace"><a href="#conversation" data-view="conversation" class="selected"><i class="source-icon icon-voice" aria-hidden="true"></i>NOX</a><a href="#library" data-view="library"><i class="source-icon icon-notes" aria-hidden="true"></i>Chats</a><a href="#discover" data-view="discover"><i class="source-icon icon-orbit" aria-hidden="true"></i>Discover</a></nav>
 <p class="rail-label">Recent conversations</p><div id="recent-chats" class="recent-chats"></div>
-<div class="rail-bottom"><a href="#memory">What NOX remembers</a><button id="knowledge-button" class="quiet-button">Notes for this visit</button><a href="#access">Free &amp; Plus</a><a href="/" class="rail-version">NOX home</a></div>
+<div class="rail-bottom"><a href="#memory">Preferences</a><button id="knowledge-button" class="quiet-button">Notes for this visit</button><a href="#access">Free &amp; Plus</a><a href="/" class="rail-version">NOX home</a></div>
 </aside>
 <div id="workspace-shell" class="shell">
 <header class="header">
@@ -84,7 +84,7 @@
 <a class="outline-button" href="#conversation">Continue in conversation</a></aside>
 <aside class="afterimage-column" data-panel="afterimage" hidden><div id="afterimage-root"><p class="eyebrow">AFTERIMAGE / RECEIVER</p><p>Waiting for the receiver…</p></div></aside>
 <aside class="release-column" data-panel="discover" hidden><div id="discover-root"></div></aside>
-<aside class="release-column" data-panel="continue" hidden><div id="continue-root"></div></aside>
+
 <aside class="release-column" data-panel="memory" hidden><div id="memory-root"></div></aside>
 <aside class="release-column" data-panel="access" hidden><div id="access-root"></div></aside>
 <aside class="release-column activity-column" data-panel="learn" hidden><div id="everyday-root"></div></aside>
@@ -102,19 +102,19 @@
   </div>
 </form><p id="composer-help" class="composer-help">Enter to send <span>·</span> Shift + Enter for a new line</p>
 <p class="knowledge-sources" id="knowledge-context" hidden></p>
-<div id="keep-conversation"></div>
+
 
 </aside>
 </div>
 <footer><span>NOX</span><span>Double-click to wink · F for film mode · Escape to reset</span></footer>
 </main>
 </div>
-<nav class="mobile-bottom-nav" aria-label="Main navigation"><a href="#conversation" data-view="conversation">NOX</a><a href="#continue" data-view="continue">Continue</a><a href="#discover" data-view="discover">Discover</a></nav>
+<nav class="mobile-bottom-nav" aria-label="Main navigation"><a href="#conversation" data-view="conversation">NOX</a><a href="#library" data-view="library">Chats</a><a href="#discover" data-view="discover">Discover</a></nav>
 <div id="preference-confirmation"></div>
 <div id="toast" role="status" hidden></div>
 <dialog id="inside-dialog"><div class="dialog-top"><p class="eyebrow">Settings</p><button id="close-inside" aria-label="Close">×</button></div><h2>Settings</h2>
 <div id="settings-workspace-tools" class="settings-workspace-tools"></div>
-<div class="consumer-settings"><a href="#memory">What NOX remembers</a><a href="#access">Your free access &amp; NOX Plus</a><label for="speech-pace">Speech pace</label><select id="speech-pace"><option value="0.75">Slower · 0.75×</option><option value="0.85">Gentler · 0.85×</option><option value="1" selected>Natural · 1×</option><option value="1.15">Brisk · 1.15×</option><option value="1.25">Faster · 1.25×</option></select><button id="stop-voice" type="button">Stop speaking</button><button id="install-nox" type="button" hidden>Install NOX</button><p id="install-note">Use your browser’s “Add to Home screen” option to keep NOX close. Live AI needs a connection.</p></div>
+<div class="consumer-settings"><a href="#memory">Preferences</a><a href="#access">Your free access &amp; NOX Plus</a><label for="speech-pace">Speech pace</label><select id="speech-pace"><option value="0.75">Slower · 0.75×</option><option value="0.85">Gentler · 0.85×</option><option value="1" selected>Natural · 1×</option><option value="1.15">Brisk · 1.15×</option><option value="1.25">Faster · 1.25×</option></select><button id="stop-voice" type="button">Stop speaking</button><button id="install-nox" type="button" hidden>Install NOX</button><p id="install-note">Use your browser’s “Add to Home screen” option to keep NOX close. Live AI needs a connection.</p></div>
 <div class="settings-panel"><details class="advanced-model"><summary>AI provider and answer settings</summary><div class="setting-row"><label for="provider-select">AI provider</label><select id="provider-select"><option value="">Connecting…</option></select></div><p id="provider-note">Providers appear once their server keys are configured.</p><div hidden>    <div class="composer-select model-select"><label class="sr-only" for="composer-provider">AI provider</label><select id="composer-provider" title="Switch AI provider" disabled><option value="">Connecting…</option></select></div>
 </div><p class="lab-note" id="depth-note">Balanced answers take a little more time. Voice reads a concise opening.</p></details><div class="setting-row"><label for="voice-engine">Voice</label><select id="voice-engine"><option value="browser">Browser · free</option><option id="natural-option" value="natural" disabled>Natural · Groq Orpheus</option></select></div><p id="voice-note">Browser voice quality depends on the voices installed on your device.</p>
 <details id="owner-access" class="owner-access"><summary>Owner access</summary><form id="owner-form" hidden><label for="owner-token">Owner/dev sign-in</label><div class="unlock-row"><input id="owner-token" type="password" autocomplete="off" placeholder="Your NOX access token"><button type="submit">Sign in</button></div><p>Use your NOX owner token for saved history and the full studio. Voice and the guest trial need no owner token. The owner session lasts up to 12 hours.</p></form><button id="lock-owner" class="quiet-button" hidden>Sign out of owner mode</button><p id="owner-status" role="status"></p></details></div>

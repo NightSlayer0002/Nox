@@ -1,8 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {GUESS_OBJECTS,GUESS_QUESTIONS,createGuessingState,restoreGuessingState,updateGuessingState,guessingResult,normalizeGameRules,normalizeGuess,createExploreState,restoreExploreState,exploreRecap,moonPhase,normalizeAfterimageActivity} from '../shared/everyday-activities.js';
+import {GUESS_OBJECTS,GUESS_QUESTIONS,createGuessingState,restoreGuessingState,updateGuessingState,guessingResult,normalizeGameRules,normalizeGuess,createExploreState,restoreExploreState,exploreRecap,moonPhase} from '../shared/everyday-activities.js';
 import {createEverydayBridge} from '../public/js/everyday-bridge.js';
-import {createContinuity} from '../public/js/continuity.js';
 import {FIRST_CONTACT} from '../client/afterimage-example.js';
 import {buildSelectedPerformance} from '../public/js/afterimage-engine.js';
 
@@ -70,9 +69,8 @@ test('bridge keeps real model, speech, storage and preference consent outside th
   assert.equal(await bridge.ask('  Explain this  ',{activity:{kind:'explore'}}),'opened');assert.equal(calls[0][1],'Explain this');
   assert.throws(()=>bridge.ask('x'.repeat(6001)),/too long/);assert.equal(calls.length,1);
   assert.equal(bridge.speak(' A clue. '),true);assert.equal(bridge.speak(''),false);bridge.stop();
-  assert.deepEqual(await bridge.save({kind:'guessing',title:'Round',state:createGuessingState()}),{saved:true});
   assert.deepEqual(await bridge.proposePreference({key:'gameHints',value:false,scope:'guessing'}),{approved:false});
-  assert.throws(()=>bridge.save({kind:'invented',state:{}}),/cannot be saved/);disconnect();assert.throws(()=>bridge.speak('Hello'),/connecting/);
+disconnect();assert.throws(()=>bridge.speak('Hello'),/connecting/);
 });
 test('activity read-aloud forwards only its bounded activity scope',()=>{
   const bridge=createEverydayBridge(),calls=[];bridge.connect({speak:(...args)=>calls.push(args)});
@@ -82,18 +80,4 @@ test('activity read-aloud forwards only its bounded activity scope',()=>{
   }
   bridge.speak('Hello',{activity:'invented'});
   assert.deepEqual(calls.at(-1),['Hello',{activity:undefined}]);
-});
-test('deliberately kept Afterimage cut restores branch, ending and edited speech after reload',async()=>{
-  const values=new Map(),disk={getItem:key=>values.get(key)??null,setItem:(key,value)=>values.set(key,value)},library=createContinuity(disk);
-  assert.equal(library.list().length,0);
-  const source={version:1,packet:FIRST_CONTACT,seed:'A door in a window with no wall.',tone:'uncanny',source:'authored',signalIndex:2,endingIndex:1,editedLines:['My first line.','My second line.','My third line.','My chosen ending.'],elapsedMs:12000,credentials:'must not be kept'};
-  const normalized=normalizeAfterimageActivity(source),kept=await library.save({kind:'afterimage',title:normalized.packet.title,state:normalized});
-  assert.ok(kept);assert.equal(normalized.elapsedMs,undefined);assert.equal(normalized.credentials,undefined);
-  const restored=normalizeAfterimageActivity(createContinuity(disk).get(kept.id).state);
-  assert.equal(restored.signalIndex,2);assert.equal(restored.endingIndex,1);
-  assert.deepEqual(buildSelectedPerformance(restored.packet,restored.signalIndex,restored.endingIndex,restored.editedLines).cues.map(cue=>cue.speech),source.editedLines);
-  await library.save({id:kept.id,kind:'afterimage',title:normalized.packet.title,state:{...normalized,endingIndex:0}});assert.equal(library.list().length,1);
-  assert.throws(()=>normalizeAfterimageActivity({...source,signalIndex:9}),/invalid branch/);
-  assert.throws(()=>normalizeAfterimageActivity({...source,editedLines:['only one']}),/four lines/);
-  assert.throws(()=>normalizeAfterimageActivity({...source,version:8}),/version/);
 });

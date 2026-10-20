@@ -1,4 +1,4 @@
-import { createBoundedDeviceStore, deviceText, isDeviceId, safeDeviceValue } from './continuity.js';
+import { createBoundedDeviceStore, deviceText, isDeviceId, safeDeviceValue } from './device-store.js';
 
 const KEY='nox.approved-preferences.v1';
 const SCOPES=new Set(['general','learning','story','guessing']);

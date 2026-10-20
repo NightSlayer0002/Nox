@@ -1,5 +1,4 @@
-// Device saves are deliberate copies, separate from the owner's chat history.
-const KEY='nox.device-library.v1',KINDS=new Set(['conversation','explore','mystery','guessing','afterimage']);
+// Bounded preference storage. Guest callers supply visit-only storage.
 const BAD_KEYS=new Set(['__proto__','prototype','constructor']);
 const queues=new Map();
 const bytes=value=>new TextEncoder().encode(value).byteLength;
@@ -103,35 +102,5 @@ export function createBoundedDeviceStore(storage,{key,field,validate,limit=100,m
         return {candidate:[...items,...additions],result:{ok:true,imported:additions.length}};
       },()=>({ok:false,imported:0,error:readError||writeError}));
     },
-  };
-}
-function validateItem(item){
-  if(!item||!safeDeviceValue(item)||!isDeviceId(item.id)||!KINDS.has(item.kind))return null;
-  const title=deviceText(item.title,120);
-  if(!title||!item.state||Array.isArray(item.state)||typeof item.state!=='object'||bytes(JSON.stringify(item.state))>180000)return null;
-  if(!Number.isSafeInteger(item.createdAt)||item.createdAt<0||!Number.isSafeInteger(item.updatedAt)||item.updatedAt<item.createdAt)return null;
-  return {id:item.id,kind:item.kind,title,state:copy(item.state),createdAt:item.createdAt,updatedAt:item.updatedAt};
-}
-export function createContinuity(storage){
-  const store=createBoundedDeviceStore(storage,{key:KEY,field:'items',validate:validateItem});
-  return {
-    get persistent(){return store.persistent;},get crossTabSafe(){return store.crossTabSafe;},get status(){return store.status;},
-    list(){return store.read().sort((a,b)=>b.updatedAt-a.updatedAt);},
-    get(id){return store.read().find(item=>item.id===id)||null;},
-    save(input){
-      // Freeze the user's supplied snapshot now; the stored base is read later
-      // inside the lock so another tab's saves/removals cannot be resurrected.
-      let snapshot;try{snapshot=copy(input);}catch{return Promise.resolve(null);}
-      return store.mutate(items=>{
-        if(!snapshot||typeof snapshot!=='object')return null;
-        const id=snapshot.id??globalThis.crypto.randomUUID(),previous=items.find(item=>item.id===id),now=Date.now();
-        const item=validateItem({id,kind:snapshot.kind,title:snapshot.title,state:snapshot.state,createdAt:previous?.createdAt??now,updatedAt:Math.max(now,previous?.updatedAt??0)});
-        if(!item)return null;
-        return {candidate:previous?items.map(v=>v.id===id?item:v):[...items,item],result:item};
-      });
-    },
-    remove(id){return store.mutate(items=>items.some(item=>item.id===id)?{candidate:items.filter(item=>item.id!==id),result:true}:{result:false},false);},
-    clear(){return store.mutate(()=>({candidate:[],result:true}),false);},
-    export:()=>store.export(),import:serialized=>store.import(serialized),
   };
 }

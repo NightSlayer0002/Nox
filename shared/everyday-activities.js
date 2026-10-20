@@ -1,4 +1,3 @@
-import {normalizeAfterimage} from './afterimage.js';
 import {cleanText} from './character.js';
 // Bounded, authored experiences. This module never calls or imitates an AI model.
 export const ACTIVITY_VERSION=1;
@@ -30,22 +29,6 @@ export function exploreRecap(value){
   const state=restoreExploreState(value),checked=state.selfCheck;
   return {title:'Why the Moon changes shape',summary:'Sunlight lights half the Moon. Its orbit changes our view of the lit half.',understood:checked.includes('light')&&checked.includes('view')?'You marked reflected sunlight and our changing view as clear.':'Your self-check is still open; try explaining the two views.',open:checked.includes('question')?'You marked a question to return to. Bring it to NOX in chat.':state.prediction==='opposite'?'You found the full-Moon position.':'Try placing the Moon opposite the Sun, with Earth between them.',teachBack:state.teachBack};
 }
-export function normalizeAfterimageActivity(value){
-  const raw=own(value);
-  if(raw.version!==undefined&&raw.version!==1)throw new TypeError('This saved story version is not supported.');
-  const packet=normalizeAfterimage(raw.packet),signalIndex=raw.signalIndex??0,endingIndex=raw.endingIndex??0;
-  if(!Number.isInteger(signalIndex)||signalIndex<0||signalIndex>2||!Number.isInteger(endingIndex)||endingIndex<0||endingIndex>1)throw new RangeError('This saved story has an invalid branch or ending.');
-  if(!['authored','live'].includes(raw.source)||!['wonder','uncanny','bold'].includes(raw.tone))throw new TypeError('This saved story is invalid.');
-  let editedLines;
-  if(raw.editedLines!==undefined){
-    if(!Array.isArray(raw.editedLines)||raw.editedLines.length!==4)throw new TypeError('A saved cut needs four lines.');
-    editedLines=raw.editedLines.map(line=>cleanText(line,90));
-    if(editedLines.some(line=>!line))throw new TypeError('Every saved line needs some text.');
-  }
-  // Playback restarts deliberately: the current performance engine cannot seek.
-  return {version:1,packet,signalIndex,endingIndex,seed:cleanText(raw.seed,600),tone:raw.tone,source:raw.source,...(editedLines?{editedLines}:{})};
-}
-
 // The answers describe these particular everyday objects, rather than every possible
 // kind of apple, clock, etc. The candidate list and supported questions are visible.
 export const GUESS_OBJECTS=Object.freeze([

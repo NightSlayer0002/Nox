@@ -24,7 +24,7 @@ import {visit,initialVisitStatus,requestVisitStatus} from './visit-scope.js';
 import {attachComposerOptions,createComposerSizer,createReplyDiagnostics} from './conversation-controls.js';
 import {createChatMessage} from './chat-message.js';
 import {createActivitySignal} from './activity-signal.js';
-import {savedActivities,approvedPreferences,companionBridge,companionChanged,queueSavedOpen} from './companion-context.js';
+import {approvedPreferences,companionBridge,companionChanged,rememberActivity} from './companion-context.js';
 import {EverydayBridge} from './everyday-bridge.js';
 
 const $ = id => document.getElementById(id);
@@ -33,13 +33,13 @@ window.addEventListener('pagehide',event=>{if(!event.persisted)releaseViewport()
 const disk=visit.storage;
 document.body.dataset.visit=visit.owner?'owner':'guest';
 $('message').maxLength=6000;
-$('visit-note').textContent=visit.owner?'Developer workspace · private browser archive.':'Your conversation stays temporary until you choose Keep this.';
+$('visit-note').textContent=visit.owner?'Developer workspace · private browser archive.':'Guest preview · conversations clear when you refresh.';
 const memory = createMemory(disk);
 const history = await createHistory(disk,memory.snapshot().history);
 if(history.persistent)memory.clearHistory();
 let mode = history.active().mode;
 let navigation,summaryController,summaryTimer,pendingDraft;
-let editTarget=null,currentActivity='conversation',savedConversationId=null,publicUsage=initialVisitStatus?.usage;
+let editTarget=null,currentActivity='conversation',publicUsage=initialVisitStatus?.usage;
 let brain = 'loading'; let busy = false;
 let ownerToken = '', selectedProvider = '', connectionVersion = 0, connection = {};
 const providerControls=createProviderControls([$('provider-select'),$('composer-provider')],value=>{cancelConversation();selectedProvider=value;showConnection();});
@@ -311,7 +311,7 @@ async function send(raw,{recorded=false}={}) {
     }
     if (turns.isCurrent(version)) {activity.transition('reply-ready',activityTurn);if(takeover)packet={...packet,action:'takeover'};const draft=pendingDraft;await perform(packet,true,draft,version,depth,explicitMemoryRequest(text));if(turns.isCurrent(version)){if(brain==='live'&&request.context.knowledge?.length&&draft){const sources=document.createElement('p');sources.className='knowledge-sources';sources.textContent='Context included: '+request.context.knowledge.map(n=>`[${n.id}] ${n.title}`).join(' · ');draft.append(sources);}pendingDraft=null;scheduleSummary();}}
   } catch (error) {
-    if (turns.isCurrent(version)){setUsage(error.usage);pendingDraft?.remove();pendingDraft=null;if(error.name!=='AbortError'){activity.finishTurn(activityTurn,'error');if(!$('message').value){composer.setValue(text);contextPreview();}stage.character.react?.('worried',stage.time,2);if (brain === 'live') $('brain-status').lastChild.textContent = ' AI error'; addMessage('system', error.message); toast(error.message);replyDiagnostics.setStatus('Reply interrupted. Your sent message is saved.');}}
+    if (turns.isCurrent(version)){setUsage(error.usage);pendingDraft?.remove();pendingDraft=null;if(error.name!=='AbortError'){activity.finishTurn(activityTurn,'error');if(!$('message').value){composer.setValue(text);contextPreview();}stage.character.react?.('worried',stage.time,2);if (brain === 'live') $('brain-status').lastChild.textContent = ' AI error'; addMessage('system', error.message); toast(error.message);replyDiagnostics.setStatus('Reply interrupted. Your message is still in this visit.');}}
   } finally { if (turns.isCurrent(version)) { setBusy(false); $('message').focus(); } }
 }
 
@@ -435,7 +435,7 @@ setInterval(() => {
 function cancelConversation(){afterimageBridge.stop('conversation');turns.cancel();activity.finishTurn(activityTurn);replyDiagnostics.invalidate();replyDiagnostics.setStatus('');setBusy(false);voice.stop();microphone.stop();summaryController?.abort();clearTimeout(summaryTimer);pendingDraft?.remove();pendingDraft=null;}
 async function restoreConversation({retrying=false}={}){cancelConversation();const thread=history.active();await setMode(thread.mode,false);if(history.active().id!==thread.id)return;$('conversation').replaceChildren();$('chat-title').textContent=thread.title;
   thread.turns.forEach(turn=>{const message=addMessage(turn.role==='user'?'user':'nox',turn.content,turn);attachMessageActions(message,turn);});
-  const last=thread.turns.findLast(t=>t.role==='assistant');lastPacket={speech:last?.content||(thread.turns.length?'Your last message is saved. Ready when the AI connection is available.':greetings[mode]),emotion:stage.character.emotion,action:'none',memory:''};
+  const last=thread.turns.findLast(t=>t.role==='assistant');lastPacket={speech:last?.content||(thread.turns.length?'Your last message is still here. Ready when the AI connection is available.':greetings[mode]),emotion:stage.character.emotion,action:'none',memory:''};
   if(last){stage.caption=last.content;stage.captionUntil=0;}
   else if(thread.turns.length){if(!retrying)addMessage('system','Your last message is still here. Send it again to retry.');stage.caption='';stage.captionUntil=0;}
   else{stage.caption='';stage.captionUntil=0;}
@@ -447,28 +447,19 @@ function scheduleSummary(){clearTimeout(summaryTimer);if(!visit.owner||brain!=='
   catch(error){if(error.name!=='AbortError'&&history.active().id===work.id)$('summary-note').textContent='Summary will retry after a later turn. The full transcript is still saved.';}
   finally{if(summaryController===controller)summaryController=null;}
 },3000);}
-navigation=createNavigation({history,onOpen:async id=>{cancelConversation();editTarget=null;currentActivity='conversation';savedConversationId=null;const selected=await history.select(id);await restoreConversation();if(!selected)toast('That conversation was removed in another tab.');},onNew:async()=>{cancelConversation();editTarget=null;currentActivity='conversation';savedConversationId=null;await history.create();await restoreConversation();},onStart:async(text,persona)=>{await setMode(persona,false);await send(text);}});
+navigation=createNavigation({history,onOpen:async id=>{cancelConversation();editTarget=null;currentActivity='conversation';const selected=await history.select(id);await restoreConversation();if(!selected)toast('That conversation was removed in another tab.');},onNew:async()=>{cancelConversation();editTarget=null;currentActivity='conversation';await history.create();await restoreConversation();},onStart:async(text,persona)=>{await setMode(persona,false);await send(text);}});
 history.subscribe(({currentChanged})=>{if(currentChanged)void restoreConversation();else navigation.render();});
 await restoreConversation();
 companionBridge.connect({
-  snapshot:()=>({conversationId:history.active().id,revision:history.active().updated,kept:Boolean(savedConversationId),canKeep:history.active().turns.length>0&&!busy,usage:publicUsage,owner:visit.owner}),
-  async keep(){const thread=history.active();if(!thread.turns.length)return null;const saved=await savedActivities.save({id:savedConversationId||thread.id,kind:'conversation',title:thread.title,state:{...thread,activity:currentActivity}});if(saved){if(history.active().id===thread.id)savedConversationId=saved.id;toast('Saved on this device. You can find it in Continue.');}else toast('This conversation could not be saved. Export a backup before leaving.');companionChanged();return saved;},
-  async open(item){
-    if(!item||!savedActivities.get(item.id))throw Error('That saved item is no longer available.');
-    cancelConversation();editTarget=null;
-    if(item.kind==='conversation'){const restored=await history.loadSaved(item);if(!restored)throw Error('This conversation could not be restored. Your saved copy is unchanged.');savedConversationId=item.id;currentActivity=['conversation','explore','guessing','mystery'].includes(item.state.activity)?item.state.activity:'conversation';navigation.setView('conversation');await restoreConversation();}
-    else if(item.kind==='afterimage'||item.kind==='mystery'){queueSavedOpen({...item,kind:'afterimage'});navigation.setView('afterimage');window.dispatchEvent(new CustomEvent('nox:afterimage-open',{detail:{id:item.id,state:item.state}}));}
-    else if(['explore','guessing'].includes(item.kind)){queueSavedOpen(item);navigation.setView(item.kind==='explore'?'learn':'guessing');window.dispatchEvent(new CustomEvent('nox:activity-open',{detail:{kind:item.kind,state:{...item.state,id:item.id}}}));}
-  },
-  async fresh(){editTarget=null;savedConversationId=null;currentActivity='conversation';await history.create();await restoreConversation();navigation.setView('conversation');},
-  async start(text,kind='conversation'){editTarget=null;savedConversationId=null;currentActivity=['conversation','explore','mystery'].includes(kind)?kind:'conversation';await history.create();await restoreConversation();navigation.setView('conversation');await send(text);},
+  snapshot:()=>({usage:publicUsage,owner:visit.owner}),
+  async fresh(){editTarget=null;currentActivity='conversation';await history.create();await restoreConversation();navigation.setView('conversation');},
+  async start(text,kind='conversation'){editTarget=null;currentActivity=['conversation','explore','mystery'].includes(kind)?kind:'conversation';await history.create();await restoreConversation();navigation.setView('conversation');await send(text);},
   preferenceChanged:applyApprovedPreferences,
 });
 EverydayBridge.connect({
-  async ask(message,{activity:source}={}){cancelConversation();editTarget=null;savedConversationId=null;currentActivity=(typeof source==='string'?source:source?.kind)==='explore'?'explore':'conversation';if(source?.state)queueSavedOpen({kind:'explore',state:source.state,id:source.id});await history.create();await restoreConversation();navigation.setView('conversation');await send(message);},
+  async ask(message,{activity:source}={}){cancelConversation();editTarget=null;currentActivity=(typeof source==='string'?source:source?.kind)==='explore'?'explore':'conversation';if(source?.state)rememberActivity('explore',{state:source.state,id:source.id});await history.create();await restoreConversation();navigation.setView('conversation');await send(message);},
   speak(text,{activity:source}={}){const scope=['explore','guessing'].includes(source)?source:currentActivity;voice.setPace?.(approvedPreferences.context(scope).speechPace??1);voice.setEnabled(true);showVoice();const speech=spokenPreview(text);stage.speak({speech,emotion:'curious',action:'none',memory:''});return voice.speak(speech,mode,'curious');},
   stop(){voice.stop();stage.captionUntil=0;},
-  async save(item){const saved=await savedActivities.save(item);if(!saved||!savedActivities.persistent)throw Error('Could not save on this device. Your activity is still open.');companionChanged();return saved;},
   proposePreference(value){const words=value.key==='learningStyle'?(value.value==='hints'?'One clue at a time':'Explain first'):value.key==='gameQuestionLimit'?`Use ${value.value} questions in the guessing game`:value.key==='gameHints'?`Turn hints ${value.value?'on':'off'} in the guessing game`:value.origin;return companionBridge.propose(words,value.scope);},
 });
 applyApprovedPreferences();
@@ -487,7 +478,7 @@ function showConnection() {
   const labels={locked:'AI locked',loading:'Connecting…',unconfigured:'AI unavailable',demo:'Scripted demo'};
   $('brain-status').lastChild.textContent=brain==='live'?` ${visit.owner?provider.name:'Guest visit'}`:` ${labels[brain]}`;
   const note=brain==='live'?`Model-generated replies · ${provider.name}. Your name, notebook, and conversation context travel with each turn. Camera stays local.`:brain==='locked'?'Your AI brain is locked. Unlock it once in Settings; access lasts up to 12 hours in this browser. Scenes and touch still work.':brain==='demo'?'You selected the scripted demo. Switch to a configured AI provider for fresh conversation.':brain==='loading'?'Checking the AI connection…':'No AI provider is configured. Add a server key to enable conversation; scenes and touch still work.';
-  const scopeNote=!visit.owner&&brain==='live'?'NOX Free · complete everyday answers. Chats are temporary until you choose Keep this. Natural voice has a separate allowance.':note;
+  const scopeNote=!visit.owner&&brain==='live'?'NOX Free · complete everyday answers. Chats and preferences clear when you refresh. Natural voice has a separate allowance.':note;
   $('brain-status').title=scopeNote;$('brain-note').textContent=scopeNote;
   $('connection-message').textContent=scopeNote;$('connection-help').hidden=brain==='live';$('unlock-ai').hidden=brain==='demo';
   $('unlock-ai').textContent=brain==='locked'?'Unlock AI ':'Connection settings ';
