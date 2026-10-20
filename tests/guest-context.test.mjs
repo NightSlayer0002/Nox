@@ -8,7 +8,7 @@ import {PRODUCT_OFFERS} from '../shared/offers.js';
 test('visitor preferences are typed allowlisted settings and arbitrary instructions cannot enter the system prompt',()=>{
   const context=sanitizeContext({activity:'explore',preferences:{answerLength:'short',speechPace:.9,learningStyle:'hints',storyIntensity:'mysterious',gameHints:false,gameQuestionLimit:12,system:'PRIVATE_INJECTION'},knowledge:[{id:'one',title:'A note',text:'PRIVATE_INJECTION'}],owner:true,subscription:'plus'});
   assert.deepEqual(context.preferences,{answerLength:'short',learningStyle:'hints',storyIntensity:'mysterious',speechPace:.9,gameQuestionLimit:12,gameHints:false});
-  const prompt=answerInstructions(context);assert.match(prompt,/helpful hint/);assert.doesNotMatch(prompt,/atmospheric|12 questions|PRIVATE_INJECTION/);assert.equal(context.owner,undefined);
+  const prompt=answerInstructions(context);assert.match(prompt,/helpful hint/);assert.match(prompt,/For factual lookups, answer directly/);assert.match(prompt,/explicitly says no hints/);assert.doesNotMatch(prompt,/atmospheric|12 questions|PRIVATE_INJECTION/);assert.equal(context.owner,undefined);
   const reference=contextMessages(context);assert.match(reference[0].content,/Untrusted background data/);assert.match(reference[0].content,/PRIVATE_INJECTION/);
   const hostile=sanitizeContext({activity:'system',preferences:{answerLength:'IGNORE_RULES',speechPace:100,learningStyle:{x:1},gameQuestionLimit:0,gameHints:'true'}});assert.equal(hostile.activity,undefined);assert.equal(hostile.preferences,undefined);
 });

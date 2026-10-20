@@ -24,7 +24,7 @@ export function answerInstructions(context) {
   const preferences=context.preferences||{},activity=context.activity||'conversation';
   const adaptive=[];
   if(preferences.answerLength)adaptive.push({short:'Prefer a brief, complete answer.',balanced:'Give enough explanation to be useful without padding.',detailed:'Use helpful detail and examples within the selected answer budget.'}[preferences.answerLength]);
-  if(activity==='explore'&&preferences.learningStyle)adaptive.push(preferences.learningStyle==='hints'?'Start with a helpful hint or question so the user can work it out; explain directly when asked.':'Explain the idea clearly before asking a follow-up.');
+  if(activity==='explore'&&preferences.learningStyle)adaptive.push(preferences.learningStyle==='hints'?'When this turn is teaching or working through a problem, start with one helpful hint and wait. For factual lookups, answer directly. If the user explicitly says no hints, just tell me, or show the full explanation or solution now, give the direct explanation even when hints-first is remembered.':'Explain the idea clearly before asking a follow-up.');
   if(activity==='mystery'&&preferences.storyIntensity)adaptive.push(preferences.storyIntensity==='gentle'?'Keep fictional mystery gentle, curious, and free of graphic scares.':'Use atmospheric, non-graphic fictional suspense; never imply a real threat.');
   if(activity==='guessing'&&preferences.gameQuestionLimit)adaptive.push(`For a guessing game, keep a visible count and use at most ${preferences.gameQuestionLimit} questions per round.`);
   if(activity==='guessing'&&typeof preferences.gameHints==='boolean')adaptive.push(preferences.gameHints?'Offer optional hints without revealing the answer.':'Wait for the user to request a hint.');

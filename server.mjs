@@ -265,14 +265,14 @@ export function createAppServer({
               const packet=finish(selected.id==='openai'?await chat(prompt,options):await providerRequest(prompt,{...options,onText}));
               onText(packet.speech);
               emit('final',{...packet,metrics:metrics(firstTextMs),usage});
-            }catch(error) {if(!controller.signal.aborted)emit('error',{error:chatFailure(error)});}
+            }catch(error) {if(!controller.signal.aborted)emit('error',{error:chatFailure(error),usage});}
             response.end();return;
           }
           const packet = selected.id==='openai' ? await chat(prompt,options) : await providerRequest(prompt,options);
           if(controller.signal.aborted)return;
           return sendJson(response, 200, {...finish(packet),metrics:metrics(Math.round(performance.now()-started)),usage});
         } catch(error) {
-          return sendJson(response, 502, { error: chatFailure(error) });
+          return sendJson(response, 502, { error: chatFailure(error), usage });
         }
       } catch (error) {
         return sendJson(response, error.status || 400, { error: error.status === 413 ? 'Request is too large.' : 'Send valid JSON.' });
