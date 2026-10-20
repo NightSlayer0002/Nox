@@ -279,11 +279,17 @@
 .workspace[data-view=conversation] .presence-toolbar .stage-playback{position:static;inset:auto;display:flex;width:auto;gap:8px;margin:0;padding:0;transform:none;pointer-events:auto}
 .workspace[data-view=conversation]:not([data-conversation-started=true]) .presence-toolbar .stage-playback{display:none}
 .workspace .presence-menu{position:relative;z-index:12}
-.workspace .presence-menu summary{display:flex;align-items:center;justify-content:center;width:28px;min-height:28px;padding:0;color:var(--muted);opacity:.7;list-style:none;cursor:pointer}
+.workspace .presence-menu summary{display:flex;align-items:center;justify-content:center;width:40px;min-height:40px;padding:0;color:var(--secondary-accent);opacity:.85;list-style:none;cursor:pointer;border-radius:50%}
 .workspace .presence-menu summary::-webkit-details-marker{display:none}
-.workspace .presence-menu summary img{filter:invert(.8)}
-:root[data-theme=light] .workspace .presence-menu summary img{filter:none}
+.workspace .presence-sigil{display:block;flex:none;width:36px;height:36px;overflow:visible}
+.workspace .presence-sigil-face{color:var(--accent)}
+.workspace .presence-sigil-orbit{opacity:.6;transform-origin:20px 20px;transition:transform 240ms ease-out,opacity 180ms ease-out}
+.workspace .presence-sigil-node{color:var(--accent);opacity:.8}
 .workspace .presence-menu summary:is(:hover,:focus-visible){color:var(--accent);opacity:1}
+.workspace .presence-menu summary:focus-visible{outline:1px solid var(--accent);outline-offset:2px}
+.workspace .presence-menu[open] .presence-sigil-orbit{transform:rotate(45deg);opacity:1}
+@media(hover:hover) and (pointer:fine){.workspace .presence-menu summary:hover .presence-sigil-orbit{transform:rotate(20deg);opacity:1}}
+@media(prefers-reduced-motion:reduce){.workspace .presence-sigil-orbit{transition:none;transform:none!important}}
 .workspace .presence-menu-panel{position:absolute;right:0;top:calc(100% + 8px);width:280px;max-width:calc(100vw - 36px);max-height:calc(var(--workspace-height,100dvh) - 180px);overflow-y:auto;display:grid;gap:16px;padding:18px;border:1px solid var(--line);border-radius:12px;background:var(--bg);box-shadow:0 12px 36px #0004}
 .workspace .presence-menu-panel fieldset{border:0;padding:0;margin:0;min-width:0}
 .workspace .presence-menu-panel legend,.workspace .presence-expression-label{padding:0;font-size:12px;color:var(--muted);line-height:1.5}
@@ -305,7 +311,9 @@
  .workspace[data-view=conversation] .stage-column{grid-column:auto;grid-row:auto}
  .workspace[data-view=conversation] .presence-toolbar{position:absolute;top:0;right:0;min-height:28px;pointer-events:auto}
  .workspace[data-view=conversation] .presence-toolbar .stage-playback{display:none}
- .workspace .presence-menu summary{min-width:28px;min-height:28px;justify-content:center;padding:0}
+ .workspace .presence-menu summary{width:36px;min-width:36px;min-height:36px;justify-content:center;padding:0}
+ .workspace .presence-sigil{width:32px;height:32px}
+ .workspace[data-view=conversation]:not(.film) .stage-caption-band{display:none}
  .workspace .presence-menu-panel{top:calc(100% + 8px);bottom:auto;right:0;width:264px}
  .workspace[data-view=conversation] .presence-menu-panel .presence-controls{display:flex}
  .workspace #conversation .message-actions button{width:32px;height:32px;min-width:32px;min-height:32px;padding:8px}
