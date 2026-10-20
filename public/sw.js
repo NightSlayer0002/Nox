@@ -1,6 +1,6 @@
 // Cache only the public application shell and same-origin static assets.
 // API responses, account status, keys and user messages are never cached.
-const CACHE='nox-shell-v2';
+const CACHE='nox-shell-v3';
 const CORE=['/offline.html','/offline.css','/source-ui.css','/icon.svg','/assets/nox/icon-192.png','/assets/nox/icon-512.png','/manifest.webmanifest'];
 const NAV=new Set(['/','/guest','/guest/','/app','/app/','/owner','/owner/']);
 const PUBLIC_NAV=new Set(['/','/guest','/guest/','/app','/app/']);

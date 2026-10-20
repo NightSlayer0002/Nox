@@ -339,7 +339,11 @@ function depthNote(){const depth=$('reply-depth').value;$('depth-note').textCont
 $('reply-depth').value=readDepth();depthNote();
 for(const option of $('reply-depth').options)option.disabled=!visit.owner&&option.value==='deep';
 $('reply-depth').addEventListener('change',()=>{saveDepth($('reply-depth').value);depthNote();});
-$('message').addEventListener('input',()=>{contextPreview();$('send-button').disabled=busy||!$('message').value.trim();});window.addEventListener('nox:knowledge',contextPreview);window.addEventListener('storage',contextPreview);
+$('message').addEventListener('input',()=>{
+  contextPreview();$('send-button').disabled=busy||!$('message').value.trim();
+  const input=$('chat-form').getBoundingClientRect(),frame=stage.canvas.getBoundingClientRect();
+  if(frame.width&&frame.height)stage.character.attendTo?.({x:(input.left+input.width*.6-frame.left)/frame.width,y:(input.top+20-frame.top)/frame.height},stage.time);
+});window.addEventListener('nox:knowledge',contextPreview);window.addEventListener('storage',contextPreview);
 document.querySelector('.skip-link')?.addEventListener('click',event=>{event.preventDefault();$('workspace-main').focus();});
 for(const voiceControl of [$('voice-button'),$('composer-voice')])voiceControl.addEventListener('click', () => {
   const enabled = voice.setEnabled(!voice.enabled);

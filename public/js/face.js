@@ -16,12 +16,18 @@ export class Face extends OrbSignal {
     this.heldAt=0;this.lastInteraction=0;this.lastPointer=null;this.nearAt=null;this.nearReacted=false;
     this.dragPrevious=null;this.dragVector=null;this.dragStroke=0;this.reversals=[];this.impactAt=-100;this.impactStrength=0;this.bounced=false;
     this.previousActivity='idle';this.activitySince=0;
+    this.attentionTarget=null;this.attentionUntil=0;
     this.previewUntil=0;this.previewExpression='neutral';
     this.annoyanceEpisodes=0;this.inAnnoyanceBurst=false;this.annoyancePose='annoyed';
     this.angerAt=-100;this.angerUntil=0;
     this.signal = this.sample(0, 0);
   }
   say(text, now) { this.speakingUntil = now + Math.min(12, Math.max(2.5, text.length / 18)); }
+  attendTo(point,now){
+    if(!Number.isFinite(point?.x)||!Number.isFinite(point?.y)||!Number.isFinite(now)||this.held||this.falling)return;
+    this.attentionTarget={x:clamp(point.x,-.4,1.4),y:clamp(point.y,-.4,1.4)};
+    this.attentionUntil=now+1.1;this.lastInteraction=now;
+  }
   poke(now) {
     this.previewUntil=0;
     this.lastInteraction=now;
@@ -76,7 +82,7 @@ export class Face extends OrbSignal {
     else if(speed<.12&&this.bounced){this.bounced=false;this.react('content',now,.9);}
   }
   noticePointer(pointer,now){
-    if(!this.lastPointer||Math.hypot(pointer.x-this.lastPointer.x,pointer.y-this.lastPointer.y)>.003){this.lastInteraction=now;this.lastPointer={...pointer};}
+    if(!this.lastPointer||Math.hypot(pointer.x-this.lastPointer.x,pointer.y-this.lastPointer.y)>.003){this.lastInteraction=now;this.lastPointer={...pointer};this.attentionUntil=0;}
     const near=Math.hypot(pointer.x-this.x,pointer.y-this.y)<.09;
     if(near&&this.nearAt===null)this.nearAt=now;
     if(!near){this.nearAt=null;this.nearReacted=false;}
@@ -91,8 +97,9 @@ export class Face extends OrbSignal {
     if (reduceMotion) { this.gazeX = 0; this.gazeY = 0; this.breath = 0; }
     else {
       const thinking = this.activity === 'thinking'&&!this.held&&!this.falling;
-      const gx = thinking ? Math.sin(time*2.7)*13 : clamp((pointer.x-this.x)*50, -18, 18);
-      const gy = this.held||this.falling?12:thinking ? -8 : clamp((pointer.y-this.y)*35, -12, 12);
+      const look=this.attentionTarget&&!this.held&&!this.falling&&time<this.attentionUntil?this.attentionTarget:pointer;
+      const gx = thinking ? Math.sin(time*2.7)*13 : clamp((look.x-this.x)*50, -18, 18);
+      const gy = this.held||this.falling?12:thinking ? -8 : clamp((look.y-this.y)*35, -12, 12);
       const attentionEase=1-Math.exp(-Math.min(dt,.05)*30);
       this.gazeX += (gx-this.gazeX)*attentionEase; this.gazeY += (gy-this.gazeY)*attentionEase;
       this.breath = Math.sin(time*1.5)*3.5;
