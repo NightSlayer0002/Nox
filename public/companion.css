@@ -47,7 +47,9 @@
 .workspace .welcome-invitations a{padding:9px 12px;border:1px solid var(--line);border-radius:5px;font-size:15px;min-height:42px;display:inline-flex;align-items:center}
 .workspace[data-conversation-started=true] #conversation-welcome{display:none}
 .workspace:not([data-conversation-started=true]) .conversation{display:none}
-.workspace .conversation{flex:1;min-height:0;height:auto;max-height:none;overflow-y:auto;padding:8px 10px 28px 0;border:0;scrollbar-width:thin;scrollbar-color:var(--line) transparent;scrollbar-gutter:stable}
+.workspace .conversation{flex:1;min-height:0;height:auto;max-height:none;overflow-y:auto;padding:8px 10px 28px 0;border:0;scrollbar-width:none;scrollbar-gutter:auto}
+.workspace .conversation::-webkit-scrollbar{display:none;width:0;height:0}
+.workspace .conversation:focus-visible{outline:1px solid var(--line);outline-offset:5px}
 .workspace .message{position:relative;margin:0 0 36px;padding:0;line-height:1.6;min-width:0;overflow-wrap:anywhere}
 .workspace .message.nox{display:block;position:relative;padding-left:36px;max-width:100%;margin-right:0;background:none;border:0}
 .workspace .message-avatar{position:absolute;left:0;top:4px;width:24px;height:24px;border-radius:5px}
@@ -271,7 +273,7 @@
 .workspace[data-view=conversation] .stage-hint{display:none}
 .workspace .conversation-dock{grid-column:1/-1;grid-row:2;min-width:0;width:100%;padding:0 0 4px}
 .workspace .conversation-dock[hidden]{display:none}
-.workspace .conversation-dock .composer.composer-source{width:100%;max-width:none;margin:0}
+.workspace .conversation-dock .composer.composer-source{width:100%;max-width:920px;margin:0 auto}
 .workspace .conversation-dock .composer-help{text-align:center;margin:8px 0 0}
 .workspace[data-view=conversation][data-presence=hidden] .studio{grid-template-columns:minmax(0,1fr)}
 .workspace .presence-toolbar{display:none}
