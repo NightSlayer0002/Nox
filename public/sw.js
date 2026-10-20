@@ -50,9 +50,9 @@ self.addEventListener('message',event=>{
         try{
           if(await cache.match(url))continue;
           const response=await fetch(url);if(publicResponse(response))await remember(url,response);
-        }catch{/* A missing asset never changes a successfully saved device item. */}
+        }catch{/* A missing asset never changes the loaded visit. */}
       }
-    }catch{/* Offline preparation is optional; device saves remain intact. */}
+    }catch{/* Offline shell preparation is optional. */}
     finally{warming=false;}
   })());
 });
@@ -72,7 +72,7 @@ self.addEventListener('fetch',event=>{
         const cache=await caches.open(CACHE),saved=(asset||PUBLIC_NAV.has(url.pathname))&&await cache.match(request);if(saved)return saved;
         if(navigation){const fallback=await cache.match('/guest')||await cache.match('/offline.html');if(fallback)return fallback;}
       }catch{/* Browsers can disable Cache Storage independently of networking. */}
-      if(navigation)return new Response('NOX is offline. Connect to load the workspace. Saved device data has not been removed.',{status:503,headers:{'content-type':'text/plain; charset=utf-8'}});
+      if(navigation)return new Response('NOX is offline. Connect to load the workspace. Guest conversations clear on refresh.',{status:503,headers:{'content-type':'text/plain; charset=utf-8'}});
       return Response.error();
     }
   })());

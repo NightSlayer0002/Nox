@@ -87,7 +87,7 @@ test('owner navigation can fall back to the public guest shell but is never adde
   assert.equal([...env.stores.values()].some(cache=>cache.has(origin+'/owner')),false);
 });
 
-test('saved-shell warming filters untrusted URLs, deduplicates and stays within the shared entry cap',async()=>{
+test('public-shell warming filters untrusted URLs, deduplicates and stays within the shared entry cap',async()=>{
   const env=worker();await env.dispatch('install');
   await env.dispatch('message',{data:{type:'cache-saved-shell',urls:[
     '/js/app.js','/js/app.js',origin+'/js/app.js','/api/chat.js','/private/export.js',
@@ -96,11 +96,11 @@ test('saved-shell warming filters untrusted URLs, deduplicates and stays within 
   ]}});
   assert.deepEqual(env.requests.sort(),[origin+'/guest',origin+'/js/app.js',origin+'/assets/nox/ikari.png',origin+'/assets/nox/body-v1.glb'].sort());
   for(let round=0;round<3;round++)await env.dispatch('message',{data:{type:'cache-saved-shell',urls:Array.from({length:240},(_,i)=>`/dist/chunks/round-${round}-${i}.js`)}});
-  const store=[...env.stores.values()][0];assert.ok(store.size<=220,`cached ${store.size} entries`);assert.ok(store.has(origin+'/offline.html'));assert.ok(store.has(origin+'/icon.svg'));assert.ok(store.has(origin+'/guest'),'Keep preserves the offline Continue shell through later asset eviction');
+  const store=[...env.stores.values()][0];assert.ok(store.size<=220,`cached ${store.size} entries`);assert.ok(store.has(origin+'/offline.html'));assert.ok(store.has(origin+'/icon.svg'));assert.ok(store.has(origin+'/guest'),'The public guest shell survives later asset eviction without storing chat data');
   assert.ok(env.requests.length<=4+3*181,'each warm request is independently bounded');
 });
 
-test('saved-shell warming never persists private responses and malformed messages do nothing',async()=>{
+test('public-shell warming never persists private responses and malformed messages do nothing',async()=>{
   const env=worker({fetcher:async()=>response('private',{headers:{'cache-control':'private'}})});
   await env.dispatch('message',{data:{type:'cache-saved-shell',urls:['/js/app.js']}});
   assert.equal([...env.stores.values()][0].size,0);

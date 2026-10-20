@@ -179,7 +179,7 @@ body.landing{background:#050909}
 
 /* Quiet landing composition; the source scene/scroll pose is unchanged. */
 body.landing{background:var(--bg);font-family:var(--font-ui)}
-.contact-water{opacity:.2}.contact-water::after{background:color-mix(in srgb,var(--bg) 50%,transparent)}
+.contact-water{opacity:.36}.contact-water::after{background:color-mix(in srgb,var(--bg) 42%,transparent)}
 .contact-nav{padding:24px 7vw;background:linear-gradient(color-mix(in srgb,var(--bg) 95%,transparent),transparent);gap:24px}
 .contact-nav .brand{font-size:18px;font-weight:600;letter-spacing:.3em}
 .home-links{font-size:16px}.home-links>a:first-child{color:var(--muted)}
