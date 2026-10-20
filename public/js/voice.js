@@ -9,7 +9,7 @@ export function selectBrowserVoice(voices) {
     || english.find(voice => /Daniel|Guy|David/i.test(voice.name)) || english[0];
 }
 export function createVoice({ onStart, onEnd, onError, onState, requestAudio, requestClips, AudioCtor = globalThis.Audio, AudioContextCtor=globalThis.AudioContext||globalThis.webkitAudioContext, urls = URL, now=()=>performance.now()/1000 } = {}) {
-  let enabled = false, generation = 0, engine = 'browser', natural = false,speaker='troy',browserName='';
+  let enabled = false, generation = 0, engine = 'browser', natural = false,speaker='troy',browserName='',pace=1;
   let mouthPlayback=null,gapTimer,currentUtterance=null;
   let player, objectUrl, currentAudio=null, preparedAudio=null, state='idle';
   const audioCache=new Map();
@@ -92,6 +92,16 @@ export function createVoice({ onStart, onEnd, onError, onState, requestAudio, re
     get enabled() { return enabled; },
     get engine() { return engine; },
     get state() { return state; },
+    get pace(){return pace;},
+    setPace(value){
+      pace=typeof value==='number'&&Number.isFinite(value)&&value>=.75&&value<=1.25?value:1;
+      // Media time continues advancing at the new rate, keeping the existing
+      // amplitude envelope and capture in sync without another provider request.
+      if(player)player.playbackRate=1.04*pace;
+      // Browser synthesis snapshots rate per utterance. The next sentence uses
+      // the new preference; cancelling this sentence would interrupt the reply.
+      return pace;
+    },
     get mouthTiming(){return mouthPlayback?.envelope?'audio':mouthPlayback?.boundary?'word boundary':mouthPlayback?'estimated':'idle';},
     get mouthLevel(){
       if(!mouthPlayback||mouthPlayback.active===false)return 0;
@@ -142,7 +152,7 @@ export function createVoice({ onStart, onEnd, onError, onState, requestAudio, re
               if(!narrationStarted){narrationStarted=true;onStart?.();}
             }};
             player.onwaiting=player.onpause=()=>{if(isCurrent()&&mouthPlayback){mouthPlayback.active=false;setState('preparing');}};
-            player.playbackRate=1.04;player.preservesPitch=false;
+            player.playbackRate=1.04*pace;player.preservesPitch=false;
             player.onended=()=>{if(isCurrent()){cleanup();updateState();void playClip(index+1);}};
             player.onerror=()=>{if(isCurrent())finish(Error('Natural voice could not play. Captions remain available; try Browser voice.'));};
             await player.play();
@@ -154,9 +164,10 @@ export function createVoice({ onStart, onEnd, onError, onState, requestAudio, re
       const voices = synth.getVoices();
       const preferred = voices.find(v=>v.name===browserName)||selectBrowserVoice(voices);
       const chunks=speechChunks(text);
-      const rate=mode==='uncanny'||emotion==='sleepy'?.86:emotion==='happy'?1.04:emotion==='annoyed'?.98:1;
+      const baseRate=mode==='uncanny'||emotion==='sleepy'?.86:emotion==='happy'?1.04:emotion==='annoyed'?.98:1;
       const begin=index=>{
         if(version!==generation)return;
+        const rate=baseRate*pace;
         const utterance=new SpeechSynthesisUtterance(chunks[index]);if(preferred)utterance.voice=preferred;
         currentUtterance=utterance;
         utterance.rate=rate;utterance.pitch=mode==='uncanny'?.97:emotion==='happy'?1.16:emotion==='annoyed'?1.04:1.1;
