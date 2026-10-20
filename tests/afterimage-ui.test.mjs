@@ -4,6 +4,7 @@ import {build} from 'esbuild';
 import {createRequire} from 'node:module';
 import vm from 'node:vm';
 import path from 'node:path';
+import {createContinuity} from '../public/js/continuity.js';
 import {FIRST_CONTACT} from '../client/afterimage-example.js';
 
 // Exercise the receiver's real event handlers without a stage, browser or model request.
@@ -12,7 +13,7 @@ const nativeRequire=createRequire(import.meta.url);
 const bundle=await build({entryPoints:[path.join(root,'client/afterimage.jsx')],bundle:true,write:false,platform:'node',format:'cjs',jsx:'transform',plugins:[{name:'receiver-harness',setup(builder){
   builder.onResolve({filter:/^(react|react-dom|motion\/react)$/},args=>({path:args.path,external:true}));
   builder.onResolve({filter:/afterimage-lattice\.jsx$/},()=>({path:'test-lattice',external:true}));
-  builder.onResolve({filter:/^\/js\/(afterimage-bridge|visit-scope|workbench)\.js$/},args=>({path:args.path,external:true}));
+  builder.onResolve({filter:/^\/js\/(afterimage-bridge|visit-scope|workbench|companion-context)\.js$/},args=>({path:args.path,external:true}));
   builder.onResolve({filter:/^\/js\//},args=>({path:path.join(root,'public',args.path.slice(1))}));
 }}]});
 
@@ -21,9 +22,9 @@ function receiver({owner=false,kind='live',exportProfile='landscape',recording=f
   const subscribers=new Set(),data=new Map(),storage={temporary:!owner,getItem:key=>data.get(key)??null,setItem:(key,value)=>data.set(key,value)};
   const react={createElement:(type,props,...children)=>({type,props:{...props,children}}),Suspense:'suspense',lazy:()=> 'lattice',useRef(value){const index=cursor++;return slots[index]??= {current:value};},useState(initial){const index=cursor++;if(!slots[index])slots[index]={value:typeof initial==='function'?initial():initial};return [slots[index].value,value=>{slots[index].value=typeof value==='function'?value(slots[index].value):value;}];},useEffect(effect,deps){const index=cursor++,old=slots[index];if(!old||deps.some((value,i)=>value!==old.deps[i])){pendingEffects.push(()=>{old?.cleanup?.();slots[index]={deps,cleanup:effect()};});}},useReducedMotion:()=>false};
   const bridge={snapshot:()=>state,subscribe(fn){subscribers.add(fn);return()=>subscribers.delete(fn);},stop(){state={...state,status:'stopped'};for(const fn of subscribers)fn();},play(...args){plays.push(args);state={...state,status:'playing'};for(const fn of subscribers)fn();return true;},recordAndPlay(...args){plays.push(args);return true;},receive(options){requests.push(options);return receive(options);},setVoice(value){state={...state,voiceEnabled:value};},setExportProfile(value){state={...state,exportProfile:value};for(const fn of subscribers)fn();}};
-  const mocks={'react':react,'react-dom':{createPortal:children=>children},'motion/react':{AnimatePresence:'presence',motion:{div:'motion-div'},useReducedMotion:react.useReducedMotion},'test-lattice':{},'/js/afterimage-bridge.js':{afterimageBridge:bridge},'/js/visit-scope.js':{visit:{owner,storage}},'/js/workbench.js':{downloadText(){}}};
+  const mocks={'react':react,'react-dom':{createPortal:children=>children},'motion/react':{AnimatePresence:'presence',motion:{div:'motion-div'},useReducedMotion:react.useReducedMotion},'test-lattice':{},'/js/afterimage-bridge.js':{afterimageBridge:bridge},'/js/visit-scope.js':{visit:{owner,storage}},'/js/workbench.js':{downloadText(){}},'/js/companion-context.js':{savedActivities:createContinuity(storage),companionChanged(){},takeSavedOpen(){return null;}}};
   const module={exports:{}};
-  vm.runInNewContext(bundle.outputFiles[0].text,{module,exports:module.exports,require:id=>mocks[id]??nativeRequire(id),window:{innerWidth:1400,matchMedia:()=>({matches:false})},document:{body:{},getElementById:()=>null},AbortController,Date,console,setTimeout,clearTimeout});
+  vm.runInNewContext(bundle.outputFiles[0].text,{module,exports:module.exports,require:id=>mocks[id]??nativeRequire(id),window:{innerWidth:1400,matchMedia:()=>({matches:false}),addEventListener(){},removeEventListener(){},dispatchEvent(){}},Event,document:{body:{},getElementById:()=>null},AbortController,Date,console,setTimeout,clearTimeout});
   function render(){cursor=0;tree=module.exports.default();for(const effect of pendingEffects.splice(0))effect();return tree;}
   function nodes(node){if(!node||typeof node!=='object')return [];return [node,...(node.props?.children??[]).flat(Infinity).flatMap(child=>nodes(child))];}
   function text(node){return (node?.props?.children??[]).flat(Infinity).map(child=>typeof child==='object'?text(child):child??'').join('');}

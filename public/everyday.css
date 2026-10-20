@@ -1,0 +1,90 @@
+.everyday-activity{--eact-ink:var(--text,#eeecdf);--eact-soft:var(--muted,#b4bebc);--eact-line:var(--line,#35413e);box-sizing:border-box;width:min(100%,880px);margin-inline:auto;padding:clamp(16px,3vw,38px);color:var(--eact-ink);font-size:16px;line-height:1.6}
+.everyday-activity *{box-sizing:border-box}
+.everyday-activity h2{margin:0;font-size:clamp(26px,3vw,36px);line-height:1.16;letter-spacing:-.025em;font-weight:500;text-wrap:balance}
+.everyday-activity h3{margin:0 0 12px;font-size:23px;line-height:1.3;letter-spacing:-.02em;font-weight:500}
+.everyday-activity p{margin:0 0 14px;max-width:70ch}
+.everyday-activity a{color:inherit;text-decoration:underline;text-underline-offset:4px}
+.everyday-activity button,.everyday-activity input,.everyday-activity textarea,.everyday-activity select{font:inherit}
+.everyday-activity button,.everyday-activity select{min-height:42px;border:1px solid var(--eact-line);border-radius:5px;background:transparent;color:var(--eact-ink);padding:8px 13px;line-height:1.35;cursor:pointer;transition:background-color 140ms,border-color 140ms,box-shadow 140ms}
+.everyday-activity button:disabled{opacity:.48;cursor:default}
+.everyday-activity button:active:not(:disabled){background:var(--glass-hover,#242b28)}
+.everyday-activity :focus-visible{outline:2px solid var(--accent,#91d5c8);outline-offset:4px}
+.everyday-activity ::selection{background:#8ccbb75c;color:inherit}
+.everyday-activity input,.everyday-activity textarea{accent-color:var(--accent,#91d5c8);caret-color:var(--accent,#91d5c8)}
+.everyday-activity .eact-primary{background:var(--cream,#f0ead4);color:#161a18;border-color:transparent;font-weight:500}
+.eact-header{display:flex;gap:24px;align-items:flex-start;justify-content:space-between;margin-bottom:32px}
+.eact-header p{color:var(--eact-soft);margin:12px 0 0}
+.eact-header>button{flex-shrink:0}
+.eact-topic>label,.eact-game-inputs label,.eact-teach>label{display:block;margin-bottom:8px}
+.eact-topic textarea,.eact-teach textarea{display:block;resize:vertical;width:100%;min-height:88px;padding:14px 16px;border:1px solid var(--eact-line);border-radius:5px;background:var(--glass,#111817);color:var(--eact-ink)}
+.eact-topic textarea::placeholder,.eact-game-inputs input::placeholder,.eact-teach textarea::placeholder{color:var(--eact-soft);opacity:1}
+.eact-topic>div{display:flex;align-items:center;justify-content:space-between;gap:18px;margin-top:12px}
+.eact-topic>div>span{font-size:13px;color:var(--eact-soft);max-width:45ch}
+.eact-topic>div>span>small{display:block;font-size:12px;margin-top:5px;font-variant-numeric:tabular-nums}
+.eact-topic>div>button{flex-shrink:0}
+.eact-toolbar{display:flex;justify-content:space-between;gap:16px;margin:28px 0 0}
+.eact-toolbar>div{display:flex;gap:8px;flex-wrap:wrap}
+.eact-notice,.eact-error{font-size:14px;margin:12px 0!important}
+.eact-notice{color:var(--eact-soft);min-height:22px}
+.eact-error{color:#f3a89a}
+.eact-lesson-heading{margin-top:20px}
+.eact-approach{display:flex;gap:8px;margin-bottom:18px;flex-wrap:wrap}
+.eact-approach [aria-pressed=true],.eact-phase-stops [aria-pressed=true]{border-color:var(--accent,#91d5c8);background:var(--glass-hover,#202c28)}
+.eact-explanation{font-size:18px;line-height:1.65;min-height:64px}
+.eact-clue-actions{display:flex;gap:8px;flex-wrap:wrap}
+.eact-moon{margin:22px 0 34px}
+.eact-moon svg{display:block;width:100%;max-height:340px;overflow:visible}
+.eact-moon svg text{fill:var(--eact-ink);font-family:inherit;font-size:15px}
+.eact-moon svg .eact-svg-small{fill:var(--eact-soft);font-size:12px}
+.eact-sun-rays{color:#e8dca9}
+.eact-orbit{stroke:var(--eact-line);stroke-width:1;stroke-dasharray:3 5}
+.eact-body-dark{fill:#303b37;stroke:#899c91;stroke-width:.8}
+.eact-body-light{fill:#e9e7d2}
+.eact-disc-edge{stroke:#899c91;stroke-width:.8}
+.eact-moon>label{display:flex;justify-content:space-between;gap:12px;margin-top:4px}
+.eact-moon output{font-variant-numeric:tabular-nums;color:var(--eact-soft)}
+.eact-moon input[type=range]{display:block;width:100%;min-height:42px;padding:0;cursor:ew-resize}
+.eact-phase-stops{display:flex;justify-content:space-between;gap:8px}
+.eact-phase-stops button{font-size:13px;padding:7px 9px;min-height:36px}
+.eact-moon figcaption{font-size:12px;color:var(--eact-soft);line-height:1.6;margin-top:14px}
+.eact-prediction{margin:0 0 32px;padding:0;border:0;min-width:0}
+.eact-prediction legend{font-size:20px;line-height:1.4;margin:0 0 14px}
+.eact-prediction>div{display:grid;gap:6px}
+.eact-prediction label,.eact-check{display:flex!important;align-items:flex-start;gap:10px;min-height:38px;cursor:pointer}
+.eact-prediction input,.eact-check input{width:17px;height:17px;flex-shrink:0;margin:5px 0 0}
+.eact-prediction>p{margin-top:14px;color:var(--eact-soft)}
+.eact-teach{margin:24px 0}
+.eact-teach>button{margin-bottom:16px}
+.eact-teach textarea{margin-top:10px}
+.eact-teach>p{font-size:14px;color:var(--eact-soft);margin-top:12px}
+.eact-recap{margin-top:32px;padding-top:24px;border-top:1px solid var(--eact-line)}
+.eact-recap blockquote{margin:20px 0;color:var(--eact-soft);font-style:italic}
+.eact-recap>button{margin:6px 8px 0 0}
+.eact-game-status{display:flex;justify-content:space-between;align-items:flex-start;gap:20px;margin:18px 0}
+.eact-game-status>p{font-size:20px;max-width:44ch;line-height:1.4}
+.eact-game-status>span{white-space:nowrap;color:var(--eact-soft);font-variant-numeric:tabular-nums}
+.eact-collection,.eact-rules{margin:16px 0 24px;color:var(--eact-soft)}
+.eact-collection summary,.eact-rules summary{cursor:pointer;color:var(--eact-ink);padding:5px 0;min-height:42px}
+.eact-collection p{font-size:14px;margin-top:10px}
+.eact-turns{list-style:none;padding:0;margin:24px 0 30px;display:flex;flex-direction:column;gap:20px;max-height:420px;overflow-y:auto;scrollbar-width:thin;scrollbar-color:var(--eact-line) transparent;overscroll-behavior:contain}
+.eact-turns li{display:flex;flex-direction:column;gap:9px}
+.eact-turns p{margin:0}
+.eact-player{align-self:flex-end;max-width:85%;text-align:right;color:var(--eact-soft)}
+.eact-answer{display:flex;align-items:center;gap:12px}
+.eact-answer .brand-mark{width:26px;height:28px;flex-shrink:0;transform:scale(.85);transform-origin:center}
+.eact-opening{color:var(--eact-soft);padding:12px 0}
+.eact-hint p>span{color:var(--eact-soft);font-size:13px;margin-right:12px}
+.eact-game-inputs{display:grid;gap:18px}
+.eact-input-row{display:flex;gap:8px}
+.eact-input-row input,.eact-input-row select{min-width:0;width:100%;min-height:46px;padding:9px 12px;background:var(--glass,#111817);border:1px solid var(--eact-line);border-radius:5px;color:var(--eact-ink)}
+.eact-input-row button{min-width:76px}
+.eact-game-inputs>.eact-hint-button{justify-self:start}
+.eact-rules{margin-top:32px}
+.eact-rules>label{display:flex;align-items:center;gap:16px;margin:10px 0}
+.eact-rules input[type=number]{width:75px;background:var(--glass,#111817);color:var(--eact-ink);border:1px solid var(--eact-line);border-radius:4px;padding:7px 10px}
+.eact-rules>p{font-size:13px}
+.eact-rules>button{margin:0 8px 8px 0}
+.eact-round-result,.eact-paused{padding:26px 0}
+.eact-other-play{color:var(--eact-soft);font-size:14px;margin-top:30px!important}
+@media(hover:hover) and (pointer:fine){.everyday-activity button:hover:not(:disabled){border-color:var(--cream,#f0ead4);box-shadow:0 2px 12px #e6dfbc14}.everyday-activity .eact-primary:hover:not(:disabled){background:#fff8df}}
+@media(max-width:600px){.everyday-activity{padding:20px 4px 32px}.eact-header{gap:12px;margin-bottom:24px}.eact-header>button{font-size:13px;padding:8px 10px}.eact-topic>div{align-items:flex-start;flex-direction:column;gap:12px}.eact-topic>div>span{max-width:none}.eact-topic>div>button{align-self:flex-end}.eact-toolbar{gap:10px;flex-wrap:wrap;margin-top:20px}.eact-toolbar button{font-size:13px;padding:8px 11px}.eact-moon{margin-top:12px}.eact-phase-stops{gap:4px}.eact-phase-stops button{font-size:11px;padding:5px 7px}.eact-game-status{gap:10px}.eact-game-status>p{font-size:18px}.eact-game-status>span{font-size:13px}.eact-explanation{font-size:17px}.eact-turns{max-height:340px}.eact-approach button{font-size:14px}}

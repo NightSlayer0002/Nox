@@ -9,6 +9,8 @@ import {downloadText} from '/js/workbench.js';
 import {FIRST_CONTACT} from './afterimage-example.js';
 import {visit} from '/js/visit-scope.js';
 import {EXPORT_PROFILES,resolveExportProfile} from '/js/export-profile.js';
+import {savedActivities,companionChanged,takeSavedOpen} from '/js/companion-context.js';
+import {normalizeAfterimageActivity} from '../shared/everyday-activities.js';
 const Lattice=lazy(()=>import('./afterimage-lattice.jsx'));
 const disk=visit.storage;
 const store=createAfterimageStore(disk);
@@ -21,13 +23,27 @@ let receiverDraft=null;
 export default function Afterimage(){
   const [items,setItems]=useState(()=>store.list()),[current,setCurrent]=useState(()=>store.list()[0]||null),[seed,setSeed]=useState(()=>receiverDraft?.seed??store.list()[0]?.seed??''),[tone,setTone]=useState(()=>receiverDraft?.tone??store.list()[0]?.tone??'uncanny');
   const [view,setView]=useState(()=>afterimageBridge.snapshot()),[busy,setBusy]=useState(false),[error,setError]=useState(''),[notice,setNotice]=useState(''),[editor,setEditor]=useState(false),[draftLines,setDraftLines]=useState([]);
-  const request=useRef(null),version=useRef(0),variation=useRef(0);
+  const request=useRef(null),version=useRef(0),variation=useRef(0),keptId=useRef(null);
   const reduceMotion=useReducedMotion();
   useEffect(()=>{receiverDraft={seed,tone};},[seed,tone]);
   useEffect(()=>afterimageBridge.subscribe(()=>setView(afterimageBridge.snapshot())),[]);
   useEffect(()=>store.subscribe(()=>setItems(store.list())),[]);
   useEffect(()=>{if(view.status==='complete')setNotice('Cut complete. Try another ending, or capture this one.');},[view.status]);
   useEffect(()=>()=>{version.current++;request.current?.abort();afterimageBridge.stop('receiver closed');},[]);
+  useEffect(()=>{
+    function openSaved(event){
+      const queued=takeSavedOpen('afterimage'),detail=event?.detail||queued;if(!detail)return;
+      try{
+        const saved=normalizeAfterimageActivity(detail.state);
+        version.current++;request.current?.abort();request.current=null;setBusy(false);afterimageBridge.stop('saved story opened');
+        const next=store.add(saved);setCurrent(next);setSeed(saved.seed);setTone(saved.tone);setEditor(false);setDraftLines([]);keptId.current=detail.id||detail.state?.id||null;setError('');setNotice('Saved cut restored, including your branch, ending and edits. Playback starts from the beginning.');
+      }catch(reason){setError(reason.message||'This saved story could not be opened. Your current cut is kept.');}
+    }
+    window.addEventListener('nox:afterimage-open',openSaved);
+    openSaved();
+    window.dispatchEvent(new Event('nox:afterimage-ready'));
+    return ()=>window.removeEventListener('nox:afterimage-open',openSaved);
+  },[]);
   const packet=current?.packet||example,signalIndex=current?.signalIndex||0,endingIndex=current?.endingIndex||0,signal=packet.signals[signalIndex];
   const selected=buildSelectedPerformance(packet,signalIndex,endingIndex,current?.editedLines),playing=view.status==='playing',disabled=busy||playing;
   const exportProfile=resolveExportProfile(view.exportProfile);
@@ -45,13 +61,13 @@ export default function Afterimage(){
     try{
       const result=await afterimageBridge.receive({seed:seed.trim(),tone,variation:variation.current,signal:controller.signal});
       if(controller.signal.aborted||version.current!==ownVersion)return;
-      const next=store.add({packet:result.packet,seed:seed.trim(),tone,source:'live',metrics:result.metrics});setCurrent(next);setEditor(false);setNotice('Story ready. Choose from six possible cuts.');
+      const next=store.add({packet:result.packet,seed:seed.trim(),tone,source:'live',metrics:result.metrics});keptId.current=null;setCurrent(next);setEditor(false);setNotice('Story ready. Choose from six possible cuts.');
     }catch(e){if(version.current===ownVersion&&e.name!=='AbortError'){setError(e.message||'The story could not be generated. Your seed is still here.');setNotice('Your previous cut and seed are kept.');}}
     finally{if(version.current===ownVersion){request.current=null;setBusy(false);}}
   }
   function useExample(){
     cancel();afterimageBridge.stop('authored example');
-    try{const next=store.add({packet:example,seed:'A door in a window with no wall.',tone:'uncanny',source:'authored'});setCurrent(next);setEditor(false);setDraftLines([]);play(false,next);}catch(e){setError(e.message);}
+    try{const next=store.add({packet:example,seed:'A door in a window with no wall.',tone:'uncanny',source:'authored'});keptId.current=null;setCurrent(next);setEditor(false);setDraftLines([]);play(false,next);}catch(e){setError(e.message);}
   }
   function play(capture=false,take=reception){
     setError('');try{const started=capture?afterimageBridge.recordAndPlay(take.packet,take.signalIndex,take.endingIndex,take.editedLines):afterimageBridge.play(take.packet,take.signalIndex,take.endingIndex,take.editedLines);if(!started)throw new Error('The stage is not ready to play. Try again when it is connected.');setNotice(capture?'Capturing NOX locally. Orpheus voice is included when enabled.':'NOX is performing your selected cut.');if(window.innerWidth<=1200)document.getElementById('stage')?.scrollIntoView({behavior:reduceMotion?'instant':'smooth',block:'center'});}catch(e){setError(e.message);}
@@ -60,9 +76,17 @@ export default function Afterimage(){
   function saveEdits(){
     try{const base=current||store.add(reception);const next=store.update(base.id,{editedLines:draftLines});if(!next)throw new Error('This reception was removed. Choose another from your archive.');setCurrent(next);setEditor(false);setDraftLines([]);setError('');setNotice('Your cut is edited. No model request.');}catch(e){setError(e.message);}
   }
+  async function keepOnDevice(){
+    setError('');try{
+      if(editor&&draftLines.some((line,index)=>line!==selected.cues[index]?.speech))throw new Error('Apply your edited lines before keeping this cut on this device. Your draft is still open.');
+      const state=normalizeAfterimageActivity(reception),saved=await savedActivities.save({...(keptId.current?{id:keptId.current}:{}),kind:'afterimage',title:state.packet.title,state});
+      if(!saved||!savedActivities.persistent)throw new Error('This browser could not save the story on this device. Export your script or story data instead.');
+      keptId.current=saved.id;companionChanged();setNotice('Kept on this device. Open it from Continue. Your selected cut and edits are saved; playback restarts from the beginning.');
+    }catch(reason){setError(reason.message||'Saving did not finish. Your cut is still open. Export it before refreshing.');}
+  }
   function restore(id){
     const item=store.get(id);if(!item){setError('This reception was removed from this browser.');return;}
-    afterimageBridge.stop('archive selected');setCurrent(item);setSeed(item.seed);setTone(item.tone);setEditor(false);setDraftLines([]);setError('');setNotice('Reception restored. No model request.');
+    afterimageBridge.stop('archive selected');keptId.current=null;setCurrent(item);setSeed(item.seed);setTone(item.tone);setEditor(false);setDraftLines([]);setError('');setNotice('Reception restored. No model request.');
   }
   function remove(id){if(current?.id===id){afterimageBridge.stop('reception deleted');setCurrent(null);setEditor(false);setDraftLines([]);}store.remove(id);setNotice('Reception removed from this browser.');}
   const generated=current?.source==='live',metrics=current?.metrics;
@@ -96,13 +120,13 @@ export default function Afterimage(){
       <div className="capture-profile"><label htmlFor="afterimage-export-profile">Clip format</label><select id="afterimage-export-profile" value={exportProfile.id} disabled={view.recording} aria-describedby="afterimage-capture-note" onChange={event=>{try{afterimageBridge.setExportProfile(event.target.value);setError('');}catch(error){setError(error.message);}}}>{EXPORT_PROFILES.map(profile=><option key={profile.id} value={profile.id}>{profile.label} · {profile.width} × {profile.height}</option>)}</select></div>
       <div className="performance-actions"><button className="receive-button" type="button" onClick={()=>play()} disabled={disabled||!view.connected}>Play this cut</button><button type="button" onClick={()=>play(true)} disabled={disabled||!view.connected||!view.recordSupported||view.recording}>Capture 28 seconds</button>{playing&&<button type="button" onClick={stopPerformance}>Stop</button>}</div>
       <p className="capture-note" id="afterimage-capture-note">{exportProfile.width} × {exportProfile.height} · {exportProfile.frameRate} fps · Captioned WebM saves locally with enabled Orpheus audio. Browser voice cannot be captured.</p>
-      <div className="receiver-export"><button type="button" disabled={!view.connected} onClick={()=>afterimageBridge.setVoice(!view.voiceEnabled)} aria-pressed={view.voiceEnabled}>{view.voiceEnabled?'Voice on':'Voice off'}</button><button type="button" onClick={()=>{setDraftLines(selected.cues.map(cue=>cue.speech));setEditor(!editor);}} disabled={disabled} aria-expanded={editor}>Edit this cut</button><button type="button" onClick={()=>downloadText(toMarkdown(reception),`nox-afterimage-script.md`)}>Export script</button><button type="button" onClick={()=>downloadText(JSON.stringify(reception,null,2),'nox-afterimage-reception.json')}>Export story data</button>{generated&&canGenerate&&<button type="button" disabled={disabled||!seed.trim()} onClick={event=>receive(event,true)}>New take</button>}</div>
-      {editor&&<div className="cut-editor"><p>{store.persistent?'Your edits stay in this browser.':'Your edits last for this visit; export before refreshing.'} Changing branch starts a fresh cut.</p>{draftLines.map((line,index)=><label key={index}>{index===3?'Ending':`Beat ${index+1}`}<textarea value={line} maxLength={90} onChange={e=>setDraftLines(lines=>lines.map((old,i)=>i===index?e.target.value:old))} rows={2}/></label>)}<button type="button" className="receive-button" onClick={saveEdits} disabled={disabled||draftLines.length!==4||draftLines.some(line=>!line.trim())}>Apply edits</button></div>}
+      <div className="receiver-export"><button type="button" onClick={keepOnDevice}>Keep on this device</button><button type="button" disabled={!view.connected} onClick={()=>afterimageBridge.setVoice(!view.voiceEnabled)} aria-pressed={view.voiceEnabled}>{view.voiceEnabled?'Voice on':'Voice off'}</button><button type="button" onClick={()=>{setDraftLines(selected.cues.map(cue=>cue.speech));setEditor(!editor);}} disabled={disabled} aria-expanded={editor}>Edit this cut</button><button type="button" onClick={()=>downloadText(toMarkdown(reception),`nox-afterimage-script.md`)}>Export script</button><button type="button" onClick={()=>downloadText(JSON.stringify(reception,null,2),'nox-afterimage-reception.json')}>Export story data</button>{generated&&canGenerate&&<button type="button" disabled={disabled||!seed.trim()} onClick={event=>receive(event,true)}>New take</button>}</div>
+      {editor&&<div className="cut-editor"><p>{store.persistent?'Your edits stay in this browser.':'Your edits last for this visit; choose Keep on this device or export before refreshing.'} Changing branch starts a fresh cut.</p>{draftLines.map((line,index)=><label key={index}>{index===3?'Ending':`Beat ${index+1}`}<textarea value={line} maxLength={90} onChange={e=>setDraftLines(lines=>lines.map((old,i)=>i===index?e.target.value:old))} rows={2}/></label>)}<button type="button" className="receive-button" onClick={saveEdits} disabled={disabled||draftLines.length!==4||draftLines.some(line=>!line.trim())}>Apply edits</button></div>}
       <div className="reception-caption"><span>Caption</span><p>{packet.caption}</p></div>
       {metrics&&<p className="reception-metrics">{metrics.provider} · {metrics.model} · received in {(metrics.totalMs/1000).toFixed(1)}s{metrics.cacheHit?' · warm cache':''}{metrics.attempts===2?' · written in 2 attempts':''}</p>}
     </motion.div></AnimatePresence>
     <details className="receiver-how"><summary>How Afterimage works</summary><p>Each story has three branches and two endings per branch. Choose one of six cuts. NOX performs its four cues over 28 seconds using his existing expressions and scenes.</p><p>Replays and edits use no text-model request. New stories use your configured model. Cloud voice uses its speech quota. Captions follow the cue timer; they are not aligned word by word to audio.</p></details>
     <nav className="receiver-handoffs" aria-label="More ways to use NOX"><a href="#scenes">Open Scene studio</a><a href="#conversation">Talk with NOX</a></nav>
-    <div className="receiver-archive"><div><span className="eyebrow">Saved stories</span><small>{items.length}/12 · {store.persistent?'this browser':'this visit'}</small></div>{items.length?items.map(item=><div className="archive-row" key={item.id}><button type="button" disabled={disabled} onClick={()=>restore(item.id)}><b>{item.packet.title}</b><span>{item.source==='authored'?'Authored sample':'Model-generated'} · {new Date(item.createdAt).toLocaleDateString()}</span></button><button type="button" disabled={disabled} onClick={()=>remove(item.id)} aria-label={`Delete reception ${item.packet.title}`}>Delete</button></div>):<p>Your first story will appear here.</p>}<p className="archive-note">{store.persistent?'Saved as plaintext in this browser, without cloud sync. Export before changing device or domain.':!visit.owner?'Stories and edits last for this guest visit. Export anything you want to keep before refreshing.':'Browser storage is unavailable. Export anything you want to keep.'}</p></div>
+    <div className="receiver-archive"><div><span className="eyebrow">Recent stories</span><small>{items.length}/12 · {store.persistent?'this browser':'this visit'}</small></div>{items.length?items.map(item=><div className="archive-row" key={item.id}><button type="button" disabled={disabled} onClick={()=>restore(item.id)}><b>{item.packet.title}</b><span>{item.source==='authored'?'Authored sample':'Model-generated'} · {new Date(item.createdAt).toLocaleDateString()}</span></button><button type="button" disabled={disabled} onClick={()=>remove(item.id)} aria-label={`Delete reception ${item.packet.title}`}>Delete</button></div>):<p>Your first story will appear here.</p>}<p className="archive-note">{store.persistent?'Saved as plaintext in this browser, without cloud sync. Export before changing device or domain.':!visit.owner?'Recent stories and edits last for this guest visit. Choose Keep on this device for a deliberate save in Continue, or export before refreshing.':'Browser storage is unavailable. Export anything you want to keep.'}</p></div>
   </div>;
 }
