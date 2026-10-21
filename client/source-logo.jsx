@@ -8,14 +8,15 @@ import * as THREE from 'three';
 import {SVGLoader} from 'three/addons/loaders/SVGLoader.js';
 import {SourceBoundary} from './source-boundary.jsx';
 import {EmblemFollowers} from './emblem-followers.jsx';
+import {createSurfaceTexture} from './source-texture.js';
 import {createLogoReadiness,createLogoGesture,emblemFeatures,releaseLogoInteraction} from '/js/logo-interaction.js';
 import {emblemPointer} from '/js/home-choreography.js';
-import {createFrameBudget,createLiquidLogoRenderer} from '/js/source-effects.js';
+import {createFrameBudget,createLiquidLogoRenderer,logoSurfaceSize,SOURCE_MATERIAL_FPS} from '/js/source-effects.js';
 
 const fallback=<div className="logo-static"><img src="/icon.svg" alt=""/></div>;
 
 function LogoModel({pose,matter,pointer,rotation,spring,onStatus,gesture,target}){
-  const outer=useRef(),inner=useRef(),meshes=useRef([]),resources=useRef({}),readiness=useRef(),due=useRef(createFrameBudget(60)),textureDue=useRef(createFrameBudget(24)),lastPointer=useRef({x:0,y:0}),pressureState=useRef(0),frames=useRef(0);
+  const outer=useRef(),inner=useRef(),meshes=useRef([]),resources=useRef({}),readiness=useRef(),due=useRef(createFrameBudget(60)),textureDue=useRef(createFrameBudget(SOURCE_MATERIAL_FPS)),lastPointer=useRef({x:0,y:0}),pressureState=useRef(0),frames=useRef(0);
   const {gl,viewport,setFrameloop,invalidate}=useThree(),[parts,setParts]=useState([]);
   const wave=useMemo(()=>({time:{value:0},pressure:{value:0}}),[]);
   const front=useMemo(()=>new THREE.MeshPhysicalMaterial({color:'#b5cfca',metalness:.72,roughness:.24,clearcoat:1,clearcoatRoughness:.16,transparent:true}),[]);
@@ -25,9 +26,9 @@ function LogoModel({pose,matter,pointer,rotation,spring,onStatus,gesture,target}
     for(const material of [front,side]){material.onBeforeCompile=shader=>{shader.uniforms.noxTime=wave.time;shader.uniforms.noxPressure=wave.pressure;shader.vertexShader='uniform float noxTime;\nuniform float noxPressure;\n'+shader.vertexShader.replace('#include <begin_vertex>','#include <begin_vertex>\ntransformed.z += sin((position.x / 8.0 + noxTime) * 4.0) * noxPressure * 0.8;');};material.customProgramCacheKey=()=> 'nox-emblem-source-wave-v1';}
   },[front,side,wave]);
   useEffect(()=>{
-    let live=true,visible=true,lost=false;const abort=new AbortController(),owned=[];let renderer,texture,geometryReady=false;
+    let live=true,visible=true,lost=false;const abort=new AbortController(),owned=[];let renderer,surface,geometryReady=false;
     const state=createLogoReadiness(onStatus);readiness.current=state;
-    const visibility=()=>{setFrameloop(document.hidden||!visible||lost?'never':'always');if(!document.hidden&&visible&&!lost)invalidate();};
+    const visibility=()=>{resources.current.previous=null;setFrameloop(document.hidden||!visible||lost?'never':'always');if(!document.hidden&&visible&&!lost)invalidate();};
     const observer=new IntersectionObserver(entries=>{visible=entries[0].isIntersecting;visibility();});observer.observe(gl.domElement);document.addEventListener('visibilitychange',visibility);visibility();
     const lose=event=>{event.preventDefault();lost=true;visibility();state.lose();},restore=()=>{lost=false;visibility();state.restore();};gl.domElement.addEventListener('webglcontextlost',lose);gl.domElement.addEventListener('webglcontextrestored',restore);
     async function build(){
@@ -47,14 +48,14 @@ function LogoModel({pose,matter,pointer,rotation,spring,onStatus,gesture,target}
       const mask=document.createElement('canvas');mask.width=mask.height=256;const ctx=mask.getContext('2d');ctx.fillStyle='#fff';ctx.fillRect(0,0,256,256);
       const loadMetal=async()=>{
         const next=await createLiquidLogoRenderer();if(!live){next.dispose();return;}
-        renderer?.dispose();texture?.dispose();renderer=next;texture=new THREE.CanvasTexture(renderer.canvas);texture.colorSpace=THREE.SRGBColorSpace;texture.generateMipmaps=false;texture.minFilter=texture.magFilter=THREE.LinearFilter;
-        front.map=texture;front.needsUpdate=true;resources.current={renderer,texture,mask,started:performance.now()};
+        renderer?.dispose();surface?.dispose();renderer=next;surface=createSurfaceTexture({anisotropy:gl.capabilities.getMaxAnisotropy()});
+        front.map=null;front.needsUpdate=true;resources.current={renderer,surface,mask,time:0,previous:null,frames:0};
         renderer.onRestore=()=>{loadMetal().catch(()=>{if(live)state.setPhase('solid');});};state.setPhase('metal');
       };
       await loadMetal();
     }
     build().catch(error=>{if(live&&error.name!=='AbortError')state.setPhase(geometryReady?'solid':'fallback');});
-    return()=>{live=false;abort.abort();observer.disconnect();document.removeEventListener('visibilitychange',visibility);gl.domElement.removeEventListener('webglcontextlost',lose);gl.domElement.removeEventListener('webglcontextrestored',restore);renderer?.dispose();texture?.dispose();front.dispose();side.dispose();for(const geometry of owned)geometry.dispose();resources.current={};readiness.current=null;};
+    return()=>{live=false;abort.abort();observer.disconnect();document.removeEventListener('visibilitychange',visibility);gl.domElement.removeEventListener('webglcontextlost',lose);gl.domElement.removeEventListener('webglcontextrestored',restore);renderer?.dispose();surface?.dispose();front.dispose();side.dispose();for(const geometry of owned)geometry.dispose();resources.current={};readiness.current=null;};
   },[gl,setFrameloop,invalidate,front,side,onStatus]);
   useFrame(({gl,scene,camera})=>{
     const now=performance.now();if(!due.current(now)||!parts.length)return;
@@ -67,7 +68,20 @@ function LogoModel({pose,matter,pointer,rotation,spring,onStatus,gesture,target}
     for(let i=0;i<meshes.current.length;i++){const mesh=meshes.current[i];if(mesh){mesh.position.x=i<2?(i===0?-1:1)*(pose.spread*3+pressure*4):0;mesh.scale.y=i<2?face.eyes:face.smile;mesh.position.y=i<2?(1-face.eyes)*mesh.geometry.userData.centerY:pose.spread*2+pressure*3;}}
     if(target.current){const width=gl.domElement.clientWidth,height=gl.domElement.clientHeight,size=pose.size*width*1.35;target.current.style.width=`${size}px`;target.current.style.height=`${size}px`;target.current.style.transform=`translate(${pose.screenX*width-size/2}px,${pose.screenY*height-size/2}px)`;target.current.hidden=pose.opacity<.3;}
     front.opacity=side.opacity=pose.opacity;wave.time.value=now/4000;wave.pressure.value=pressure+(matter.metal ? .25 : 0);
-    const active=resources.current;if(active.renderer&&textureDue.current(now)){const available=active.renderer.render(active.mask,(now-active.started)/1000,{pressure});if(available){active.texture.needsUpdate=true;}else if(front.map){front.map=null;front.needsUpdate=true;readiness.current?.setPhase('solid');}}
+    const active=resources.current;
+    if(active.renderer){
+      // Keep a paused surface's phase when a tab or the scene becomes visible.
+      if(active.previous!==null)active.time+=Math.min(.05,(now-active.previous)/1000);active.previous=now;
+      if(textureDue.current(now)){
+        const featurePixels=pose.size*gl.domElement.clientWidth*.6;
+        const available=active.renderer.render(active.mask,active.time,{pressure,size:logoSurfaceSize(featurePixels,gl.getPixelRatio())});
+        if(available){
+          const texture=active.surface.update(active.renderer.canvas);
+          if(front.map!==texture){front.map=texture;front.needsUpdate=true;}
+          gl.domElement.dataset.textureSize=String(active.renderer.canvas.width);gl.domElement.dataset.textureFrame=String(++active.frames);gl.domElement.dataset.textureFps=String(SOURCE_MATERIAL_FPS);
+        }else if(front.map){front.map=null;front.needsUpdate=true;readiness.current?.setPhase('solid');}
+      }
+    }
     gl.render(scene,camera);gl.domElement.dataset.source='r3f-liquid-logo';gl.domElement.dataset.geometry='nox-icon-extrusion';gl.domElement.dataset.screenX=pose.screenX.toFixed(3);gl.domElement.dataset.screenY=pose.screenY.toFixed(3);gl.domElement.dataset.tiltY=inner.current.rotation.y.toFixed(3);gl.domElement.dataset.scrollY=outer.current.rotation.y.toFixed(3);gl.domElement.dataset.pressure=pressure.toFixed(3);gl.domElement.dataset.frame=String(++frames.current);
   },1);
   return <><group ref={outer}><group ref={inner}><group scale={[.08,-.08,.08]} position={[-2.56,2.65,0]} dispose={null}>{parts.map((geometry,index)=><mesh ref={mesh=>{meshes.current[index]=mesh;}} key={index} geometry={geometry} material={index<2?[front,side]:front}/>)}</group></group></group>{parts.length>0&&<EmblemFollowers pose={pose}/>}</>;
@@ -82,7 +96,7 @@ export default function SourceLogo({pose,matter,onPoke}){
   return <div className="source-logo" data-state={status}>
     <div className="logo-canvas" aria-hidden="true">
       <div className="logo-loading" hidden={status!=='loading'}>{fallback}</div>
-      <SourceBoundary fallback={fallback}><Canvas dpr={1} gl={{alpha:true,antialias:true,powerPreference:'low-power'}} camera={{position:[0,0,7],fov:34}} fallback={fallback} style={{pointerEvents:'none'}}><hemisphereLight args={['#e1f4ee','#233a3c',2]}/><directionalLight position={[3,5,7]} intensity={4}/><directionalLight position={[-4,1,3]} color="#81c5b5" intensity={2}/><LogoModel pose={pose} matter={matter} pointer={pointer} rotation={{x,y}} spring={spring} onStatus={changeStatus} gesture={gesture} target={target}/></Canvas></SourceBoundary>
+      <SourceBoundary fallback={fallback}><Canvas dpr={[1,1.5]} gl={{alpha:true,antialias:true,powerPreference:'default'}} camera={{position:[0,0,7],fov:34}} fallback={fallback} style={{pointerEvents:'none'}}><hemisphereLight args={['#e1f4ee','#233a3c',2]}/><directionalLight position={[3,5,7]} intensity={4}/><directionalLight position={[-4,1,3]} color="#81c5b5" intensity={2}/><LogoModel pose={pose} matter={matter} pointer={pointer} rotation={{x,y}} spring={spring} onStatus={changeStatus} gesture={gesture} target={target}/></Canvas></SourceBoundary>
     </div>
     {status==='fallback'&&<div className="logo-fallback">{fallback}</div>}
     {['solid','metal'].includes(status)&&<button ref={target} className="logo-touch-target" aria-label="Greet and turn NOX. Drag to turn, Left or Right to look, Enter to greet." onPointerDown={e=>{if(e.button!==0||!gesture.current.begin(e.pointerId,e.clientX,e.clientY))return;start.current={id:e.pointerId,x:e.clientX,y:e.clientY};e.currentTarget.setPointerCapture(e.pointerId);}} onPointerMove={e=>gesture.current.move(e.pointerId,e.clientX,e.clientY)} onPointerUp={release} onPointerCancel={release} onLostPointerCapture={release} onKeyDown={e=>{if(['ArrowLeft','ArrowRight','Escape'].includes(e.key)){e.preventDefault();if(e.key==='Escape')gesture.current.reset();else {gesture.current.turn(e.key==='ArrowLeft'?-.1:.1);spring.start(gesture.current.angles);}}}} onClick={e=>{if(e.detail===0)onPoke?.();}}/>}
