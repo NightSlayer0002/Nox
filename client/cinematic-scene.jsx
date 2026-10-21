@@ -31,8 +31,8 @@ function createRoom(host,handle,portraitCanvas,orbCanvas,landing,{onState}){
   };
   try{
     // Transparent: the real scrolling NOX emblem remains the room's backdrop.
-    renderer=new THREE.WebGLRenderer({antialias:!small,alpha:true,powerPreference:'low-power'});
-    renderer.setPixelRatio(Math.min(devicePixelRatio||1,small?1:1.25));
+    renderer=new THREE.WebGLRenderer({antialias:true,alpha:true,powerPreference:'low-power'});
+    renderer.setPixelRatio(Math.min(devicePixelRatio||1,1.5));
     renderer.setClearColor(0x000000,0);renderer.outputColorSpace=THREE.SRGBColorSpace;
     renderer.domElement.setAttribute('aria-hidden','true');host.appendChild(renderer.domElement);
     scene=new THREE.Scene();
@@ -41,10 +41,10 @@ function createRoom(host,handle,portraitCanvas,orbCanvas,landing,{onState}){
     const resolution=new THREE.Vector2(1,1),guides=new THREE.Group();scene.add(guides);
     const lineMaterials=[];
     // Sparse depth contours, rather than the former bundle across the copy.
-    for(let index=0;index<(small?3:5);index++){
+    for(let index=0;index<(small?2:3);index++){
       const path=new THREE.CatmullRomCurve3(pipePoints.map(([x,y,z])=>new THREE.Vector3((x-40)*.14,(y-8)*.14,(z-10)*.12)));
-      const geometry=new MeshLineGeometry();geometry.setPoints(path.getPoints(130),p=>Math.sin(Math.PI*p)*.75+.05);
-      const material=new MeshLineMaterial({color:new THREE.Color('#a1bdb6'),lineWidth:.012,transparent:true,opacity:.16,resolution,sizeAttenuation:1,depthWrite:false});
+      const geometry=new MeshLineGeometry();geometry.setPoints(path.getPoints(small?180:280),p=>Math.sin(Math.PI*p)*.75+.05);
+      const material=new MeshLineMaterial({color:new THREE.Color('#a1bdb6'),lineWidth:.012,transparent:true,opacity:.12,resolution,sizeAttenuation:1,depthWrite:false});
       const contour=new THREE.Mesh(geometry,material);contour.rotation.set(.15+index*.38,-.2+index*.3,-.55+index*.8);contour.position.set(index*1.5-2.3,-.3,-2-index);
       guides.add(contour);lineMaterials.push(material);
     }

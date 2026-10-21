@@ -215,17 +215,17 @@ body.landing{background:var(--bg);font-family:var(--font-ui)}
  .contact-description{font-size:17px;line-height:1.55}.contact-copy .liquid-button{font-size:16px;min-height:48px;padding:14px 24px}
  .hero-instruction{font-size:14px;margin-top:22px}.contact-actions button,.contact-actions .nav-enter{font-size:15px;padding:12px 20px}
  .contact-copy .material-control{min-width:0;max-width:100%;padding:14px}.material-label{min-width:0}.material-label>span{font-size:16px}.material-label small,.material-help{font-size:13px}
- .contact-hud{left:7vw;max-width:calc(100% - 160px);bottom:24px}.hud-presence{font-size:13px;min-height:0}
+ .contact-hud{left:7vw;width:calc(100% - 180px);max-width:none;bottom:24px}.contact-hud .hud-presence{max-width:100%;font-size:13px;min-height:0}
  .contact-details{margin:0 7vw 45px;padding-top:45px}.detail-intro{font-size:17px}.detail-columns{gap:28px}
  .source-footer{margin:0 7vw;padding-bottom:110px;gap:20px;flex-wrap:wrap}.source-footer>span:nth-child(2){width:auto}
 }
 
 /* Transparent finale: pmndrs MeshLine trails over the original 3D emblem. */
-.cinematic-section{position:relative;z-index:1;margin:110px 4vw 36px;color:#e0e8e3;min-height:650px}
+.cinematic-section{position:relative;z-index:6;margin:110px 4vw 36px;color:#e0e8e3;min-height:650px}
 .cinematic-heading{margin:0 5vw 32px}
 .cinematic-heading h2{margin:0;font:400 clamp(32px,3.5vw,50px)/1.12 var(--font-ui);letter-spacing:-.035em}
 .cinematic-heading p{margin:14px 0 0;color:var(--muted);font-size:17px}
-.cinematic-viewport{position:relative;isolation:isolate;height:72svh;min-height:500px;max-height:780px;border-radius:38px;overflow:hidden;background:#08101312;box-shadow:inset 0 0 0 1px #b6d3c014;contain:layout paint}
+.cinematic-viewport{position:relative;isolation:isolate;height:72svh;min-height:500px;max-height:780px;border-radius:38px;overflow:hidden;background:#081117a3;box-shadow:inset 0 0 0 1px #b6d3c030;contain:layout paint}
 .cinematic-room,.cinematic-atmosphere{position:absolute;inset:0}
 .cinematic-room{z-index:1}
 .cinematic-orbs{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;filter:blur(7px);opacity:.9}
@@ -239,7 +239,7 @@ body.landing{background:var(--bg);font-family:var(--font-ui)}
 .cinematic-nox-handle[hidden]{display:none}
 .cinematic-nox-handle[data-dragging=true]{cursor:grabbing}
 .cinematic-nox-handle:focus-visible{outline:1px solid #b4e5cc}
-.cinematic-foot{position:absolute;left:4vw;right:4vw;bottom:24px;display:flex;justify-content:space-between;align-items:center;gap:28px;pointer-events:none;font-size:14px;color:#a6b9b3}
+.cinematic-foot{position:absolute;z-index:5;left:4vw;right:4vw;bottom:24px;display:flex;justify-content:space-between;align-items:center;gap:28px;pointer-events:none;font-size:14px;color:#b7cac3}
 .cinematic-foot p{margin:0;line-height:1.5;max-width:340px}
 .cinematic-foot>span{font-size:10px;letter-spacing:.14em;opacity:.6;white-space:nowrap}
 .cinematic-section[data-state=fallback] .cinematic-room{display:none}
