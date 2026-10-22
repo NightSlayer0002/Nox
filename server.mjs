@@ -17,6 +17,8 @@ import { sanitizeAfterimageInput } from './shared/afterimage.js';
 import { createAfterimageCache } from './server/afterimage-cache.mjs';
 import { requestAfterimageGeneration } from './server/afterimage-generation.mjs';
 import { createGuestAllowance } from './server/guest-allowance.mjs';
+import { createStatusCache } from './server/status-cache.mjs';
+import { createPublicQuota } from './server/public-quota.mjs';
 
 const root = path.dirname(fileURLToPath(import.meta.url));
 const publicRoot = path.join(root, 'public');
@@ -84,6 +86,14 @@ export function createAppServer({
   const speechClipCache=createCache();
   const afterimageCache=createAfterimageCache({now});
   const unlockThrottle=createUnlockThrottle({now});
+  const statusSnapshots=createStatusCache({now});
+  // Warm-process protection for anonymous polling, separate from generation quotas.
+  const statusQuota=createPublicQuota({now,perClient:30,total:300});
+  const takeAllowance=async(client,kind)=>{
+    const decision=await guestAllowance.take(client,kind);
+    if(decision.usage!==undefined)statusSnapshots.set(client,decision.usage);else statusSnapshots.invalidate(client);
+    return decision;
+  };
   const allowanceFailure=(response,decision,kind)=>{
     response.setHeader('retry-after',decision.retryAfter);
     const error=decision.code==='allowance_unavailable'?'NOX cannot check the public allowance right now. Your draft is safe; please try again shortly.':decision.code==='daily_limit'?(kind==='speech'?'This network has used its natural voice allowance for today. Text remains available within its own allowance.':'This network has used its free messages for today. Your draft is safe; the allowance resets at the time shown.'):(kind==='speech'?'NOX needs a short voice break. Text has its own allowance.':'A few replies arrived quickly. Give NOX a moment; your draft is safe.');
@@ -123,7 +133,7 @@ export function createAppServer({
     const requestedGuest=request.headers['x-nox-guest']==='1';
     const owner=!requestedGuest&&(authorized||!hosted&&!accessToken);
     const locked = Boolean(hasCloud && (hosted || accessToken) && !owner);
-    const sharedFailure=async(wait,error)=>{response.setHeader('retry-after',wait);return sendJson(response,429,{error,code:'rate_limit',retryAfter:wait,usage:owner?null:await guestAllowance.status(clientIP)});};
+    const sharedFailure=(wait,error)=>{response.setHeader('retry-after',wait);return sendJson(response,429,{error,code:'rate_limit',retryAfter:wait,usage:owner?null:statusSnapshots.peek(clientIP)??null});};
     if(request.headers['x-nox-owner']==='1'&&!owner)return sendJson(response,401,{error:'Your owner session ended. Continue as a guest or sign in again.'});
     if(pathname==='/api/session'&&['POST','DELETE'].includes(request.method)){
       if(request.headers.origin!==`${hosted?'https':'http'}://${host}`)return sendJson(response,403,{error:'Unlock from NOX’s own page.'});
@@ -134,13 +144,16 @@ export function createAppServer({
       response.setHeader('set-cookie',sessionCookie(mintSession(accessToken,host,now()),hosted));
       return sendJson(response,200,{access:'open'});
     }
-    if (pathname === '/api/status' && request.method === 'GET') return sendJson(response, 200, {
-      brain: preferred && !locked ? 'live' : 'demo', model: preferred && !locked ? preferred.model : null,
-      voice: voiceKey && (!locked||speechProvider==='groq') && naturalVoice ? 'natural' : 'browser', access: locked ? 'locked' : 'open',
-      providers: !locked ? available : [], provider: !locked ? preferred?.id || null : null,
-      owner,guestProvider,
-      usage:owner?null:await guestAllowance.status(clientIP),
-    });
+    if (pathname === '/api/status' && request.method === 'GET') {
+      if(!owner){const wait=statusQuota.take(clientIP);if(wait)return sharedFailure(wait,'Status was refreshed several times. Give NOX a moment before refreshing again.');}
+      const usage=owner?null:await statusSnapshots.get(clientIP,async()=>{try{return await guestAllowance.status(clientIP);}catch{return null;}});
+      return sendJson(response, 200, {
+        brain: preferred && !locked ? 'live' : 'demo', model: preferred && !locked ? preferred.model : null,
+        voice: voiceKey && (!locked||speechProvider==='groq') && naturalVoice ? 'natural' : 'browser', access: locked ? 'locked' : 'open',
+        providers: !locked ? available : [], provider: !locked ? preferred?.id || null : null,
+        owner,guestProvider,usage,
+      });
+    }
     if (['/api/chat','/api/speech','/api/summary','/api/afterimage'].includes(pathname) && request.method === 'POST') {
       const origin = request.headers.origin;
       if (origin && origin !== `${hosted?'https':'http'}://${host}`) return sendJson(response, 403, { error: 'Use NOX from its own page.' });
@@ -179,7 +192,7 @@ export function createAppServer({
           if (!input || typeof input.text !== 'string' || !input.text.trim() || input.text.length>420) return sendJson(response,400,{error:'Speech must contain 1–420 characters.'});
           let speechCues;try{speechCues=normalizeSpeechCues(input.text,input.speechCues);}catch{return sendJson(response,400,{error:'Speech cues must match four bounded script lines and known emotions.'});}
           const wait=sharedWait();if(wait)return sharedFailure(wait,'Give NOX a moment before requesting more voice.');
-          if(!owner){const decision=await guestAllowance.take(clientIP,'speech');if(!decision.allowed)return allowanceFailure(response,decision,'speech');response.setHeader('x-nox-usage',JSON.stringify(decision.usage));}
+          if(!owner){const decision=await takeAllowance(clientIP,'speech');if(!decision.allowed)return allowanceFailure(response,decision,'speech');response.setHeader('x-nox-usage',JSON.stringify(decision.usage));}
           const controller=input.stream===true?new AbortController():null;
           if(controller)response.once('close',()=>{if(!response.writableEnded)controller.abort();});
           try {
@@ -236,7 +249,7 @@ export function createAppServer({
         if(!selected) return sendJson(response,400,{error:'That provider is not configured on this server.'});
         const wait=sharedWait();if(wait)return sharedFailure(wait,'Several requests arrived quickly. Give NOX a moment.');
         let usage=null;
-        if(guestChat){const decision=await guestAllowance.take(clientIP,'text');if(!decision.allowed)return allowanceFailure(response,decision,'text');usage=decision.usage;}
+        if(guestChat){const decision=await takeAllowance(clientIP,'text');if(!decision.allowed)return allowanceFailure(response,decision,'text');usage=decision.usage;}
         try {
           const prompt = { message: input.message.trim(), context: sanitizeContext(guestChat?{...sanitizeContext(input.context),depth:input.context?.depth==='quick'?'quick':'balanced'}:input.context) };
           prompt.context.depth=answerDepth(prompt.context.depth);
