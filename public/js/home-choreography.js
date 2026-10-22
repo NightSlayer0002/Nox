@@ -18,8 +18,18 @@ export function emblemChapter(scroll,anchors){
   while(index<3&&value>=anchors[index+1]-8)index++;
   return index;
 }
-export function emblemPose(scroll,anchors,small=false){
-  const stops=desktop.map((pose,index)=>small?{...pose,screenX:index===0?.38:index%2?.5:.3,screenY:.76,size:index===0?.54:index===4?.3:.43,opacity:index===0?.85:index===4?.15:.55}:pose);
+export function emblemPose(scroll,anchors,small=false,layout){
+  const stops=desktop.map((pose,index)=>{
+    if(!small)return pose;
+    const phone={...pose,screenX:index%2?.24:.76,screenY:.28,size:.3,spread:pose.spread*.12,opacity:index===4?.15:.95};
+    const slot=layout?.slots?.[index];
+    if(slot&&layout.width>0&&layout.height>0){
+      phone.screenX=(slot.left+slot.width/2)/layout.width;
+      phone.screenY=clamp((slot.top+slot.height/2-scroll)/layout.height,.18,.64);
+      phone.size=Math.min(.36,slot.width*.72/layout.width);
+    }
+    return phone;
+  });
   const value=Number.isFinite(scroll)?scroll:0;let index=0;
   while(index<stops.length-1&&value>=anchors[index+1])index++;
   if(index===stops.length-1)return {...stops[index]};
@@ -29,7 +39,7 @@ export function emblemPose(scroll,anchors,small=false){
   const t=smooth(clamp((local-.35)/.6,0,1));
   const pose=Object.fromEntries(Object.keys(stops[index]).map(key=>[key,stops[index][key]+(stops[index+1][key]-stops[index][key])*t]));
   const crossing=Math.sin(t*Math.PI);
-  pose.spread+=crossing*1.6;pose.z+=crossing*(index%2?.12:-.12);pose.size*=1+crossing*.06;
+  pose.spread+=crossing*(small?.1:1.6);pose.z+=crossing*(index%2?.12:-.12);pose.size*=1+crossing*(small?.02:.06);
   return pose;
 }
 export function emblemPointer(pointer,pose){

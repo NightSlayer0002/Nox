@@ -63,8 +63,29 @@ test('the emblem settles before the next copy center and crosses with continuous
   const c=emblemPose(900*.95-.01,anchors),d=emblemPose(900*.95+.01,anchors);
   assert.ok(Math.abs(c.screenX-d.screenX)<1e-6);
 });
-test('mobile choreography reserves the upper part of the screen for copy and all pointer turns stay bounded',()=>{
-  for(const scroll of anchors){const pose=emblemPose(scroll,anchors,true);assert.ok(pose.screenY>=.7);assert.ok(pose.size<=.55);}
+test('phone chapters alternate the emblem beside the heading instead of below the actions',()=>{
+  for(let index=0;index<4;index++){
+    const pose=emblemPose(anchors[index],anchors,true);
+    assert.ok(index%2===0?pose.screenX>.65:pose.screenX<.35);
+    assert.ok(pose.screenY<.5);assert.ok(pose.size<=.36);assert.ok(pose.opacity>=.85);
+  }
+});
+test('mobile targets follow measured heading spaces after wrapping, scrolling and rotation',()=>{
+  const layout={width:390,height:844,slots:[{left:240,top:150,width:130,height:180},{left:24,top:1040,width:130,height:180},{left:240,top:1940,width:130,height:180},{left:24,top:3240,width:130,height:180}]};
+  const first=emblemPose(0,anchors,true,layout),second=emblemPose(900,anchors,true,layout);
+  assert.ok(Math.abs(first.screenX*390-305)<1);assert.ok(Math.abs(first.screenY*844-240)<1);
+  assert.ok(Math.abs(second.screenX*390-89)<1);assert.ok(Math.abs(second.screenY*844-230)<1);
+  const shifted=emblemPose(0,anchors,true,{...layout,slots:[{...layout.slots[0],top:190},...layout.slots.slice(1)]});
+  assert.ok(Math.abs((shifted.screenY-first.screenY)*844-40)<1);
+  const wide=emblemPose(0,anchors,true,{width:640,height:360,slots:[{left:420,top:100,width:160,height:170}]});
+  assert.ok(wide.screenX*640>420&&wide.screenX*640<580);
+  for(let scroll=0;scroll<=3100;scroll+=17){
+    const pose=emblemPose(scroll,anchors,true,layout);
+    assert.ok(pose.screenY>=.14&&pose.screenY<=.66);assert.ok(pose.spread<.2);
+    for(const value of Object.values(pose))assert.ok(Number.isFinite(value));
+  }
+});
+test('all pointer turns stay bounded',()=>{
   const pose=emblemPose(0,anchors,false),above=emblemPointer({x:.7,y:0},pose),below=emblemPointer({x:.7,y:1},pose);
   assert.ok(above.x<0);assert.ok(below.x>0);
   assert.deepEqual(emblemPointer({x:NaN,y:Infinity},pose),{x:0,y:0});

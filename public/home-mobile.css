@@ -1,0 +1,29 @@
+/* Phone chapters share a measured space with the same animated emblem. */
+.chapter-heading{display:contents}
+.mobile-emblem-slot{display:none}
+@media(max-width:700px){
+  .contact-chapter{padding:124px 7vw 148px;min-height:100svh}
+  #home.contact-chapter{padding:124px 7vw 148px;min-height:100svh}
+  .contact-chapter .contact-copy{width:100%;max-width:none}
+  .chapter-heading{display:grid;grid-template-columns:minmax(0,1fr) clamp(112px,34vw,172px);gap:16px;align-items:center;min-height:184px;margin-bottom:30px}
+  #home .contact-copy .chapter-heading h1,.contact-copy .chapter-heading h2{min-width:0;font-size:clamp(32px,8.6vw,48px);line-height:1.09;letter-spacing:-.03em;margin:0;text-wrap:balance}
+  .mobile-emblem-slot{display:grid;place-items:center;width:100%;height:184px;pointer-events:none}
+  .mobile-emblem-slot img{width:72%;height:auto}
+  .contact-page:has(.source-logo[data-state=solid],.source-logo[data-state=metal]) .mobile-emblem-slot img{visibility:hidden}
+  .contact-emblem .logo-static{display:none}
+  #features .chapter-heading,#about .chapter-heading{grid-template-columns:clamp(112px,34vw,172px) minmax(0,1fr)}
+  #features .chapter-heading h2,#about .chapter-heading h2{grid-column:2;grid-row:1}
+  #features .mobile-emblem-slot,#about .mobile-emblem-slot{grid-column:1;grid-row:1}
+  #features .contact-copy,#about .contact-copy{text-align:right}
+  #features .contact-actions,#about .hero-actions{justify-content:flex-end;max-width:none}
+  #home .contact-description,.contact-description{font-size:17px;line-height:1.6;margin:0 0 26px;max-width:100%}
+  .hero-instruction{font-size:13px;max-width:25ch;margin-top:22px}
+  #home .hero-visual{position:absolute;left:auto;right:7vw;top:auto;bottom:48px;width:104px;height:108px!important;margin:0!important}
+  #home .mascot-room{width:104px!important;height:108px!important;right:0;bottom:0!important}
+  .contact-hud{bottom:28px}
+}
+@media(max-width:359px){
+  .chapter-heading{gap:12px;grid-template-columns:minmax(0,1fr) 108px}
+  #features .chapter-heading,#about .chapter-heading{grid-template-columns:108px minmax(0,1fr)}
+  #home .contact-copy .chapter-heading h1,.contact-copy .chapter-heading h2{font-size:31px}
+}
