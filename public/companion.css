@@ -1,5 +1,16 @@
 /* NOX 1: one active experience, using the established cream/charcoal tokens,
    Source Sans typography and licensed Lucide/AI Elements controls. */
+.workspace .archive-notice{flex-shrink:0;max-height:26dvh;overflow:auto;padding:10px 0 12px;margin:0 0 10px;border-bottom:1px solid var(--line);font-size:14px;line-height:1.5;color:var(--text)}
+.workspace .archive-notice p{margin:0;max-width:90ch}
+.workspace .archive-notice>div{display:flex;flex-wrap:wrap;gap:8px 16px}
+.workspace .archive-notice button{font-size:13px;min-height:34px;background:transparent;border:0;padding:5px 0;text-decoration:underline;text-underline-offset:4px;color:var(--text)}
+.workspace .conversation-privacy{font-size:12px;line-height:1.4;color:var(--muted);text-align:center;margin:7px 0 0}
+.workspace .history-empty{padding:clamp(28px,6vh,72px) 0;max-width:480px;line-height:1.6}
+.workspace .history-empty p{font-size:18px;margin:0 0 18px;color:var(--muted)}
+.workspace .history-start{background:var(--accent);color:var(--bg);padding:10px 16px;border:0;min-height:42px}
+.workspace .archive-reset-actions{display:flex;gap:12px;justify-content:flex-end;flex-wrap:wrap;margin-top:24px}
+.workspace #archive-reset-dialog{width:min(480px,calc(100vw - 32px))}
+.workspace #archive-reset-dialog p{font-size:16px;line-height:1.6}
 .workspace{--rail:184px;--content:800px;font-size:17px;height:var(--workspace-height,100dvh);overflow:hidden}
 .workspace .shell{margin-left:var(--rail);padding:0 36px;height:100%;display:flex;flex-direction:column}
 .workspace .sidebar{width:var(--rail);padding:24px 16px;gap:24px}
@@ -333,3 +344,6 @@
  .workspace[data-keyboard-open=true][data-view=conversation] .companion-welcome{padding-top:72px;padding-bottom:8px}
  .workspace[data-keyboard-open=true][data-view=conversation] .conversation{padding-top:74px}
 }
+.workspace .history-delete-confirm{grid-column:1/-1;padding:4px 16px 14px;font-size:13px;color:var(--muted)}
+.workspace .history-delete-confirm p{margin:0 0 10px;line-height:1.5}
+.workspace .history-delete-confirm button{padding:6px 10px;margin-right:8px;font-size:13px;min-height:32px;background:transparent;border:1px solid var(--line);border-radius:6px}

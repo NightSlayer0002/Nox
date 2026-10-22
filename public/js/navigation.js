@@ -1,5 +1,6 @@
+import {historyNotice} from './history-notice.js';
 const $=id=>document.getElementById(id);
-const views={explore:['Explore','','A place to begin.'],conversation:['Conversation','','Think something through with NOX.'],scenes:['Scene studio','','Shape a performance and capture it.'],library:['Library','','Return to a conversation.'],afterimage:['Afterimage','','A fictional transmission you can change.']};
+const views={explore:['Explore','','A place to begin.'],conversation:['Conversation','','Think something through with NOX.'],scenes:['Scene studio','','Shape a performance and capture it.'],library:['Chats','','Return to a conversation.'],afterimage:['Afterimage','','A fictional transmission you can change.']};
 Object.assign(views,{discover:['Discover','','Follow your curiosity.'],memory:['Preferences','','Only what you approve.'],access:['Your access','','Free now. Plus when it is ready.'],learn:['Explore together','','Bring an idea or try an example.'],guessing:['Play together','','Ask questions. Follow the clues.']});
 export function createNavigation({history,onOpen,onNew,onStart}) {
   let currentView;
@@ -28,6 +29,8 @@ export function createNavigation({history,onOpen,onNew,onStart}) {
   }
   function setView(view){setMenu(false);if(location.hash!==`#${view}`)location.hash=view;applyView();}
   async function open(id){await onOpen(id);setView('conversation');}
+  async function start(){if(await onNew()===false)return;setView('conversation');render();$('message').focus();}
+  function download(text,name){const url=URL.createObjectURL(new Blob([text],{type:'application/json'})),link=document.createElement('a');link.href=url;link.download=name;document.body.append(link);link.click();link.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);}
   function render(){
     document.body.dataset.conversationStarted=String(history.active().turns.some(turn=>turn.role==='user'));
     const all=history.list().filter(t=>t.turns.length),active=history.active().id;
@@ -41,14 +44,44 @@ export function createNavigation({history,onOpen,onNew,onStart}) {
     $('resume-chats').replaceChildren();all.filter(t=>t.turns.length).slice(0,3).forEach(t=>{const b=document.createElement('button');b.className='resume-row';const icon=document.createElement('span'),content=document.createElement('span'),title=document.createElement('b'),meta=document.createElement('small'),arrow=document.createElement('span');icon.textContent='NOX';title.textContent=t.title;meta.textContent=`${t.turns.length} messages · ${new Date(t.updated).toLocaleDateString(undefined,{month:'short',day:'numeric'})}`;arrow.textContent='';content.append(title,meta);b.append(icon,content,arrow);b.addEventListener('click',()=>open(t.id));$('resume-chats').append(b);});
     if(!$('resume-chats').children.length){const p=document.createElement('p');p.className='empty-state';p.textContent='A fresh start. Start a conversation with NOX.';$('resume-chats').append(p);}
     $('history-list').replaceChildren();const matches=history.list($('history-search').value).filter(t=>t.turns.length);$('history-count').textContent=`${all.length} ${document.body.dataset.visit==='guest'?'temporary':'saved'} conversation${all.length===1?'':'s'}`;
-    for(const t of matches){const row=document.createElement('div'),button=document.createElement('button'),title=document.createElement('b'),preview=document.createElement('span'),meta=document.createElement('small'),remove=document.createElement('button');row.className='history-item';button.className='history-open';title.textContent=t.title;preview.textContent=t.turns.at(-1)?.content||'A blank page.';meta.textContent=`${t.turns.length} messages · ${new Date(t.updated).toLocaleDateString()}`;button.append(title,preview,meta);button.addEventListener('click',()=>open(t.id));remove.className='delete-chat';remove.setAttribute('aria-label',`Delete ${t.title}`);remove.textContent='×';remove.addEventListener('click',async()=>{await history.remove(t.id);await onOpen(history.active().id);render();});row.append(button,remove);$('history-list').append(row);}
-    if(!matches.length){const p=document.createElement('p');p.className='empty-state';p.textContent=$('history-search').value?'No conversations match that search.':'Your conversations will appear here. Start one with NOX.';$('history-list').append(p);}
-    $('history-storage-note').hidden=document.body.dataset.visit==='guest';
-    $('history-storage-note').textContent=document.body.dataset.visit==='guest'?'':!history.persistent?'Storage is unavailable. These conversations last for this visit; export a copy to keep them.':history.crossTabSafe?'Saved in this browser. Export a copy before changing devices or domains.':'Saved in this browser. Use one workspace tab here; this browser cannot coordinate writes across tabs.';
+    for(const t of matches){
+      const row=document.createElement('div'),button=document.createElement('button'),title=document.createElement('b'),preview=document.createElement('span'),meta=document.createElement('small'),remove=document.createElement('button');
+      row.className='history-item';button.className='history-open';title.textContent=t.title;preview.textContent=t.turns.at(-1)?.content||'A blank page.';meta.textContent=`${t.turns.length} messages · ${new Date(t.updated).toLocaleDateString()}`;button.append(title,preview,meta);button.addEventListener('click',()=>open(t.id));
+      remove.className='delete-chat';remove.setAttribute('aria-label',`Delete ${t.title}`);remove.textContent='×';
+      remove.addEventListener('click',()=>{
+        if(remove.hidden)return;
+        const confirmation=document.createElement('div'),note=document.createElement('p'),confirm=document.createElement('button'),keep=document.createElement('button');
+        confirmation.className='history-delete-confirm';note.textContent='Delete this conversation? Export a copy first if you want to keep it.';confirm.textContent='Delete conversation';keep.textContent='Keep';remove.hidden=true;
+        keep.addEventListener('click',()=>{remove.hidden=false;row.replaceChildren(button,remove);remove.focus();});
+        confirm.addEventListener('click',async()=>{confirm.disabled=keep.disabled=true;await history.remove(t.id);await onOpen(history.active().id);render();});
+        confirmation.append(note,confirm,keep);row.append(confirmation);keep.focus();
+      });
+      row.append(button,remove);$('history-list').append(row);
+    }
+    if(!matches.length){
+      const empty=document.createElement('div'),p=document.createElement('p');empty.className='history-empty';p.textContent=$('history-search').value?'No conversations match that search.':'A fresh thought. A little company.';empty.append(p);
+      if(!$('history-search').value){const button=document.createElement('button');button.type='button';button.className='history-start';button.textContent='Start conversation';button.addEventListener('click',start);empty.append(button);}
+      $('history-list').append(empty);
+    }
+    const guest=document.body.dataset.visit==='guest',notice=historyNotice(history,{guest});
+    $('history-storage-note').hidden=false;
+    $('history-storage-note').textContent=notice.privacy+' '+(guest?'Export a copy if you want to keep these conversations.':history.persistent?'Export before clearing browser data or changing devices.':'Export a copy before refreshing.');
+    if(!guest&&history.crossTabSafe===false)$('history-storage-note').textContent+=' Use one workspace tab; this browser cannot coordinate archive writes.';
+    $('conversation-privacy').textContent=notice.privacy;
+    $('archive-notice').hidden=!notice.message;$('archive-notice-text').textContent=notice.message;
+    $('archive-download').hidden=$('archive-reset').hidden=!notice.protected;
   }
-  $('new-chat').addEventListener('click',async()=>{await onNew();setView('conversation');render();});
-  document.querySelectorAll('[data-start]').forEach(b=>b.addEventListener('click',async()=>{await onNew();setView('conversation');await onStart(b.dataset.start,b.dataset.persona||'companion');}));
+  $('new-chat').addEventListener('click',start);
+  document.querySelectorAll('[data-start]').forEach(b=>b.addEventListener('click',async()=>{if(await onNew()===false)return;setView('conversation');await onStart(b.dataset.start,b.dataset.persona||'companion');}));
   $('history-search').addEventListener('input',render);
-  $('export-history').addEventListener('click',()=>{const url=URL.createObjectURL(new Blob([history.export()],{type:'application/json'})),link=document.createElement('a');link.href=url;link.download=`nox-conversations-${new Date().toISOString().slice(0,10)}.json`;document.body.append(link);link.click();link.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);});
+  $('export-history').addEventListener('click',()=>download(history.export(),`nox-conversations-${new Date().toISOString().slice(0,10)}.json`));
+  $('archive-download').addEventListener('click',()=>{const raw=history.exportOriginal();if(raw!==null)download(raw,'nox-original-archive.json');});
+  $('archive-reset').addEventListener('click',()=>$('archive-reset-dialog').showModal());
+  $('archive-reset-cancel').addEventListener('click',()=>$('archive-reset-dialog').close());
+  $('archive-reset-confirm').addEventListener('click',async()=>{
+    $('archive-reset-confirm').disabled=true;
+    try{const reset=await history.resetArchive();$('archive-reset-dialog').close();render();if(!reset){$('archive-notice').hidden=false;$('archive-notice-text').textContent='The original archive changed or could not be replaced. It was not reset. Review its current recovery copy before trying again.';}}
+    finally{$('archive-reset-confirm').disabled=false;}
+  });
   window.addEventListener('hashchange',applyView);$('today-label').textContent=new Date().toLocaleDateString(undefined,{month:'long',day:'numeric',year:'numeric'}).toUpperCase();applyView();render();return {render,setView};
 }

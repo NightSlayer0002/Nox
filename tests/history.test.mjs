@@ -25,11 +25,11 @@ test('summary context is bounded without discarding the archived transcript',asy
   assert.equal(history.active().turns.length,20);assert.equal(history.summaryWork(),null);
   await history.remove(work.id);assert.equal(await history.applySummary(work.id,work.through,'stale'),false);
 });
-test('corrupt or unavailable storage preserves a usable visit and data remains bounded',async()=>{
+test('unavailable storage preserves a bounded usable visit without silently evicting its opening',async()=>{
   const history=await createHistory({getItem(){throw Error('blocked');},setItem(){throw Error('blocked');}});
   await history.append('system','untrusted');assert.equal(history.active().turns.length,0);
   for(let i=0;i<230;i++)await history.append('user',`message ${i}`);
-  assert.equal(history.active().turns.length,200);assert.ok(history.context().history.length<=9);assert.equal(history.persistent,false);
+  assert.equal(history.active().turns.length,199);assert.equal(history.active().turns[0].content,'message 0');assert.ok(history.context().history.length<=9);assert.equal(history.persistent,false);
   for(let i=0;i<45;i++){await history.create();await history.append('user','next thread '+i);}assert.equal(history.list().length,40);
 });
 

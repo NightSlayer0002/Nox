@@ -11,9 +11,11 @@ class Element extends EventTarget {
   append(...items){this.children.push(...items);}
   focus(){this.focused=true;}
   click(){this.dispatchEvent(new Event('click'));}
+  showModal(){this.open=true;}
+  close(){this.open=false;}
 }
 function fixture(hash='#conversation') {
-  const ids=['view-label','workspace-heading','workspace-note','workspace-main','workspace-shell','recent-chats','resume-chats','history-search','history-count','history-list','history-storage-note','new-chat','export-history','today-label','menu-button','close-navigation','workspace-nav','presence-toggle','message','stage-time','stage-heading','stage-playback','stage-wrap','presence-toolbar','presence-menu','presence-menu-panel'];
+  const ids=['view-label','workspace-heading','workspace-note','workspace-main','workspace-shell','recent-chats','resume-chats','history-search','history-count','history-list','history-storage-note','new-chat','export-history','today-label','menu-button','close-navigation','workspace-nav','presence-toggle','message','stage-time','stage-heading','stage-playback','stage-wrap','presence-toolbar','presence-menu','presence-menu-panel','conversation-privacy','archive-notice','archive-notice-text','archive-download','archive-reset','archive-reset-dialog','archive-reset-cancel','archive-reset-confirm'];
   const nodes=Object.fromEntries(ids.map(id=>[id,new Element()]));
   const panels=['conversation','explore','library','scenes','afterimage'].map(view=>new Element({panel:view}));
   const links=panels.map(panel=>new Element({view:panel.dataset.panel}));
@@ -22,8 +24,34 @@ function fixture(hash='#conversation') {
   const calls=[];
   const thread={id:'a',turns:[],updated:Date.now()};const history={list:()=>[thread],active:()=>thread,persistent:false};
   const navigation=createNavigation({history,onOpen:id=>calls.push(['open',id]),onNew:()=>calls.push(['new']),onStart:text=>calls.push(['start',text])});
-  return {nodes,panels,links,calls,navigation,thread};
+  return {nodes,panels,links,calls,navigation,thread,history};
 }
+
+test('Chats empty state offers a working start action and explains temporary guest privacy',async()=>{
+  const {nodes,calls}=fixture('#library');
+  const empty=nodes['history-list'].children[0],button=empty.children.find(child=>child.textContent==='Start conversation');
+  assert.ok(button);button.click();await new Promise(resolve=>setImmediate(resolve));
+  assert.deepEqual(calls,[['new']]);assert.equal(document.body.dataset.view,'conversation');assert.equal(nodes.message.focused,true);
+  assert.match(nodes['conversation-privacy'].textContent,/This visit only.*refresh/);
+  assert.equal(nodes['history-storage-note'].hidden,false);
+});
+
+test('archive recovery needs an explicit confirmation and reports a changed original without resetting it',async()=>{
+  const {nodes,history,navigation}=fixture();let resets=0;history.recovery={reason:'invalid'};history.resetArchive=async()=>{resets++;return false;};
+  navigation.render();assert.equal(nodes['archive-notice'].hidden,false);assert.match(nodes['archive-notice-text'].textContent,/untouched/);
+  nodes['archive-reset'].click();assert.equal(resets,0);assert.equal(nodes['archive-reset-dialog'].open,true);
+  nodes['archive-reset-confirm'].click();await new Promise(resolve=>setImmediate(resolve));assert.equal(resets,1);
+  assert.match(nodes['archive-notice-text'].textContent,/changed|not.*reset|not.*replaced/i);
+});
+
+test('deleting a chat requires a separate confirmation and Keep preserves the row',async()=>{
+  const {nodes,thread,history,navigation}=fixture('#library');let removed=0;history.remove=async()=>{removed++;};
+  thread.title='Important conversation';thread.turns.push({role:'user',content:'Keep until confirmed'});navigation.render();
+  let row=nodes['history-list'].children[0];row.children[1].click();assert.equal(removed,0);
+  row.children.at(-1).children.find(node=>node.textContent==='Keep').click();assert.equal(removed,0);
+  row.children[1].click();row.children.at(-1).children.find(node=>node.textContent==='Delete conversation').click();
+  await new Promise(resolve=>setImmediate(resolve));assert.equal(removed,1);
+});
 
 test('internal routes keep an unsent draft and show only the selected task',()=>{
   const {nodes,panels,links,navigation,calls}=fixture();
