@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 48" fill="none">
+  <defs><linearGradient id="hull" x1="12" y1="6" x2="48" y2="43" gradientUnits="userSpaceOnUse"><stop stop-color="#89b9ac"/><stop offset=".35" stop-color="#376f64"/><stop offset="1" stop-color="#153a37"/></linearGradient><linearGradient id="glass" x1="19" y1="12" x2="44" y2="37" gradientUnits="userSpaceOnUse"><stop stop-color="#143a35"/><stop offset="1" stop-color="#08191b"/></linearGradient></defs>
+  <path d="M7 19h6v13H7zM51 19h6v13h-6z" fill="#35665b"/>
+  <path d="M9 19h3v10H9zM52 19h3v10h-3z" fill="#689b8a"/>
+  <rect x="12" y="8" width="40" height="33" rx="6" fill="#061515"/>
+  <rect x="12" y="6" width="40" height="33" rx="6" fill="url(#hull)"/>
+  <rect x="16" y="10" width="32" height="25" rx="4" fill="url(#glass)" stroke="#77ad9c" stroke-opacity=".65"/>
+  <path d="M18 14v-1a1 1 0 0 1 1-1h13" stroke="#b9dbca" stroke-opacity=".55" stroke-linecap="round"/>
+  <rect x="23" y="17" width="4" height="10" rx="2" fill="#e1f1df"/><rect x="37" y="17" width="4" height="10" rx="2" fill="#e1f1df"/>
+  <path d="M29 30q3 3 6 0" stroke="#e1f1df" stroke-width="1.5" stroke-linecap="round"/>
+</svg>

@@ -52,6 +52,7 @@ function closePresenceMenu(){
   $('presence-menu').open=false;
   $('presence-menu').querySelector('summary').focus({preventScroll:true});
 }
+$('presence-close').addEventListener('click',closePresenceMenu);
 $('presence-menu').addEventListener('click',event=>{if(event.target.closest('button[data-form],button[data-scene]'))closePresenceMenu();});
 const replyDiagnostics=createReplyDiagnostics({status:$('reply-timing'),metrics:$('developer-timing'),toggle:$('developer-mode')});
 let activityTurn;
