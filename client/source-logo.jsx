@@ -8,15 +8,15 @@ import * as THREE from 'three';
 import {SVGLoader} from 'three/addons/loaders/SVGLoader.js';
 import {SourceBoundary} from './source-boundary.jsx';
 import {EmblemFollowers} from './emblem-followers.jsx';
-import {createSurfaceTexture} from './source-texture.js';
+import {createLiquidLogoSurface} from './source-surface.js';
 import {createLogoReadiness,createLogoGesture,emblemFeatures,releaseLogoInteraction} from '/js/logo-interaction.js';
 import {emblemPointer} from '/js/home-choreography.js';
-import {createFrameBudget,createLiquidLogoRenderer,logoSurfaceSize,SOURCE_MATERIAL_FPS} from '/js/source-effects.js';
+import {createFrameBudget,logoSurfaceSize,SOURCE_MATERIAL_FPS} from '/js/source-effects.js';
 
 const fallback=<div className="logo-static"><img src="/icon.svg" alt=""/></div>;
 
 function LogoModel({pose,matter,pointer,rotation,spring,onStatus,gesture,target}){
-  const outer=useRef(),inner=useRef(),meshes=useRef([]),resources=useRef({}),readiness=useRef(),due=useRef(createFrameBudget(60)),textureDue=useRef(createFrameBudget(SOURCE_MATERIAL_FPS)),lastPointer=useRef({x:0,y:0}),pressureState=useRef(0),frames=useRef(0);
+  const outer=useRef(),inner=useRef(),meshes=useRef([]),resources=useRef({}),readiness=useRef(),due=useRef(createFrameBudget(60)),textureDue=useRef(createFrameBudget(SOURCE_MATERIAL_FPS)),lastPointer=useRef({x:0,y:0}),targetLayout=useRef({}),pressureState=useRef(0),frames=useRef(0);
   const {gl,viewport,setFrameloop,invalidate}=useThree(),[parts,setParts]=useState([]);
   const wave=useMemo(()=>({time:{value:0},pressure:{value:0}}),[]);
   const front=useMemo(()=>new THREE.MeshPhysicalMaterial({color:'#b5cfca',metalness:.72,roughness:.24,clearcoat:1,clearcoatRoughness:.16,transparent:true}),[]);
@@ -26,7 +26,7 @@ function LogoModel({pose,matter,pointer,rotation,spring,onStatus,gesture,target}
     for(const material of [front,side]){material.onBeforeCompile=shader=>{shader.uniforms.noxTime=wave.time;shader.uniforms.noxPressure=wave.pressure;shader.vertexShader='uniform float noxTime;\nuniform float noxPressure;\n'+shader.vertexShader.replace('#include <begin_vertex>','#include <begin_vertex>\ntransformed.z += sin((position.x / 8.0 + noxTime) * 4.0) * noxPressure * 0.8;');};material.customProgramCacheKey=()=> 'nox-emblem-source-wave-v1';}
   },[front,side,wave]);
   useEffect(()=>{
-    let live=true,visible=true,lost=false;const abort=new AbortController(),owned=[];let renderer,surface,geometryReady=false;
+    let live=true,visible=true,lost=false;const abort=new AbortController(),owned=[];let surface,geometryReady=false;
     const state=createLogoReadiness(onStatus);readiness.current=state;
     const visibility=()=>{resources.current.previous=null;setFrameloop(document.hidden||!visible||lost?'never':'always');if(!document.hidden&&visible&&!lost)invalidate();};
     const observer=new IntersectionObserver(entries=>{visible=entries[0].isIntersecting;visibility();});observer.observe(gl.domElement);document.addEventListener('visibilitychange',visibility);visibility();
@@ -47,17 +47,17 @@ function LogoModel({pose,matter,pointer,rotation,spring,onStatus,gesture,target}
       setParts([...owned]);geometryReady=true;state.setPhase('solid');
       const mask=document.createElement('canvas');mask.width=mask.height=256;const ctx=mask.getContext('2d');ctx.fillStyle='#fff';ctx.fillRect(0,0,256,256);
       const loadMetal=async()=>{
-        const next=await createLiquidLogoRenderer();if(!live){next.dispose();return;}
-        renderer?.dispose();surface?.dispose();renderer=next;surface=createSurfaceTexture({anisotropy:gl.capabilities.getMaxAnisotropy()});
-        front.map=null;front.needsUpdate=true;resources.current={renderer,surface,mask,time:0,previous:null,frames:0};
-        renderer.onRestore=()=>{loadMetal().catch(()=>{if(live)state.setPhase('solid');});};state.setPhase('metal');
+        const next=await createLiquidLogoSurface({renderer:gl});if(!live){next.dispose();return;}
+        surface?.dispose();surface=next;
+        front.map=null;front.needsUpdate=true;resources.current={surface,mask,time:0,previous:null,frames:0};
+        state.setPhase('metal');
       };
       await loadMetal();
     }
     build().catch(error=>{if(live&&error.name!=='AbortError')state.setPhase(geometryReady?'solid':'fallback');});
-    return()=>{live=false;abort.abort();observer.disconnect();document.removeEventListener('visibilitychange',visibility);gl.domElement.removeEventListener('webglcontextlost',lose);gl.domElement.removeEventListener('webglcontextrestored',restore);renderer?.dispose();surface?.dispose();front.dispose();side.dispose();for(const geometry of owned)geometry.dispose();resources.current={};readiness.current=null;};
+    return()=>{live=false;abort.abort();observer.disconnect();document.removeEventListener('visibilitychange',visibility);gl.domElement.removeEventListener('webglcontextlost',lose);gl.domElement.removeEventListener('webglcontextrestored',restore);surface?.dispose();front.dispose();side.dispose();for(const geometry of owned)geometry.dispose();resources.current={};readiness.current=null;};
   },[gl,setFrameloop,invalidate,front,side,onStatus]);
-  useFrame(({gl,scene,camera})=>{
+  useFrame(({gl,scene,camera,size:canvasSize})=>{
     const now=performance.now();if(!due.current(now)||!parts.length)return;
     pressureState.current+=(matter.hold-pressureState.current)*.28;
     const pressure=pressureState.current,turn=gesture.current.angles,attention=gesture.current.active||turn.y!==0?turn:emblemPointer(pointer.current,pose);
@@ -66,19 +66,27 @@ function LogoModel({pose,matter,pointer,rotation,spring,onStatus,gesture,target}
     inner.current.rotation.set(rotation.x.get(),rotation.y.get(),0);inner.current.scale.set(1+pressure*.12,1-pressure*.12,1+pressure*.2);
     const face=emblemFeatures(now/1000,(matter.pokeAt??-100000)/1000);
     for(let i=0;i<meshes.current.length;i++){const mesh=meshes.current[i];if(mesh){mesh.position.x=i<2?(i===0?-1:1)*(pose.spread*3+pressure*4):0;mesh.scale.y=i<2?face.eyes:face.smile;mesh.position.y=i<2?(1-face.eyes)*mesh.geometry.userData.centerY:pose.spread*2+pressure*3;}}
-    if(target.current){const width=gl.domElement.clientWidth,height=gl.domElement.clientHeight,size=pose.size*width*1.35;target.current.style.width=`${size}px`;target.current.style.height=`${size}px`;target.current.style.transform=`translate(${pose.screenX*width-size/2}px,${pose.screenY*height-size/2}px)`;target.current.hidden=pose.opacity<.3;}
+    if(target.current){
+      // R3F already observes canvas dimensions. Re-reading layout after each
+      // hit-area style write forces the browser to synchronize it mid-frame.
+      const {width,height}=canvasSize,size=pose.size*width*1.35;
+      const transform=`translate(${pose.screenX*width-size/2}px,${pose.screenY*height-size/2}px)`,layout=targetLayout.current;
+      if(layout.node!==target.current||layout.size!==size){target.current.style.width=target.current.style.height=`${size}px`;layout.size=size;}
+      if(layout.node!==target.current||layout.transform!==transform){target.current.style.transform=transform;layout.transform=transform;}
+      layout.node=target.current;target.current.hidden=pose.opacity<.3;
+    }
     front.opacity=side.opacity=pose.opacity;wave.time.value=now/4000;wave.pressure.value=pressure+(matter.metal ? .25 : 0);
     const active=resources.current;
-    if(active.renderer){
+    if(active.surface){
       // Keep a paused surface's phase when a tab or the scene becomes visible.
       if(active.previous!==null)active.time+=Math.min(.05,(now-active.previous)/1000);active.previous=now;
       if(textureDue.current(now)){
-        const featurePixels=pose.size*gl.domElement.clientWidth*.6;
-        const available=active.renderer.render(active.mask,active.time,{pressure,size:logoSurfaceSize(featurePixels,gl.getPixelRatio())});
+        const featurePixels=pose.size*canvasSize.width*.6;
+        const available=active.surface.render(active.mask,active.time,{pressure,size:logoSurfaceSize(featurePixels,gl.getPixelRatio())});
         if(available){
-          const texture=active.surface.update(active.renderer.canvas);
+          const texture=active.surface.texture;
           if(front.map!==texture){front.map=texture;front.needsUpdate=true;}
-          gl.domElement.dataset.textureSize=String(active.renderer.canvas.width);gl.domElement.dataset.textureFrame=String(++active.frames);gl.domElement.dataset.textureFps=String(SOURCE_MATERIAL_FPS);
+          gl.domElement.dataset.textureSize=String(active.surface.size);gl.domElement.dataset.textureFrame=String(++active.frames);gl.domElement.dataset.textureFps=String(SOURCE_MATERIAL_FPS);
         }else if(front.map){front.map=null;front.needsUpdate=true;readiness.current?.setPhase('solid');}
       }
     }
