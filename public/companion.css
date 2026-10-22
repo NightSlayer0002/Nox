@@ -329,11 +329,20 @@
 .workspace.film .presence-toolbar{display:none}
 @media(min-width:901px) and (max-width:1150px){.workspace[data-view=conversation] .studio{grid-template-columns:minmax(0,1fr) 280px;column-gap:24px}}
 @media(max-width:900px){
- .workspace[data-view=conversation] .studio{grid-template-columns:minmax(0,1fr);gap:12px 0;max-width:none}
- .workspace[data-view=conversation] .companion-column{min-height:0;grid-column:1;grid-row:1}
- .workspace[data-view=conversation] .companion-welcome{padding:128px 0 20px}
- .workspace[data-view=conversation][data-conversation-started=true] .conversation{padding-top:128px}
- .workspace[data-view=conversation] .stage-column{grid-column:auto;grid-row:auto}
+ /* Keep presence outside the transcript's scrolling viewport. Padding inside
+    the transcript disappears on scroll and lets replies pass behind NOX. */
+ .workspace[data-view=conversation] #workspace-main{padding-bottom:calc(74px + env(safe-area-inset-bottom))}
+ .workspace[data-view=conversation] .studio{--mobile-presence-height:104px;grid-template-columns:minmax(0,1fr);grid-template-rows:auto minmax(0,1fr) auto;gap:8px 0;max-width:none}
+ .workspace[data-view=conversation] .stage-column{grid-column:1;grid-row:1;position:relative!important;top:0!important;right:auto;align-self:stretch;justify-content:flex-end;min-height:0;width:100%;height:var(--mobile-presence-height);gap:0}
+ .workspace[data-view=conversation] .stage-bezel{width:132px;max-width:none;flex:none;margin-right:28px}
+ .workspace[data-view=conversation] .stage-wrap{height:var(--mobile-presence-height)!important;aspect-ratio:auto}
+ .workspace[data-view=conversation] .companion-column{min-height:0;grid-column:1;grid-row:2}
+ .workspace[data-view=conversation] .companion-welcome{padding:12px 0 20px}
+ .workspace[data-view=conversation] .conversation,.workspace[data-view=conversation][data-conversation-started=true] .conversation{padding-top:12px}
+ .workspace[data-view=conversation] .conversation-dock{grid-column:1;grid-row:3}
+ .workspace[data-view=conversation][data-presence=hidden] .studio{grid-template-rows:minmax(0,1fr) auto}
+ .workspace[data-view=conversation][data-presence=hidden] .companion-column{grid-row:1}
+ .workspace[data-view=conversation][data-presence=hidden] .conversation-dock{grid-row:2}
  .workspace[data-view=conversation] .presence-toolbar{position:absolute;top:0;right:0;min-height:28px;pointer-events:auto}
  .workspace[data-view=conversation] .presence-toolbar .stage-playback{display:none}
  .workspace .presence-menu summary{width:44px;min-width:44px;min-height:44px;justify-content:center;padding:0}
@@ -341,8 +350,16 @@
  .workspace[data-view=conversation]:not(.film) .stage-caption-band{display:none}
  .workspace .presence-menu-panel{top:calc(100% + 8px);bottom:auto;right:0;width:300px;padding:18px}
  .workspace #conversation .message-actions button{width:32px;height:32px;min-width:32px;min-height:32px;padding:8px}
- .workspace[data-keyboard-open=true][data-view=conversation] .companion-welcome{padding-top:72px;padding-bottom:8px}
- .workspace[data-keyboard-open=true][data-view=conversation] .conversation{padding-top:74px}
+ .workspace[data-keyboard-open=true][data-view=conversation] .studio{--mobile-presence-height:64px}
+ .workspace[data-keyboard-open=true][data-view=conversation] #workspace-main{padding-bottom:6px}
+ .workspace[data-keyboard-open=true][data-view=conversation] .mobile-bottom-nav{display:none}
+ .workspace[data-keyboard-open=true][data-view=conversation] .stage-bezel{width:96px}
+ .workspace[data-keyboard-open=true][data-view=conversation] .companion-welcome{padding-top:8px;padding-bottom:8px}
+ .workspace[data-keyboard-open=true][data-view=conversation] .conversation{padding-top:8px}
+}
+@media(max-width:900px) and (max-height:600px){
+ .workspace[data-view=conversation] .studio{--mobile-presence-height:64px}
+ .workspace[data-view=conversation] .stage-bezel{width:96px}
 }
 .workspace .history-delete-confirm{grid-column:1/-1;padding:4px 16px 14px;font-size:13px;color:var(--muted)}
 .workspace .history-delete-confirm p{margin:0 0 10px;line-height:1.5}
