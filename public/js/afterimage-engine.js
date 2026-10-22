@@ -3,6 +3,7 @@ import { ACTIONS, EMOTIONS, cleanText } from '../../shared/character.js';
 
 export const AFTERIMAGE_CUE_MS = 7000;
 export const AFTERIMAGE_DURATION_MS = AFTERIMAGE_CUE_MS * 4;
+const MAX_DURATION_MS = 60000;
 
 export function normalizeEditedLines(value) {
   if (!Array.isArray(value) || value.length !== 4) throw new TypeError('A rehearsal needs four lines.');
@@ -33,9 +34,9 @@ function safePerformance(value) {
 }
 
 // Owns cue timing only. Stage and voice keep their existing animation/audio clocks.
-export function createAfterimageController({onCue, onSpeak, onStop, now = () => performance.now(), setTimer = setTimeout, clearTimer = clearTimeout, visibilityTarget} = {}) {
+export function createAfterimageController({onCue, onPrepare, onBegin, onSpeak, onSpeaking, onStop, now = () => performance.now(), setTimer = setTimeout, clearTimer = clearTimeout, visibilityTarget} = {}) {
   let version = 0, timer = null, startedAt = 0, disposed = false, run = null, abortCleanup;
-  let state = Object.freeze({status:'idle',cueIndex:-1,elapsedMs:0,durationMs:AFTERIMAGE_DURATION_MS,reason:'',version});
+  let state = Object.freeze({status:'idle',cueIndex:-1,elapsedMs:0,durationMs:AFTERIMAGE_DURATION_MS,preparing:false,captionsOnly:false,voiceError:'',reason:'',version});
   const listeners = new Set();
   function publish(next) {
     state = Object.freeze({...state,...next,version});
@@ -45,26 +46,55 @@ export function createAfterimageController({onCue, onSpeak, onStop, now = () => 
     if (timer !== null) clearTimer(timer);
     timer = null; abortCleanup?.(); abortCleanup = undefined;
   }
-  function finish(reason, status = 'stopped') {
+  const isCurrent = currentVersion => !disposed && currentVersion === version && state.status === 'playing';
+  function finish(reason, status = 'stopped', elapsedMs = state.elapsedMs) {
     const active = state.status === 'playing';
     cleanup(); version++; run = null;
-    state=Object.freeze({...state,status,reason,version,...(status === 'complete' ? {elapsedMs:AFTERIMAGE_DURATION_MS} : {})});
+    state=Object.freeze({...state,status,reason,version,preparing:false,...(status === 'complete' ? {elapsedMs,durationMs:elapsedMs} : {})});
     if (active) { try { onStop?.(reason); } catch {} }
     for (const listener of listeners) { try { listener(state); } catch {} }
   }
   function tick(currentVersion) {
-    if (disposed || currentVersion !== version || state.status !== 'playing') return;
+    if (!isCurrent(currentVersion) || state.preparing) return;
     timer = null;
-    const elapsedMs = Math.min(AFTERIMAGE_DURATION_MS, Math.max(0, now() - startedAt));
-    if (elapsedMs >= AFTERIMAGE_DURATION_MS) { finish('complete','complete'); return; }
-    const cueIndex = Math.floor(elapsedMs / AFTERIMAGE_CUE_MS);
+    const elapsedMs = Math.min(MAX_DURATION_MS, Math.max(0, now() - startedAt));
+    if (elapsedMs >= AFTERIMAGE_DURATION_MS) {
+      let speaking = false;
+      try { speaking = !state.captionsOnly && onSpeaking?.() === true; } catch {}
+      if (!speaking || elapsedMs >= MAX_DURATION_MS) { finish('complete','complete',elapsedMs); return; }
+    }
+    const cueIndex = Math.min(3,Math.floor(elapsedMs / AFTERIMAGE_CUE_MS));
+    const durationMs = Math.max(AFTERIMAGE_DURATION_MS,elapsedMs);
     if (cueIndex !== state.cueIndex) {
-      publish({cueIndex,elapsedMs});
+      publish({cueIndex,elapsedMs,durationMs});
       if(currentVersion !== version || state.status !== 'playing')return;
       try { onCue?.(run.cues[cueIndex],cueIndex); }
       catch { finish('error'); return; }
-    } else publish({elapsedMs});
-    if (currentVersion === version && state.status === 'playing') timer = setTimer(() => tick(currentVersion), Math.min(250, AFTERIMAGE_DURATION_MS - elapsedMs));
+    } else publish({elapsedMs,durationMs});
+    const deadline = elapsedMs < AFTERIMAGE_DURATION_MS ? AFTERIMAGE_DURATION_MS : MAX_DURATION_MS;
+    if (isCurrent(currentVersion)) timer = setTimer(() => tick(currentVersion), Math.min(250, deadline - elapsedMs));
+  }
+  function startTimeline(currentVersion, captionsOnly = false) {
+    if (!isCurrent(currentVersion)) return;
+    startedAt = now();
+    publish({preparing:false,captionsOnly,voiceError:captionsOnly?'Voice unavailable. This cut will continue with captions.':'',cueIndex:0,elapsedMs:0});
+    if (!isCurrent(currentVersion)) return;
+    try { onCue?.(run.cues[0],0); }
+    catch { finish('error'); return; }
+    if (isCurrent(currentVersion)) timer = setTimer(() => tick(currentVersion),250);
+  }
+  function begin(currentVersion, prepared) {
+    if (!isCurrent(currentVersion)) return;
+    // Arm capture after provider preparation, just before the first audio can play.
+    try { onBegin?.(); } catch { finish('error'); return; }
+    if (!isCurrent(currentVersion)) return;
+    if (prepared === false) { startTimeline(currentVersion,true); return; }
+    try {
+      const speaking = onSpeak?.(run.script,run.cues[0].emotion,run.cues);
+      if (speaking && typeof speaking.then === 'function') {
+        Promise.resolve(speaking).then(() => startTimeline(currentVersion),() => startTimeline(currentVersion,true));
+      } else startTimeline(currentVersion);
+    } catch { startTimeline(currentVersion,true); }
   }
   const hidden = () => { if (visibilityTarget?.hidden) finish('hidden'); };
   visibilityTarget?.addEventListener('visibilitychange',hidden);
@@ -75,23 +105,21 @@ export function createAfterimageController({onCue, onSpeak, onStop, now = () => 
       if (disposed || visibilityTarget?.hidden || signal?.aborted) return false;
       const performance = safePerformance(value);
       if (state.status === 'playing') finish('replaced');
-      cleanup(); version++; run = performance; startedAt = now();
+      cleanup(); version++; run = performance;
       const currentVersion = version;
       if (signal) {
         const abort = () => { if (currentVersion === version) finish('aborted'); };
         signal.addEventListener('abort',abort,{once:true}); abortCleanup = () => signal.removeEventListener('abort',abort);
       }
-      publish({status:'playing',cueIndex:0,elapsedMs:0,reason:''});
+      publish({status:'playing',preparing:true,captionsOnly:false,voiceError:'',cueIndex:-1,elapsedMs:0,durationMs:AFTERIMAGE_DURATION_MS,reason:''});
       if(currentVersion !== version || state.status !== 'playing')return false;
       try {
-        onCue?.(run.cues[0],0);
-        if (currentVersion !== version) return false;
-        const speaking = onSpeak?.(run.script,run.cues[0].emotion,run.cues);
-        speaking?.catch?.(() => { if (currentVersion === version && state.status === 'playing') finish('error'); });
-      } catch { finish('error'); return false; }
-      if (currentVersion !== version) return false;
-      timer = setTimer(() => tick(currentVersion),250);
-      return true;
+        const prepared = onPrepare?.(run.script,run.cues[0].emotion,run.cues);
+        if (prepared && typeof prepared.then === 'function') {
+          Promise.resolve(prepared).then(value => begin(currentVersion,value),() => begin(currentVersion,false));
+        } else begin(currentVersion,prepared);
+      } catch { begin(currentVersion,false); }
+      return isCurrent(currentVersion);
     },
     stop(reason = 'user') { if (!disposed) finish(reason); },
     dispose() {
@@ -112,6 +140,6 @@ export function toMarkdown(reception) {
   if (reception?.seed) lines.push(`Seed: ${markdownText(reception.seed)}`);
   lines.push('',markdownText(packet.anchor),'',`## ${markdownText(performance.signalLabel)} · ${markdownText(performance.endingLabel)}`,'',markdownText(signal.premise),'');
   performance.cues.forEach((cue,index) => lines.push(`### ${timecode(index * AFTERIMAGE_CUE_MS)}–${timecode((index + 1) * AFTERIMAGE_CUE_MS)} · ${index === 3 ? 'Ending' : `Act ${index + 1}`}`,'',`> ${markdownText(cue.speech)}`,'',`Emotion: ${cue.emotion} · Scene: ${cue.action}`,''));
-  lines.push('## Caption','',markdownText(packet.caption),'','28-second rehearsal. Cue timing is a schedule, not word-level audio alignment. Capture is a WebM of the local stage, captions and enabled Orpheus audio. Browser speech is not captured.','');
+  lines.push('## Caption','',markdownText(packet.caption),'','28-second cue schedule. Playback waits for enabled natural voice to be ready; the ending can remain until narration finishes, up to 60 seconds. Cue timing is not word-level audio alignment. Capture is a WebM of the local stage, captions and enabled Orpheus audio. Browser speech is not captured.','');
   return lines.join('\n');
 }

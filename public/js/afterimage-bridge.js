@@ -15,7 +15,7 @@ export function applyAfterimageCue(stage,value) {
 
 const abortError = () => new DOMException('Reception stopped.','AbortError');
 export function createAfterimageBridge(options = {}) {
-  let adapter=null,disposed=false,request=null,requestVersion=0,ownsRecording=false;
+  let adapter=null,disposed=false,request=null,requestVersion=0,ownsRecording=false,captureRequested=false;
   const listeners=new Set();
   let state;
   function refreshState() {
@@ -28,10 +28,21 @@ export function createAfterimageBridge(options = {}) {
   }
   function cancelRequest() { requestVersion++;request?.abort();request=null; }
   function stopBody(reason) {
+    captureRequested=false;
     try { adapter?.stop?.(reason); }
     finally { if (ownsRecording) { ownsRecording=false;adapter?.stopRecording?.(); }refreshState(); }
   }
-  const controller=createAfterimageController({...options,onCue:(cue,index) => adapter?.cue?.(cue,index),onSpeak:(script,emotion,cues) => adapter?.speak?.(script,emotion,cues),onStop:stopBody});
+  const controller=createAfterimageController({...options,
+    onCue:(cue,index) => adapter?.cue?.(cue,index),
+    onPrepare:(script,emotion,cues) => adapter?.prepare?.(script,emotion,cues),
+    onBegin:() => {
+      if (!captureRequested) return;
+      if (adapter.getState?.().recording && !ownsRecording) throw new Error('Save the current recording before capturing this rehearsal.');
+      captureRequested=false;ownsRecording=true;adapter.startRecording();refreshState();
+    },
+    onSpeak:(script,emotion,cues) => adapter?.speak?.(script,emotion,cues),
+    onSpeaking:() => adapter?.isSpeaking?.(),onStop:stopBody,
+  });
   controller.subscribe(refreshState);refreshState();
   const visibilityTarget=options.visibilityTarget;
   const hidden = () => { if (visibilityTarget?.hidden) { cancelRequest();if (ownsRecording && controller.snapshot().status !== 'playing') stopBody('hidden'); } };
@@ -40,9 +51,10 @@ export function createAfterimageBridge(options = {}) {
     cancelRequest();const active=controller.snapshot().status === 'playing';controller.stop(reason);
     if (!active && ownsRecording) stopBody(reason);else refreshState();
   }
-  function playPrepared(performance) {
+  function playPrepared(performance,capture=false) {
+    captureRequested=capture;
     const played=controller.play(performance);
-    if (!played && ownsRecording) stopBody('error');refreshState();return played;
+    if (!played && (ownsRecording || captureRequested)) stopBody('error');refreshState();return played;
   }
   return {
     snapshot:() => state,
@@ -80,11 +92,10 @@ export function createAfterimageBridge(options = {}) {
       if (adapter.getState?.().recording && !ownsRecording) throw new Error('Save the current recording before capturing this rehearsal.');
       stop('replaced');
       if (!adapter.getState?.().recordSupported || !adapter.startRecording) throw new Error('Canvas recording is unavailable in this browser. Use OBS to capture NOX.');
-      adapter.startRecording();ownsRecording=true;
-      try { return playPrepared(performance); } catch (error) { stopBody('error');throw error; }
+      try { return playPrepared(performance,true); } catch (error) { stopBody('error');throw error; }
     },
     stop,
-    record() { if (ownsRecording) stop('recording-stopped');else adapter?.record?.();refreshState(); },
+    record() { if (ownsRecording || captureRequested) stop('recording-stopped');else adapter?.record?.();refreshState(); },
     setVoice(enabled) { adapter?.setVoice?.(Boolean(enabled));refreshState();return state.voiceEnabled; },
     setExportProfile(value){const profile=resolveExportProfile(value);if(state.recording)return state.exportProfile;adapter?.setExportProfile?.(profile.id);refreshState();return state.exportProfile;},
     dispose() { if (disposed) return;stop('disposed');disposed=true;controller.dispose();visibilityTarget?.removeEventListener('visibilitychange',hidden);adapter=null;listeners.clear();refreshState(); },
