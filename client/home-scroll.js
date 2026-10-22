@@ -1,6 +1,6 @@
 // GSAP/Lenis integration from the cloned Codrops scroll demos. The transform
 // targets are the existing R3F NOX icon and ShaderGradient world, not new art.
-import {emblemPose,emblemChapter,finaleEmblemPose} from '../public/js/home-choreography.js';
+import {emblemPose,emblemChapter,finaleEmblemPose,playgroundShade} from '../public/js/home-choreography.js';
 
 export function sourceWorldScroll(root,gsap,ScrollTrigger,pose,small,onChapter){
   const sections=[...root.querySelectorAll('.contact-chapter'),root.querySelector('.contact-details')];
@@ -11,6 +11,7 @@ export function sourceWorldScroll(root,gsap,ScrollTrigger,pose,small,onChapter){
     const next=emblemPose(scroll,anchors,small),room=root.querySelector('.cinematic-viewport');
     if(!room)return next;
     const rect=room.getBoundingClientRect();
+    root.style.setProperty('--playground-shade',playgroundShade(rect,innerHeight).toFixed(4));
     const progress=Math.max(0,Math.min(1,(innerHeight-rect.top)/(innerHeight*.5)));
     const blend=progress*progress*(3-2*progress);
     if(blend>0){const finale=finaleEmblemPose(rect,{width:innerWidth,height:innerHeight},small);for(const key of Object.keys(finale))next[key]+=(finale[key]-next[key])*blend;}

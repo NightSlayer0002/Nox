@@ -29,11 +29,11 @@ function revealTerrain(material){
        vec3 reliefNormal = normalize(cross(dFdx(vPos), dFdy(vPos)));
        float relief = 0.72 + 0.28 * abs(dot(reliefNormal, normalize(vec3(-0.3, 0.5, 1.0))));
        float mineralSeam = 1.0 - smoothstep(0.012, 0.055, abs(elevation - 0.67));
-       terrainColor = mix(terrainColor * relief, vec3(0.56, 0.47, 0.33), mineralSeam * 0.075);
+       terrainColor = mix(terrainColor * relief, vec3(0.25, 0.46, 0.44), mineralSeam * 0.04);
        gl_FragColor = vec4(terrainColor, 1.0);`
     );
   };
-  material.customProgramCacheKey=()=> 'nox-water-relief-v1';
+  material.customProgramCacheKey=()=> 'nox-water-relief-v2';
   material.needsUpdate=true;
 }
 function Budget({onCanvas,tilt,sculpture,pose}){
@@ -128,7 +128,7 @@ export default function SourceScene({onCanvas,interactive=false,className='',var
   return <div ref={host} className={`source-scene ${className}`} aria-hidden="true" data-effect={failed?'fallback':'shadergradient'}>
     <div className="source-fallback"/>{ready&&!failed&&<Boundary onError={()=>setFailed(true)}><div className="source-scene-spring">
       <ShaderGradientCanvas pixelDensity={pixelDensity} pointerEvents="none" lazyLoad={false} powerPreference="default">
-        {sculpture?<ShaderGradient type="sphere" animate="on" cAzimuthAngle={250} cDistance={1.5} cPolarAngle={90} cameraZoom={3.2} color1="#83bdb6" color2="#1b4c58" color3="#d1dcd2" brightness={1.5} lightType="3d" grain="off" positionX={0} positionY={0} positionZ={0} reflection={.5} rotationX={0} rotationY={0} rotationZ={140} shader="defaults" uAmplitude={7} uDensity={.8} uFrequency={5.5} uSpeed={.3} uStrength={.4} uTime={0} wireframe={false}/>:<ShaderGradient type="waterPlane" animate="off" cAzimuthAngle={170} cDistance={4.4} cPolarAngle={70} cameraZoom={1} color1="#182c3e" color2="#4e7779" color3="#7e8b75" brightness={.72} lightType="3d" grain="off" positionX={0} positionY={.9} positionZ={-.3} reflection={.04} rotationX={45} rotationY={0} rotationZ={0} shader="defaults" uAmplitude={0} uDensity={1.12} uFrequency={0} uSpeed={.32} uStrength={3.6} uTime={0} wireframe={false}/>}
+        {sculpture?<ShaderGradient type="sphere" animate="on" cAzimuthAngle={250} cDistance={1.5} cPolarAngle={90} cameraZoom={3.2} color1="#83bdb6" color2="#1b4c58" color3="#d1dcd2" brightness={1.5} lightType="3d" grain="off" positionX={0} positionY={0} positionZ={0} reflection={.5} rotationX={0} rotationY={0} rotationZ={140} shader="defaults" uAmplitude={7} uDensity={.8} uFrequency={5.5} uSpeed={.3} uStrength={.4} uTime={0} wireframe={false}/>:<ShaderGradient type="waterPlane" animate="off" cAzimuthAngle={170} cDistance={4.4} cPolarAngle={70} cameraZoom={1} color1="#0c1b25" color2="#284a50" color3="#49766f" brightness={.62} lightType="3d" grain="off" positionX={0} positionY={.9} positionZ={-.3} reflection={.04} rotationX={45} rotationY={0} rotationZ={0} shader="defaults" uAmplitude={0} uDensity={1.12} uFrequency={0} uSpeed={.32} uStrength={3.6} uTime={0} wireframe={false}/>}
         <Budget onCanvas={onCanvas} tilt={{rotateX,rotateY}} sculpture={sculpture} pose={pose}/>
       </ShaderGradientCanvas>
     </div></Boundary>}

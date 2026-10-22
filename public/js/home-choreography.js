@@ -1,6 +1,11 @@
 // Scroll targets for the existing NOX icon; R3F renders, GSAP interpolates.
 const clamp=(value,min,max)=>Math.max(min,Math.min(max,value));
 const smooth=t=>t*t*t*(t*(t*6-15)+10);
+// A full viewport of travel replaces the former visibility-triggered cut.
+export function playgroundShade(rect,height){
+  if(!Number.isFinite(rect?.top)||!Number.isFinite(height)||height<=0)return 0;
+  return smooth(clamp((height*1.2-rect.top)/height,0,1));
+}
 const desktop=[
   {screenX:.75,screenY:.49,size:.34,x:.04,y:-.22,z:-.035,spread:0,waterTurn:0,waterX:0,opacity:1},
   {screenX:.23,screenY:.5,size:.25,x:-.04,y:.32,z:.07,spread:.1,waterTurn:-.18,waterX:-.4,opacity:.9},

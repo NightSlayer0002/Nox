@@ -1,9 +1,23 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {emblemPose,emblemPointer,emblemChapter,finaleEmblemPose} from '../public/js/home-choreography.js';
+import {emblemPose,emblemPointer,emblemChapter,finaleEmblemPose,playgroundShade} from '../public/js/home-choreography.js';
 import {Vector3,Euler} from 'three';
 
 const anchors=[0,900,1800,3100,4100];
+test('the playground darkens gradually before entry and reverses with scroll at every screen size',()=>{
+  for(const height of [720,844,1080]){
+    assert.equal(playgroundShade({top:height*1.3},height),0);
+    assert.equal(playgroundShade({top:height*.1},height),1);
+    const middle=playgroundShade({top:height*.7},height);
+    assert.ok(Math.abs(middle-.5)<1e-8);
+    let previous=0;
+    for(let fraction=1.2;fraction>=.2;fraction-=.01){const next=playgroundShade({top:height*fraction},height);assert.ok(next>=previous&&next-previous<.02);previous=next;}
+    assert.equal(playgroundShade({top:height*.7},height),middle);
+    assert.ok(playgroundShade({top:height*(1.2-.0001)},height)<1e-9);
+  }
+  assert.equal(playgroundShade({top:NaN},720),0);
+  assert.equal(playgroundShade({top:100},0),0);
+});
 test('the finale places the complete emblem inside its visible room instead of behind a section edge',()=>{
   const rect={left:54,top:140,width:1240,height:550};
   const pose=finaleEmblemPose(rect,{width:1366,height:768});

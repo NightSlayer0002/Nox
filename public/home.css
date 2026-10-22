@@ -178,7 +178,7 @@ body.landing{background:#050909}
 
 /* Quiet landing composition; the source scene/scroll pose is unchanged. */
 body.landing{background:var(--bg);font-family:var(--font-ui)}
-.contact-water{opacity:.84}.contact-water::after{background:linear-gradient(100deg,color-mix(in srgb,var(--bg) 46%,transparent),transparent 72%),linear-gradient(0deg,color-mix(in srgb,var(--bg) 24%,transparent),transparent 38%)}
+.contact-water{opacity:calc(.74 - var(--playground-shade,0)*.56)}.contact-water::after{background:linear-gradient(100deg,color-mix(in srgb,var(--bg) 46%,transparent),transparent 72%),linear-gradient(0deg,color-mix(in srgb,var(--bg) 24%,transparent),transparent 38%)}
 .contact-nav{padding:24px 7vw;background:linear-gradient(color-mix(in srgb,var(--bg) 95%,transparent),transparent);gap:24px}
 .contact-nav .brand{font-size:18px;font-weight:600;letter-spacing:.3em}
 .home-links{font-size:16px}.home-links>a:first-child{color:var(--muted)}
@@ -233,7 +233,6 @@ body.landing{background:var(--bg);font-family:var(--font-ui)}
 .cinematic-nox-portrait[hidden]{display:none}
 .cinematic-room canvas{display:block;width:100%;height:100%;touch-action:pan-y}
 .home-page:has(.cinematic-room[data-active="true"]) .contact-hud{visibility:hidden}
-.home-page:has(.cinematic-room[data-active="true"]) .contact-water{opacity:.18}
 .cinematic-atmosphere{pointer-events:none;background:radial-gradient(ellipse at 80% 80%,#8bab9c12,transparent 50%),linear-gradient(120deg,#c5dbd508,transparent 60%)}
 .cinematic-nox-handle{position:absolute;top:0;left:0;z-index:4;padding:0;border:0;border-radius:42% 42% 12% 12%;background:transparent!important;box-shadow:none;cursor:grab;touch-action:none;user-select:none;-webkit-user-select:none;outline-offset:5px}
 .cinematic-viewport:has(.cinematic-nox-handle:hover) .cinematic-nox-portrait{filter:drop-shadow(0 0 1px #c9f4d8bb) drop-shadow(0 0 10px #83c7b373) drop-shadow(0 0 24px #83c7b345)}
