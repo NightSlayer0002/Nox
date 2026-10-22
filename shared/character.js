@@ -75,6 +75,16 @@ export function sanitizeContext(value = {}) {
     return [{id,title,text}];
   });
   const preferences=sanitizePreferences(value.preferences);
+  const history=[],turns=Array.isArray(value.history)?value.history:[];
+  // Admit complete recent turns at the same limits as chat input and replies.
+  // Oversized untrusted turns are omitted instead of inventing a shorter ending.
+  for(let index=turns.length-1;index>=0&&history.length<16;index--){
+    const turn=turns[index];
+    if(!turn||typeof turn!=='object'||Array.isArray(turn)||!['user','assistant'].includes(turn.role)||typeof turn.content!=='string')continue;
+    if(turn.content.length>(turn.role==='assistant'?MAX_PACKET_CHARACTERS:CHAT_INPUT_CHARACTERS))continue;
+    const content=turn.content.replace(/\r\n?/g,'\n').replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/g,' ').trim();
+    if(content)history.unshift({role:turn.role,content});
+  }
   return {
     mode: MODES.includes(value.mode) ? value.mode : 'companion',
     ...(Object.hasOwn(value,'depth') ? {depth:answerDepth(value.depth)} : {}),
@@ -85,9 +95,7 @@ export function sanitizeContext(value = {}) {
     ...(cleanText(value.summary,1200) ? {summary:cleanText(value.summary,1200)} : {}),
     ...(cleanText(value.bridge,1600) ? {bridge:cleanText(value.bridge,1600)} : {}),
     ...(knowledge.length ? {knowledge} : {}),
-    history: Array.isArray(value.history) ? value.history
-      .filter(turn => turn && ['user', 'assistant'].includes(turn.role) && typeof turn.content === 'string')
-      .slice(-16).map(turn => ({ role: turn.role, content: cleanText(turn.content, 1200) })) : [],
+    history,
   };
 }
 
