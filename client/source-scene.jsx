@@ -117,7 +117,7 @@ function Budget({onCanvas,tilt,sculpture,pose}){
   },1);
   return null;
 }
-export default function SourceScene({onCanvas,interactive=false,className='',variant='water',pose}){
+function SourceScene({onCanvas,interactive=false,className='',variant='water',pose}){
   const host=useRef(),[ready,setReady]=useState(false),[failed,setFailed]=useState(false);
   const [pixelDensity,setPixelDensity]=useState(()=>sourcePixelRatio(globalThis.devicePixelRatio));
   const [{rotateX,rotateY},spring]=useSpring(()=>({rotateX:0,rotateY:0,config:{mass:1.2,tension:90,friction:24}}));
@@ -134,3 +134,6 @@ export default function SourceScene({onCanvas,interactive=false,className='',var
     </div></Boundary>}
   </div>;
 }
+// Expression and chapter state do not change this scene's stable inputs.
+// Avoid recreating ShaderGradient's material during those parent updates.
+export default React.memo(SourceScene);
