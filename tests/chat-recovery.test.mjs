@@ -6,6 +6,8 @@ import {createHistory} from '../public/js/history.js';
 import {createTurnGate} from '../public/js/turns.js';
 import {prepareChatRequest,explicitMemoryRequest} from '../shared/character.js';
 import {readChatStream} from '../public/js/stream.js';
+import {selfDeclaredName} from '../public/js/name-intent.js';
+import {historyFailure} from '../public/js/history-notice.js';
 
 // Exercise the production send boundary with real history, request preparation,
 // and response parsing, without starting the canvas or making provider requests.
@@ -24,7 +26,7 @@ async function fixture(responses){
   function $(id){if(!nodes.has(id))nodes.set(id,{value:id==='reply-depth'?'balanced':'',lastChild:{textContent:''},focus:noop,scrollHeight:100});return nodes.get(id);}
   function addMessage(role,text){const content={textContent:text},node={role,content,removed:false,classList:{add:noop},querySelector:()=>content,append:noop,remove(){this.removed=true;}};messages.push(node);return node;}
   const context=vm.createContext({
-    $,history,prepareChatRequest,explicitMemoryRequest,readChatStream,AbortController,TextEncoder,clearTimeout,setTimeout,
+    $,history,prepareChatRequest,explicitMemoryRequest,readChatStream,selfDeclaredName,historyFailure,AbortController,TextEncoder,clearTimeout,setTimeout,
     composerOptions:{close:noop},composer:{setValue:value=>{$('message').value=value;}},
     editTarget:null,currentActivity:'conversation',brain:'live',busy:false,mode:'companion',selectedProvider:'',
     summaryController:null,summaryTimer:null,pendingDraft:null,activityTurn:null,
@@ -37,7 +39,7 @@ async function fixture(responses){
     stage:{character:{react:noop},run:noop},addMessage,attachMessageActions:noop,
     scheduleSummary:noop,setUsage:noop,toast:noop,openSettings:noop,refreshConnection:noop,
     async fetch(url,options){assert.equal(url,'/api/chat');requests.push(JSON.parse(options.body));const respond=responses.shift();assert.ok(respond,'unexpected request');return respond();},
-    async perform(value){await history.append('assistant',value.speech);},
+    async perform(value){if(await history.append('assistant',value.speech))return value;},
     async restoreConversation(){},
   });
   context.setBusy=value=>{context.busy=value;};

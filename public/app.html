@@ -6,8 +6,8 @@
   <title>NOX — A curious mind</title><link rel="icon" href="/icon.svg" type="image/svg+xml"><link rel="preload" href="/vendor/source-sans/SourceSans3VF-Upright.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="stylesheet" href="/vendor/liquid-glass-js/glass.css"><link rel="stylesheet" href="/source-ui.css"><link rel="stylesheet" href="/workspace.css"><link rel="stylesheet" href="/conversation.css"><link rel="stylesheet" href="/studio.css">
 <link rel="stylesheet" href="/views.css"><link rel="stylesheet" href="/preferences.css"><link rel="stylesheet" href="/afterimage.css"><link rel="stylesheet" href="/dist/workspace.css">
-<link rel="stylesheet" href="/source-buttons.css"><link rel="stylesheet" href="/editorial-workspace.css"><link rel="stylesheet" href="/source-composer.css"><link rel="stylesheet" href="/product-workspace.css"><link rel="stylesheet" href="/workspace-glow.css"><link rel="stylesheet" href="/afterimage-layout.css"><link rel="stylesheet" href="/everyday.css"><link rel="stylesheet" href="/companion.css"><link rel="manifest" href="/manifest.webmanifest"></head>
-<body class="workspace" data-view="explore" data-persona="companion" data-signal="idle" data-form="face">
+<link rel="stylesheet" href="/source-buttons.css"><link rel="stylesheet" href="/editorial-workspace.css"><link rel="stylesheet" href="/source-composer.css"><link rel="stylesheet" href="/product-workspace.css"><link rel="stylesheet" href="/workspace-glow.css"><link rel="stylesheet" href="/afterimage-layout.css"><link rel="stylesheet" href="/everyday.css"><link rel="stylesheet" href="/companion.css"><link rel="manifest" href="/manifest.webmanifest"><link rel="stylesheet" href="/voice-call.css"></head>
+<body class="workspace" data-view="conversation" data-persona="companion" data-signal="idle" data-form="face">
 <a class="skip-link" href="#workspace-main">Skip to workspace</a><div id="workspace-background" class="workspace-background" aria-hidden="true"></div>
 <aside id="workspace-nav" class="sidebar" aria-label="Workspace navigation"><button id="close-navigation" type="button" class="quiet-button mobile-only">Close menu</button>
 <a class="brand" href="/" aria-label="NOX home"><span class="brand-mark" aria-hidden="true"><i></i><i></i></span><span>NOX</span></a>
@@ -33,18 +33,19 @@
     <span class="conversation-visit"><span class="guest-only">Guest visit <small>Temporary</small></span><span class="owner-only">Owner workspace <small>Local</small></span></span>
     <span id="brain-status" class="status"><i></i> Connecting…</span>
     <div id="workspace-controls"></div>
-    <button id="settings-button" class="quiet-button">Settings</button>
+    <button id="call-button" type="button" class="quiet-button call-button" aria-label="Talk with NOX" title="Open voice conversation"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8.5 3.5 6 3a2 2 0 0 0-2 2c0 8.3 6.7 15 15 15a2 2 0 0 0 2-2l-.5-2.5-4-1.5-1.5 2a13 13 0 0 1-7.5-7.5l2-1.5-1-3.5Z"/><path d="M15 4a6 6 0 0 1 5 5"/></svg><span>Call</span></button><button id="settings-button" class="quiet-button">Settings</button>
     <button id="presence-toggle" type="button" class="quiet-button" aria-controls="world" aria-expanded="true">Hide NOX</button>
     <button id="inside-button" hidden type="button" tabindex="-1" aria-hidden="true">Settings</button>
   </div>
 </header>
 <main id="workspace-main" tabindex="-1">
+<section id="archive-notice" class="archive-notice" role="status" hidden><p id="archive-notice-text"></p><div><button id="archive-download" type="button" hidden>Download original archive</button><button id="archive-reset" type="button" hidden>Replace protected archive…</button></div></section>
 <div class="visit-banner"><p id="visit-note" role="status">Checking visit privacy…</p></div>
 <div class="intro"><div><h1 id="workspace-heading">Explore</h1><p class="intro-note" id="workspace-note">A place to begin.</p></div></div>
 <div class="studio">
 <section class="stage-column" id="world" aria-label="NOX's world">
 <div id="stage-heading" class="instrument-heading"><span>NOX</span><span id="stage-time" class="stage-clock" aria-label="Scene elapsed time">00:00</span><a href="#scenes" class="quiet-button">Open studio</a></div>
-<div class="stage-bezel"><div class="stage-wrap" id="stage-wrap">
+<div class="stage-bezel" id="stage-bezel"><div class="stage-wrap" id="stage-wrap">
 <canvas id="stage" aria-label="Animated NOX face. Move the cursor to look around. Click to make him smile, double-click or press Space to wink. Drag or use arrow keys to move him. Shake quickly while holding him for spiral eyes." tabindex="0"></canvas>
 
 <div class="stage-top"><button class="stage-button" id="film-button" aria-pressed="false" title="Portrait film mode (F)"><i class="control-glyph" aria-hidden="true"></i><span>Film mode</span></button></div>
@@ -60,7 +61,7 @@
 <p id="scene-label" class="stage-hint">Click to react. Drag to play.</p>
 <div class="presence-mobile-copy"><span>NOX is here</span><small id="presence-mobile-status">Ready when you are.</small><button id="presence-size" type="button" class="quiet-button" aria-controls="stage-wrap" aria-expanded="false">Enlarge NOX</button></div>
 </section>
-<aside class="explore-column" data-panel="explore">
+<aside class="explore-column" data-panel="explore" hidden>
 <section class="explore-feature" aria-labelledby="explore-afterimage-title"><h2 id="explore-afterimage-title">A story you can change.</h2><blockquote>“There is a door under your cursor. Please don’t move it.”</blockquote><p>Choose a branch and an ending in Afterimage’s authored sample, edit the lines, then capture NOX’s 28-second performance.</p><div class="explore-feature-actions"><a class="explore-primary" href="#afterimage">Try the Afterimage demo</a><small>No sign-in needed for the example.</small></div></section>
 <nav class="explore-destinations" aria-label="More ways to use NOX"><a href="#conversation"><span class="explore-route-name">Conversation</span><span>Ask a question, work through an idea or talk with NOX. Replies use the connected AI.</span></a><a href="#scenes"><span class="explore-route-name">Scene studio</span><span>Change his appearance, try effects and record your own performance. The stage reacts locally.</span></a></nav>
 <section class="explore-prompts" aria-labelledby="explore-prompts-title"><div class="section-heading"><h3 id="explore-prompts-title">Start a conversation with an idea</h3></div><div class="explore-starters"><button data-start="Imagine a strange premise for a short film, then ask me one question to develop it.">Develop a film idea</button><button data-start="Give me a thoughtful, unexpected opinion about creativity.">Try a different angle</button></div></section>
@@ -94,12 +95,12 @@
 <aside class="release-column" data-panel="memory" hidden><div id="memory-root"></div></aside>
 <aside class="release-column" data-panel="access" hidden><div id="access-root"></div></aside>
 <aside class="release-column activity-column" data-panel="learn" hidden><div id="everyday-root"></div></aside>
-<aside class="companion-column" id="chat" data-panel="conversation" hidden>
+<aside class="companion-column" id="chat" data-panel="conversation">
 <h2 id="chat-title" class="sr-only">New conversation</h2>
 <div id="conversation-welcome"></div>
 <div class="conversation" id="conversation" tabindex="0" aria-live="polite" aria-label="Conversation with NOX"></div>
 </aside>
-<section class="conversation-dock" data-panel="conversation" aria-label="Message composer" hidden>
+<section class="conversation-dock" data-panel="conversation" aria-label="Message composer">
 <p id="reply-timing" class="reply-timing" role="status"></p><div id="connection-help" class="connection-help"><p id="connection-message">Checking the AI connection…</p><button id="unlock-ai" class="quiet-button">Connect AI </button></div>
 <!-- Native adaptation of Vercel AI Elements PromptInput/InputGroup; licensed sources in /vendor/ai-elements. -->
 <form id="chat-form" class="composer composer-source" aria-describedby="composer-help depth-note">
@@ -108,7 +109,7 @@
     <div class="composer-tools"><details id="composer-options" class="composer-options"><summary class="composer-icon-button" title="Answer depth and notes" aria-label="Answer depth and notes"><img class="composer-asset-icon" src="/vendor/lucide/notebook-pen.svg" width="18" height="18" alt="" aria-hidden="true"></summary><div class="composer-options-panel"><div class="composer-select depth-select"><label for="reply-depth">Answer depth</label><select id="reply-depth" title="Answer depth"><option value="quick">Quick</option><option value="balanced" selected>Balanced</option><option value="deep">Deep</option></select></div><button class="composer-icon-button" id="knowledge-chat-button" type="button" title="Add context from your notes" aria-label="Open notes"><img class="composer-asset-icon" src="/vendor/lucide/notebook-pen.svg" width="18" height="18" alt="" aria-hidden="true"><span>Open notes</span></button></div></details></div>
     <div class="composer-actions"><button id="mic-button" class="composer-icon-button" type="button" title="Dictate a message" aria-label="Dictate a message" aria-pressed="false"><img class="composer-asset-icon" src="/vendor/lucide/mic.svg" width="18" height="18" alt="" aria-hidden="true"><span class="sr-only">Talk</span></button><button id="composer-voice" class="composer-icon-button" type="button" title="Spoken replies on" aria-label="NOX voice on" aria-pressed="true"><img class="composer-asset-icon" src="/vendor/lucide/audio-lines.svg" width="18" height="18" alt="" aria-hidden="true"><span class="composer-voice-label">Voice on</span></button><button id="cancel-reply" type="button" class="composer-submit" title="Stop reply" aria-label="Stop reply" hidden><img class="composer-asset-icon" src="/vendor/lucide/square.svg" width="18" height="18" alt="" aria-hidden="true"></button><button id="send-button" class="composer-submit" type="submit" title="Send message" aria-label="Send message" disabled><img class="composer-asset-icon" src="/vendor/lucide/send.svg" width="18" height="18" alt="" aria-hidden="true"></button></div>
   </div>
-</form><p id="composer-help" class="composer-help">Enter to send <span>·</span> Shift + Enter for a new line</p>
+</form><p id="conversation-privacy" class="conversation-privacy">This visit only · clears on refresh.</p><p id="composer-help" class="composer-help">Enter to send <span>·</span> Shift + Enter for a new line</p>
 <p class="knowledge-sources" id="knowledge-context" hidden></p>
 
 
@@ -134,6 +135,8 @@
 <label class="developer-toggle"><input id="developer-mode" type="checkbox">Developer mode <small>Show diagnostics for this visit</small></label>
 <details class="developer-inspector"><summary>Developer inspector</summary><p id="developer-timing" hidden></p><p id="inspector-brain"></p><pre id="packet-view"></pre></details></dialog>
 <dialog id="clip-dialog"><div class="dialog-top"><p class="eyebrow">Recording</p><button id="close-clip" aria-label="Close clip preview">×</button></div><h2>Your clip</h2><video id="clip-video" controls playsinline preload="metadata" aria-label="Recorded NOX clip"></video><p id="clip-meta"></p><a id="save-clip" class="save-clip">Save clip </a><p class="dialog-foot">Orpheus voice is included when enabled. Browser voice and microphone audio are not captured.</p></dialog>
-<script type="module" src="/js/app.js"></script>
+<dialog id="voice-call-dialog" class="voice-call-dialog" aria-labelledby="voice-call-title" aria-describedby="voice-call-privacy"><header class="voice-call-heading"><div><h2 id="voice-call-title">Just you and NOX.</h2><p>Voice conversation</p></div><button id="voice-call-close" type="button" aria-label="Close voice conversation"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18"/></svg></button></header><div id="voice-call-presence" class="voice-call-presence"></div><div class="voice-call-signal" aria-hidden="true"><i></i><i></i><i></i></div><p id="voice-call-status" class="voice-call-status" role="status">A little closer.</p><p id="voice-call-heard" class="voice-call-heard"></p><div class="voice-call-actions"><button id="voice-call-connect" class="call-connect" type="button">Connect microphone</button><button id="voice-call-mute" type="button" aria-pressed="false" hidden>Mute microphone</button><button id="voice-call-interrupt" type="button" hidden>Speak now</button><button id="voice-call-end" class="call-end" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8.5 3.5 6 3a2 2 0 0 0-2 2c0 8.3 6.7 15 15 15a2 2 0 0 0 2-2l-.5-2.5-4-1.5-1.5 2a13 13 0 0 1-7.5-7.5l2-1.5-1-3.5Z"/></svg><span>End</span></button></div><button id="voice-call-type" class="quiet-button" type="button" hidden>Type a message instead</button><p id="voice-call-privacy" class="voice-call-privacy">Your browser handles speech recognition; transcripts go to NOX. Listen and reply take turns. End or close this view to stop the microphone. Your usual chat and voice allowances apply.</p></dialog>
+<dialog id="archive-reset-dialog" aria-labelledby="archive-reset-title"><h2 id="archive-reset-title">Save this visit to the archive?</h2><p>Download the original archive first if you want to recover its contents. This saves the chats from this visit. A readable archive recovered in another tab will be kept alongside them; an unreadable original will be replaced and cannot be recovered here.</p><div class="archive-reset-actions"><button id="archive-reset-cancel" type="button" autofocus>Keep original</button><button id="archive-reset-confirm" type="button">Confirm saving this visit</button></div></dialog>
+<script src="/js/workspace-entry.js"></script><script type="module" src="/js/app.js"></script>
 <script type="module" src="/dist/workspace.js"></script><script type="module" src="/js/install.js"></script>
 </body></html>

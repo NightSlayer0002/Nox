@@ -8,3 +8,10 @@ export function spokenPreview(value,limit=420){
   if(end>limit*.25)return opening.slice(0,end+1);
   return opening.slice(0,Math.max(1,opening.lastIndexOf(' '))).trimEnd()+ '…';
 }
+
+// Voice-on and Replay are the same non-destructive playback operation.
+export function playReplyPreview(packet,{stage,voice,mode}){
+  const speech=spokenPreview(packet.speech);
+  stage.speak({...packet,speech,action:'none'});
+  return voice.speak(speech,mode,packet.emotion);
+}

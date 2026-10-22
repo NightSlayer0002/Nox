@@ -17,7 +17,10 @@ import {createProviderControls} from './provider-controls.js';
 import {attachWorkspaceViewport} from './workspace-viewport.js';
 import { EXPRESSIONS } from './face-art.js';
 import { knowledge,readDepth,saveDepth } from './workbench.js';
-import { spokenPreview } from './reply.js';
+import { spokenPreview,playReplyPreview } from './reply.js';
+import {historyFailure} from './history-notice.js';
+import {attachVoiceCall} from './voice-call-controls.js';
+import {selfDeclaredName} from './name-intent.js';
 import {sourceBackground} from './source-background.js';
 import { afterimageBridge, applyAfterimageCue } from './afterimage-bridge.js';
 import {visit,initialVisitStatus,requestVisitStatus} from './visit-scope.js';
@@ -36,7 +39,7 @@ $('message').maxLength=6000;
 $('visit-note').textContent=visit.owner?'Developer workspace · private browser archive.':'Guest preview · conversations clear when you refresh.';
 const memory = createMemory(disk);
 const history = await createHistory(disk,memory.snapshot().history);
-if(history.persistent)memory.clearHistory();
+if(history.persistent)await memory.clearHistory();
 let mode = history.active().mode;
 let navigation,summaryController,summaryTimer,pendingDraft;
 let editTarget=null,currentActivity='conversation',publicUsage=initialVisitStatus?.usage;
@@ -45,6 +48,7 @@ let ownerToken = '', selectedProvider = '', connectionVersion = 0, connection = 
 const providerControls=createProviderControls([$('provider-select'),$('composer-provider')],value=>{cancelConversation();selectedProvider=value;showConnection();});
 const apiHeaders = (token = ownerToken) => ({'content-type':'application/json',...(token ? {authorization:`Bearer ${token}`} : visit.owner?{'x-nox-owner':'1'}:{'x-nox-guest':'1','x-nox-visit-id':visit.id})});
 const turns = createTurnGate();
+let voiceCall;
 const composer=createComposerSizer($('message'));
 const composerOptions=attachComposerOptions($('composer-options'));
 attachDetailsMenu($('presence-menu'));
@@ -113,15 +117,16 @@ $('preview-expression').addEventListener('click',()=>{
 stage.setMotion(true);
 const voice = createVoice({
   onStart: () => { stage.narrating=true;stage.character.speakingUntil = Infinity; },
-  onEnd: () => { stage.narrating=false;stage.character.speakingUntil = stage.time;if(!busy)activity.transition('idle'); },
-  onError:message=>{activity.transition('error');toast(message);},
+  onEnd: () => { stage.narrating=false;stage.character.speakingUntil = stage.time;if(!busy)activity.transition('idle');voiceCall?.session.onVoiceEnd(); },
+  onError:message=>{activity.transition('error');toast(message);voiceCall?.session.fail(message);},
   onState:state=>{
+    voiceCall?.session.onVoiceState(state);
     document.body.dataset.voiceState=state;
     if(state==='preparing')activity.transition('preparing');
     else if(state==='speaking')activity.transition('speaking');
     else if(state==='ready'&&!stage.narrating)activity.transition('voice-ready');
     else if(state==='idle'&&!busy&&!stage.narrating)activity.transition('idle');
-    stage.character.activity=busy||state==='preparing'?'thinking':dictating?'listening':'idle';
+    stage.character.activity=busy||state==='preparing'?'thinking':dictating||callListening?'listening':'idle';
     if(state==='preparing'&&document.body.dataset.view==='conversation')replyDiagnostics.setStatus('Preparing NOX’s voice…');
     else if($('reply-timing').textContent==='Preparing NOX’s voice…')replyDiagnostics.setStatus('');
   },
@@ -151,8 +156,8 @@ $('presence-size').addEventListener('click',()=>{
 stage.onBeforeFrame=()=>{
   stage.character.mouthLevel=voice.mouthLevel;
   const chatting=document.body.dataset.view==='conversation';
-  stage.captionTargetEnabled=chatting&&!document.body.classList.contains('film');
-  stage.captionMode=chatting&&compactPresence.matches&&document.body.dataset.presenceExpanded!=='true'&&!document.body.classList.contains('film')?'hidden':chatting?'speaking':'linger';
+  stage.captionTargetEnabled=document.body.dataset.callOpen==='true'||chatting&&!document.body.classList.contains('film');
+  stage.captionMode=document.body.dataset.callOpen==='true'?'speaking':chatting&&compactPresence.matches&&document.body.dataset.presenceExpanded!=='true'&&!document.body.classList.contains('film')?'hidden':chatting?'speaking':'linger';
 };
 const camera = createCamera();
 const recorder = createRecorder($('stage'), (active, clip) => {
@@ -171,9 +176,9 @@ const recorder = createRecorder($('stage'), (active, clip) => {
     $('clip-dialog').showModal();
   }
 },{getAudioStream:()=>voice.prepareCapture(),onError:toast});
-let dictating=false;
+let dictating=false,callListening=false;
 const microphone = createMicrophone({
-  onText: text => { composer.setValue(text);contextPreview();send(text); },
+  onText: text => {composer.setValue(text);contextPreview();send(text);},
   onState: active => {
     dictating=active;
     activity.transition(busy?'thinking':active?'listening':'idle');
@@ -184,6 +189,29 @@ const microphone = createMicrophone({
   onError: toast,
 });
 if(!microphone.supported){$('mic-button').disabled=true;$('mic-button').title='Dictation is unavailable in this browser. Type a message instead.';}
+const callMicrophone=createMicrophone({
+  onText:text=>{void voiceCall?.session.onTranscript(text);},
+  onState:active=>{callListening=active;voiceCall?.session.onListening(active);stage.character.activity=busy?'thinking':active?'listening':'idle';},
+  onError:message=>{toast(message);voiceCall?.session.fail(message);}
+});
+voiceCall=attachVoiceCall({options:{
+  supported:()=>callMicrophone.supported&&voice.supported,
+  startListening:()=>{if(!['live','demo'].includes(brain))throw Error('The AI connection is not ready. Close this view and check Settings.');microphone.stop();voice.setEnabled(true);showVoice();callMicrophone.start();},
+  stopListening:()=>callMicrophone.stop(),stopReply:()=>cancelConversation(),
+  async submit(text){
+    if(busy)throw Error('NOX is finishing another reply. Try again in a moment.');
+    const packet=await send(text);
+    // A failed voice turn is already in chat. Its retry draft must not hide the
+    // unfinished typed edit that was set aside when this call opened.
+    if(!packet&&$('message').value===text)composer.setValue('');
+    if(!packet)throw Error(historyFailure(history,'NOX could not start or finish this reply. Check the conversation limit or connection, then try again.'));
+    return {reply:spokenPreview(packet.speech),voicePending:voice.enabled&&voice.supported};
+  }
+},getDraft:()=>{
+  const draft={text:$('message').value,edit:editTarget,thread:history.active().id};editTarget=null;return draft;
+},restoreDraft:draft=>{
+  if(draft?.text&&!$('message').value&&draft.thread===history.active().id){composer.setValue(draft.text);editTarget=draft.edit;}
+}});
 
 afterimageBridge.connect({
   async receive({seed,tone,variation,signal}) {
@@ -199,6 +227,8 @@ afterimageBridge.connect({
     const cue=applyAfterimageCue(stage,value);$('mood-label').textContent=cue.emotion;
   },
   speak: (script,emotion,cues) => voice.speak(script,mode,emotion,cues),
+  prepare: (script,emotion,cues) => voice.enabled&&voice.engine==='natural'?voice.prepare(script,mode,emotion,cues).then(audio=>Boolean(audio)):undefined,
+  isSpeaking:()=>stage.narrating,
   stop() {
     voice.stop();stage.character.speakingUntil=stage.time;stage.captionUntil=0;
     stage.reset(false);
@@ -234,6 +264,7 @@ function addMessage(speaker, text,turn) {
 function attachMessageActions(message,turn){
   if(!message||message.querySelector('.message-actions')||!turn)return;
   const actions=document.createElement('div');actions.className='message-actions';
+  message.tabIndex=-1;message.addEventListener('pointerup',event=>{if(event.pointerType==='touch'&&!event.target.closest('button,a,textarea'))message.focus({preventScroll:true});});
   const copy=messageAction('copy',`Copy ${turn.role==='user'?'your message':'NOX’s reply'}`);copy.addEventListener('click',async()=>{try{await navigator.clipboard.writeText(turn.content);toast('Copied.');}catch{toast('Copy is unavailable. Select the text and copy it with your keyboard.');}});actions.append(copy);
   const revise=messageAction(turn.role==='user'?'pencil':'rotate-ccw',turn.role==='user'?'Edit your message':'Retry NOX’s reply');revise.addEventListener('click',async()=>{if(busy){toast('Stop the current reply before revising this conversation.');return;}cancelConversation();if(turn.role==='user'){editTarget=turn.seq;composer.setValue(turn.content);replyDiagnostics.setStatus('Editing this message. Sending replaces the replies after it.');$('message').focus();}else{const result=await history.retryFrom(turn.seq);if(!result){toast('That reply changed. Reopen the conversation and try again.');return;}await restoreConversation({retrying:true});await send(result.draft,{recorded:true});}});actions.append(revise);message.append(actions);
 }
@@ -249,6 +280,7 @@ function updateMemory() {
   $('memory-facts').replaceChildren();
   state.facts.slice(-4).forEach(fact => { const tag = document.createElement('span'); tag.className = 'fact'; tag.textContent = fact; $('memory-facts').append(tag); });
   if(!visit.owner)$('memory-summary').textContent='Recent messages provide context for this visit.';
+  else if(memory.status.error==='unreadable-storage')$('memory-summary').textContent += ' The saved notebook cannot be read. Its original data has been left untouched.';
   else if (!memory.persistent) $('memory-summary').textContent += ' Storage is unavailable; this notebook lasts for this visit.';
 }
 
@@ -257,7 +289,8 @@ async function perform(value, save = true, draft, version, depth='quick',remembe
   const packet = normalizePacket(value,depth); lastPacket = packet;
   const spoken=spokenPreview(packet.speech);
   voice.prepare(spoken,mode,packet.emotion);
-  if (packet.memory&&rememberAllowed) memory.remember(packet.memory);
+  if (packet.memory&&rememberAllowed) await memory.remember(packet.memory);
+  if(version!==undefined&&!turns.isCurrent(version))return;
   if (save && !await history.append('assistant', packet.speech)) {voice.stop();return;}
   if(version!==undefined&&!turns.isCurrent(version))return;
   const replyTurn=save?history.active().turns.at(-1):null;
@@ -266,12 +299,13 @@ async function perform(value, save = true, draft, version, depth='quick',remembe
   if(packet.action==='takeover')stage.canvas.scrollIntoView({behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'instant':'smooth',block:'center'});
   $('mood-label').textContent = packet.emotion;
   $('packet-view').textContent = JSON.stringify(value.metrics?{...packet,metrics:value.metrics}:packet, null, 2); updateMemory();navigation?.render();companionChanged();
+  return packet;
 }
 
 function setBusy(value) {
   busy = value; $('send-button').disabled = value||!$('message').value.trim();$('send-button').hidden=value; $('chat-form').setAttribute('aria-busy', value);
   $('cancel-reply').hidden=!value;$('reply-depth').disabled=value;
-  stage.character.activity = value||voice.state==='preparing' ? 'thinking' : dictating?'listening':'idle';
+  stage.character.activity = value||voice.state==='preparing' ? 'thinking' : dictating||callListening?'listening':'idle';
   companionChanged();
 }
 
@@ -294,8 +328,9 @@ async function send(raw,{recorded=false}={}) {
   activityTurn=activity.beginTurn();
   const timingVersion=replyDiagnostics.begin(brain==='live'?'NOX is thinking…':'Scripted demo · no AI request');
   summaryController?.abort();clearTimeout(summaryTimer);
-  const name = text.match(/(?:my name is|call me|i am called)\s+([\p{L}\p{N}_ -]{1,40})/iu);
-  if (name) memory.setName(name[1].trim());
+  const name=selfDeclaredName(text);
+  if (name) await memory.setName(name);
+  if(!turns.isCurrent(version))return;
   const depth=$('reply-depth').value==='deep'&&!visit.owner?'balanced':$('reply-depth').value;
   const recent=history.context();if(recorded&&recent.history.at(-1)?.role==='user')recent.history=recent.history.slice(0,-1);
   const preferences=approvedPreferences.context(currentActivity);
@@ -304,7 +339,7 @@ async function send(raw,{recorded=false}={}) {
   applyApprovedPreferences();
   const request=prepareChatRequest(text,context,selectedProvider,true);
   setBusy(true);
-  if(!recorded&&!await history.append('user',text)){cancelConversation();await restoreConversation();toast('This conversation changed in another tab. Start a new thought.');return;}
+  if(!recorded&&!await history.append('user',text)){const message=historyFailure(history);cancelConversation();await restoreConversation();toast(message);return;}
   if(!turns.isCurrent(version))return;
   if(!recorded){const userTurn=history.active().turns.at(-1),message=addMessage('user', text,userTurn);attachMessageActions(message,userTurn);}composer.setValue(''); contextPreview();updateMemory();navigation?.render();companionChanged();
   setBusy(true); voice.stop(); microphone.stop(); stage.character.emotion = 'curious';
@@ -325,7 +360,7 @@ async function send(raw,{recorded=false}={}) {
       packet = demoReply(text, context);
       if(turns.isCurrent(version))replyDiagnostics.complete(timingVersion);
     }
-    if (turns.isCurrent(version)) {activity.transition('reply-ready',activityTurn);if(takeover)packet={...packet,action:'takeover'};const draft=pendingDraft;await perform(packet,true,draft,version,depth,explicitMemoryRequest(text));if(turns.isCurrent(version)){if(brain==='live'&&request.context.knowledge?.length&&draft){const sources=document.createElement('p');sources.className='knowledge-sources';sources.textContent='Context included: '+request.context.knowledge.map(n=>`[${n.id}] ${n.title}`).join(' · ');draft.append(sources);}pendingDraft=null;scheduleSummary();}}
+    if (turns.isCurrent(version)) {activity.transition('reply-ready',activityTurn);if(takeover)packet={...packet,action:'takeover'};const draft=pendingDraft;const completed=await perform(packet,true,draft,version,depth,explicitMemoryRequest(text));if(turns.isCurrent(version)){if(brain==='live'&&request.context.knowledge?.length&&draft){const sources=document.createElement('p');sources.className='knowledge-sources';sources.textContent='Context included: '+request.context.knowledge.map(n=>`[${n.id}] ${n.title}`).join(' · ');draft.append(sources);}pendingDraft=null;scheduleSummary();return completed;}}
   } catch (error) {
     if (turns.isCurrent(version)){setUsage(error.usage);pendingDraft?.remove();pendingDraft=null;if(error.name!=='AbortError'){activity.finishTurn(activityTurn,'error');if(!$('message').value){composer.setValue(text);contextPreview();}stage.character.react?.('worried',stage.time,2);if (brain === 'live') $('brain-status').lastChild.textContent = ' AI error'; addMessage('system', error.message); toast(error.message);replyDiagnostics.setStatus('Reply interrupted. Your message is still in this visit.');}}
   } finally { if (turns.isCurrent(version)) { setBusy(false); $('message').focus(); } }
@@ -339,7 +374,7 @@ const greetings = {
 async function setMode(next, greet = true) {
   cancelConversation();
   const version=turns.begin();if(!await history.setMode(next)||!turns.isCurrent(version))return;
-  mode = next; memory.setMode(mode); stage.setMode(mode); document.body.dataset.persona = mode;
+  mode = next; await memory.setMode(mode);if(!turns.isCurrent(version))return;stage.setMode(mode); document.body.dataset.persona = mode;
   $('mood-label').textContent = stage.character.emotion;
   document.querySelectorAll('[data-mode]').forEach(button => { const active = button.dataset.mode === mode; button.classList.toggle('active', active); button.setAttribute('aria-pressed', active); });
   if (greet) await perform({ speech: greetings[mode], emotion: mode === 'uncanny' ? 'uncanny' : 'curious', action: 'none', memory: '' },false,undefined,version);
@@ -365,7 +400,7 @@ for(const voiceControl of [$('voice-button'),$('composer-voice')])voiceControl.a
   const enabled = voice.setEnabled(!voice.enabled);
   showVoice();
   try{disk.setItem('nox.voice.v2',enabled?'on':'off');}catch{}
-  if (enabled && afterimageBridge.snapshot().status!=='playing') {stage.speak({...lastPacket,action:'none'});voice.speak(lastPacket.speech, mode,lastPacket.emotion);}
+  if (enabled && afterimageBridge.snapshot().status!=='playing') playReplyPreview(lastPacket,{stage,voice,mode});
   else if (!voice.supported) toast('Speech synthesis is unavailable in this browser. You can read NOX’s captions.');
 });
 $('mic-button').addEventListener('click', () => { if (busy) { toast('Let NOX finish this thought first.'); return; } afterimageBridge.stop('conversation');voice.stop(); microphone.start(); });
@@ -402,9 +437,9 @@ function toggleRecording() {
 }
 $('record-button').addEventListener('click', toggleRecording);
 $('film-record').addEventListener('click', toggleRecording);
-$('clear-memory').addEventListener('click', () => {
-  cancelConversation();memory.clear();
-  updateMemory();toast('The saved name and notebook facts are cleared. Conversations remain in your Library.');
+$('clear-memory').addEventListener('click', async () => {
+  cancelConversation();const saved=await memory.clear();
+  updateMemory();toast(saved?'The saved name and notebook facts are cleared. Conversations remain in Chats.':'The saved notebook could not be changed. Its original data is protected; check browser storage before trying again.');
 });
 $('inside-button').addEventListener('click', () => { $('packet-view').textContent = JSON.stringify(lastPacket, null, 2); openSettings(); });
 $('settings-button').addEventListener('click', () => openSettings());
@@ -425,7 +460,7 @@ document.addEventListener('keydown', event => {
   if (event.key.toLowerCase() === 'f') toggleFilm();
   if (event.key.toLowerCase() === 'r') toggleRecording();
 });
-window.addEventListener('pagehide', () => { afterimageBridge.stop('pagehide');ownerToken=''; camera.stop(); voice.stop(); microphone.stop(); });
+window.addEventListener('pagehide', event => { if(event.persisted)voiceCall?.session.end();else voiceCall?.dispose();afterimageBridge.stop('pagehide');ownerToken=''; camera.stop(); voice.stop(); microphone.stop();callMicrophone.stop(); });
 window.addEventListener('hashchange',()=>{if(location.hash==='#afterimage')cancelConversation();else afterimageBridge.stop('navigation');requestAnimationFrame(composer.resize);});
 setInterval(() => { const seconds = Math.floor(stage.time); $('stage-time').textContent = `${String(Math.floor(seconds / 60)).padStart(2, '0')}:${String(seconds % 60).padStart(2, '0')}`; }, 1000);
 setInterval(() => {
@@ -459,25 +494,32 @@ async function restoreConversation({retrying=false}={}){cancelConversation();con
   if(last){stage.caption=last.content;stage.captionUntil=0;}
   else if(thread.turns.length){if(!retrying)addMessage('system','Your last message is still here. Send it again to retry.');stage.caption='';stage.captionUntil=0;}
   else{stage.caption='';stage.captionUntil=0;}
-  replyDiagnostics.clear();composer.resize();$('summary-note').textContent=thread.summary?'Older context is summarized. Your full transcript is kept in this conversation.':'';navigation?.render();updateMemory();companionChanged();
+  replyDiagnostics.clear();composer.resize();$('summary-note').textContent=thread.summary?'Older model context is summarized. The transcript remains available in Chats.':'';navigation?.render();updateMemory();companionChanged();
 }
 function scheduleSummary(){clearTimeout(summaryTimer);if(!visit.owner||brain!=='live'||!history.summaryWork()||selectedProvider==='openai')return;summaryTimer=setTimeout(async()=>{
   const work=history.summaryWork();if(!work||busy)return;const controller=new AbortController();summaryController=controller;
-  try{const response=await fetch('/api/summary',{method:'POST',headers:apiHeaders(),body:JSON.stringify({previous:work.previous,turns:work.turns,provider:selectedProvider}),signal:controller.signal});if(!response.ok)throw Error('summary');const result=await response.json();if(!controller.signal.aborted&&await history.applySummary(work.id,work.through,result.summary)&&history.active().id===work.id)$('summary-note').textContent='Older context is summarized. Your full transcript is kept in the Library.';}
-  catch(error){if(error.name!=='AbortError'&&history.active().id===work.id)$('summary-note').textContent='Summary will retry after a later turn. The full transcript is still saved.';}
+  try{const response=await fetch('/api/summary',{method:'POST',headers:apiHeaders(),body:JSON.stringify({previous:work.previous,turns:work.turns,provider:selectedProvider}),signal:controller.signal});if(!response.ok)throw Error('summary');const result=await response.json();if(!controller.signal.aborted&&await history.applySummary(work.id,work.through,result.summary)&&history.active().id===work.id)$('summary-note').textContent='Older model context is summarized. The transcript remains available in Chats.';}
+  catch(error){if(error.name!=='AbortError'&&history.active().id===work.id)$('summary-note').textContent='Summary will retry after a later turn. The transcript remains available in Chats.';}
   finally{if(summaryController===controller)summaryController=null;}
 },3000);}
-navigation=createNavigation({history,onOpen:async id=>{cancelConversation();editTarget=null;currentActivity='conversation';const selected=await history.select(id);await restoreConversation();if(!selected)toast('That conversation was removed in another tab.');},onNew:async()=>{cancelConversation();editTarget=null;currentActivity='conversation';await history.create();await restoreConversation();},onStart:async(text,persona)=>{await setMode(persona,false);await send(text);}});
+async function newConversation(){
+  cancelConversation();
+  const thread=await history.create();if(!thread){toast(historyFailure(history));return false;}
+  editTarget=null;currentActivity='conversation';await restoreConversation();return true;
+}
+navigation=createNavigation({history,onOpen:async id=>{cancelConversation();editTarget=null;currentActivity='conversation';const selected=await history.select(id);await restoreConversation();if(!selected)toast('That conversation was removed in another tab.');},onNew:newConversation,onStart:async(text,persona)=>{await setMode(persona,false);await send(text);}});
 history.subscribe(({currentChanged})=>{if(currentChanged)void restoreConversation();else navigation.render();});
+const releaseMemory=memory.subscribe(()=>{updateMemory();});
+window.addEventListener('pagehide',event=>{if(!event.persisted){releaseMemory();memory.dispose();history.dispose();}},{once:true});
 await restoreConversation();
 companionBridge.connect({
   snapshot:()=>({usage:publicUsage,owner:visit.owner}),
-  async fresh(){editTarget=null;currentActivity='conversation';await history.create();await restoreConversation();navigation.setView('conversation');},
-  async start(text,kind='conversation'){editTarget=null;currentActivity=['conversation','explore','mystery'].includes(kind)?kind:'conversation';await history.create();await restoreConversation();navigation.setView('conversation');await send(text);},
+  async fresh(){if(!await newConversation())return;navigation.setView('conversation');},
+  async start(text,kind='conversation'){if(!await newConversation())return;currentActivity=['conversation','explore','mystery'].includes(kind)?kind:'conversation';navigation.setView('conversation');await send(text);},
   preferenceChanged:applyApprovedPreferences,
 });
 EverydayBridge.connect({
-  async ask(message,{activity:source}={}){cancelConversation();editTarget=null;currentActivity=(typeof source==='string'?source:source?.kind)==='explore'?'explore':'conversation';if(source?.state)rememberActivity('explore',{state:source.state,id:source.id});await history.create();await restoreConversation();navigation.setView('conversation');await send(message);},
+  async ask(message,{activity:source}={}){if(!await newConversation())return;currentActivity=(typeof source==='string'?source:source?.kind)==='explore'?'explore':'conversation';if(source?.state)rememberActivity('explore',{state:source.state,id:source.id});navigation.setView('conversation');await send(message);},
   speak(text,{activity:source}={}){const scope=['explore','guessing'].includes(source)?source:currentActivity;voice.setPace?.(approvedPreferences.context(scope).speechPace??1);voice.setEnabled(true);showVoice();const speech=spokenPreview(text);stage.speak({speech,emotion:'curious',action:'none',memory:''});return voice.speak(speech,mode,'curious');},
   stop(){voice.stop();stage.captionUntil=0;},
   proposePreference(value){const words=value.key==='learningStyle'?(value.value==='hints'?'One clue at a time':'Explain first'):value.key==='gameQuestionLimit'?`Use ${value.value} questions in the guessing game`:value.key==='gameHints'?`Turn hints ${value.value?'on':'off'} in the guessing game`:value.origin;return companionBridge.propose(words,value.scope);},
@@ -552,7 +594,7 @@ try{preferredEngine=disk.getItem('nox.voice.engine.v2')||'natural';const savedSp
 voice.setSpeaker($('speaker-select').value);voice.setBrowserVoice(savedBrowserVoice);browserVoices();globalThis.speechSynthesis?.addEventListener('voiceschanged',browserVoices);
 $('speaker-select').addEventListener('change',e=>{voice.setSpeaker(e.target.value);try{disk.setItem('nox.voice.speaker.v2',e.target.value);}catch{}});
 $('browser-speaker').addEventListener('change',e=>{savedBrowserVoice=e.target.value;voice.setBrowserVoice(savedBrowserVoice);try{disk.setItem('nox.voice.browser.v2',savedBrowserVoice);}catch{}});
-$('replay-voice').addEventListener('click',()=>{afterimageBridge.stop('voice-preview');if(!voice.enabled)toast('Turn Voice on to hear this reply.');else{const speech=spokenPreview(lastPacket.speech);stage.speak({...lastPacket,speech,action:'none'});voice.speak(speech,mode,lastPacket.emotion);}});
+$('replay-voice').addEventListener('click',()=>{afterimageBridge.stop('voice-preview');if(!voice.enabled)toast('Turn Voice on to hear this reply.');else playReplyPreview(lastPacket,{stage,voice,mode});});
 $('test-voice').addEventListener('click',()=>{afterimageBridge.stop('voice-preview');voice.setEnabled(true);showVoice();const speech='Oh, you found me. I was just thinking about something strange. Want to hear it?',emotion=mode==='uncanny'?'uncanny':'happy';stage.speak({speech,emotion,action:'none'});voice.speak(speech,mode,emotion);});
 try{voice.setEnabled(disk.getItem('nox.voice.v2')==='on');}catch{voice.setEnabled(false);}showVoice();
 try {await refreshConnection('',initialVisitStatus);if(location.pathname.replace(/\/$/,'')==='/owner'){openSettings({owner:!visit.owner});}}
