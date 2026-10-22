@@ -33,7 +33,7 @@
 .eact-explanation{font-size:18px;line-height:1.65;min-height:64px}
 .eact-clue-actions{display:flex;gap:8px;flex-wrap:wrap}
 .eact-moon{margin:22px 0 34px}
-.eact-moon svg{display:block;width:100%;max-height:340px;overflow:visible}
+.eact-moon svg{display:block;width:100%;height:auto;max-height:340px;overflow:visible}
 .eact-moon svg text{fill:var(--eact-ink);font-family:inherit;font-size:15px}
 .eact-moon svg .eact-svg-small{fill:var(--eact-soft);font-size:12px}
 .eact-sun-rays{color:#e8dca9}
