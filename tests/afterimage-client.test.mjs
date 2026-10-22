@@ -96,9 +96,10 @@ test('completion cleans the old speech before subscribers begin a replacement',(
   assert.deepEqual(events,['speak','complete','speak']);assert.equal(controller.snapshot().status,'playing');controller.dispose();
 });
 
-test('receptions persist at most twelve and explicit deletion cannot revive in a stale store',()=>{
-  const storage=disk(),store=createAfterimageStore(storage);for(let i=0;i<14;i++)store.add({packet:packet(`Take ${i}`),seed:`Seed ${i}`,tone:'wonder',source:'live'});
-  assert.equal(store.list().length,12);assert.equal(store.list()[0].packet.title,'Take 13');assert.equal(store.list().at(-1).packet.title,'Take 2');
+test('receptions refuse a thirteenth story and explicit deletion cannot revive in a stale store',()=>{
+  const storage=disk(),store=createAfterimageStore(storage);for(let i=0;i<12;i++)store.add({packet:packet(`Take ${i}`),seed:`Seed ${i}`,tone:'wonder',source:'live'});
+  assert.throws(()=>store.add({packet:packet('Extra'),seed:'Seed',tone:'wonder',source:'live'}),/12|full/);
+  assert.equal(store.list().length,12);assert.equal(store.list()[0].packet.title,'Take 11');assert.equal(store.list().at(-1).packet.title,'Take 0');
   const stale=createAfterimageStore(storage),id=store.list()[0].id;assert.equal(store.remove(id),true);assert.equal(stale.update(id,{endingIndex:1}),null);
   stale.add({packet:packet('Newest'),seed:'Another thought',tone:'bold',source:'authored'});
   const reloaded=createAfterimageStore(storage);assert.equal(reloaded.get(id),null);assert.equal(reloaded.list().length,12);
@@ -121,7 +122,8 @@ test('corrupt, incompatible and unavailable storage stay usable and bounded',()=
     const store=createAfterimageStore(disk([[AFTERIMAGE_STORAGE_KEY,value]]));assert.equal(store.list().length,0);assert.doesNotThrow(()=>store.add({packet:packet(),source:'authored',seed:'Hi',tone:'wonder'}));
   }
   const unavailable={getItem(){throw Error('blocked');},setItem(){throw Error('quota');},removeItem(){throw Error('blocked');}},store=createAfterimageStore(unavailable);
-  for(let i=0;i<15;i++)store.add({packet:packet(),source:'live',seed:'Hi',tone:'bold'});
+  for(let i=0;i<12;i++)store.add({packet:packet(),source:'live',seed:'Hi',tone:'bold'});
+  assert.throws(()=>store.add({packet:packet(),source:'live',seed:'Hi',tone:'bold'}),/12|full/);
   assert.equal(store.persistent,false);assert.equal(store.list().length,12);store.clear();assert.equal(store.list().length,0);
   const quota=disk();quota.setItem=()=>{throw Error('full');};const limited=createAfterimageStore(quota),entry=limited.add({packet:packet(),source:'live',seed:'Hi',tone:'bold'});
   assert.equal(limited.persistent,false);assert.equal(limited.get(entry.id).packet.title,'A second moon');

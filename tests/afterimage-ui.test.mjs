@@ -16,19 +16,19 @@ const bundle=await build({entryPoints:[path.join(root,'client/afterimage.jsx')],
   builder.onResolve({filter:/^\/js\//},args=>({path:path.join(root,'public',args.path.slice(1))}));
 }}]});
 
-function receiver({owner=false,kind='live',exportProfile='landscape',recording=false,receive=async()=>{throw Error('Unexpected generation');}}={}){
-  let slots=[],cursor=0,pendingEffects=[],tree,plays=[],requests=[],state={connected:true,status:'idle',connection:{kind},recordSupported:true,voiceEnabled:false,exportProfile,recording};
-  const subscribers=new Set(),data=new Map(),storage={temporary:!owner,getItem:key=>data.get(key)??null,setItem:(key,value)=>data.set(key,value)};
+function receiver({owner=false,kind='live',exportProfile='landscape',recording=false,preparing=false,captionsOnly=false,voiceError='',initialRaw,receive=async()=>{throw Error('Unexpected generation');}}={}){
+  let slots=[],cursor=0,pendingEffects=[],tree,plays=[],requests=[],state={connected:true,status:preparing?'playing':'idle',preparing,captionsOnly,voiceError,connection:{kind},recordSupported:true,voiceEnabled:false,exportProfile,recording};
+  const subscribers=new Set(),data=new Map(initialRaw===undefined?[]:[['nox.afterimage.v1',initialRaw]]),downloads=[],storage={temporary:!owner,getItem:key=>data.get(key)??null,setItem:(key,value)=>data.set(key,value)};
   const react={createElement:(type,props,...children)=>({type,props:{...props,children}}),Suspense:'suspense',lazy:()=> 'lattice',useRef(value){const index=cursor++;return slots[index]??= {current:value};},useState(initial){const index=cursor++;if(!slots[index])slots[index]={value:typeof initial==='function'?initial():initial};return [slots[index].value,value=>{slots[index].value=typeof value==='function'?value(slots[index].value):value;}];},useEffect(effect,deps){const index=cursor++,old=slots[index];if(!old||deps.some((value,i)=>value!==old.deps[i])){pendingEffects.push(()=>{old?.cleanup?.();slots[index]={deps,cleanup:effect()};});}},useReducedMotion:()=>false};
   const bridge={snapshot:()=>state,subscribe(fn){subscribers.add(fn);return()=>subscribers.delete(fn);},stop(){state={...state,status:'stopped'};for(const fn of subscribers)fn();},play(...args){plays.push(args);state={...state,status:'playing'};for(const fn of subscribers)fn();return true;},recordAndPlay(...args){plays.push(args);return true;},receive(options){requests.push(options);return receive(options);},setVoice(value){state={...state,voiceEnabled:value};},setExportProfile(value){state={...state,exportProfile:value};for(const fn of subscribers)fn();}};
-  const mocks={'react':react,'react-dom':{createPortal:children=>children},'motion/react':{AnimatePresence:'presence',motion:{div:'motion-div'},useReducedMotion:react.useReducedMotion},'test-lattice':{},'/js/afterimage-bridge.js':{afterimageBridge:bridge},'/js/visit-scope.js':{visit:{owner,storage}},'/js/workbench.js':{downloadText(){}},'/js/companion-context.js':{}};
+  const mocks={'react':react,'react-dom':{createPortal:children=>children},'motion/react':{AnimatePresence:'presence',motion:{div:'motion-div'},useReducedMotion:react.useReducedMotion},'test-lattice':{},'/js/afterimage-bridge.js':{afterimageBridge:bridge},'/js/visit-scope.js':{visit:{owner,storage}},'/js/workbench.js':{downloadText:(...args)=>downloads.push(args)},'/js/companion-context.js':{}};
   const module={exports:{}};
   vm.runInNewContext(bundle.outputFiles[0].text,{module,exports:module.exports,require:id=>mocks[id]??nativeRequire(id),window:{innerWidth:1400,matchMedia:()=>({matches:false}),addEventListener(){},removeEventListener(){},dispatchEvent(){}},Event,document:{body:{},getElementById:()=>null},AbortController,Date,console,setTimeout,clearTimeout});
   function render(){cursor=0;tree=module.exports.default();for(const effect of pendingEffects.splice(0))effect();return tree;}
   function nodes(node){if(!node||typeof node!=='object')return [];return [node,...(node.props?.children??[]).flat(Infinity).flatMap(child=>nodes(child))];}
   function text(node){return (node?.props?.children??[]).flat(Infinity).map(child=>typeof child==='object'?text(child):child??'').join('');}
   render();
-  return {render,nodes:()=>nodes(tree),text,plays,requests,bridge,find:predicate=>nodes(tree).find(predicate),button:label=>nodes(tree).find(node=>node.type==='button'&&text(node)===label),unmount(){for(const slot of slots)slot?.cleanup?.();slots=[];}};
+  return {render,nodes:()=>nodes(tree),text,plays,requests,bridge,storage,downloads,find:predicate=>nodes(tree).find(predicate),button:label=>nodes(tree).find(node=>node.type==='button'&&text(node)===label),unmount(){for(const slot of slots)slot?.cleanup?.();slots=[];}};
 }
 
 test('guest entry plays the authored example directly and offers no unavailable seed form',()=>{
@@ -38,7 +38,35 @@ test('guest entry plays the authored example directly and offers no unavailable 
   ui.button('Play example').props.onClick();ui.render();
   assert.equal(ui.plays.length,1);assert.equal(ui.requests.length,0);
   assert.equal(ui.plays[0][0].title,FIRST_CONTACT.title);
-  assert.ok(ui.button('Edit this cut'));assert.ok(ui.button('Export script'));assert.ok(ui.button('Capture 28 seconds'));
+  assert.ok(ui.button('Edit this cut'));assert.ok(ui.button('Export script'));assert.ok(ui.button('Capture performance'));
+});
+
+test('repeated example playback and branch edits never fill the story archive',()=>{
+  const ui=receiver({owner:true});
+  for(let i=0;i<15;i++){ui.bridge.stop();ui.render();ui.button('Play example').props.onClick();ui.render();}
+  assert.equal(ui.storage.getItem('nox.afterimage.v1'),null);
+  ui.bridge.stop();ui.render();
+  ui.find(node=>node.props?.className==='signal-choices').props.children.flat().find(node=>node?.type==='button').props.onClick();ui.render();
+  assert.equal(ui.storage.getItem('nox.afterimage.v1'),null);
+});
+
+test('protected story archives offer the exact recovery download and explicit replacement',()=>{
+  const raw=' {"version":99,"valuable":"Original story"} ',ui=receiver({owner:true,initialRaw:raw});
+  const original=ui.button('Download original stories');assert.ok(original);original.props.onClick();
+  assert.equal(ui.downloads[0][0],raw);assert.equal(ui.storage.getItem('nox.afterimage.v1'),raw);
+  ui.button('Replace protected archive').props.onClick();ui.render();
+  assert.equal(ui.storage.getItem('nox.afterimage.v1'),raw);
+  ui.button('Confirm replacement').props.onClick();ui.render();
+  assert.equal(JSON.parse(ui.storage.getItem('nox.afterimage.v1')).version,1);
+});
+
+test('voice preparation remains stoppable and captions-only playback explains its fallback',()=>{
+  const preparing=receiver({preparing:true});
+  assert.ok(preparing.nodes().some(node=>preparing.text(node)==='Preparing voice…'));
+  assert.equal(preparing.button('Capture performance').props.disabled,true);assert.ok(preparing.button('Stop'));
+  const fallback=receiver({captionsOnly:true,voiceError:'Voice unavailable'});
+  assert.match(fallback.text(fallback.find(node=>node.props?.role==='status')),/captions|Voice unavailable/i);
+  assert.match(fallback.text(fallback.find(node=>node.props?.id==='afterimage-capture-note')),/28.*60/);
 });
 
 test('owner without a live connection sees the access requirement before any seed input',()=>{

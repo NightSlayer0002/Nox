@@ -15,20 +15,39 @@ const bundle=await build({entryPoints:[path.join(root,'client/workspace.jsx')],b
   builder.onResolve({filter:/(source-scene|source-boundary|afterimage|companion-hub)\.jsx$/},args=>({path:args.path,external:true}));
 }}]});
 
-function notebook({owner=false,enabled=true}={}) {
-  const data=new Map(),storage={temporary:!owner,getItem:key=>data.get(key)??null,setItem:(key,value)=>data.set(key,value)};
+function notebook({owner=false,enabled=true,initialRaw}={}) {
+  const data=new Map(initialRaw===undefined?[]:[['nox.knowledge.v1',initialRaw]]),downloads=[],storage={temporary:!owner,getItem:key=>data.get(key)??null,setItem:(key,value)=>data.set(key,value)};
   const knowledge=createKnowledge(storage);knowledge.setEnabled(enabled);
   const slots=[];let cursor=0,tree;
   const react={createElement:(type,props,...children)=>({type,props:{...props,children}}),Suspense:'suspense',lazy:()=> 'lazy',useCallback:fn=>fn,useRef:value=>({current:value}),useEffect(){},useState(initial){const index=cursor++;if(!slots[index])slots[index]={value:typeof initial==='function'?initial():initial};return [slots[index].value,value=>{slots[index].value=typeof value==='function'?value(slots[index].value):value;}];}};
-  const mocks={'react':react,'react-dom':{createPortal:children=>children},'react-dom/client':{},'motion/react':{AnimatePresence:'presence',motion:{article:'article'},useReducedMotion:()=>false},'/js/workbench.js':{knowledge,knowledgeChanged(){},downloadText(){}},'/js/visit-scope.js':{visit:{owner,storage}},'/js/preferences.js':{readTheme:()=> 'dark',applyTheme(){}},'/js/source-background.js':{},'./source-boundary.jsx':{},'./companion-hub.jsx':{mountCompanionHub(){}}};
+  const mocks={'react':react,'react-dom':{createPortal:children=>children},'react-dom/client':{},'motion/react':{AnimatePresence:'presence',motion:{article:'article'},useReducedMotion:()=>false},'/js/workbench.js':{knowledge,knowledgeChanged(){},downloadText:(...args)=>downloads.push(args)},'/js/visit-scope.js':{visit:{owner,storage}},'/js/preferences.js':{readTheme:()=> 'dark',applyTheme(){}},'/js/source-background.js':{},'./source-boundary.jsx':{},'./companion-hub.jsx':{mountCompanionHub(){}}};
   const module={exports:{}};
   vm.runInNewContext(bundle.outputFiles[0].text,{module,exports:module.exports,require:id=>mocks[id]??nativeRequire(id),document:{getElementById:()=>null},console});
   function render(){cursor=0;tree=module.exports.Notebook();return tree;}
   function nodes(node){if(!node||typeof node!=='object')return [];return [node,...(node.props?.children??[]).flat(Infinity).flatMap(child=>nodes(child))];}
   function text(node){return (node?.props?.children??[]).flat(Infinity).map(child=>typeof child==='object'?text(child):child??'').join('');}
   const find=predicate=>nodes(tree).find(predicate);render();
-  return {knowledge,storage,render,find,text,status:()=>text(find(node=>node.props?.role==='status'))};
+  return {knowledge,storage,downloads,render,find,text,status:()=>text(find(node=>node.props?.role==='status'))};
 }
+
+test('a protected notebook offers its exact original and requires explicit replacement',()=>{
+  const raw=' {"version":99,"valuable":"Original notebook"} ',ui=notebook({owner:true,initialRaw:raw});
+  const button=label=>ui.find(node=>node.type==='button'&&ui.text(node)===label);
+  button('Download original notebook').props.onClick();assert.equal(ui.downloads[0][0],raw);
+  button('Replace protected notebook').props.onClick();ui.render();assert.equal(ui.storage.getItem('nox.knowledge.v1'),raw);
+  button('Confirm notebook replacement').props.onClick();ui.render();
+  assert.equal(JSON.parse(ui.storage.getItem('nox.knowledge.v1')).version,1);assert.equal(ui.knowledge.recovery,null);
+});
+
+test('notebook recovery confirmation keeps a changed original and the current pasted draft',()=>{
+  const raw='{broken',ui=notebook({owner:true,initialRaw:raw}),button=label=>ui.find(node=>node.type==='button'&&ui.text(node)===label);
+  ui.find(node=>node.props?.id==='knowledge-text').props.onChange({target:{value:'Keep my unfinished note'}});
+  button('Replace protected notebook').props.onClick();ui.render();
+  const changed='{"version":2,"valuable":"Other tab"}';ui.storage.setItem('nox.knowledge.v1',changed);
+  button('Confirm notebook replacement').props.onClick();ui.render();
+  assert.equal(ui.storage.getItem('nox.knowledge.v1'),changed);assert.match(ui.status(),/changed|could not/);
+  assert.equal(ui.find(node=>node.props?.id==='knowledge-text').props.value,'Keep my unfinished note');
+});
 
 test('guest note submission confirms temporary storage and tells the guest how to use the passage',()=>{
   const ui=notebook();

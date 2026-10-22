@@ -9,20 +9,20 @@ const counts=tokens=>{const result=new Map();for(const token of tokens)result.se
 const copy=document=>({id:document.id,title:document.title,text:document.text,createdAt:document.createdAt});
 
 function parse(raw){
-  if(typeof raw!=='string'||raw.length>1200000)return blank();
-  try{
+  if(raw===null||raw===undefined)return blank();
+  if(typeof raw!=='string'||raw.length>1200000)throw Error('invalid');
     const value=JSON.parse(raw);
-    if(!value||value.version!==1||!Array.isArray(value.documents))return blank();
+    if(!value||value.version!==1)throw Error(value&&Object.hasOwn(value,'version')?'unsupported':'invalid');
+    if(!Array.isArray(value.documents)||value.enabled!==undefined&&typeof value.enabled!=='boolean')throw Error('invalid');
     const documents=[],seen=new Set();let total=0;
-    for(const entry of value.documents.slice(0,KNOWLEDGE_LIMITS.documents)){
-      if(!entry||typeof entry!=='object'||Array.isArray(entry)||typeof entry.id!=='string'||!entry.id||entry.id.length>100||seen.has(entry.id)||typeof entry.title!=='string'||typeof entry.text!=='string')continue;
+    for(const entry of value.documents){
+      if(!entry||typeof entry!=='object'||Array.isArray(entry)||typeof entry.id!=='string'||!entry.id||entry.id.length>100||seen.has(entry.id)||typeof entry.title!=='string'||typeof entry.text!=='string')throw Error('invalid');
       const title=entry.title.trim(),text=entry.text.trim();
-      if(!title||title.length>KNOWLEDGE_LIMITS.titleCharacters||!text||text.length>KNOWLEDGE_LIMITS.documentCharacters||total+text.length>KNOWLEDGE_LIMITS.totalCharacters)continue;
+      if(!title||title.length>KNOWLEDGE_LIMITS.titleCharacters||!text||text.length>KNOWLEDGE_LIMITS.documentCharacters||total+text.length>KNOWLEDGE_LIMITS.totalCharacters)throw Error('invalid');
       seen.add(entry.id);total+=text.length;
       documents.push({id:entry.id,title,text,createdAt:Number.isFinite(entry.createdAt)&&entry.createdAt>=0?entry.createdAt:0});
     }
     return {version:1,enabled:value.enabled!==false,documents};
-  }catch{return blank();}
 }
 
 // Prefer paragraph, sentence and word boundaries. Overlap retains a thought
@@ -94,15 +94,20 @@ function retrieve(index,query){
 
 export function createKnowledge(storage){
   if(storage===undefined){try{storage=globalThis.localStorage;}catch{storage=null;}}
-  let state=blank(),persistent=Boolean(storage),memoryOnly=!storage,lastRaw,index=null,indexSource=null;
+  let state=blank(),persistent=Boolean(storage),memoryOnly=!storage,lastRaw,recovery=null,index=null,indexSource=null;
   function fresh(){
     if(memoryOnly)return state;
-    try{const raw=storage.getItem(KNOWLEDGE_KEY);if(raw!==lastRaw){state=parse(raw);lastRaw=raw;}}
+    try{const raw=storage.getItem(KNOWLEDGE_KEY);if(raw!==lastRaw){
+      // Keep visit work if the protected original changes in another tab.
+      if(recovery)recovery={reason:'changed',raw};
+      else try{state=parse(raw);persistent=true;}catch(error){state=blank();recovery={reason:error.message==='unsupported'?'unsupported':'invalid',raw};persistent=false;}
+      lastRaw=raw;
+    }}
     catch{memoryOnly=true;persistent=false;}
     return state;
   }
   function save(next){
-    if(memoryOnly){state=next;return;}
+    if(memoryOnly||recovery){state=next;return;}
     const encoded=JSON.stringify(next);
     try{storage.setItem(KNOWLEDGE_KEY,encoded);lastRaw=encoded;state=next;persistent=true;}
     catch{persistent=false;throw new Error('Could not save your notebook. Browser storage may be full or blocked. Export your notes and free some space before trying again.');}
@@ -111,6 +116,29 @@ export function createKnowledge(storage){
   return {
     get enabled(){return fresh().enabled;},
     get persistent(){return persistent&&storage?.temporary!==true;},
+    get recovery(){fresh();return recovery?{reason:recovery.reason}:null;},
+    exportOriginal(){fresh();return recovery?.raw??null;},
+    resetOriginal(expected){
+      if(!recovery||expected!==recovery.raw)return false;
+      let raw;try{raw=storage.getItem(KNOWLEDGE_KEY);}catch{return false;}
+      if(raw!==expected){recovery={reason:'changed',raw};lastRaw=raw;return false;}
+      let candidate=state,original;
+      try{original=parse(raw);}catch{}
+      if(original){
+        const documents=[...original.documents],ids=new Set(documents.map(note=>note.id));
+        for(const note of state.documents){
+          const same=documents.find(item=>item.id===note.id);
+          if(same&&JSON.stringify(same)===JSON.stringify(note))continue;
+          let id=note.id;while(ids.has(id))id=globalThis.crypto?.randomUUID?.()||`note-${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
+          ids.add(id);documents.push({...note,id});
+        }
+        if(documents.reduce((sum,note)=>sum+note.text.length,0)>KNOWLEDGE_LIMITS.totalCharacters)return false;
+        candidate={...state,documents};
+      }
+      const encoded=JSON.stringify(candidate);
+      try{storage.setItem(KNOWLEDGE_KEY,encoded);}catch{persistent=false;return false;}
+      state=candidate;lastRaw=encoded;recovery=null;persistent=true;return true;
+    },
     list(){return fresh().documents.map(copy);},
     add(input){
       fresh();
