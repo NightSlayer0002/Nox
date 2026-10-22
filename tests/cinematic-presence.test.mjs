@@ -7,6 +7,31 @@ function frameClock(){
   return {request:callback=>{pending.set(++next,callback);return next;},cancel:id=>pending.delete(id),get size(){return pending.size;},step(time){const callbacks=[...pending.values()];pending.clear();for(const callback of callbacks)callback(time);}};
 }
 
+for(const refreshRate of [60,90,120,144]){
+  test(`cinematic rendering retains 30fps on a ${refreshRate}Hz display`,()=>{
+    const clock=frameClock(),frames=[];
+    const loop=createCinematicLoop({request:clock.request,cancel:clock.cancel,render:frame=>frames.push(frame),fps:30});
+    loop.setVisible(true);
+    for(let tick=0;tick<refreshRate*10;tick++)clock.step(tick*1000/refreshRate);
+    assert.equal(frames.length,300);
+    loop.dispose();
+  });
+}
+
+for(const {fps,expected} of [{fps:undefined,expected:240},{fps:30,expected:300},{fps:60,expected:600}]){
+  test(`cinematic rendering preserves its ${fps??'default 24'}fps budget across irregular display ticks`,()=>{
+    // Average 120Hz; every interval leaves enough display capacity for 60fps.
+    const clock=frameClock(),frames=[],intervals=[6,10,7,12,8,7];
+    const loop=createCinematicLoop({request:clock.request,cancel:clock.cancel,render:frame=>frames.push(frame),...(fps===undefined?{}:{fps})});
+    loop.setVisible(true);
+    for(let time=0,tick=0;time<10000;time+=intervals[tick++%intervals.length])clock.step(time);
+    assert.equal(frames.length,expected,'display jitter should not discard rendering time');
+    assert.ok(Math.abs(frames.reduce((sum,frame)=>sum+frame.dt,0)-frames.at(-1).elapsed)<1e-9,
+      'each draw receives all simulated time since the last draw');
+    loop.dispose();
+  });
+}
+
 test('the cinematic renderer owns no frames offscreen or in a hidden tab and excludes hidden time',()=>{
   const clock=frameClock(),frames=[],presence=[];
   const loop=createCinematicLoop({...clock,request:clock.request,cancel:clock.cancel,render:frame=>frames.push(frame),presence:active=>presence.push(active),fps:30});

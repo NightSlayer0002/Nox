@@ -3,6 +3,7 @@ import { Face } from './face.js';
 import { ACTIONS } from '../../shared/character.js';
 import {createOrbitEffect} from './orbit-effect.js';
 import {resolveExportProfile} from './export-profile.js';
+import {createFrameBudget} from './source-effects.js';
 
 const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
 const smooth = value => value * value * (3 - 2 * value);
@@ -236,7 +237,8 @@ export class Stage {
     const inView=elsewhere||(this.renderEnabled!==false&&(!box||box.bottom>0&&box.top<(globalThis.innerHeight??Infinity)));
     const visibleBody=this.form!=='core'&&this.width>0&&this.height>0&&!document.hidden&&inView;
     if(visibleBody&&!this.liquidRenderer)this.prepareLiquid();
-    if(this.liquidRenderer&&visibleBody&&this.time-(this.liquidRenderedAt??-1)>=1/30){
+    // Retain display-tick overshoot so a 30fps body does not slip to 20fps.
+    if(this.liquidRenderer&&visibleBody&&(this.liquidFrameDue??=createFrameBudget(30))(timestamp)){
       this.liquidReady=this.liquidRenderer.render(this.forms.face,this.time,this.form);this.liquidRenderedAt=this.time;this.canvas.dataset.liquid=this.liquidReady?'ready':'fallback';
       const body=this.liquidRenderer.canvas.dataset;
       this.canvas.dataset.liquidBody=body.bodySource||'procedural';this.canvas.dataset.liquidHold=body.bodyHold||'0';this.canvas.dataset.liquidWobble=body.bodyWobble||'0';this.canvas.dataset.liquidImpact=body.bodyImpact||'0';
