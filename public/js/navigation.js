@@ -41,8 +41,6 @@ export function createNavigation({history,onOpen,onNew,onStart}) {
       b.addEventListener('click',()=>open(t.id));$('recent-chats').append(b);
     });
     if(!$('recent-chats').children.length){const p=document.createElement('p');p.className='empty';p.textContent='Your first conversation starts here.';$('recent-chats').append(p);}
-    $('resume-chats').replaceChildren();all.filter(t=>t.turns.length).slice(0,3).forEach(t=>{const b=document.createElement('button');b.className='resume-row';const icon=document.createElement('span'),content=document.createElement('span'),title=document.createElement('b'),meta=document.createElement('small'),arrow=document.createElement('span');icon.textContent='NOX';title.textContent=t.title;meta.textContent=`${t.turns.length} messages · ${new Date(t.updated).toLocaleDateString(undefined,{month:'short',day:'numeric'})}`;arrow.textContent='';content.append(title,meta);b.append(icon,content,arrow);b.addEventListener('click',()=>open(t.id));$('resume-chats').append(b);});
-    if(!$('resume-chats').children.length){const p=document.createElement('p');p.className='empty-state';p.textContent='A fresh start. Start a conversation with NOX.';$('resume-chats').append(p);}
     $('history-list').replaceChildren();const matches=history.list($('history-search').value).filter(t=>t.turns.length);$('history-count').textContent=`${all.length} ${document.body.dataset.visit==='guest'?'temporary':'saved'} conversation${all.length===1?'':'s'}`;
     for(const t of matches){
       const row=document.createElement('div'),button=document.createElement('button'),title=document.createElement('b'),preview=document.createElement('span'),meta=document.createElement('small'),remove=document.createElement('button');
@@ -83,5 +81,5 @@ export function createNavigation({history,onOpen,onNew,onStart}) {
     try{const reset=await history.resetArchive();$('archive-reset-dialog').close();render();if(!reset){$('archive-notice').hidden=false;$('archive-notice-text').textContent='The original archive changed or could not be replaced. It was not reset. Review its current recovery copy before trying again.';}}
     finally{$('archive-reset-confirm').disabled=false;}
   });
-  window.addEventListener('hashchange',applyView);$('today-label').textContent=new Date().toLocaleDateString(undefined,{month:'long',day:'numeric',year:'numeric'}).toUpperCase();applyView();render();return {render,setView};
+  window.addEventListener('hashchange',applyView);applyView();render();return {render,setView};
 }
