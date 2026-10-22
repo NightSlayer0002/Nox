@@ -5,6 +5,7 @@ import * as THREE from 'three';
 import {MeshLineGeometry,MeshLineMaterial} from 'meshline';
 import {createCinematicLoop} from '/js/cinematic-presence.js';
 import {createCinematicDynamics,CINEMATIC_MOTION} from '/js/cinematic-dynamics.js';
+import {cinematicTrailWidth} from '/js/cinematic-trail.js';
 import {createCinematicAtmosphere} from './cinematic-atmosphere.js';
 
 const pipePoints=[[0,10,-10],[10,0,-10],[20,0,0],[30,0,10],[30,0,20],[20,0,30],[10,0,30],[0,0,30],[-10,10,30],[-10,20,30],[0,30,30],[10,30,30],[20,30,15],[10,30,10],[0,30,10],[-10,20,10],[-10,10,10],[0,0,10],[10,-10,10],[20,-15,10],[30,-15,10],[40,-15,10],[50,-15,10],[60,0,10],[70,0,0],[80,0,0],[90,0,0],[100,0,0]];
@@ -13,6 +14,7 @@ const clamp=value=>Math.max(0,Math.min(1,value));
 function createRoom(host,handle,portraitCanvas,orbCanvas,landing,{onState}){
   const events=new AbortController(),face=landing.stage.character;
   const small=matchMedia('(max-width:700px)').matches;
+  const compactTrail=matchMedia('(max-width:900px), (pointer:coarse)');
   const dynamics=createCinematicDynamics({x:small?.85:2.5,y:.15,vx:CINEMATIC_MOTION.initialVx,vy:CINEMATIC_MOTION.initialVy,maxSpeed:CINEMATIC_MOTION.maxSpeed});
   const portraitContext=portraitCanvas.getContext('2d');
   let renderer,scene,atmosphere,resize,loop,disposed=false,failed=false,held=null,started=null;
@@ -56,9 +58,10 @@ function createRoom(host,handle,portraitCanvas,orbCanvas,landing,{onState}){
     for(let i=0;i<trailCount;i++){const age=1-i/(trailCount-1);initial[i*3]=dynamics.state.x-age*1.8;initial[i*3+1]=dynamics.state.y+Math.sin(age*2.6)*.15;initial[i*3+2]=-.12;}
     // MeshLine's native variable-width strip and allocation-free advance API.
     trail.setPoints(initial,p=>p*p*.95+.005);
+    const trailMaterials=[];
     for(const [width,opacity,color] of [[.5,.14,'#a7bab6']]){
       const material=new MeshLineMaterial({color:new THREE.Color(color),lineWidth:width,transparent:true,opacity,resolution,sizeAttenuation:1,depthWrite:false,depthTest:false});
-      const ribbon=new THREE.Mesh(trail,material);ribbon.frustumCulled=false;ribbon.renderOrder=1;scene.add(ribbon);lineMaterials.push(material);
+      const ribbon=new THREE.Mesh(trail,material);ribbon.frustumCulled=false;ribbon.renderOrder=1;scene.add(ribbon);lineMaterials.push(material);trailMaterials.push(material);
     }
     const target={x:.5,y:.5},smooth={x:.5,y:.5},projected=new THREE.Vector3(),tailPoint=new THREE.Vector3();
     const plane=new THREE.Plane(new THREE.Vector3(0,0,1),0),raycaster=new THREE.Raycaster(),ndc=new THREE.Vector2(),intersection=new THREE.Vector3();
@@ -69,6 +72,7 @@ function createRoom(host,handle,portraitCanvas,orbCanvas,landing,{onState}){
       renderer.setSize(width,height);resolution.set(width,height);
       atmosphere.resize(width,height);
       for(const material of lineMaterials)material.resolution.copy(resolution);
+      for(const material of trailMaterials)material.lineWidth=cinematicTrailWidth(width,height,{compact:compactTrail.matches});
       camera.left=-halfWidth;camera.right=halfWidth;camera.updateProjectionMatrix();
       dynamics.setBounds({left:-halfWidth+.8,right:halfWidth-.8,bottom:-2.55,top:2.55});
     };
