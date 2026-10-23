@@ -58,3 +58,30 @@ test('angry eyes share a baseline and stay open enough to read as eyes',()=>{
   assert.equal(rectangles[0].h,rectangles[1].h);
   assert.ok(rectangles[0].h>=28,'angry eyes should not collapse into thin slits');
 });
+
+test('held and falling surprise keeps solid brand eyes with a wider, shorter silhouette',()=>{
+  function eyes(face){
+    const filled=[],outlined=[];let rectangle=null;
+    const ctx={beginPath(){rectangle=null;},moveTo(){},lineTo(){},quadraticCurveTo(){},
+      roundRect(x,y,w,h,r){rectangle={x,y,w,h,r};},
+      fill(){if(rectangle)filled.push({...rectangle,color:this.fillStyle});},
+      stroke(){if(rectangle)outlined.push(rectangle);},
+    };
+    drawEyes(ctx,face.features(1.1),0,0,1.1,'#fff3c9',face.reduceMotion);
+    return {filled,outlined};
+  }
+  const calm=eyes(new Face()).filled[0];
+  for(const acting of ['held','falling'])for(const reduced of [false,true]){
+    const face=new Face();face.reduceMotion=reduced;
+    if(acting==='held')face.setHeld(true,1);else face.setFalling(true);
+    const rendered=eyes(face);
+    assert.equal(rendered.filled.length,2,`${acting} surprise should fill both eyes`);
+    assert.deepEqual(rendered.outlined,[],'surprise should not turn the brand eyes into hollow zeroes');
+    for(const eye of rendered.filled){
+      assert.equal(eye.color,'#fff3c9');
+      assert.ok(eye.w>calm.w&&eye.w<=calm.w*1.2,'surprise subtly widens the luminous eye');
+      assert.ok(eye.h>calm.h*.65&&eye.h<calm.h*.9,'surprise stays shorter and rounder than the calm eye');
+      assert.equal(eye.r,eye.w/2,'the rounded pill shape is retained');
+    }
+  }
+});

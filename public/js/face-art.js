@@ -5,7 +5,7 @@ export const EXPRESSIONS = Object.freeze({
   happy:{eyes:'arc',heights:[.73,.73]},content:{eyes:'arc',heights:[.55,.55]},
   skeptical:{eyes:'half',heights:[.44,.83],brows:'skeptical'},annoyed:{eyes:'half',heights:[.42,.42],brows:'angry',marks:'anger'},
   sleepy:{eyes:'closed',heights:[.18,.18],marks:'sleep'},yawning:{eyes:'closed',heights:[.18,.18]},
-  uncanny:{eyes:'pill',heights:[1.06,1.06]},surprised:{eyes:'ring',heights:[1.14,1.14],brows:'raised'},
+  uncanny:{eyes:'pill',heights:[1.06,1.06]},surprised:{eyes:'pill',heights:[.96,.96],brows:'raised'},
   shy:{eyes:'arc',heights:[.6,.6],marks:'blush'},worried:{eyes:'pill',heights:[.6,.64],brows:'worried',marks:'sweat'},
   dizzy:{eyes:'spiral',heights:[.8,.8],marks:'stars'},ouch:{eyes:'squeezed',heights:[.5,.5]},
   excited:{eyes:'star',heights:[.8,.8]},mischievous:{eyes:'half',heights:[.4,.68],brows:'skeptical'},
@@ -67,7 +67,7 @@ function glossyEye(ctx,x,y,h,gazeX,gazeY){
 export function drawEyes(ctx,f,gazeX,gazeY,time,color,reduceMotion){
   ctx.strokeStyle=color;ctx.fillStyle=color;ctx.lineWidth=5;ctx.lineCap='round';ctx.lineJoin='round';
   for(let side=0;side<2;side++){
-    const classic=['neutral','curious'].includes(f.expression),spacing=classic?57:47,eyeWidth=classic?46:38;
+    const classic=['neutral','curious'].includes(f.expression),spacing=classic?57:47,eyeWidth=classic?46:f.expression==='surprised'?50:38;
     const x=(side?spacing:-spacing)+gazeX,h=(side?f.rightHeight:f.leftHeight)*(classic?1:.82);
     if(f.eyeStyle==='arc'){
       // Close the existing smile along its own curve. Switching to the generic
@@ -106,9 +106,9 @@ export function drawEyes(ctx,f,gazeX,gazeY,time,color,reduceMotion){
     ctx.save();const opacity=ctx.globalAlpha;ctx.fillStyle=color;ctx.shadowBlur=3;ctx.textAlign='center';
     for(let i=0;i<3;i++){
       const phase=reduceMotion?0:(time*.32+i/3)%1;
-      ctx.globalAlpha=opacity*(reduceMotion ? .8 : .25+.75*Math.sin(phase*Math.PI));
-      ctx.font=`500 ${14+i*4}px system-ui, sans-serif`;
-      ctx.fillText('z',69+i*15+phase*12,-129-i*14-phase*23);
+      ctx.globalAlpha=opacity*(reduceMotion ? .8 : Math.sin(phase*Math.PI)**2);
+      ctx.font=`500 ${20+i*5}px system-ui, sans-serif`;
+      ctx.fillText('z',69+i*22+phase*12,-100-i*14-phase*20);
     }
     ctx.restore();
   }
