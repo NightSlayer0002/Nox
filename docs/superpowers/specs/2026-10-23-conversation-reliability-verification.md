@@ -45,3 +45,11 @@ Publication was initially rejected by automatic approval review because it could
 - Final code revision `89fd7bffca4f78380c47086021fba1299275a9fb`: [GitHub Actions 39987539131](https://github.com/NightSlayer0002/Nox/actions/runs/39987539131) succeeded; [Vercel 5fKDqSSHHuN2PubqFPqjtW6GWXJi](https://vercel.com/night-86c7/nox/5fKDqSSHHuN2PubqFPqjtW6GWXJi) succeeded. Subsequent documentation publication changes no runtime code.
 
 No physical Android or iOS device was attached. Touch/keyboard checks used browser fixtures and tests. Local speech fixtures establish lifecycle correctness, not real-provider latency. The free model choice is a documented practical production option, not a universal intelligence ranking; model replies still need ongoing scenario review. Complete answers are saved before voice preparation, and the four-second/manual text escape avoids hiding a valid answer indefinitely.
+
+## Proportion and alignment follow-up
+
+The user found the enlarged NOX too bulky and the bot too small/detached. The conversation canvas is now 208px on desktop and 144px on phones (approximately 155px/107px visible body). Bot artwork is 44 × 33px / 36 × 27px with its existing 44px tap target. Initial placement uses the centered composer width, leaves room for the bot on the right, and vertically aligns with the welcome. When welcome content is not yet mounted, its fallback uses the conversation area rather than the full workspace edge. Native DOMRect prototype geometry has explicit regression coverage.
+
+The follower targets the visible right shoulder instead of the transparent canvas corner. Near the right edge it lifts above that shoulder rather than flipping left. The spring trail, full draggable bounds, held-head room and gravity landing geometry remain intact. Short-phone welcome spacing follows the smaller canvas.
+
+`npm run verify` passes **850 tests**, **260 syntax checks**, and the production build. Browser layouts were checked at 1920 × 1000, 1440 × 900, 390 × 844 and 320 × 640. At 320 × 640 the canvas ends at 218px and the welcome heading begins at 226px, with no horizontal overflow. The right-edge phone bot stayed on NOX's right with its complete target in bounds, and its menu opened. Local proof: `artifacts/companion-proportions-desktop.png` and `artifacts/companion-proportions-mobile.png`.

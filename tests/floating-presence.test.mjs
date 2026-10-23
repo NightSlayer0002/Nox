@@ -83,8 +83,8 @@ test('motion preference changes during a visit apply to gravity and the bot with
 
 test('a fresh welcome placement stays where the user drags it while typing, with Park explicitly returning it to the composer',()=>{
   const f=fixture();try{
-    assert.equal(f.presence.state.size,256);
-    assert.equal(f.presence.state.y,202);
+    assert.equal(f.presence.state.size,208);
+    assert.equal(f.presence.state.y,226);
     f.fire('pointerdown',{x:1066,y:252});f.fire('pointermove',{x:600,y:350});f.fire('pointerup',{x:600,y:350});f.tick();
     const placement={x:f.presence.state.x,y:f.presence.state.y};
     f.doc.activeElement={tagName:'TEXTAREA'};f.elements['chat-form'].rect.top=650;
@@ -100,7 +100,7 @@ test('the floating pose retains headroom through held tilt and leaves a proporti
     const f=fixture({compact});try{
       f.tick();const face=f.stage.character,size=f.presence.state.size;
       const visibleWidth=290*face.unit(size,size);
-      assert.ok(visibleWidth>=(compact?110:180)&&visibleWidth<=(compact?128:200));
+      assert.ok(visibleWidth>=(compact?100:148)&&visibleWidth<=(compact?115:164));
       for(const tilt of [-.15,.19]){
         const unit=face.unit(size,size),outline=silhouette();
         const top=Math.min(...outline.map(point=>size*face.y+(point.y*Math.cos(tilt)+point.x*Math.sin(tilt)-10.5)*unit));

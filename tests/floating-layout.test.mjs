@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {floatingLayout,createKeyboardTracker,floatingAllowed} from '../public/js/floating-layout.js';
+import {floatingBotTarget} from '../public/js/floating-follower.js';
 
 test('phone first placement uses the clear area above the welcome copy',()=>{
   const layout=floatingLayout({viewport:{width:390,height:844},header:{bottom:64},welcome:{top:238,height:300,right:372},composer:{top:692,right:372},nav:{height:60},compact:true});
@@ -9,9 +10,9 @@ test('phone first placement uses the clear area above the welcome copy',()=>{
 
 test('a phone uses a small character and composer floor without reserving a chat row',()=>{
   const layout=floatingLayout({viewport:{width:390,height:844},shell:{left:18,right:372},header:{bottom:64},composer:{top:700},nav:{height:60},compact:true});
-  assert.equal(layout.size,160);assert.equal(layout.bounds.left,26);assert.equal(layout.bounds.right,364);
-  assert.ok(layout.bounds.floor>718&&layout.bounds.floor<721);
-  assert.equal(layout.park.x,204);assert.ok(layout.park.y<layout.bounds.floor);
+  assert.equal(layout.size,144);assert.equal(layout.bounds.left,26);assert.equal(layout.bounds.right,364);
+  assert.ok(layout.bounds.floor>716&&layout.bounds.floor<719);
+  assert.equal(layout.park.x,220);assert.ok(layout.park.y<layout.bounds.floor);
 });
 
 test('a reduced viewport only clamps offscreen placement, and has room for the composer',()=>{
@@ -58,36 +59,54 @@ test('call, film, recording and other routes retain their existing stage',()=>{
 
 test('Takeover enlarges the floating character while keeping its parked bounds visible',()=>{
   const layout=floatingLayout({viewport:{width:390,height:844},composer:{top:700},compact:true,takeover:true});
-  assert.equal(layout.size,240);assert.ok(layout.park.x+layout.size<=layout.bounds.right);
+  assert.equal(layout.size,216);assert.ok(layout.park.x+layout.size<=layout.bounds.right);
   assert.ok(layout.park.y+layout.size<=layout.bounds.bottom);
 });
 
 test('Park rests on the actual composer even when a desktop has wide outer margins',()=>{
   const layout=floatingLayout({viewport:{width:1440,height:900},shell:{left:184,right:1440},header:{bottom:64},composer:{top:780,left:352,right:1272}});
   assert.equal(layout.bounds.right,1432);
-  assert.equal(layout.park.x,1016);
+  assert.equal(layout.park.x,1064);
   assert.equal(layout.park.x+layout.size,1272);
 });
 
 test('fresh desktop placement sits beside the welcome at its middle instead of on the composer',()=>{
   const layout=floatingLayout({viewport:{width:1440,height:900},shell:{left:184,right:1440},header:{bottom:64},welcome:{top:150,height:360,right:1272},composer:{top:780,right:1272}});
-  assert.equal(layout.size,256);
-  assert.deepEqual(layout.initial,{x:1016,y:202});
+  assert.equal(layout.size,208);
+  assert.deepEqual(layout.initial,{x:1016,y:226});
   assert.ok(layout.initial.y+layout.size<600,'the initial character is well above the composer');
   assert.ok(layout.park.y>500,'Park remains an explicit trip to the composer');
   assert.equal(layout.bounds.left,192,'the complete workspace remains draggable');
   assert.equal(layout.bounds.right,1432);
 });
 
+test('native DOMRect-style inherited geometry still centers NOX beside the visible welcome',()=>{
+  const welcome=Object.create({top:150,height:360,right:1272});
+  const layout=floatingLayout({viewport:{width:1440,height:900},header:{bottom:64},welcome,composer:{top:780,right:1272}});
+  assert.equal(layout.initial.y+layout.size*.5,330);
+});
+
 test('phone placement leaves a much smaller controls bot beside a readable character',()=>{
   const layout=floatingLayout({viewport:{width:390,height:844},shell:{left:18,right:372},header:{bottom:64},welcome:{top:110,height:300,right:372},composer:{top:700,right:372},nav:{height:60},compact:true});
-  assert.equal(layout.size,160);
-  assert.deepEqual(layout.initial,{x:204,y:72});
+  assert.equal(layout.size,144);
+  assert.deepEqual(layout.initial,{x:180,y:72});
   assert.ok(layout.park.y>500);
   assert.ok(layout.park.y+layout.size<=layout.bounds.bottom);
 });
 
 test('a hidden welcome in a restored conversation keeps the default on the right at middle height',()=>{
   const layout=floatingLayout({viewport:{width:1440,height:900},shell:{left:184,right:1440},header:{bottom:64},welcome:{top:0,right:0,height:0},composer:{top:780,right:1272}});
-  assert.deepEqual(layout.initial,{x:1176,y:236.5});
+  assert.deepEqual(layout.initial,{x:1016,y:322});
+});
+
+test('initial NOX and his right-side bot fit the centered conversation width before welcome content mounts',()=>{
+  for(const [width,shellLeft,composerLeft,composerRight] of [[1440,184,352,1272],[1920,230,500,1650]]){
+    const layout=floatingLayout({viewport:{width,height:900},shell:{left:shellLeft,right:width},header:{bottom:64},welcome:{height:0},composer:{left:composerLeft,right:composerRight,top:780}});
+    const bot=floatingBotTarget({...layout.initial,size:layout.size},layout.bounds);
+    assert.ok(layout.initial.x+layout.size*.5>(composerLeft+composerRight)*.5);
+    assert.ok(bot.x>layout.initial.x+layout.size*.87,'bot stays on the visible body’s right');
+    assert.ok(bot.x+22<=composerRight,'the pair does not hug the outer page edge');
+    assert.ok(Math.abs(layout.initial.y+layout.size*.5-426)<1,'resting height aligns with the conversation area');
+    assert.equal(layout.bounds.right,width-8,'dragging still reaches the complete workspace');
+  }
 });

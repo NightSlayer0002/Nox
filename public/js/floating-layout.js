@@ -7,7 +7,7 @@ export function floatingAllowed({view,presence,callOpen,film=false,recording=fal
 
 export function floatingLayout({viewport={},shell={},header={},welcome={},composer={},nav={},compact=false,takeover=false}={}){
   const width=Math.max(1,finite(viewport.width,390)),height=Math.max(1,finite(viewport.height,844));
-  const offsetLeft=finite(viewport.offsetLeft),offsetTop=finite(viewport.offsetTop),preferredSize=(compact?160:256)*(takeover?1.5:1);
+  const offsetLeft=finite(viewport.offsetLeft),offsetTop=finite(viewport.offsetTop),preferredSize=(compact?144:208)*(takeover?1.5:1);
   const left=clamp(Math.max(offsetLeft,finite(shell.left))+8,offsetLeft,offsetLeft+width-1);
   const right=clamp(Math.min(offsetLeft+width,finite(shell.right,offsetLeft+width))-8,left+1,offsetLeft+width);
   const bottom=clamp(offsetTop+height-Math.max(0,finite(nav.height))-8,offsetTop+1,offsetTop+height);
@@ -18,8 +18,12 @@ export function floatingLayout({viewport={},shell={},header={},welcome={},compos
   const floor=clamp(finite(composer.top,bottom)+size*.12,top+size,bottom);
   const parkX=clamp(finite(composer.right,right)-size,left,right-size);
   const visibleWelcome=finite(welcome.height)>0?welcome:{};
-  const initialX=clamp(finite(visibleWelcome.right,right)-size,left,right-size);
-  const initialY=compact?top:clamp(finite(visibleWelcome.top,top)+finite(visibleWelcome.height,height*.65)*.5-size*.5,top,Math.max(top,floor-size));
+  // The composer is measurable before the welcome mounts. Keep the pair in
+  // that centered content span, with room for the bot on NOX's right.
+  const contentRight=finite(composer.right,finite(visibleWelcome.right,right));
+  const initialX=clamp(contentRight-size-48,left,right-size);
+  const centerY=finite(visibleWelcome.height)>0?finite(visibleWelcome.top,top)+visibleWelcome.height*.5:(top+finite(composer.top,bottom))*.5;
+  const initialY=compact?top:clamp(centerY-size*.5,top,Math.max(top,floor-size));
   return {size,bounds:{left,top,right,bottom,floor},initial:{x:initialX,y:initialY},park:{x:parkX,y:floor-size}};
 }
 

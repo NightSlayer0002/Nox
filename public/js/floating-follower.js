@@ -10,16 +10,11 @@ export function floatingBotTarget(avatar={}, bounds={}, buttonSize=44) {
   let right=finite(bounds.right, left+size+half*2), bottom=finite(bounds.bottom, top+size+half*2);
   if (left > right) [left, right]=[right, left];
   if (top > bottom) [top, bottom]=[bottom, top];
-  const preferredX=x+size+half;
-  let centerX=preferredX, centerY=y+12;
-  if (preferredX+half > right || preferredX-half < left) {
-    if (x-half*2 >= left && x <= right) centerX=x-half;
-    else {
-      // A narrow workspace may only leave room vertically.
-      if (y-half*2 >= top && y <= bottom) centerY=y-half;
-      else if (y+size >= top && y+size+half*2 <= bottom) centerY=y+size+half;
-    }
-  }
+  // Follow the visible shoulder, not the transparent square around the body.
+  const preferredX=x+size*.87+half+6;
+  const centerX=preferredX;
+  // At the edge, lift above the right shoulder rather than swapping sides.
+  const centerY=preferredX+half>right?y+size*.1-half-6:y+size*.22;
   return {x:fitCenter(centerX, left, right, half), y:fitCenter(centerY, top, bottom, half)};
 }
 

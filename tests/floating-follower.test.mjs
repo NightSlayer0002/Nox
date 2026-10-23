@@ -16,21 +16,33 @@ const follower = (initial) => {
 };
 const room = {left:0, top:0, right:400, bottom:600};
 
-test('bot center sits beside the upper-right corner without covering the character', () => {
-  assert.deepEqual(target({x:100, y:100, size:60}, room), {x:182, y:112});
+test('bot sits beside the visible upper-right shoulder rather than the transparent canvas corner', () => {
+  const avatar={x:100,y:100,size:208},bot=target(avatar,{...room,right:600});
+  assert.ok(bot.x-22>avatar.x+avatar.size*.87);
+  assert.ok(bot.x-22<avatar.x+avatar.size,'avoid detaching beyond the transparent canvas');
+  assert.ok(bot.y>avatar.y+avatar.size*.15&&bot.y<avatar.y+avatar.size*.3);
 });
 
-test('bot flips left near the right edge and keeps its full tap target in bounds', () => {
-  assert.deepEqual(target({x:330, y:100, size:60}, room), {x:308, y:112});
-  assert.deepEqual(target({x:10, y:-20, size:60}, {...room, left:10, top:20}), {x:92, y:42});
-  assert.deepEqual(target({x:330, y:590, size:60}, room), {x:308, y:578});
-  assert.deepEqual(target({x:330, y:100, size:60}, room, 48), {x:306, y:112});
+test('at the right edge the bot lifts above the right shoulder instead of flipping left', () => {
+  for(const size of [144,208])for(const buttonSize of [44,48]){
+    const avatar={x:room.right-size,y:100,size},bot=target(avatar,room,buttonSize);
+    assert.ok(bot.x>avatar.x+size*.5);
+    assert.ok(bot.y+buttonSize/2<=avatar.y+size*.13,'move above the body when horizontal space runs out');
+    assert.ok(bot.x+buttonSize/2<=room.right);
+  }
+  const top=target({x:10,y:-20,size:60},{...room,left:10,top:20});
+  assert.ok(top.x>=32&&top.y>=42);
+  const bottom=target({x:330,y:590,size:60},room);
+  assert.ok(bottom.x+22<=400&&bottom.y+22<=600);
 });
 
-test('narrow bounds use space above or below instead of covering the character', () => {
+test('narrow bounds keep the bot at the right shoulder and retain the complete tap target', () => {
   const narrow = {...room, right:100};
-  assert.deepEqual(target({x:10, y:200, size:80}, narrow), {x:78, y:178});
-  assert.deepEqual(target({x:10, y:10, size:80}, narrow), {x:78, y:112});
+  for(const y of [10,200]){
+    const bot=target({x:10,y,size:80},narrow);
+    assert.ok(bot.x>50&&bot.x+22<=100);
+    assert.ok(bot.y-22>=0&&bot.y+22<=600);
+  }
 });
 
 test('tiny or malformed placement bounds still produce finite centers', () => {
