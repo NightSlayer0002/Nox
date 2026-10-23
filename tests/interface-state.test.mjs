@@ -5,6 +5,8 @@ import {AFTERIMAGE_SCHEMA} from '../shared/afterimage.js';
 import {requestProvider} from '../server/providers.mjs';
 import {Stage} from '../public/js/stage.js';
 import {Face} from '../public/js/face.js';
+import {createFloatingDynamics} from '../public/js/floating-dynamics.js';
+import {observeInterface} from '../public/js/interface-observation.js';
 
 const observed={route:'conversation',presence:'floating',form:'liquid',activeScene:'gravity',gravity:true,held:false,grounded:true,lastAction:{action:'gravity',source:'model',result:'applied'}};
 const packet={speech:'Gravity is already on.',emotion:'curious',action:'none',memory:''};
@@ -85,6 +87,20 @@ test('chat stop ends the current effect without interrupting its explanatory rep
   assert.equal(stage.caption,'I will stop gravity.');
   assert.ok(stage.character.speakingUntil>stage.time);
   assert.deepEqual(stage.run('stop',{source:'model'}),{action:'none',source:'model',result:'unavailable'});
+});
+
+test('stopping floating gravity preserves its airborne placement and reports it as ungrounded',()=>{
+  const {stage}=stageFixture(),motion=createFloatingDynamics({x:120,y:100,size:60});
+  motion.setBounds({left:10,top:20,right:410,bottom:620,floor:540});
+  stage.run('gravity');motion.setGravity(stage.scene?.action==='gravity');motion.step(.05);
+  const placement={x:motion.state.x,y:motion.state.y};
+  assert.ok(placement.y>100&&placement.y<480);
+  stage.speak({...packet,action:'stop'});motion.setGravity(stage.scene?.action==='gravity');
+  for(let frame=0;frame<120;frame++)motion.step(1/120);
+  assert.deepEqual({x:motion.state.x,y:motion.state.y},placement);
+  const state=observeInterface({stage,floating:{active:true,state:motion.state},view:'conversation'});
+  assert.equal(state.gravity,false);assert.equal(state.activeScene,'none');assert.equal(state.grounded,false);
+  assert.deepEqual(state.lastAction,{action:'gravity',source:'model',result:'stopped'});
 });
 
 test('scene expiry replaces the old applied receipt with the actual stopped outcome',()=>{

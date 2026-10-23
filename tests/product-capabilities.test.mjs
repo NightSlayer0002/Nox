@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {requestProvider} from '../server/providers.mjs';
-import {requestNox} from '../server/ai.mjs';
+import {IDENTITY,requestNox} from '../server/ai.mjs';
 import {capabilitiesForModel} from '../shared/product-capabilities.js';
 
 const packet={speech:'A clear answer.',emotion:'curious',action:'none',memory:''};
@@ -35,9 +35,19 @@ test('all chat APIs get guest-safe product facts and ignore forged client capabi
     assert.equal(facts.routes.afterimage,'/guest#afterimage');
     assert.equal(facts.cameraVision,false);
     assert.equal(facts.presence.autonomousWandering,false);
-    assert.equal(facts.presence.gravity,'Falls vertically onto the message composer and settles; no lateral fling or bouncing in the conversation overlay.');
+    assert.match(facts.presence.gravity,/falls vertically/i);
+    assert.match(facts.presence.gravity,/at most one tiny 8px landing rebound.*then settles/i);
+    assert.match(facts.presence.stopGravity,/current position without moving/i);
+    assert.match(facts.presence.stopGravity,/Park NOX explicitly returns him near the composer/);
+    assert.match(instructions,/Disabling gravity in conversation stops the fall without moving NOX/);
     assert.ok(facts.controls.presence.includes('Park NOX'));
   }
+});
+
+test('character instructions distinguish stopping conversation gravity from explicit parking',()=>{
+  assert.match(IDENTITY,/at most one tiny 8px landing rebound.*then settle/);
+  assert.match(IDENTITY,/Disabling gravity in conversation stops the fall at your current position without moving you/);
+  assert.match(IDENTITY,/Park NOX explicitly moves you near the composer/);
 });
 
 test('trusted capabilities preserve real owner features through the direct OpenAI adapter',async()=>{
