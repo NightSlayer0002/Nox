@@ -2,7 +2,7 @@
 
 The user approves repairing state/action coherence, evaluating a stronger sustainable free model, and improving the delay between written and spoken replies. They delegate implementation choices and ask to discover broader failure cases rather than patch particular sentences.
 
-**Status:** Implementation is complete in the working tree, with focused regression coverage. Final release checks, live scenario evaluation and deployment verification remain pending.
+**Status:** Implementation is committed and published. Full automated verification and browser checks are recorded in the companion verification report; live model probes confirm the selected 120B model and correct action choices. Physical mobile hardware is unavailable and remains an explicit verification limit.
 
 ## Design
 
@@ -16,7 +16,7 @@ Natural audio uses its actual playing event, and browser speech uses utterance s
 
 ## Companion interface refinements
 
-The conversation overlay uses a preferred 256px desktop or 160px compact canvas, reduced to fit short viewports and Takeover. It starts beside the welcome area; Park remains explicit. The controls bot follows with a damped spring and fading trail. The follower, gravity and CSS trail use the same effective Stage motion preference, honoring the workspace's explicit motion-on setting. A faster gravity drop has one small landing rebound; the keyboard hop does not add a second bounce. Sleep marks are enlarged, repositioned within the canvas and fade through their animation wrap.
+The conversation overlay uses a preferred 256px desktop or 160px compact canvas, reduced to fit short viewports and Takeover. It starts beside the welcome area; Park remains explicit. Short portrait phones scroll their empty welcome below the artwork, then use the full transcript area after the first turn. The controls bot follows with a damped spring and fading trail. The follower, gravity and CSS trail use the same effective Stage motion preference, honoring the workspace's explicit motion-on setting. A faster gravity drop has one small landing rebound; the keyboard hop does not add a second bounce. Stopping gravity preserves the current position; the model capability contract distinguishes this from Park and from observed grounded state. Sleep marks are enlarged, repositioned within the canvas and fade through their animation wrap; surprised eyes retain solid brand artwork.
 
 Message exploration has visible dwell progress, target highlighting, a message excerpt and action descriptions. Hover action buttons remain reachable across the gap below a message. Pointer menus animate briefly; keyboard entry focuses an action directly, with arrow/Home/End navigation, Escape dismissal and focus restoration. The existing explicit-choice and draft-protection boundaries remain intact.
 
@@ -29,4 +29,4 @@ Message exploration has visible dwell progress, target highlighting, a message e
 
 ## Limits and acceptance
 
-No new account setup, paid service, external persistent conversation log or autonomous movement. Runtime action receipts do not rewrite historical archives. Focused tests cover state sanitation and transport, action no-ops/stop/expiry, cancellation, slow/failing/blocked audio, calls, full written-answer retention, clip planning and companion behavior. Fictional correction/refusal/reasoning scenarios require live semantic review in addition to automated action checks. Pending provider probes must stay small and use the normal public allowance; compare quality, model identity and latency without exhausting it. Final browser, physical mobile audio and exact deployment verification remain release work, reported separately from synthetic tests.
+No new account setup, paid service, external persistent conversation log or autonomous movement. Runtime action receipts do not rewrite historical archives. Focused tests cover state sanitation and transport, action no-ops/stop/expiry, cancellation, slow/failing/blocked audio, calls, full written-answer retention, clip planning and companion behavior. Fictional correction/refusal/reasoning scenarios require live semantic review in addition to automated action checks. Provider probes stay small and use the normal public allowance. Browser, physical mobile limitations and exact deployment evidence are recorded separately from synthetic tests in the verification report.

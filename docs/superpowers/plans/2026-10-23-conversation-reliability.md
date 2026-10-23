@@ -10,7 +10,7 @@
 
 **Spec:** ../specs/2026-10-23-conversation-reliability-design.md
 
-**Status:** Implementation complete in the working tree. Focused regression tests and combined review have passed; final release checks, live scenario evaluation, browser/device verification and deployment evidence remain pending.
+**Status:** Implementation committed and deployed. Full verification passes 848 tests, 260 syntax checks and the production build. Browser checks, bounded live scenario probes and exact code CI/deployment checks are recorded in the verification report, including provider failures and latency limits. Physical mobile hardware is unavailable and remains an explicit verification limit.
 
 ## Global constraints
 
@@ -39,7 +39,7 @@ Files: shared/interface-state.js, shared/character.js, server/ai.mjs, shared/pro
 - [x] Connect current client state at send time and update capability instructions.
 - [x] Add chat-only stop without changing authored Afterimage action vocabulary.
 - [x] Add generic correction/refusal/no-op scenario fixtures without canned phrase responses.
-- [ ] Evaluate scenario semantics against the updated live model and prompt.
+- [x] Evaluate scenario semantics against the updated live model and prompt; record the extra provider-invalid case without claiming semantic success.
 
 ### 2. Voice readiness and text presentation
 
@@ -59,7 +59,7 @@ Files: server/providers.mjs, server.mjs, shared/product-capabilities.js, .env.ex
 - [x] Document official model/free-tier terms and quota facts in the model-selection specification.
 - [x] Test/implement the production 120B default and one public guest 20B fallback only for quota/model-access failures before output; retain actual model metrics.
 - [x] Add fictional scenario fixtures for correction, refusals, already-done actions, unsupported powers, attribution and ordinary reasoning, plus an explicit opt-in probe script.
-- [ ] Run bounded live probes against the updated release and record results/limits honestly.
+- [x] Run bounded live probes against the updated release and record results/limits honestly.
 
 ### 4. Companion interface refinements
 
@@ -70,11 +70,12 @@ Files: public/js/floating-dynamics.js, public/js/floating-follower.js, public/js
 - [x] Add message dwell progress, target highlighting, excerpt/action descriptions, keyboard navigation and reachable hover action controls.
 - [x] Enlarge and reposition sleep marks within the canvas, with clean fade through animation wrap.
 - [x] Add focused movement, layout, message-menu, effective-motion and sleep-mark regression coverage.
+- [x] Keep the short-phone empty welcome below NOX and scroll its content above the composer; remove the extra inset as soon as the conversation starts.
 
 ### 5. Verification and release
 
 - [x] Run focused regression checks, review the combined change and fix material findings.
-- [ ] Run final full tests, syntax checks and production build for the release revision.
-- [ ] Exercise voice-off, synchronized voice, show-text override, error fallback, call, live action context and mobile layouts in browser.
-- [ ] Record physical mobile audio behavior separately from browser emulation.
-- [ ] Commit and publish focused changes; verify exact CI/deployment and save proof.
+- [x] Run final full tests, syntax checks and production build for the release revision.
+- [x] Exercise voice-off, synchronized voice, show-text override, error fallback, call dialog and mobile layouts in browser; exercise live action context with fictional API probes.
+- [x] Record physical mobile verification limits separately from browser emulation (no Android or iOS device attached).
+- [x] Commit and publish focused changes; verify exact code CI/deployment and save proof.
