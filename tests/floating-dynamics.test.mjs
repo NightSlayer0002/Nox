@@ -231,3 +231,83 @@ test('invalid or paused frame time cannot teleport a falling body',()=>{
   assert.ok(motion.state.y>100&&motion.state.y<110);
   assert.equal(motion.state.x,120);
 });
+
+test('resizing a grounded body preserves its bottom through shrink and growth',()=>{
+  const motion=createFloatingDynamics({x:120,y:412,size:128,gravity:true});
+  motion.setBounds(room);
+  assert.equal(motion.state.grounded,true);
+  assert.equal(motion.resize(96),motion.state);
+  motion.setBounds(room);
+  assert.equal(motion.state.y,444);
+  assert.equal(motion.state.grounded,true);
+  assert.equal(motion.state.vy,0);
+  motion.resize(128);
+  motion.setBounds(room);
+  assert.equal(motion.state.y,412);
+  assert.equal(motion.state.grounded,true);
+  assert.equal(motion.state.x,120);
+});
+
+test('resizing a keyboard hop preserves its floor offset and velocity',()=>{
+  const motion=createFloatingDynamics({x:120,y:412,size:128,gravity:true});
+  motion.setBounds(room);
+  motion.keyboard(true);
+  motion.step(.05);
+  const before={y:motion.state.y,vy:motion.state.vy};
+  motion.resize(96);
+  assert.equal(motion.state.y,before.y+32);
+  assert.equal(motion.state.vy,before.vy);
+  assert.equal(motion.state.grounded,false);
+  motion.setBounds({...room,floor:340});
+  assert.equal(motion.state.y,before.y-168);
+  assert.equal(motion.state.vy,before.vy);
+  assert.equal(motion.state.hopCount,1);
+  tick(motion);
+  assert.equal(motion.state.y,244);
+  assert.equal(motion.state.grounded,true);
+});
+
+test('resizing with gravity off preserves placement except required viewport clamping',()=>{
+  const motion=createFloatingDynamics({x:100,y:180,size:60});
+  motion.setBounds(room);
+  motion.resize(100);
+  assert.equal(motion.state.x,100);
+  assert.equal(motion.state.y,180);
+  motion.place({x:310,y:520});
+  motion.resize(128);
+  assert.equal(motion.state.x,282);
+  assert.equal(motion.state.y,492);
+  assert.equal(motion.state.grounded,false);
+  motion.resize(NaN);
+  assert.equal(motion.state.size,128);
+  assert.equal(motion.state.x,282);
+  assert.equal(motion.state.y,492);
+});
+
+test('resizing mid-drag preserves the top-left position and pointer grip',()=>{
+  const motion=createFloatingDynamics({x:100,y:180,size:60,gravity:true});
+  motion.setBounds(room);
+  motion.grab({x:110,y:195});
+  motion.resize(100);
+  assert.equal(motion.state.x,100);
+  assert.equal(motion.state.y,180);
+  assert.equal(motion.state.dragging,true);
+  motion.drag({x:110,y:195});
+  assert.equal(motion.state.x,100);
+  assert.equal(motion.state.y,180);
+  motion.drag({x:120,y:205});
+  assert.equal(motion.state.x,110);
+  assert.equal(motion.state.y,190);
+});
+
+test('resizing at a viewport edge adjusts the drag grip after unavoidable clamping',()=>{
+  const motion=createFloatingDynamics({x:350,y:560,size:60});
+  motion.setBounds(room);
+  motion.grab({x:360,y:575});
+  motion.resize(100);
+  assert.equal(motion.state.x,310);
+  assert.equal(motion.state.y,520);
+  motion.drag({x:350,y:565});
+  assert.equal(motion.state.x,300);
+  assert.equal(motion.state.y,510);
+});

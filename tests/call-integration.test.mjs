@@ -35,7 +35,7 @@ async function fixture(){
     afterimageBridge:{stop:noop},memory:{setName:noop,remember:noop},visit:{owner:false},
     approvedPreferences:{context:()=>({})},knowledge:{context:()=>[]},companionBridge:{propose:noop},
     applyApprovedPreferences:noop,apiHeaders:()=>({}),contextPreview:noop,updateMemory:noop,
-    navigation:{render:noop},companionChanged:noop,
+    navigation:{render:noop},companionChanged:noop,messageCompanion:{clear:noop},
     voice:{enabled:true,supported:true,prepare:noop,speak:text=>spoken.push(text),stop:noop,setEnabled:noop},
     microphone:{stop:noop},callMicrophone:{supported:true,start:noop,stop:noop},showVoice:noop,
     stage:{character:{react:noop},run:noop,speak:noop},addMessage,attachMessageActions:noop,

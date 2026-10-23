@@ -36,6 +36,14 @@ export function createFloatingDynamics({x=0,y=0,size=76,gravity=false}={}){
     constrain();
     return state;
   }
+  function resize(size){
+    const previous={x:state.x,y:state.y,size:state.size};
+    state.size=Math.max(1,finite(size,state.size));
+    if(gravityEnabled&&!state.dragging)state.y+=previous.size-state.size;
+    constrain();
+    if(state.dragging){offset.x+=state.x-previous.x;offset.y+=state.y-previous.y;}
+    return state;
+  }
   function grab(point){
     if(!validPoint(point))return false;
     offset={x:state.x-point.x,y:state.y-point.y};
@@ -82,5 +90,5 @@ export function createFloatingDynamics({x=0,y=0,size=76,gravity=false}={}){
     }
     return state;
   }
-  return {state,setBounds,setGravity,grab,drag,release,place,keyboard,step};
+  return {state,setBounds,setGravity,resize,grab,drag,release,place,keyboard,step};
 }

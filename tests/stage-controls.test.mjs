@@ -65,3 +65,21 @@ test('captions remain on the recording canvas throughout speech, then return to 
   assert.deepEqual(captions,['The voice is still speaking.']);
   stage.character.speakingUntil=20;stage.render();assert.equal(captions.length,1);
 });
+
+test('a floating controller owns positioning while the shared stage keeps its scene state',()=>{
+  const {stage}=fixture();stage.run('gravity');stage.externalPlacement=true;
+  stage.character.x=.5;stage.character.y=.5;stage.character.scale=2.1;
+  stage.time+=1;stage.animateScene(.04);
+  assert.equal(stage.character.y,.5);assert.equal(stage.character.scale,2.1);
+  assert.equal(stage.scene.action,'gravity');
+  stage.externalPlacement=false;stage.animateScene(.04);
+  assert.notEqual(stage.character.y,.5);
+});
+
+test('floating placement preserves scene expiry so Takeover returns after its moment',()=>{
+  const {stage}=fixture();stage.externalPlacement=true;stage.run('takeover');
+  stage.time+=11;stage.animateScene(.04);
+  assert.equal(stage.scene,null);
+  stage.run('gravity');stage.time+=11;stage.animateScene(.04);
+  assert.equal(stage.scene.action,'gravity');
+});

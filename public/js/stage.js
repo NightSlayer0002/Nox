@@ -253,6 +253,7 @@ export class Stage {
     if (!this.scene) return;
     const age = this.time - this.scene.start;
     if (age > 10 && this.scene.action !== 'gravity') { this.reset(); return; }
+    if (this.externalPlacement) return;
     if (this.reduceMotion) return;
     const enter = smooth(clamp(age / 1.3, 0, 1));
     if (this.scene.action === 'gravity') {
@@ -289,15 +290,15 @@ export class Stage {
 
     const action = this.scene?.action;
     const age = this.scene ? this.time - this.scene.start : 0;
-    if (action === 'orbit') this.drawOrbit(age,'back');
+    if (action === 'orbit'&&!this.externalPlacement) this.drawOrbit(age,'back');
     if (this.camera?.readyState >= 2) this.drawCamera(action, age);
-    if (action === 'echo') {
+    if (action === 'echo'&&!this.externalPlacement) {
       const appearance = this.reduceMotion ? .18 : smooth(clamp((age - 1) / 3, 0, 1)) * .22;
       this.character.draw(ctx, w, h, this.time, { x: .75, y: .29, scale: .56, alpha: appearance, ghost: true });
     }
     if(this.characterAlpha!==0)this.character.draw(ctx, w, h, this.time,{alpha:this.characterAlpha??1,volumeTexture:this.form!=='core'&&this.liquidReady?this.liquidRenderer?.canvas:null,materialBlend:this.materialBlend??0});
-    if (action === 'orbit') this.drawOrbit(age,'front');
-    if (action === 'spotlight') {
+    if (action === 'orbit'&&!this.externalPlacement) this.drawOrbit(age,'front');
+    if (action === 'spotlight'&&!this.externalPlacement) {
       const radius = Math.min(w, h) * .32;
       const px = this.reduceMotion ? w * .5 : this.pointer.x * w;
       const py = this.reduceMotion ? h * .44 : this.pointer.y * h;
@@ -305,7 +306,7 @@ export class Stage {
       shade.addColorStop(0, '#050b0800'); shade.addColorStop(1, '#050b08e0');
       ctx.fillStyle = shade; ctx.fillRect(0, 0, w, h);
     }
-    if (action === 'takeover') {
+    if (action === 'takeover'&&!this.externalPlacement) {
       ctx.fillStyle = '#c7cbc7'; ctx.font = `${Math.max(9, w / 75)}px Consolas, monospace`;
       ctx.textAlign = 'center'; ctx.fillText('CREATIVE CONTROL: NOX', w * .5, h * .15);
     }

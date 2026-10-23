@@ -33,30 +33,32 @@
 Files: public/js/floating-dynamics.js, tests/floating-dynamics.test.mjs.
 Interface: createFloatingDynamics({x,y,size,gravity=false}) returns state, setBounds({left,top,right,bottom,floor}), setGravity(bool), grab({x,y}), drag({x,y}), release({cancel=false}), place({x,y}), keyboard(open,{reduceMotion=false}), step(dt). State exposes x,y,size,vy,dragging,grounded,hopCount,impact. x/y are top-left CSS pixels; floor is composer top, bounded by the viewport bottom. No x velocity.
 
-- [ ] Test and implement stationary placement, vertical fall, bounded viewport, single keyboard transition hop, cancellation and reduced motion.
-- [ ] Run node --test tests/floating-dynamics.test.mjs.
+- [x] Test and implement stationary placement, vertical fall, bounded viewport, single keyboard transition hop, cancellation and reduced motion.
+- [x] Run node --test tests/floating-dynamics.test.mjs.
 
 ### 2. Deliberate message actions
 
 Files: public/js/message-companion.js, tests/message-companion.test.mjs. Root wires callbacks in app.js.
 Interface: attachMessageCompanion({documentTarget,conversation,onAction,dwellMs=650}) returns inspect({x,y,dragging}), release({cancel=false}), clear(), dispose(). onAction receives {kind:'explain'|'read'|'quiz',message,text}. A stationary 650ms drag hold over a completed message opens a fixed, viewport-clamped menu; release retains an opened menu, cancellation closes it. Passive gravity never calls inspect with dragging=true.
 
-- [ ] Test message selection, dwell cancellation, no automatic action, explicit callbacks and stale message removal.
-- [ ] Implement with existing icon assets; return clear CSS hooks for root styling.
+- [x] Test message selection, dwell cancellation, no automatic action, explicit callbacks and stale message removal.
+- [x] Implement with existing icon assets; return clear CSS hooks for root styling.
 
 ### 3. Floating surface and controls
 
 Files: public/js/floating-presence.js, public/floating-presence.css, public/js/app.js, public/js/stage.js, public/app.html, adapter tests.
 
-- [ ] Add Stage.externalPlacement flag to skip internal scene-position animation while the DOM adapter owns placement.
-- [ ] Integrate fixed-size, transparent Stage with a silhouette-sized pointer handle, existing poke/drag/hold/keyboard expressions, and a smaller following SVG bot with a bounded fading trail.
-- [ ] Measure composer and visual viewport with ResizeObserver; classify keyboard transitions; no textbox-input relocation.
-- [ ] Suspend in call/film/recording/other routes and restore existing surfaces and placement.
-- [ ] Connect Park/Hide/Show and message callbacks to existing composer/voice behavior. Provide equivalent keyboard message actions.
-- [ ] Remove the reserved conversation row and side column only while the floating surface is active.
+- [x] Add Stage.externalPlacement flag to skip internal scene-position animation while the DOM adapter owns placement.
+- [x] Integrate fixed-size, transparent Stage with a silhouette-sized pointer handle, existing poke/drag/hold/keyboard expressions, and a smaller following SVG bot with a bounded fading trail.
+- [x] Measure composer and visual viewport with ResizeObserver; classify keyboard transitions; no textbox-input relocation.
+- [x] Suspend in call/film/recording/other routes and restore existing surfaces and placement.
+- [x] Connect Park/Hide/Show and message callbacks to existing composer/voice behavior. Provide equivalent keyboard message actions.
+- [x] Remove the reserved conversation row and side column only while the floating surface is active.
 
 ### 4. Verification and release
 
-- [ ] Exercise long chat scrolling, manual placement, gravity, open/close keyboard, touch cancellation, small bot, menu edges, message actions and shared call stage at phone/tablet/desktop sizes.
-- [ ] Run npm run verify and design detector, review final changes, and fix material findings.
-- [ ] Commit separately by behavior and publish; verify exact deployment and capture live proof.
+- [x] Exercise long chat scrolling, manual placement, gravity, open/close keyboard, touch cancellation, small bot, menu edges, message actions and shared call stage at phone/tablet/desktop sizes.
+- [x] Run npm run verify and design detector, review final changes, and fix material findings.
+- [x] Prepare focused behavior commits for release.
+- [ ] Publish, verify the exact deployment and capture live proof.
+
