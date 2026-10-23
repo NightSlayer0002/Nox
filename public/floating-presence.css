@@ -43,5 +43,11 @@
  .workspace .floating-ui .presence-bot{width:28px;height:21px}
  .workspace .floating-ui .presence-menu-panel{padding:16px;gap:16px}
 }
+@media(max-width:600px) and (max-height:800px) and (orientation:portrait){
+ /* The empty welcome scrolls below NOX; completed conversations keep their full transcript area. */
+ .workspace[data-floating=true][data-view=conversation]:not([data-conversation-started=true]) .companion-column{justify-content:flex-start;padding-top:160px!important}
+ .workspace[data-floating=true][data-view=conversation]:not([data-conversation-started=true]) #conversation-welcome{flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin;scrollbar-color:var(--line) transparent}
+ .workspace[data-floating=true][data-view=conversation]:not([data-conversation-started=true]) .companion-welcome{padding-top:0}
+}
 .workspace .floating-ui[data-motion=reduced] :is(.presence-bot,.floating-nox-handle){transition:none}
 .workspace .floating-ui[data-motion=reduced] .floating-bot-trail{display:none}
