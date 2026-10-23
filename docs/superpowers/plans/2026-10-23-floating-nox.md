@@ -60,5 +60,4 @@ Files: public/js/floating-presence.js, public/floating-presence.css, public/js/a
 - [x] Exercise long chat scrolling, manual placement, gravity, open/close keyboard, touch cancellation, small bot, menu edges, message actions and shared call stage at phone/tablet/desktop sizes.
 - [x] Run npm run verify and design detector, review final changes, and fix material findings.
 - [x] Prepare focused behavior commits for release.
-- [ ] Publish, verify the exact deployment and capture live proof.
-
+- [x] Publish, verify the exact deployment and capture live proof. Results: ../specs/2026-10-23-floating-nox-verification.md.
