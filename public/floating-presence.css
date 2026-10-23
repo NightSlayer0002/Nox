@@ -6,8 +6,8 @@
 .workspace[data-floating=true][data-view=conversation] .conversation-dock{grid-column:1;grid-row:2}
 .workspace[data-floating=true][data-view=conversation] .companion-welcome{padding:24px 0}
 .workspace[data-floating=true][data-view=conversation] .conversation{padding-top:18px}
-.workspace .floating-ui #world{--floating-size:96px;position:absolute!important;inset:0 auto auto 0!important;display:block;width:var(--floating-size);height:var(--floating-size);min-height:0;margin:0;padding:0;pointer-events:none;will-change:transform;z-index:1}
-.workspace .floating-ui #world>.stage-bezel{width:100%;height:100%;margin:0;padding:0;border:0;background:transparent;max-width:none}
+.workspace .floating-ui #world{--floating-size:160px;position:absolute!important;inset:0 auto auto 0!important;display:block;width:var(--floating-size);height:var(--floating-size);min-height:0;margin:0;padding:0;overflow:visible;pointer-events:none;will-change:transform;z-index:1}
+.workspace .floating-ui #world>.stage-bezel{width:100%;height:100%;margin:0;padding:0;border:0;border-radius:0;background:transparent;max-width:none;overflow:visible}
 .workspace .floating-ui #stage-wrap{height:100%!important;min-height:0!important;width:100%;aspect-ratio:1;background:transparent;overflow:visible}
 .workspace .floating-ui #stage{width:100%;height:100%;mask-image:none!important;pointer-events:none;border-radius:0;outline:none}
 .workspace .floating-ui :is(.stage-caption-band,.stage-top,.stage-hint,.presence-mobile-copy,.instrument-heading){display:none!important}
@@ -43,4 +43,5 @@
  .workspace .floating-ui .presence-bot{width:28px;height:21px}
  .workspace .floating-ui .presence-menu-panel{padding:16px;gap:16px}
 }
-@media(prefers-reduced-motion:reduce){.workspace .floating-ui :is(.presence-bot,.floating-nox-handle){transition:none}.workspace .floating-bot-trail{display:none}}
+.workspace .floating-ui[data-motion=reduced] :is(.presence-bot,.floating-nox-handle){transition:none}
+.workspace .floating-ui[data-motion=reduced] .floating-bot-trail{display:none}

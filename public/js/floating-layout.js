@@ -5,17 +5,22 @@ export function floatingAllowed({view,presence,callOpen,film=false,recording=fal
   return view==='conversation'&&presence!=='hidden'&&callOpen!=='true'&&!film&&!recording;
 }
 
-export function floatingLayout({viewport={},shell={},header={},composer={},nav={},compact=false,takeover=false}={}){
+export function floatingLayout({viewport={},shell={},header={},welcome={},composer={},nav={},compact=false,takeover=false}={}){
   const width=Math.max(1,finite(viewport.width,390)),height=Math.max(1,finite(viewport.height,844));
-  const offsetLeft=finite(viewport.offsetLeft),offsetTop=finite(viewport.offsetTop),size=(compact?96:128)*(takeover?1.5:1);
-  const left=Math.max(offsetLeft,finite(shell.left))+8;
-  const right=Math.max(left+size,Math.min(offsetLeft+width,finite(shell.right,width))-8);
-  const top=Math.min(offsetTop+height-size,Math.max(offsetTop+8,finite(header.bottom)+8));
-  const bottom=Math.max(top+size,offsetTop+height-finite(nav.height)-8);
+  const offsetLeft=finite(viewport.offsetLeft),offsetTop=finite(viewport.offsetTop),preferredSize=(compact?160:256)*(takeover?1.5:1);
+  const left=clamp(Math.max(offsetLeft,finite(shell.left))+8,offsetLeft,offsetLeft+width-1);
+  const right=clamp(Math.min(offsetLeft+width,finite(shell.right,offsetLeft+width))-8,left+1,offsetLeft+width);
+  const bottom=clamp(offsetTop+height-Math.max(0,finite(nav.height))-8,offsetTop+1,offsetTop+height);
+  const top=clamp(Math.max(offsetTop+8,finite(header.bottom)+8),offsetTop,bottom-1);
+  // Short landscapes and Takeover shrink the artwork, never its usable bounds.
+  const size=Math.min(preferredSize,right-left,bottom-top);
   // Face artwork has a small transparent lower margin inside its canvas.
-  const floor=clamp(finite(composer.top,bottom)+size*.065,top+size,bottom);
+  const floor=clamp(finite(composer.top,bottom)+size*.12,top+size,bottom);
   const parkX=clamp(finite(composer.right,right)-size,left,right-size);
-  return {size,bounds:{left,top,right,bottom,floor},park:{x:parkX,y:floor-size}};
+  const visibleWelcome=finite(welcome.height)>0?welcome:{};
+  const initialX=clamp(finite(visibleWelcome.right,right)-size,left,right-size);
+  const initialY=compact?top:clamp(finite(visibleWelcome.top,top)+finite(visibleWelcome.height,height*.65)*.5-size*.5,top,Math.max(top,floor-size));
+  return {size,bounds:{left,top,right,bottom,floor},initial:{x:initialX,y:initialY},park:{x:parkX,y:floor-size}};
 }
 
 // Android's interactive-widget mode resizes innerHeight too; retain a baseline

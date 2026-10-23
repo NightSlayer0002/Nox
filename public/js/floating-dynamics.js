@@ -8,7 +8,7 @@ export function createFloatingDynamics({x=0,y=0,size=76,gravity=false}={}){
   const state={x:finite(x,0),y:finite(y,0),size:Math.max(1,finite(size,76)),vy:0,dragging:false,grounded:false,hopCount:0,impact:0};
   let bounds={left:0,top:0,right:Infinity,bottom:Infinity,floor:Infinity};
   let gravityEnabled=Boolean(gravity);
-  let keyboardOpen=false,hopActive=false,reduceMotion=false;
+  let keyboardOpen=false,hopActive=false,reduceMotion=false,rebounded=false;
   let offset={x:0,y:0};
   const floorY=()=>Math.max(bounds.top,Math.min(bounds.floor,bounds.bottom)-state.size);
   function constrain(){
@@ -32,7 +32,7 @@ export function createFloatingDynamics({x=0,y=0,size=76,gravity=false}={}){
     return state;
   }
   function setGravity(enabled){
-    gravityEnabled=Boolean(enabled);state.vy=0;state.impact=0;hopActive=false;
+    gravityEnabled=Boolean(enabled);state.vy=0;state.impact=0;hopActive=false;rebounded=false;
     constrain();
     return state;
   }
@@ -47,7 +47,7 @@ export function createFloatingDynamics({x=0,y=0,size=76,gravity=false}={}){
   function grab(point){
     if(!validPoint(point))return false;
     offset={x:state.x-point.x,y:state.y-point.y};
-    state.dragging=true;state.grounded=false;state.vy=0;state.impact=0;hopActive=false;
+    state.dragging=true;state.grounded=false;state.vy=0;state.impact=0;hopActive=false;rebounded=false;
     return true;
   }
   function drag(point){
@@ -57,7 +57,7 @@ export function createFloatingDynamics({x=0,y=0,size=76,gravity=false}={}){
   }
   // Both normal release and pointer cancellation resume gravity from rest.
   function release({cancel=false}={}){
-    state.dragging=false;state.vy=0;state.impact=0;hopActive=false;
+    state.dragging=false;state.vy=0;state.impact=0;hopActive=false;rebounded=false;
     constrain();
     return state;
   }
@@ -86,7 +86,12 @@ export function createFloatingDynamics({x=0,y=0,size=76,gravity=false}={}){
     state.vy+=acceleration*dt;
     if(state.y<bounds.top){state.y=bounds.top;state.vy=Math.max(0,state.vy);}
     if(state.y>=floorY()){
-      state.y=floorY();state.impact=clamp(state.vy/650,.12,1);state.vy=0;state.grounded=true;hopActive=false;
+      state.y=floorY();state.impact=Math.max(state.impact,clamp(state.vy/650,.12,1));
+      // Keep the original landing squash and a single small rebound. Keyboard
+      // hops already have their own 8px arc and do not start a second bounce.
+      if(!rebounded&&!hopActive&&state.vy>300){state.vy=-Math.sqrt(2*acceleration*8);state.grounded=false;rebounded=true;}
+      else{state.vy=0;state.grounded=true;}
+      hopActive=false;
     }
     return state;
   }

@@ -311,3 +311,21 @@ test('resizing at a viewport edge adjusts the drag grip after unavoidable clampi
   assert.equal(motion.state.x,300);
   assert.equal(motion.state.y,510);
 });
+
+test('a gravity landing rebounds once by at most 8px and then rests without drifting',()=>{
+  const motion=createFloatingDynamics({x:120,y:100,size:60});
+  motion.setBounds(room);motion.setGravity(true);
+  assert.equal(motion.state.y,100,'enabling gravity starts at the actual placement');
+  let contact=false,rebound=false,apex=480,arrivals=0,wasFalling=true;
+  for(let frame=0;frame<480;frame++){
+    motion.step(1/240);
+    if(motion.state.y===480&&wasFalling){contact=true;arrivals++;}
+    if(contact&&motion.state.y<480){rebound=true;apex=Math.min(apex,motion.state.y);}
+    wasFalling=motion.state.vy>0;
+  }
+  assert.equal(contact,true);assert.equal(rebound,true,'a visible small bounce follows the first fall');
+  assert.ok(apex>=472&&apex<=473);
+  assert.equal(arrivals,2,'one first contact and one final settling contact');
+  assert.equal(motion.state.y,480);assert.equal(motion.state.x,120);
+  assert.equal(motion.state.grounded,true);assert.equal(motion.state.vy,0);
+});

@@ -8,6 +8,7 @@ export function attachFloatingPresence({stage,documentTarget=document,windowTarg
   const doc=documentTarget,win=windowTarget,$=id=>doc.getElementById(id),world=$('world'),toolbar=$('presence-toolbar'),menu=$('presence-menu'),panel=$('presence-menu-panel');
   const events=new AbortController(),listen=(node,type,fn,options={})=>node?.addEventListener(type,fn,{...options,signal:events.signal});
   const compact=win.matchMedia('(max-width:600px)'),reduced=win.matchMedia('(prefers-reduced-motion: reduce)');
+  const reduceMotion=()=>stage.motionOverride==null?reduced.matches:!stage.motionOverride;
   const keyboard=createKeyboardTracker(),motion=createFloatingDynamics({size:96}),follower=createFloatingFollower();
   const layer=doc.createElement('div');layer.className='floating-ui';layer.hidden=true;
   const svg=doc.createElementNS('http://www.w3.org/2000/svg','svg');svg.classList.add('floating-bot-trail');svg.setAttribute('aria-hidden','true');
@@ -38,16 +39,16 @@ export function attachFloatingPresence({stage,documentTarget=document,windowTarg
     }
     // Classify before measuring the composer; hiding bottom navigation changes
     // its floor. Suggestion-bar resizes keep the same keyboard state.
-    motion.keyboard(keyboardState.open,{reduceMotion:reduced.matches});lastKeyboard=keyboardState.open;
+    motion.keyboard(keyboardState.open,{reduceMotion:reduceMotion()});lastKeyboard=keyboardState.open;
     const nav=$('mobile-bottom-nav')??doc.querySelector('.mobile-bottom-nav');
-    return floatingLayout({viewport:{width,height,offsetLeft:viewport?.offsetLeft??0,offsetTop:viewport?.offsetTop??0},shell:$('workspace-shell').getBoundingClientRect(),header:doc.querySelector('.header').getBoundingClientRect(),composer:$('chat-form').getBoundingClientRect(),nav:{height:nav&&win.getComputedStyle(nav).display!=='none'?nav.getBoundingClientRect().height:0},compact:compact.matches,takeover:stage.scene?.action==='takeover'});
+    return floatingLayout({viewport:{width,height,offsetLeft:viewport?.offsetLeft??0,offsetTop:viewport?.offsetTop??0},shell:$('workspace-shell').getBoundingClientRect(),header:doc.querySelector('.header').getBoundingClientRect(),welcome:doc.querySelector('.companion-welcome')?.getBoundingClientRect(),composer:$('chat-form').getBoundingClientRect(),nav:{height:nav&&win.getComputedStyle(nav).display!=='none'?nav.getBoundingClientRect().height:0},compact:compact.matches,takeover:stage.scene?.action==='takeover'});
   }
   function measure(){
     measureFrame=null;if(!active||disposed)return;
     const previousSize=motion.state.size;layout=bounds();motion.resize(layout.size);
     world.style.setProperty('--floating-size',`${layout.size}px`);
     motion.setBounds(layout.bounds);
-    if(!placed){motion.place(layout.park);placed=true;}
+    if(!placed){motion.place(layout.initial);placed=true;}
     if(restorePlacement){motion.place(restorePlacement);restorePlacement=null;}
     if(previousSize!==layout.size)stage.resize();
     if(menu.open)positionMenu();
@@ -79,6 +80,10 @@ export function attachFloatingPresence({stage,documentTarget=document,windowTarg
   }
   function draw(dt,time){
     if(!active||!layout)return;
+    const reducedMotion=reduceMotion();
+    layer.dataset.motion=reducedMotion?'reduced':'full';
+    // A preference can change without a resize or keyboard transition.
+    motion.keyboard(lastKeyboard,{reduceMotion:reducedMotion});
     const state=motion.step(dt);
     world.style.transform=`translate3d(${state.x.toFixed(2)}px,${state.y.toFixed(2)}px,0)`;
     world.dataset.x=state.x.toFixed(2);world.dataset.y=state.y.toFixed(2);world.dataset.gravity=String(previousGravity);world.dataset.grounded=String(state.grounded);world.dataset.hops=String(state.hopCount);
@@ -88,7 +93,7 @@ export function attachFloatingPresence({stage,documentTarget=document,windowTarg
     const target=floatingBotTarget(state,layout.bounds);
     // A menu stays anchored while open, even if gravity moves its character.
     if(!menu.open){
-      const follow=follower.update({...target,time,dt,reduceMotion:reduced.matches});bot={x:follow.x,y:follow.y};
+      const follow=follower.update({...target,time,dt,reduceMotion:reducedMotion});bot={x:follow.x,y:follow.y};
       toolbar.style.transform=`translate3d(${(bot.x-22).toFixed(2)}px,${(bot.y-22).toFixed(2)}px,0)`;
       const trail=follow.trail;
       for(let i=0;i<segments.length;i++){
@@ -133,7 +138,7 @@ export function attachFloatingPresence({stage,documentTarget=document,windowTarg
       previousAction=action;scheduleMeasure();
     }
     const character=stage.character;
-    character.x=character.targetX=.5;character.y=character.targetY=.47;character.scale=stage.form==='core'?.9:2.1;character.rotation=0;
+    character.x=character.targetX=.5;character.y=character.targetY=.51;character.scale=stage.form==='core'?.9:1.85;character.rotation=0;
     stage.captionMode='hidden';stage.captionTargetEnabled=false;
     draw(dt,time);
   };
