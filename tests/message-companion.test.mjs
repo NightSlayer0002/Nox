@@ -16,6 +16,7 @@ class Element extends EventTarget {
   matches(selector){return selector.startsWith('.')&&selector.slice(1).split('.').every(name=>this.classList.contains(name));}
   closest(selector){return this.matches(selector)?this:this.parentElement?.closest(selector)??null;}
   querySelector(selector){for(const child of this.children){if(child.matches(selector))return child;const nested=child.querySelector(selector);if(nested)return nested;}return null;}
+  querySelectorAll(selector){return this.children.flatMap(child=>[...(child.matches(selector)?[child]:[]),...child.querySelectorAll(selector)]);}
   setAttribute(name,value){this.attributes.set(name,String(value));}
   getAttribute(name){return this.attributes.get(name)??null;}
   getBoundingClientRect(){return this.rect;}
@@ -152,4 +153,79 @@ test('long messages disclose bounded reading and clamp menus inside the visual v
   assert.ok(left>=48&&left+240<=352);assert.ok(top>=108&&top+160<=392);
   f.companion.clear();message.querySelector('.message-content').textContent='x'.repeat(420);f.companion.openFor(message);
   assert.match(f.button('read').textContent,/Read aloud/);assert.deepEqual(f.calls,[]);
+});
+
+test('a deliberate hold marks its candidate and shows one timed progress trace until the menu opens',t=>{
+  const f=fixture(t,{dwellMs:800}),message=f.message();f.setHits(message);
+  f.companion.inspect({x:80,y:100,dragging:true});
+  const progress=message.querySelector('.message-companion-dwell');
+  assert.equal(message.dataset.companionState,'holding');
+  assert.ok(progress,'the candidate needs a visible dwell cue');
+  assert.equal(progress.getAttribute('aria-hidden'),'true');
+  assert.equal(progress.style.animationDuration,'800ms');
+  t.mock.timers.tick(400);f.companion.inspect({x:84,y:103,dragging:true});
+  assert.equal(message.querySelector('.message-companion-dwell'),progress,'small jitter preserves the progress');
+  t.mock.timers.tick(400);
+  assert.equal(message.querySelector('.message-companion-dwell'),null);
+  assert.equal(message.dataset.companionState,'selected');
+  assert.ok(f.menu());assert.deepEqual(f.calls,[]);
+  f.companion.clear();assert.equal(message.dataset.companionState,undefined);
+});
+
+test('restarting or moving away from a hold removes the old trace and candidate highlight',t=>{
+  const f=fixture(t),first=f.message(),second=f.message('user','Another thought.');f.setHits(first);
+  f.companion.inspect({x:80,y:100,dragging:true});
+  const old=first.querySelector('.message-companion-dwell');t.mock.timers.tick(400);
+  f.companion.inspect({x:94,y:100,dragging:true});
+  assert.ok(old);assert.equal(old.parentElement,null);
+  assert.notEqual(first.querySelector('.message-companion-dwell'),old,'a fresh trace restarts the visible countdown');
+  f.setHits(second);f.companion.inspect({x:94,y:100,dragging:true});
+  assert.equal(first.dataset.companionState,undefined);assert.equal(first.querySelector('.message-companion-dwell'),null);
+  assert.equal(second.dataset.companionState,'holding');
+  f.setHits();f.companion.inspect({x:94,y:100,dragging:true});
+  assert.equal(second.dataset.companionState,undefined);assert.equal(second.querySelector('.message-companion-dwell'),null);
+  t.mock.timers.tick(1000);assert.equal(f.menu(),null);assert.deepEqual(f.calls,[]);
+});
+
+test('release, cancellation, clear, disposal, and stale content clean up dwell feedback',t=>{
+  const f=fixture(t),message=f.message();f.setHits(message);
+  for(const cancel of [()=>f.companion.release(),()=>f.companion.release({cancel:true}),()=>f.companion.clear()]){
+    f.companion.inspect({x:80,y:100,dragging:true});assert.equal(message.dataset.companionState,'holding');cancel();
+    assert.equal(message.dataset.companionState,undefined);assert.equal(message.querySelector('.message-companion-dwell'),null);
+  }
+  f.companion.inspect({x:80,y:100,dragging:true});message.className='message nox draft';t.mock.timers.tick(650);
+  assert.equal(message.dataset.companionState,undefined);assert.equal(message.querySelector('.message-companion-dwell'),null);assert.equal(f.menu(),null);
+  message.className='message nox';f.companion.inspect({x:80,y:100,dragging:true});f.companion.dispose();
+  assert.equal(message.dataset.companionState,undefined);assert.equal(message.querySelector('.message-companion-dwell'),null);assert.deepEqual(f.calls,[]);
+});
+
+test('the contextual panel describes its actions and keeps the selected message marked until dismissed',t=>{
+  const f=fixture(t),message=f.message('nox','A <literal> passage & a second line.');
+  f.companion.openFor(message);
+  assert.equal(message.dataset.companionState,'selected');
+  assert.equal(f.menu().querySelector('.message-companion-preview').textContent,'A <literal> passage & a second line.');
+  for(const kind of ['explain','read','quiz']){
+    assert.ok(f.button(kind).querySelector('.message-companion-action-label'));
+    assert.ok(f.button(kind).querySelector('.message-companion-action-detail').textContent);
+  }
+  f.menu().querySelector('.message-companion-close').click();
+  assert.equal(message.dataset.companionState,undefined);assert.deepEqual(f.calls,[]);
+});
+
+test('arrow keys navigate explicit message actions without triggering one',t=>{
+  const f=fixture(t),message=f.message();f.companion.openFor(message);
+  for(const [key,kind] of [['ArrowDown','read'],['End','quiz'],['ArrowDown','explain'],['ArrowUp','quiz'],['Home','explain']]){
+    const event=dispatchAt(f.documentTarget,'keydown',{key});
+    assert.equal(event.defaultPrevented,true);assert.equal(f.documentTarget.activeElement,f.button(kind));
+  }
+  assert.deepEqual(f.calls,[]);
+});
+
+test('dismissed or replaced action buttons cannot dispatch stale or duplicate actions',t=>{
+  const f=fixture(t),first=f.message(),second=f.message('user','Another thought.');
+  f.companion.openFor(first);const old=f.button('explain');f.companion.openFor(second);old.click();
+  assert.equal(f.calls.length,0);assert.ok(f.menu());assert.equal(first.dataset.companionState,undefined);
+  const current=f.button('read');current.click();current.click();
+  assert.equal(f.calls.length,1);assert.equal(f.calls[0].kind,'read');assert.equal(f.calls[0].message,second);assert.equal(f.calls[0].text,'Another thought.');
+  assert.equal(second.dataset.companionState,undefined);
 });
