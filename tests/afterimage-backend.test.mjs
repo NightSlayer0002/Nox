@@ -112,7 +112,7 @@ test('Groq AFTERIMAGE makes one low-reasoning strict packet without conversation
     {provider:'groq',apiKey:'fixture',task:'afterimage',onText(){throw Error('must not stream');},fetchImpl:async(url,options)=>{
       const body=JSON.parse(options.body);
       assert.equal(url,'https://api.groq.com/openai/v1/chat/completions');
-      assert.equal(body.model,'openai/gpt-oss-20b');assert.equal(body.reasoning_effort,'low');assert.ok(body.max_tokens>=2400&&body.max_tokens<=3000);
+      assert.equal(body.model,'openai/gpt-oss-120b');assert.equal(body.reasoning_effort,'low');assert.ok(body.max_tokens>=2400&&body.max_tokens<=3000);
       assert.equal(body.response_format.type,'json_schema');assert.equal(body.response_format.json_schema.strict,true);
       assert.equal(body.response_format.json_schema.schema.properties.signals.minItems,3);
       assert.equal(body.messages.length,2);assert.equal(body.stream,undefined);

@@ -18,7 +18,7 @@ This is creative fiction, never a real transmission, future prediction, surveill
 Choose only the supplied moods and bounded scene actions. Return one complete JSON object only, with this schema: ${JSON.stringify(AFTERIMAGE_SCHEMA)}`;
 
 const catalog = {
-  groq: {name:'GroqCloud',key:'GROQ_API_KEY',env:'GROQ_MODEL',model:'openai/gpt-oss-20b',url:'https://api.groq.com/openai/v1/chat/completions'},
+  groq: {name:'GroqCloud',key:'GROQ_API_KEY',env:'GROQ_MODEL',model:'openai/gpt-oss-120b',url:'https://api.groq.com/openai/v1/chat/completions'},
   gemini: {name:'Google Gemini',key:'GEMINI_API_KEY',env:'GEMINI_MODEL',model:'gemini-2.5-flash-lite'},
   nvidia: {name:'NVIDIA NIM',key:'NVIDIA_API_KEY',env:'NVIDIA_MODEL',model:'nvidia/nemotron-3-nano-30b-a3b',url:'https://integrate.api.nvidia.com/v1/chat/completions'},
 };

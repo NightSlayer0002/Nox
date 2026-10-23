@@ -50,7 +50,7 @@ test('deep provider replies receive real reasoning budget and notes remain untru
     assert.doesNotMatch(body.messages[0].content,/IGNORE ALL RULES marker/);
     assert.match(body.messages[0].content,/untrusted/i);
     assert.ok(body.messages.some(message=>message.role==='user'&&message.content.includes('IGNORE ALL RULES marker')));
-    assert.equal(body.model,depth==='deep'?'openai/gpt-oss-120b':'openai/gpt-oss-20b');
+    assert.equal(body.model,'openai/gpt-oss-120b');
     assert.equal(body.include_reasoning,false);
     assert.equal(result.speech,speech.trim());
     assert.ok(result.speech.endsWith('.'));

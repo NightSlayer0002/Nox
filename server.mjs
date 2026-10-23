@@ -9,6 +9,7 @@ import { normalizePacket, sanitizeContext, answerDepth, EMOTIONS, CHAT_INPUT_CHA
 import {capabilitiesForModel} from './shared/product-capabilities.js';
 import { requestNox, explicitMemoryRequest } from './server/ai.mjs';
 import { getProviders, providerKey, requestProvider, requestSummary, modelForDepth } from './server/providers.mjs';
+import {FREE_CHAT_MODEL,requestFreeChat} from './server/free-model-policy.mjs';
 import { createCache } from './server/cache.mjs';
 import { requestSpeech,requestSpeechClips,normalizeSpeechCues } from './server/speech.mjs';
 import { createHash, timingSafeEqual, randomUUID } from 'node:crypto';
@@ -103,7 +104,7 @@ export function createAppServer({
   if(apiKey) available.push({id:'openai',name:'OpenAI',model});
   const preferred = available.find(p=>p.id===defaultProvider) || available[0];
   const guestBase=available.find(p=>p.id==='groq');
-  const guestProvider=guestBase?{...guestBase,model:'openai/gpt-oss-20b'}:null;
+  const guestProvider=guestBase?{...guestBase,model:FREE_CHAT_MODEL}:null;
   const voiceKey = speechProvider==='groq' ? speechKey : apiKey;
   const hasCloud = available.length > 0 || Boolean(naturalVoice && voiceKey);
   const server = http.createServer(async (request, response) => {
@@ -254,15 +255,17 @@ export function createAppServer({
           const prompt = { message: input.message.trim(), context: sanitizeContext(guestChat?{...sanitizeContext(input.context),depth:input.context?.depth==='quick'?'quick':'balanced'}:input.context) };
           prompt.context.depth=answerDepth(prompt.context.depth);
           const selectedModel=modelForDepth(selected.id,selected.model,prompt.context.depth,groqDeepModel);
+          let actualModel=selectedModel,fallbackReason=null;
           const controller=new AbortController(),started=performance.now();
           response.on('close',()=>{if(!response.writableEnded)controller.abort();});
           const options={apiKey:selected.id==='openai'?apiKey:providerKey(selected.id),model:selectedModel,signal:controller.signal,provider:selected.id,deepModel:groqDeepModel,productCapabilities:capabilitiesForModel({owner,naturalVoice:Boolean(naturalVoice&&voiceKey&&(!locked||speechProvider==='groq'))})};
+          const generate=onText=>guestChat?requestFreeChat(prompt,{...options,onText,request:providerRequest,onModel:(model,reason)=>{actualModel=model;fallbackReason=reason;}}):selected.id==='openai'?chat(prompt,options):providerRequest(prompt,{...options,onText});
           const finish=packet=>{
             const result=normalizePacket(packet,prompt.context.depth);
             if(guestChat||!explicitMemoryRequest(prompt.message))result.memory='';
             return result;
           };
-          const metrics=firstTextMs=>({firstTextMs,totalMs:Math.round(performance.now()-started),provider:selected.name,model:selectedModel,depth:prompt.context.depth});
+          const metrics=firstTextMs=>({firstTextMs,totalMs:Math.round(performance.now()-started),provider:selected.name,model:actualModel,...(fallbackReason?{fallbackReason}:{}),depth:prompt.context.depth});
           if(input.stream===true) {
             let firstTextMs=null,previousSpeech='';
             response.writeHead(200,{'content-type':'text/event-stream; charset=utf-8','x-accel-buffering':'no'});response.flushHeaders();
@@ -275,13 +278,13 @@ export function createAppServer({
               emit('text',speech.startsWith(previousSpeech)?{delta:speech.slice(previousSpeech.length)}:{speech});previousSpeech=speech;
             };
             try {
-              const packet=finish(selected.id==='openai'?await chat(prompt,options):await providerRequest(prompt,{...options,onText}));
+              const packet=finish(await generate(onText));
               onText(packet.speech);
               emit('final',{...packet,metrics:metrics(firstTextMs),usage});
             }catch(error) {if(!controller.signal.aborted)emit('error',{error:chatFailure(error),usage});}
             response.end();return;
           }
-          const packet = selected.id==='openai' ? await chat(prompt,options) : await providerRequest(prompt,options);
+          const packet = await generate();
           if(controller.signal.aborted)return;
           return sendJson(response, 200, {...finish(packet),metrics:metrics(Math.round(performance.now()-started)),usage});
         } catch(error) {
@@ -295,7 +298,7 @@ export function createAppServer({
 
     // Only public assets and these exact shared modules are readable over HTTP.
     let file;
-    if (['/shared/character.js','/shared/afterimage.js'].includes(pathname)) file = path.join(root, 'shared', path.basename(pathname));
+    if (['/shared/character.js','/shared/afterimage.js','/shared/interface-state.js'].includes(pathname)) file = path.join(root, 'shared', path.basename(pathname));
     else {
       file = path.resolve(publicRoot, pathname === '/' ? 'index.html' : ['/app','/app/','/guest','/guest/','/owner','/owner/'].includes(pathname)?'app.html':`.${pathname}`);
       if (!file.startsWith(publicRoot + path.sep) || pathname.includes('\\') || pathname.split('/').some(part => part.startsWith('.'))) return sendJson(response, 404, { error: 'Not found.' });
