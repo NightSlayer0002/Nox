@@ -1,4 +1,4 @@
-import { splitSpeech, joinWav } from './wav.mjs';
+import { splitSpeech, startupSpeechChunks, joinWav } from './wav.mjs';
 import {createHash} from 'node:crypto';
 import {EMOTIONS} from '../shared/character.js';
 
@@ -38,6 +38,7 @@ export async function* requestSpeechClips({text,mode='companion',emotion,speechC
   if(!['openai','groq'].includes(provider)) throw new Error('Unknown speech provider.');
   const groq = provider === 'groq';
   const deadline=AbortSignal.timeout(20000),signal=callerSignal?AbortSignal.any([callerSignal,deadline]):deadline;
+  if(signal.aborted)throw signal.reason;
   const cues=normalizeSpeechCues(text,speechCues);
   const getClip=async input=>{
     // Cached work may have multiple callers. One departing caller cannot own
@@ -47,7 +48,7 @@ export async function* requestSpeechClips({text,mode='companion',emotion,speechC
     const key=createHash('sha256').update(JSON.stringify([cacheScope,apiKey,voice,provider,mode,input])).digest('hex');
     return (await clipCache.getOrCreate(key,create)).value;
   };
-  const segments=groq?(cues||[{speech:text.trim(),emotion}]).flatMap(cue=>{const direction=actingDirection(cue.emotion,mode);return splitSpeech(cue.speech,200-direction.length).map(chunk=>direction+chunk);}):[text];
+  const segments=groq?(cues||[{speech:text.trim(),emotion}]).flatMap(cue=>{const direction=actingDirection(cue.emotion,mode);return (cues?splitSpeech:startupSpeechChunks)(cue.speech,200-direction.length).map(chunk=>direction+chunk);}):[text];
   let size=0;
   // Handle every promise immediately, including a later segment that rejects
   // while an earlier one is still pending.

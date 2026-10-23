@@ -9,6 +9,17 @@ export function splitSpeech(text, limit=200) {
   }
   if(remaining)chunks.push(remaining);return chunks;
 }
+// Rebalance the same clip count toward a shorter first synthesis. Never add a
+// request just to reduce perceived latency, or cut a word to force a fast start.
+export function startupSpeechChunks(text,limit=200){
+  const original=splitSpeech(text,limit);if(original.length<2)return original;
+  const clean=text.trim(),minimum=Math.max(60,clean.length-limit*(original.length-1));
+  for(let edge=clean.indexOf(' ',minimum);edge>0&&edge<original[0].length;edge=clean.indexOf(' ',edge+1)){
+    const rest=splitSpeech(clean.slice(edge),limit);
+    if(rest.length<=original.length-1)return [clean.slice(0,edge).trim(),...rest];
+  }
+  return original;
+}
 
 function readWav(buffer) {
   if(buffer.length<12 || buffer.toString('ascii',0,4)!=='RIFF' || buffer.toString('ascii',8,12)!=='WAVE') throw new Error('Invalid WAV audio.');

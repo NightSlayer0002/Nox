@@ -81,3 +81,11 @@ test('cancelling one cached caller does not abort synthesis shared with another 
   assert.equal(active.error,undefined);
   assert.equal(active.result.value.readInt16LE(44),101);
 });
+
+test('an already cancelled reply never starts provider synthesis or fills the cache',async()=>{
+  let requests=0,cacheReads=0;
+  const controller=new AbortController();controller.abort();
+  const clips=speech.requestSpeechClips({text:'word '.repeat(50).trim()},{provider:'groq',apiKey:'fixture',signal:controller.signal,clipCache:{getOrCreate(){cacheReads++;return Promise.resolve({value:fixtureWav([101])});}},fetchImpl:async()=>{requests++;return new Response(fixtureWav([101]),{headers:{'content-type':'audio/wav'}});}});
+  await assert.rejects(clips.next(),{name:'AbortError'});
+  assert.equal(requests,0);assert.equal(cacheReads,0);
+});
