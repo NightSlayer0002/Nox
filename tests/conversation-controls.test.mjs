@@ -65,6 +65,16 @@ function textarea(){
   return element;
 }
 
+test('audible startup diagnostics ignore stale turns and reset for the next reply',()=>{
+  const elements=diagnosticElements(),diagnostics=createReplyDiagnostics(elements);
+  const first=diagnostics.begin();diagnostics.playback(first,{status:'speaking',totalMs:321,preparationMs:300});
+  assert.equal(elements.metrics.dataset.voiceStartMs,'321');
+  const next=diagnostics.begin();diagnostics.playback(first,{status:'speaking',totalMs:999});
+  assert.equal(elements.metrics.dataset.voiceStartMs,undefined);
+  diagnostics.playback(next,{status:'speaking',totalMs:100,preparationMs:80});assert.match(elements.metrics.textContent,/speech starts 100 ms/);
+  diagnostics.clear();assert.equal(elements.metrics.dataset.voiceStartMs,undefined);
+});
+
 test('composer grows with typing, caps its height, and shrinks after send',()=>{
   const message=textarea(),windowTarget=new EventTarget();
   const composer=createComposerSizer(message,{windowTarget,readStyle:()=>({minHeight:'42px',maxHeight:'140px'})});

@@ -4,7 +4,7 @@ export function createReplyDiagnostics({status,metrics,toggle}){
   const current=token=>active&&token!==null&&token===version;
   const clearMetrics=()=>{
     metrics.textContent='';
-    for(const key of ['model','depth','audioCache'])delete metrics.dataset[key];
+    for(const key of ['model','depth','audioCache','voiceStartMs','voicePreparationMs'])delete metrics.dataset[key];
   };
   const visibility=()=>{metrics.hidden=!toggle.checked;};
   toggle.checked=false;visibility();
@@ -25,6 +25,12 @@ export function createReplyDiagnostics({status,metrics,toggle}){
       if(!current(token))return;
       metrics.textContent+=`${metrics.textContent?' · ':''}voice ${Math.round(elapsed)} ms`;
       metrics.dataset.audioCache=cache;
+    },
+    playback(token,timing){
+      if(!current(token)||timing?.status!=='speaking')return;
+      metrics.textContent+=`${metrics.textContent?' · ':''}speech starts ${timing.totalMs} ms after voice request`;
+      metrics.dataset.voiceStartMs=String(timing.totalMs);
+      metrics.dataset.voicePreparationMs=String(timing.preparationMs??'');
     },
     setStatus(text){status.textContent=text;},
     invalidate(){version++;active=false;},

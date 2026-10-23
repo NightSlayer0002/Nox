@@ -1,0 +1,6 @@
+.workspace .reply-status{display:flex;align-items:center;gap:12px;min-width:0}
+.workspace .reply-status .reply-timing{margin:0;flex:1}
+.workspace .reply-status:has(.reply-timing:empty):has(#show-reply-text[hidden]){display:none}
+.workspace #show-reply-text{flex:none;min-height:30px;padding:4px 8px;border:0;background:transparent;color:var(--accent);font-size:12px;text-decoration:underline;text-underline-offset:3px;box-shadow:none}
+.workspace #show-reply-text[hidden]{display:none}
+.workspace #show-reply-text:focus-visible{outline:1px solid var(--accent);outline-offset:2px}

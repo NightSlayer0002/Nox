@@ -6,7 +6,7 @@
   <title>NOX — A curious mind</title><link rel="icon" href="/icon.svg" type="image/svg+xml"><link rel="preload" href="/vendor/source-sans/SourceSans3VF-Upright.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="stylesheet" href="/vendor/liquid-glass-js/glass.css"><link rel="stylesheet" href="/source-ui.css"><link rel="stylesheet" href="/workspace.css"><link rel="stylesheet" href="/conversation.css"><link rel="stylesheet" href="/studio.css">
 <link rel="stylesheet" href="/views.css"><link rel="stylesheet" href="/preferences.css"><link rel="stylesheet" href="/afterimage.css"><link rel="stylesheet" href="/dist/workspace.css">
-<link rel="stylesheet" href="/source-buttons.css"><link rel="stylesheet" href="/editorial-workspace.css"><link rel="stylesheet" href="/source-composer.css"><link rel="stylesheet" href="/product-workspace.css"><link rel="stylesheet" href="/workspace-glow.css"><link rel="stylesheet" href="/afterimage-layout.css"><link rel="stylesheet" href="/everyday.css"><link rel="stylesheet" href="/companion.css"><link rel="manifest" href="/manifest.webmanifest"><link rel="stylesheet" href="/voice-call.css"><link rel="stylesheet" href="/floating-presence.css"></head>
+<link rel="stylesheet" href="/source-buttons.css"><link rel="stylesheet" href="/editorial-workspace.css"><link rel="stylesheet" href="/source-composer.css"><link rel="stylesheet" href="/product-workspace.css"><link rel="stylesheet" href="/workspace-glow.css"><link rel="stylesheet" href="/afterimage-layout.css"><link rel="stylesheet" href="/everyday.css"><link rel="stylesheet" href="/companion.css"><link rel="manifest" href="/manifest.webmanifest"><link rel="stylesheet" href="/voice-call.css"><link rel="stylesheet" href="/floating-presence.css"><link rel="stylesheet" href="/reply-presentation.css"><link rel="stylesheet" href="/message-companion.css"></head>
 <body class="workspace" data-view="conversation" data-persona="companion" data-signal="idle" data-form="face">
 <script src="/js/workspace-entry.js"></script>
 <a class="skip-link" href="#workspace-main">Skip to workspace</a><div id="workspace-background" class="workspace-background" aria-hidden="true"></div>
@@ -96,7 +96,7 @@
 <div class="conversation" id="conversation" tabindex="0" aria-live="polite" aria-label="Conversation with NOX"></div>
 </aside>
 <section class="conversation-dock" data-panel="conversation" aria-label="Message composer">
-<p id="reply-timing" class="reply-timing" role="status"></p><div id="connection-help" class="connection-help"><p id="connection-message">Checking the AI connection…</p><button id="unlock-ai" class="quiet-button">Connect AI </button></div>
+<div class="reply-status"><p id="reply-timing" class="reply-timing" role="status"></p><button id="show-reply-text" type="button" class="quiet-button" hidden>Show text now</button></div><div id="connection-help" class="connection-help"><p id="connection-message">Checking the AI connection…</p><button id="unlock-ai" class="quiet-button">Connect AI </button></div>
 <!-- Native adaptation of Vercel AI Elements PromptInput/InputGroup; licensed sources in /vendor/ai-elements. -->
 <form id="chat-form" class="composer composer-source" aria-describedby="composer-help depth-note">
   <label class="sr-only" for="message">Say something to NOX</label><textarea id="message" data-slot="input-group-control" placeholder="What’s on your mind?" maxlength="6000" rows="1"></textarea>

@@ -18,6 +18,8 @@ import {attachWorkspaceViewport} from './workspace-viewport.js';
 import { EXPRESSIONS } from './face-art.js';
 import { knowledge,readDepth,saveDepth } from './workbench.js';
 import { spokenPreview,playReplyPreview } from './reply.js';
+import {createReplyPresentation} from './reply-presentation.js';
+import {observeInterface} from './interface-observation.js';
 import {historyFailure} from './history-notice.js';
 import {attachVoiceCall} from './voice-call-controls.js';
 import {attachFloatingPresence} from './floating-presence.js';
@@ -43,7 +45,7 @@ const memory = createMemory(disk);
 const history = await createHistory(disk,memory.snapshot().history);
 if(history.persistent)await memory.clearHistory();
 let mode = history.active().mode;
-let navigation,summaryController,summaryTimer,pendingDraft,floatingPresence,messageCompanion;
+let navigation,summaryController,summaryTimer,pendingDraft,pendingPresentation,floatingPresence,messageCompanion;
 let editTarget=null,currentActivity='conversation',publicUsage=initialVisitStatus?.usage;
 let brain = 'loading'; let busy = false;
 let ownerToken = '', selectedProvider = '', connectionVersion = 0, connection = {};
@@ -118,6 +120,7 @@ $('preview-expression').addEventListener('click',()=>{
 // The owner chose always-on NOX animation. There is no website motion switch.
 stage.setMotion(true);
 const voice = createVoice({
+  onTiming:timing=>replyDiagnostics.playback(replyDiagnostics.capture(),timing),
   onStart: () => { stage.narrating=true;stage.character.speakingUntil = Infinity; },
   onEnd: () => { stage.narrating=false;stage.character.speakingUntil = stage.time;if(!busy)activity.transition('idle');voiceCall?.session.onVoiceEnd(); },
   onError:message=>{activity.transition('error');toast(message);voiceCall?.session.fail(message);},
@@ -316,9 +319,17 @@ async function perform(value, save = true, draft, version, depth='quick',remembe
   if (save && !await history.append('assistant', packet.speech)) {voice.stop();return;}
   if(version!==undefined&&!turns.isCurrent(version))return;
   const replyTurn=save?history.active().turns.at(-1):null;
-  if(draft){draft.classList.remove('draft');draft.querySelector('.message-content').textContent=packet.speech;attachMessageActions(draft,replyTurn);}else{const message=addMessage('nox', packet.speech,replyTurn);attachMessageActions(message,replyTurn);}
-  stage.speak({...packet,speech:spoken});voice.speak(spoken, mode, packet.emotion);
-  if(packet.action==='takeover')stage.canvas.scrollIntoView({behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'instant':'smooth',block:'center'});
+  const presentation=createReplyPresentation({voiceEnabled:voice.enabled&&voice.supported,isCurrent:()=>version===undefined||turns.isCurrent(version),
+    onWaiting:waiting=>{$('show-reply-text').hidden=!waiting;if(waiting)replyDiagnostics.setStatus('Preparing NOX’s voice…');else if($('reply-timing').textContent==='Preparing NOX’s voice…')replyDiagnostics.setStatus('');},
+    onReveal:()=>{
+      if(draft){draft.classList.remove('draft');draft.querySelector('.message-content').textContent=packet.speech;attachMessageActions(draft,replyTurn);if(pendingDraft===draft)pendingDraft=null;}else{const message=addMessage('nox', packet.speech,replyTurn);attachMessageActions(message,replyTurn);}
+      stage.speak({...packet,speech:spoken});
+      if(packet.action==='takeover'&&!floatingPresence?.active)stage.canvas.scrollIntoView({behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'instant':'smooth',block:'center'});
+    }});
+  pendingPresentation=presentation;
+  Promise.resolve(voice.speak(spoken,mode,packet.emotion,undefined,{onPlaybackStart:()=>presentation.reveal('playback'),onPlaybackUnavailable:()=>presentation.reveal('unavailable')})).catch(()=>presentation.reveal('unavailable'));
+  const revealed=await presentation.ready;if(pendingPresentation===presentation)pendingPresentation=null;
+  if(!revealed)return;
   $('mood-label').textContent = packet.emotion;
   $('packet-view').textContent = JSON.stringify(value.metrics?{...packet,metrics:value.metrics}:packet, null, 2); updateMemory();navigation?.render();companionChanged();
   return packet;
@@ -356,7 +367,7 @@ async function send(raw,{recorded=false}={}) {
   const depth=$('reply-depth').value==='deep'&&!visit.owner?'balanced':$('reply-depth').value;
   const recent=history.context();if(recorded&&recent.history.at(-1)?.role==='user')recent.history=recent.history.slice(0,-1);
   const preferences=approvedPreferences.context(currentActivity);
-  const context = {...(visit.owner?memory.snapshot():{}),...recent,mode,depth,activity:currentActivity,preferences,knowledge:knowledge.context(text)};
+  const context = {...(visit.owner?memory.snapshot():{}),...recent,mode,depth,activity:currentActivity,preferences,knowledge:knowledge.context(text),interfaceState:observeInterface({stage,floating:floatingPresence,view:document.body.dataset.view,presence:document.body.dataset.presence})};
   companionBridge.propose(text,currentActivity);
   applyApprovedPreferences();
   const request=prepareChatRequest(text,context,selectedProvider,true);
@@ -373,7 +384,7 @@ async function send(raw,{recorded=false}={}) {
       const draft=addMessage('nox','');draft.classList.add('draft');pendingDraft=draft;
       const response = await fetch('/api/chat', { method: 'POST', headers: apiHeaders(), body: JSON.stringify(request), signal: requestController.signal });
       if(!response.ok){const error=await response.json();setUsage(error.usage);if(response.status===401){await refreshConnection();}throw new Error(error.error||'The AI connection did not respond.');}
-      const result = await readChatStream(response,speech=>{if(turns.isCurrent(version)){draft.querySelector('.message-content').textContent=speech;$('conversation').scrollTop=$('conversation').scrollHeight;}});
+      const result = await readChatStream(response,speech=>{if(turns.isCurrent(version)&&!voice.enabled){draft.querySelector('.message-content').textContent=speech;$('conversation').scrollTop=$('conversation').scrollHeight;}});
       setUsage(result.usage);
       packet = result;
       if (turns.isCurrent(version)) {$('brain-status').lastChild.textContent = visit.owner?' AI connected':' Guest visit';const timing=result.metrics;replyDiagnostics.complete(timingVersion,timing,depth);if(timing)$('inspector-brain').textContent=`${timing.model||'Configured model'} · ${timing.depth||depth} · ${timing.provider}`;}
@@ -407,6 +418,7 @@ document.querySelectorAll('[data-prompt]').forEach(button => button.addEventList
 $('chat-form').addEventListener('submit', event => { event.preventDefault(); send($('message').value); });
 $('message').addEventListener('keydown', event => { if (event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); send(event.currentTarget.value); } });
 $('cancel-reply').addEventListener('click',()=>{cancelConversation();replyDiagnostics.setStatus('Reply stopped. Your sent message is saved.');});
+$('show-reply-text').addEventListener('click',()=>pendingPresentation?.reveal('requested'));
 function contextPreview(){const notes=knowledge.context($('message').value);$('knowledge-context').hidden=!notes.length;$('knowledge-context').textContent=notes.length?'Relevant context for this thought: '+notes.map(n=>`[${n.id}] ${n.title}`).join(' · '):'';}
 function depthNote(){const depth=$('reply-depth').value;$('depth-note').textContent=depth==='deep'?'Developer mode: deeper replies use more time and model allowance. Voice reads a concise opening.':depth==='quick'?'Quick keeps the response brief. Complete written answers stay in the conversation.':'Balanced gives an everyday explanation room to finish. Voice reads a concise opening.';}
 $('reply-depth').value=readDepth();depthNote();
@@ -419,10 +431,10 @@ $('message').addEventListener('input',()=>{
 });window.addEventListener('nox:knowledge',contextPreview);window.addEventListener('storage',contextPreview);
 document.querySelector('.skip-link')?.addEventListener('click',event=>{event.preventDefault();$('workspace-main').focus();});
 for(const voiceControl of [$('voice-button'),$('composer-voice')])voiceControl.addEventListener('click', () => {
-  const enabled = voice.setEnabled(!voice.enabled);
+  const enabled = changeVoiceConfiguration(()=>voice.setEnabled(!voice.enabled));
   showVoice();
   try{disk.setItem('nox.voice.v2',enabled?'on':'off');}catch{}
-  if (enabled && afterimageBridge.snapshot().status!=='playing') playReplyPreview(lastPacket,{stage,voice,mode});
+  if (enabled && !busy && afterimageBridge.snapshot().status!=='playing') playReplyPreview(lastPacket,{stage,voice,mode});
   else if (!voice.supported) toast('Speech synthesis is unavailable in this browser. You can read NOX’s captions.');
 });
 $('mic-button').addEventListener('click', () => { if (busy) { toast('Let NOX finish this thought first.'); return; } afterimageBridge.stop('conversation');voice.stop(); microphone.start(); });
@@ -509,7 +521,7 @@ setInterval(() => {
   $('stage').dataset.held=String(Boolean(stage.character.held));$('stage').dataset.mouth=voice.mouthLevel.toFixed(2);$('stage').dataset.mouthTiming=voice.mouthTiming;
 }, 120);
 
-function cancelConversation(){afterimageBridge.stop('conversation');turns.cancel();activity.finishTurn(activityTurn);replyDiagnostics.invalidate();replyDiagnostics.setStatus('');setBusy(false);voice.stop();microphone.stop();summaryController?.abort();clearTimeout(summaryTimer);pendingDraft?.remove();pendingDraft=null;}
+function cancelConversation(){afterimageBridge.stop('conversation');turns.cancel();pendingPresentation?.cancel();pendingPresentation=null;activity.finishTurn(activityTurn);replyDiagnostics.invalidate();replyDiagnostics.setStatus('');setBusy(false);voice.stop();microphone.stop();summaryController?.abort();clearTimeout(summaryTimer);pendingDraft?.remove();pendingDraft=null;}
 async function restoreConversation({retrying=false}={}){messageCompanion?.clear();cancelConversation();const thread=history.active();await setMode(thread.mode,false);if(history.active().id!==thread.id)return;$('conversation').replaceChildren();$('chat-title').textContent=thread.title;
   thread.turns.forEach(turn=>{const message=addMessage(turn.role==='user'?'user':'nox',turn.content,turn);attachMessageActions(message,turn);});
   const last=thread.turns.findLast(t=>t.role==='assistant');lastPacket={speech:last?.content||(thread.turns.length?'Your last message is still here. Ready when the AI connection is available.':greetings[mode]),emotion:stage.character.emotion,action:'none',memory:''};
@@ -551,6 +563,11 @@ EverydayBridge.connect({
 });
 applyApprovedPreferences();
 
+function changeVoiceConfiguration(change){
+  pendingPresentation?.reveal('requested');
+  if(voiceCall?.session.snapshot().status==='preparing')voiceCall.session.fail('Voice changed. Reconnect the microphone to continue.');
+  return change();
+}
 function showVoice() {
   $('voice-button').setAttribute('aria-pressed',voice.enabled);
   $('voice-button').querySelector('span').textContent=voice.enabled?'Voice on':'Voice off';
@@ -592,7 +609,7 @@ async function refreshConnection(token = ownerToken,initial) {
   $('owner-status').textContent=visit.owner?'Owner/dev session · saved locally for this browser.':'Owner sign-in opens your saved archive.';
   showConnection();showVoice(); return true;
 }
-$('voice-engine').addEventListener('change',event=>{preferredEngine=event.target.value;voice.setEngine(preferredEngine);try{disk.setItem('nox.voice.engine.v2',preferredEngine);}catch{}showVoice();});
+$('voice-engine').addEventListener('change',event=>{preferredEngine=event.target.value;changeVoiceConfiguration(()=>voice.setEngine(preferredEngine));try{disk.setItem('nox.voice.engine.v2',preferredEngine);}catch{}showVoice();});
 $('owner-form').addEventListener('submit',async event=>{
   event.preventDefault();const token=$('owner-token').value.trim();$('owner-token').value='';
   if(!token) return;
@@ -617,8 +634,8 @@ function browserVoices(){const voices=globalThis.speechSynthesis?.getVoices().fi
 let savedBrowserVoice='';
 try{preferredEngine=disk.getItem('nox.voice.engine.v2')||'natural';const savedSpeaker=disk.getItem('nox.voice.speaker.v2');$('speaker-select').value=['troy','austin','daniel'].includes(savedSpeaker)?savedSpeaker:'troy';savedBrowserVoice=disk.getItem('nox.voice.browser.v2')||'';}catch{}
 voice.setSpeaker($('speaker-select').value);voice.setBrowserVoice(savedBrowserVoice);browserVoices();globalThis.speechSynthesis?.addEventListener('voiceschanged',browserVoices);
-$('speaker-select').addEventListener('change',e=>{voice.setSpeaker(e.target.value);try{disk.setItem('nox.voice.speaker.v2',e.target.value);}catch{}});
-$('browser-speaker').addEventListener('change',e=>{savedBrowserVoice=e.target.value;voice.setBrowserVoice(savedBrowserVoice);try{disk.setItem('nox.voice.browser.v2',savedBrowserVoice);}catch{}});
+$('speaker-select').addEventListener('change',e=>{changeVoiceConfiguration(()=>voice.setSpeaker(e.target.value));try{disk.setItem('nox.voice.speaker.v2',e.target.value);}catch{}});
+$('browser-speaker').addEventListener('change',e=>{savedBrowserVoice=e.target.value;changeVoiceConfiguration(()=>voice.setBrowserVoice(savedBrowserVoice));try{disk.setItem('nox.voice.browser.v2',savedBrowserVoice);}catch{}});
 $('replay-voice').addEventListener('click',()=>{afterimageBridge.stop('voice-preview');if(!voice.enabled)toast('Turn Voice on to hear this reply.');else playReplyPreview(lastPacket,{stage,voice,mode});});
 $('test-voice').addEventListener('click',()=>{afterimageBridge.stop('voice-preview');voice.setEnabled(true);showVoice();const speech='Oh, you found me. I was just thinking about something strange. Want to hear it?',emotion=mode==='uncanny'?'uncanny':'happy';stage.speak({speech,emotion,action:'none'});voice.speak(speech,mode,emotion);});
 try{voice.setEnabled(disk.getItem('nox.voice.v2')==='on');}catch{voice.setEnabled(false);}showVoice();

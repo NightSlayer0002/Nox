@@ -9,6 +9,8 @@ import {readChatStream} from '../public/js/stream.js';
 import {selfDeclaredName} from '../public/js/name-intent.js';
 import {historyFailure} from '../public/js/history-notice.js';
 import {spokenPreview} from '../public/js/reply.js';
+import {createReplyPresentation} from '../public/js/reply-presentation.js';
+import {observeInterface} from '../public/js/interface-observation.js';
 import {attachVoiceCall} from '../public/js/voice-call-controls.js';
 
 const source=await readFile(new URL('../public/js/app.js',import.meta.url),'utf8');
@@ -26,17 +28,17 @@ async function fixture(){
   function $(id){if(!nodes.has(id))nodes.set(id,{value:id==='reply-depth'?'balanced':'',lastChild:{textContent:''},focus:noop,scrollHeight:100,replaceChildren:noop});return nodes.get(id);}
   function addMessage(){const content={textContent:''};return {classList:{add:noop,remove:noop},querySelector:()=>content,append:noop,remove:noop};}
   const context=vm.createContext({
-    $,history,normalizePacket,prepareChatRequest,explicitMemoryRequest,readChatStream,selfDeclaredName,historyFailure,spokenPreview,AbortController,clearTimeout,setTimeout,
+    $,history,normalizePacket,prepareChatRequest,explicitMemoryRequest,readChatStream,selfDeclaredName,historyFailure,spokenPreview,createReplyPresentation,observeInterface,AbortController,clearTimeout,setTimeout,
     composerOptions:{close:noop},composer:{setValue:value=>{$('message').value=value;},resize:noop},
     editTarget:null,currentActivity:'conversation',brain:'live',busy:false,mode:'companion',selectedProvider:'',
-    summaryController:null,summaryTimer:null,pendingDraft:null,activityTurn:null,lastPacket:{speech:'Before the call'},
+    summaryController:null,summaryTimer:null,pendingDraft:null,pendingPresentation:null,floatingPresence:null,document:{body:{dataset:{view:'conversation',presence:'visible'}}},activityTurn:null,lastPacket:{speech:'Before the call'},
     turns:createTurnGate(),activity:{beginTurn:()=>1,transition:noop,finishTurn:noop},
     replyDiagnostics:{begin:()=>1,complete:noop,setStatus:noop,invalidate:noop,clear:noop},
     afterimageBridge:{stop:noop},memory:{setName:noop,remember:noop},visit:{owner:false},
     approvedPreferences:{context:()=>({})},knowledge:{context:()=>[]},companionBridge:{propose:noop},
     applyApprovedPreferences:noop,apiHeaders:()=>({}),contextPreview:noop,updateMemory:noop,
     navigation:{render:noop},companionChanged:noop,messageCompanion:{clear:noop},
-    voice:{enabled:true,supported:true,prepare:noop,speak:text=>spoken.push(text),stop:noop,setEnabled:noop},
+    voice:{enabled:true,supported:true,prepare:noop,speak:(text,_m,_e,_c,options)=>{spoken.push(text);options?.onPlaybackStart?.();},stop:noop,setEnabled:noop},
     microphone:{stop:noop},callMicrophone:{supported:true,start:noop,stop:noop},showVoice:noop,
     stage:{character:{react:noop},run:noop,speak:noop},addMessage,attachMessageActions:noop,
     scheduleSummary:noop,setUsage:noop,toast:noop,openSettings:noop,refreshConnection:noop,setMode:async()=>{},
