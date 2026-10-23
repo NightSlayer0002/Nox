@@ -199,12 +199,15 @@ export class Stage {
     this.character.emotion = packet.emotion;
     this.character.say(packet.speech, this.time);
     this.caption = packet.speech; this.captionUntil = this.time + Math.min(25, Math.max(7, packet.speech.length / 12));
-    if (packet.action !== 'none') this.run(packet.action);
+    return packet.action !== 'none' ? this.run(packet.action,{source:'model'}) : null;
   }
-  run(action) {
-    if (!ACTIONS.includes(action) || action === 'none') return;
+  run(action,{source='user'}={}) {
+    source=source==='model'?'model':'user';
+    if(action==='stop')return this.scene?this.reset(true,{source}):this.lastAction={action:'none',source,result:'unavailable'};
+    if (!ACTIONS.includes(action) || action === 'none') return this.lastAction={action:'none',source,result:'unavailable'};
+    if(source==='model'&&this.scene?.action===action)return this.lastAction={action,source,result:'already-active'};
     this.reset();
-    this.scene = { action, start: this.time, velocity: 0 };
+    this.scene = { action, start: this.time, velocity: 0, source };
     if(action==='takeover'&&this.reduceMotion)this.takeoverPose(1);
     if (action === 'gravity' && this.form !== 'core' && !this.reduceMotion) {
       this.character.y = .28; this.character.targetY = .28; this.character.scale = .9;
@@ -212,16 +215,23 @@ export class Stage {
     this.onScene?.(action);
     const reaction={orbit:'excited',takeover:'mischievous',echo:'worried',spotlight:'curious'}[action];
     if(reaction)this.character.react?.(reaction,this.time,2);
+    return this.lastAction={action,source,result:'applied'};
   }
   stopScene(action) {
     if (this.scene?.action !== action) return false;
-    this.reset(); return true;
+    this.reset(true,{source:'user'});return true;
   }
-  reset(recentre = true) {
+  reset(recentre = true,{source}={}) {
+    const previous=this.scene;
     this.scene = null; this.character.scale = 1; this.character.rotation = 0;
     this.character.setFalling?.(false);
     if (recentre) { this.dragging = false; this.character.setHeld?.(false,this.time);this.character.clearTouch?.();this.activePointer = null; this.character.targetX = .5; this.character.targetY = .46; }
     this.onScene?.('none');
+    if(previous&&ACTIONS.includes(previous.action)&&previous.action!=='none'){
+      const initiator=source??previous.source;
+      return this.lastAction={action:previous.action,source:initiator==='model'?'model':'user',result:'stopped'};
+    }
+    return null;
   }
   frame(timestamp) {
     if(this.disposed)return;

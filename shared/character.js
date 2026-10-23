@@ -1,7 +1,12 @@
+import {SCENE_ACTIONS,sanitizeInterfaceState} from './interface-state.js';
+export {sanitizeInterfaceState} from './interface-state.js';
+
 // The contract between a brain and NOX's body. Neither brain can invent powers.
 export const MODES = Object.freeze(['companion', 'director', 'uncanny']);
 export const EMOTIONS = Object.freeze(['neutral', 'happy', 'curious', 'skeptical', 'sleepy', 'uncanny','annoyed','surprised','shy']);
-export const ACTIONS = Object.freeze(['none', 'gravity', 'spotlight', 'orbit', 'echo', 'takeover']);
+export const ACTIONS = SCENE_ACTIONS;
+// Chat can end an effect. Authored story cues retain their scene vocabulary.
+export const CHAT_ACTIONS = Object.freeze([...ACTIONS,'stop']);
 export const ANSWER_DEPTHS = Object.freeze({
   quick: Object.freeze({characters:420,tokens:900,reasoning:'low'}),
   balanced: Object.freeze({characters:2400,tokens:1800,reasoning:'medium'}),
@@ -26,7 +31,7 @@ export const PACKET_SCHEMA = {
   properties: {
     speech: { type: 'string' },
     emotion: { type: 'string', enum: EMOTIONS },
-    action: { type: 'string', enum: ACTIONS },
+    action: { type: 'string', enum: CHAT_ACTIONS },
     memory: { type: 'string' },
   },
   required: ['speech', 'emotion', 'action', 'memory'],
@@ -49,7 +54,7 @@ export function normalizePacket(value, depth = 'quick') {
   return {
     speech,
     emotion: EMOTIONS.includes(value.emotion) ? value.emotion : 'neutral',
-    action: ACTIONS.includes(value.action) ? value.action : 'none',
+    action: CHAT_ACTIONS.includes(value.action) ? value.action : 'none',
     memory: cleanText(value.memory, 120),
   };
 }
@@ -90,6 +95,7 @@ export function sanitizeContext(value = {}) {
     ...(Object.hasOwn(value,'depth') ? {depth:answerDepth(value.depth)} : {}),
     ...(['conversation','explore','guessing','mystery'].includes(value.activity)?{activity:value.activity}:{}),
     ...(Object.keys(preferences).length?{preferences}:{}),
+    ...(Object.hasOwn(value,'interfaceState')?{interfaceState:sanitizeInterfaceState(value.interfaceState)}:{}),
     name: cleanText(value.name, 40),
     facts: Array.isArray(value.facts) ? value.facts.map(fact => cleanText(fact, 120)).filter(Boolean).slice(-12) : [],
     ...(cleanText(value.summary,1200) ? {summary:cleanText(value.summary,1200)} : {}),

@@ -23,7 +23,7 @@ export async function buildVercel(destination = path.join(root,'.vercel/output')
   await mkdir(output,{recursive:true});
   await cp(path.join(root,'public'),path.join(output,'static'),{recursive:true});
   await mkdir(path.join(output,'static/shared'),{recursive:true});
-  for(const module of ['character.js','afterimage.js'])await cp(path.join(root,'shared',module),path.join(output,'static/shared',module));
+  for(const module of ['character.js','afterimage.js','interface-state.js'])await cp(path.join(root,'shared',module),path.join(output,'static/shared',module));
   for (const endpoint of ['status','chat','speech','summary','session','afterimage']) {
     const folder = path.join(output,`functions/api/${endpoint}.func`);
     await mkdir(folder,{recursive:true});

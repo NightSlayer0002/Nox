@@ -34,6 +34,9 @@ test('all chat APIs get guest-safe product facts and ignore forged client capabi
     assert.equal(facts.routes.conversation,'/guest#conversation');
     assert.equal(facts.routes.afterimage,'/guest#afterimage');
     assert.equal(facts.cameraVision,false);
+    assert.equal(facts.presence.autonomousWandering,false);
+    assert.equal(facts.presence.gravity,'Falls vertically onto the message composer and settles; no lateral fling or bouncing in the conversation overlay.');
+    assert.ok(facts.controls.presence.includes('Park NOX'));
   }
 });
 
