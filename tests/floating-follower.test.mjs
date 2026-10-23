@@ -81,18 +81,19 @@ test('the same elapsed drag response is consistent at 30Hz and 60Hz', () => {
 for (const hz of [30, 60]) {
   test(`trail fades and expires by elapsed time at ${hz}Hz`, () => {
     const motion = follower();
-    motion.update({x:100, y:60, time:0, dt:1/hz});
-    const {x, y} = motion.state;
-    for (let frame=1; frame<=hz/5; frame++) motion.update({x, y, time:frame/hz, dt:1/hz});
+    let frame=0;
+    do {frame++;motion.update({x:100,y:60,time:frame/hz,dt:1/hz});} while(!motion.state.settled&&frame<hz*2);
+    const settledAt=frame;
+    for (;frame<=settledAt+hz/5;frame++)motion.update({x:100,y:60,time:frame/hz,dt:1/hz});
     assert.equal(motion.state.settled, true);
     assert.ok(motion.state.trail.length > 0);
     assert.ok(motion.state.opacity > 0 && motion.state.opacity < 1);
     assert.ok(motion.state.trail.every(point => point.age >= 0 && point.age <= 1));
-    for (let frame=hz/5+1; frame<=hz; frame++) motion.update({x, y, time:frame/hz, dt:1/hz});
+    for (;frame<=settledAt+hz;frame++)motion.update({x:100,y:60,time:frame/hz,dt:1/hz});
     assert.deepEqual(motion.state.trail, []);
     assert.equal(motion.state.opacity, 0);
-    assert.equal(motion.state.x, x);
-    assert.equal(motion.state.y, y);
+    assert.equal(motion.state.x,100);
+    assert.equal(motion.state.y,60);
   });
 }
 
@@ -144,4 +145,17 @@ test('reset clears suspension history and reentry follows only the new placement
   assert.ok(motion.state.x > 70 && motion.state.x < 100);
   assert.ok(motion.state.trail.every(point => point.x >= 70 && point.x <= 100));
   assert.ok(motion.state.trail.every(point => point.age < 0.1));
+});
+
+test('the bot bends through a drag turn with a short curved trail before coming to rest',()=>{
+  const motion=follower({x:40,y:80});
+  for(let frame=1;frame<=8;frame++)motion.update({x:220,y:80,time:frame/60,dt:1/60});
+  const turnX=motion.state.x;
+  motion.update({x:turnX,y:220,time:9/60,dt:1/60});
+  assert.ok(motion.state.x>turnX,'forward momentum carries the bot through a curve at the turn');
+  assert.ok(motion.state.y>80&&motion.state.y<220);
+  assert.ok(motion.state.trail.some(point=>point.x>turnX&&point.y>80),'the visible trail records the curved flight');
+  for(let frame=10;frame<=180;frame++)motion.update({x:turnX,y:220,time:frame/60,dt:1/60});
+  assert.equal(motion.state.x,turnX);assert.equal(motion.state.y,220);
+  assert.deepEqual(motion.state.trail,[]);assert.equal(motion.state.opacity,0);
 });

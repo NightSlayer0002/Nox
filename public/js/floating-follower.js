@@ -27,7 +27,7 @@ const TRAIL_SECONDS=0.45;
 
 export function createFloatingFollower({x=0, y=0}={}) {
   const state={x:finite(x, 0), y:finite(y, 0), trail:[], opacity:0, settled:true};
-  let targetX=state.x, targetY=state.y, clock=0, history=[];
+  let targetX=state.x, targetY=state.y, clock=0, history=[],vx=0,vy=0;
 
   function reset({x=state.x, y=state.y}={}) {
     state.x=targetX=finite(x, state.x);
@@ -37,6 +37,7 @@ export function createFloatingFollower({x=0, y=0}={}) {
     state.settled=true;
     clock=0;
     history=[];
+    vx=vy=0;
     return state;
   }
 
@@ -52,21 +53,30 @@ export function createFloatingFollower({x=0, y=0}={}) {
       state.y=targetY;
       state.settled=true;
       history=[];
+      vx=vy=0;
     } else {
       const oldX=state.x, oldY=state.y;
       const distance=Math.hypot(targetX-oldX, targetY-oldY);
-      state.settled=distance <= 0.15;
+      state.settled=distance <= 0.15&&Math.hypot(vx,vy)<=2;
       if (state.settled) {
         state.x=targetX;
         state.y=targetY;
+        vx=vy=0;
       } else if (elapsed > 0) {
-        const ease=1-Math.exp(-16*elapsed);
-        state.x+=(targetX-state.x)*ease;
-        state.y+=(targetY-state.y)*ease;
-        if (Math.hypot(targetX-state.x, targetY-state.y) <= 0.15) {
+        // The landing bots use a damped spring. Its momentum lets this one
+        // round a drag turn; the exact integration is independent of refresh rate.
+        const frequency=16,decay=Math.exp(-frequency*elapsed);
+        const dx=state.x-targetX,dy=state.y-targetY;
+        const ax=vx+frequency*dx,ay=vy+frequency*dy;
+        state.x=targetX+(dx+ax*elapsed)*decay;
+        state.y=targetY+(dy+ay*elapsed)*decay;
+        vx=(vx-frequency*ax*elapsed)*decay;
+        vy=(vy-frequency*ay*elapsed)*decay;
+        if (Math.hypot(targetX-state.x, targetY-state.y) <= 0.15&&Math.hypot(vx,vy)<=2) {
           state.x=targetX;
           state.y=targetY;
           state.settled=true;
+          vx=vy=0;
         }
       }
       if (state.x !== oldX || state.y !== oldY) {
