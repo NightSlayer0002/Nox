@@ -5,6 +5,7 @@ import vm from 'node:vm';
 import {normalizePacket} from '../shared/character.js';
 import {spokenPreview} from '../public/js/reply.js';
 import {createReplyPresentation} from '../public/js/reply-presentation.js';
+import {setChatContent} from '../public/js/chat-message.js';
 import {createTurnGate} from '../public/js/turns.js';
 import {createVoice} from '../public/js/voice.js';
 import {createVoiceCall} from '../public/js/voice-call.js';
@@ -25,7 +26,7 @@ for(const failure of ['provider','autoplay'])test(`a call ${failure} failure pre
     onState:state=>call?.onVoiceState(state),onEnd:()=>call?.onVoiceEnd(),onError:message=>call?.fail(message),
   });
   voice.configureNatural(true);voice.setEngine('natural');voice.setEnabled(true);
-  context=vm.createContext({normalizePacket,spokenPreview,createReplyPresentation,turns,voice,setTimeout,clearTimeout,
+  context=vm.createContext({normalizePacket,spokenPreview,createReplyPresentation,setChatContent,turns,voice,setTimeout,clearTimeout,
     pendingPresentation:null,pendingDraft:null,summaryController:null,summaryTimer:null,activityTurn:null,lastPacket:null,mode:'companion',
     replyDiagnostics:{setStatus:noop,invalidate:noop},afterimageBridge:{stop:noop},activity:{finishTurn:noop},setBusy:noop,microphone:{stop:noop},
     history:{append:async(role,content)=>{saved.push({role,content});return true;},active:()=>({turns:saved})},

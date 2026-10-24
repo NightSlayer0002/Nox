@@ -100,3 +100,9 @@ test('streamed text updates the final paragraph without replacing the logo or sp
   assert.equal(conversation.lastChild,message);
   assert.equal(conversation.scrollTop,180);
 });
+
+test('assistant prose formatting is shared by initial and final rendering without changing user code',()=>{
+  const document={createElement:tag=>new Element(tag)};
+  assert.equal(createChatMessage('nox','**Answer**\\n1. First.\\n2. Second.',document).lastChild.textContent,'Answer\n1. First.\n2. Second.');
+  assert.equal(createChatMessage('user','**literal**\\n1. text',document).lastChild.textContent,'**literal**\\n1. text');
+});

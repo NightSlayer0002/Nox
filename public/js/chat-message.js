@@ -1,3 +1,5 @@
+import {proseText} from './prose-text.js';
+
 export function createChatMessage(speaker,text,documentTarget=globalThis.document){
   const role=speaker==='nox'||speaker==='user'?speaker:'system';
   const message=documentTarget.createElement('div');message.className=`message ${role}`;
@@ -11,7 +13,10 @@ export function createChatMessage(speaker,text,documentTarget=globalThis.documen
     avatar.setAttribute('alt','');avatar.setAttribute('aria-hidden','true');
     message.append(avatar);
   }
-  const content=documentTarget.createElement('p');content.className='message-content';content.textContent=text;
+  const content=documentTarget.createElement('p');content.className='message-content';setChatContent(content,text,role);
   message.append(content);
   return message;
+}
+export function setChatContent(content,text,speaker='nox'){
+  content.textContent=speaker==='nox'?proseText(text):text;
 }

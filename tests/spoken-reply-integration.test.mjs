@@ -5,12 +5,13 @@ import vm from 'node:vm';
 import {normalizePacket} from '../shared/character.js';
 import {spokenPreview} from '../public/js/reply.js';
 import {createReplyPresentation} from '../public/js/reply-presentation.js';
+import {setChatContent} from '../public/js/chat-message.js';
 const source=await readFile(new URL('../public/js/app.js',import.meta.url),'utf8');
 const body=source.slice(source.indexOf('async function perform('),source.indexOf('\nfunction setBusy('));
 const noop=()=>{},packet={speech:'A complete opening. '+ 'The full written answer remains available. '.repeat(20).trimEnd(),emotion:'curious',action:'gravity',memory:''};
 function fixture(enabled=true){
   const text={textContent:''},draft={classList:{remove:noop},querySelector:()=>text},saved=[],stageEvents=[],nodes=new Map();let callbacks,current=true;
-  const context=vm.createContext({normalizePacket,spokenPreview,createReplyPresentation,setTimeout,clearTimeout,
+  const context=vm.createContext({normalizePacket,spokenPreview,createReplyPresentation,setChatContent,setTimeout,clearTimeout,
     pendingPresentation:null,pendingDraft:draft,replyDiagnostics:{setStatus:noop,capture:()=>1},
     turns:{isCurrent:()=>current},lastPacket:null,mode:'companion',
     voice:{enabled,supported:true,prepare:noop,stop:noop,speak:(_t,_m,_e,_c,options)=>{callbacks=options;return Promise.resolve();}},

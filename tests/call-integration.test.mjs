@@ -10,6 +10,7 @@ import {selfDeclaredName} from '../public/js/name-intent.js';
 import {historyFailure} from '../public/js/history-notice.js';
 import {spokenPreview} from '../public/js/reply.js';
 import {createReplyPresentation} from '../public/js/reply-presentation.js';
+import {setChatContent} from '../public/js/chat-message.js';
 import {observeInterface} from '../public/js/interface-observation.js';
 import {attachVoiceCall} from '../public/js/voice-call-controls.js';
 
@@ -28,7 +29,7 @@ async function fixture(){
   function $(id){if(!nodes.has(id))nodes.set(id,{value:id==='reply-depth'?'balanced':'',lastChild:{textContent:''},focus:noop,scrollHeight:100,replaceChildren:noop});return nodes.get(id);}
   function addMessage(){const content={textContent:''};return {classList:{add:noop,remove:noop},querySelector:()=>content,append:noop,remove:noop};}
   const context=vm.createContext({
-    $,history,normalizePacket,prepareChatRequest,explicitMemoryRequest,readChatStream,selfDeclaredName,historyFailure,spokenPreview,createReplyPresentation,observeInterface,AbortController,clearTimeout,setTimeout,
+    $,history,normalizePacket,prepareChatRequest,explicitMemoryRequest,readChatStream,selfDeclaredName,historyFailure,spokenPreview,createReplyPresentation,setChatContent,observeInterface,AbortController,clearTimeout,setTimeout,
     composerOptions:{close:noop},composer:{setValue:value=>{$('message').value=value;},resize:noop},
     editTarget:null,currentActivity:'conversation',brain:'live',busy:false,mode:'companion',selectedProvider:'',
     summaryController:null,summaryTimer:null,pendingDraft:null,pendingPresentation:null,floatingPresence:null,document:{body:{dataset:{view:'conversation',presence:'visible'}}},activityTurn:null,lastPacket:{speech:'Before the call'},

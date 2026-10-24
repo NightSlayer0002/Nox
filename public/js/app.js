@@ -29,7 +29,9 @@ import {sourceBackground} from './source-background.js';
 import { afterimageBridge, applyAfterimageCue } from './afterimage-bridge.js';
 import {visit,initialVisitStatus,requestVisitStatus} from './visit-scope.js';
 import {attachComposerOptions,attachDetailsMenu,createComposerSizer,createReplyDiagnostics} from './conversation-controls.js';
-import {createChatMessage} from './chat-message.js';
+import {createChatMessage,setChatContent} from './chat-message.js';
+import {attachMessageSources} from './message-sources.js';
+import {attachComposerSubmission} from './composer-submission.js';
 import {createActivitySignal} from './activity-signal.js';
 import {approvedPreferences,companionBridge,companionChanged,rememberActivity} from './companion-context.js';
 import {EverydayBridge} from './everyday-bridge.js';
@@ -262,6 +264,7 @@ function startRecording(){
 function addMessage(speaker, text,turn) {
   const message = createChatMessage(speaker, text, document);
   if(turn)message.dataset.seq=String(turn.seq);
+  if(turn?.sources)attachMessageSources(message,turn.sources);
   $('conversation').append(message);
   $('conversation').scrollTop = $('conversation').scrollHeight;
   return message;
@@ -309,20 +312,21 @@ function updateMemory() {
   else if (!memory.persistent) $('memory-summary').textContent += ' Storage is unavailable; this notebook lasts for this visit.';
 }
 
-async function perform(value, save = true, draft, version, depth='quick',rememberAllowed=false) {
+async function perform(value, save = true, draft, version, depth='quick',rememberAllowed=false,sources=[]) {
   if(version!==undefined&&!turns.isCurrent(version))return;
   const packet = normalizePacket(value,depth); lastPacket = packet;
   const spoken=spokenPreview(packet.speech);
   voice.prepare(spoken,mode,packet.emotion);
   if (packet.memory&&rememberAllowed) await memory.remember(packet.memory);
   if(version!==undefined&&!turns.isCurrent(version))return;
-  if (save && !await history.append('assistant', packet.speech)) {voice.stop();return;}
+  if (save && !await history.append('assistant', packet.speech,{sources})) {voice.stop();return;}
   if(version!==undefined&&!turns.isCurrent(version))return;
   const replyTurn=save?history.active().turns.at(-1):null;
   const presentation=createReplyPresentation({voiceEnabled:voice.enabled&&voice.supported,isCurrent:()=>version===undefined||turns.isCurrent(version),
     onWaiting:waiting=>{$('show-reply-text').hidden=!waiting;if(waiting)replyDiagnostics.setStatus('Preparing NOX’s voice…');else if($('reply-timing').textContent==='Preparing NOX’s voice…')replyDiagnostics.setStatus('');},
     onReveal:()=>{
-      if(draft){draft.classList.remove('draft');draft.querySelector('.message-content').textContent=packet.speech;attachMessageActions(draft,replyTurn);if(pendingDraft===draft)pendingDraft=null;}else{const message=addMessage('nox', packet.speech,replyTurn);attachMessageActions(message,replyTurn);}
+      if(draft){draft.classList.remove('draft');setChatContent(draft.querySelector('.message-content'),packet.speech);attachMessageActions(draft,replyTurn);if(pendingDraft===draft)pendingDraft=null;}else{const message=addMessage('nox', packet.speech,replyTurn);attachMessageActions(message,replyTurn);}
+      if(draft&&sources.length)attachMessageSources(draft,sources);
       stage.speak({...packet,speech:spoken});
       if(packet.action==='takeover'&&!floatingPresence?.active)stage.canvas.scrollIntoView({behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'instant':'smooth',block:'center'});
     }});
@@ -393,7 +397,7 @@ async function send(raw,{recorded=false}={}) {
       packet = demoReply(text, context);
       if(turns.isCurrent(version))replyDiagnostics.complete(timingVersion);
     }
-    if (turns.isCurrent(version)) {activity.transition('reply-ready',activityTurn);if(takeover)packet={...packet,action:'takeover'};const draft=pendingDraft;const completed=await perform(packet,true,draft,version,depth,explicitMemoryRequest(text));if(turns.isCurrent(version)){if(brain==='live'&&request.context.knowledge?.length&&draft){const sources=document.createElement('p');sources.className='knowledge-sources';sources.textContent='Context included: '+request.context.knowledge.map(n=>`[${n.id}] ${n.title}`).join(' · ');draft.append(sources);}pendingDraft=null;scheduleSummary();return completed;}}
+    if (turns.isCurrent(version)) {activity.transition('reply-ready',activityTurn);if(takeover)packet={...packet,action:'takeover'};const draft=pendingDraft;const completed=await perform(packet,true,draft,version,depth,explicitMemoryRequest(text),brain==='live'?request.context.knowledge:[]);if(turns.isCurrent(version)){pendingDraft=null;scheduleSummary();return completed;}}
   } catch (error) {
     if (turns.isCurrent(version)){setUsage(error.usage);pendingDraft?.remove();pendingDraft=null;if(error.name!=='AbortError'){activity.finishTurn(activityTurn,'error');if(!$('message').value){composer.setValue(text);contextPreview();}stage.character.react?.('worried',stage.time,2);if (brain === 'live') $('brain-status').lastChild.textContent = ' AI error'; addMessage('system', error.message); toast(error.message);replyDiagnostics.setStatus('Reply interrupted. Your message is still in this visit.');}}
   } finally { if (turns.isCurrent(version)) { setBusy(false); $('message').focus(); } }
@@ -415,8 +419,7 @@ async function setMode(next, greet = true) {
 
 document.querySelectorAll('[data-mode]').forEach(button => button.addEventListener('click', () => setMode(button.dataset.mode)));
 document.querySelectorAll('[data-prompt]').forEach(button => button.addEventListener('click', () => send(button.dataset.prompt)));
-$('chat-form').addEventListener('submit', event => { event.preventDefault(); send($('message').value); });
-$('message').addEventListener('keydown', event => { if (event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); send(event.currentTarget.value); } });
+attachComposerSubmission({input:$('message'),form:$('chat-form'),onSend:text=>send(text)});
 $('cancel-reply').addEventListener('click',()=>{cancelConversation();replyDiagnostics.setStatus('Reply stopped. Your sent message is saved.');});
 $('show-reply-text').addEventListener('click',()=>pendingPresentation?.reveal('requested'));
 function contextPreview(){const notes=knowledge.context($('message').value);$('knowledge-context').hidden=!notes.length;$('knowledge-context').textContent=notes.length?'Relevant context for this thought: '+notes.map(n=>`[${n.id}] ${n.title}`).join(' · '):'';}
@@ -446,7 +449,7 @@ $('camera-button').addEventListener('click', async () => {
     button.setAttribute('aria-pressed', camera.active);
     stage.character.react?.(camera.active?'shy':'content',stage.time,2);
     button.querySelector('span').textContent = camera.active ? 'Camera on' : 'Camera';
-  } catch (error) { toast(error.message); }
+  } catch (error) { if(error.name!=='AbortError')toast(error.message); }
   finally { button.disabled = false; }
 });
 function resetScene() { stage.reset(); }
