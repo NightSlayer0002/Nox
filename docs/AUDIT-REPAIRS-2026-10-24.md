@@ -27,6 +27,8 @@ Deterministic regressions cover overlapping writes, persistence failures, deadli
 
 Browser CI disables WebGL for deterministic functional coverage. Full GPU/FPS, physical-phone keyboards and real microphone permission flows remain manual acceptance checks. Existing GPU visuals were preserved. The report's bundle-size observation is useful but does not itself establish an FPS defect; a measured performance pass remains appropriate.
 
+The first Linux CI run caught a test-isolation problem: the PWA worker could claim the page and bypass the simulated failed chunk download. A controlled-worker reproduction confirmed zero intercepted requests. Synthetic functional contexts now block workers and the test asserts both interception and the failed browser request before checking recovery, following [Playwright's network guidance](https://playwright.dev/docs/network#missing-network-events-and-service-workers). Production service workers remain enabled; these journeys do not certify offline/PWA caching.
+
 Web Locks coordinate updated cooperating tabs; close/reload old tabs after updating. This remains local browser storage, without cloud sync, encryption or recovery.
 
 ## Still requiring deployment/account work

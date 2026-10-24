@@ -48,8 +48,17 @@ test('completed prose uses safe formatting, message menus support keys and navig
 });
 
 test('a failed lazy receiver leaves navigation and ordinary conversation usable',async({page})=>{
-  await page.route('**/dist/chunks/afterimage-*.js',route=>route.abort());
-  await page.goto('/guest#afterimage');await expect(page.getByRole('alert')).toContainText('receiver could not load');
+  const receiverChunk=/\/dist\/chunks\/afterimage-[A-Z0-9]{8}\.js$/;
+  const blocked=[];
+  const failed=page.waitForEvent('requestfailed',{predicate:request=>receiverChunk.test(new URL(request.url()).pathname)});
+  await page.route(receiverChunk,route=>{blocked.push(route.request().url());return route.abort('failed');});
+  await page.goto('/guest#afterimage');
+  // Prove the fault was injected before checking recovery. A passing page
+  // without an aborted import would not exercise the receiver error boundary.
+  await expect.poll(()=>blocked.length).toBeGreaterThan(0);
+  const request=await failed;
+  expect(blocked).toContain(request.url());expect(request.failure()?.errorText).toContain('ERR_FAILED');
+  await expect(page.getByRole('alert')).toContainText('receiver could not load');
   await page.locator('nav[aria-label="Workspace"] a[data-view="conversation"]').click();
   await expect(page.locator('#brain-status')).toContainText('Guest visit');await send(page,'CI lazy recovery');
   await expect(answers(page)).toContainText('Synthetic answer to: CI lazy recovery');

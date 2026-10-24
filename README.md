@@ -31,6 +31,8 @@ startup, IME events, Stop/retry, keyboard menus, failed lazy loading, cross-tab
 storage, source export and narrow reading clearance. GPU rendering, physical
 phone keyboards and real microphone permission flows remain manual acceptance
 checks. CI runs these as the separate **Browser journeys** job.
+The synthetic functional contexts block service workers so network-failure
+injection is deterministic. Production offline/PWA behavior remains enabled.
 
 Open http://127.0.0.1:3000 for the landing page, then enter the workspace at `/app`. Dark is the default; a deliberate new Light choice can be saved. NOX looks toward your cursor across the browser window. Click him, drag him, or double-click to wink. Presence is the soft blob; Liquid Metal applies liquid-logo’s flowing Chrome shader to that same character. Signal is a faceless liquid core. NOX motion stays on with no website switch, including when the browser requests reduced motion as explicitly requested by the owner. ShaderGradient’s Mint water-plane scene animates automatically; GPU drawing is capped at 30 FPS and stops when the page is hidden. Voice starts off; enable it when you want spoken replies. Browser audio still needs interaction. Scene programs stop on a second click. F enters portrait film mode; Escape resets the scene.
 
