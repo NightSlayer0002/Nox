@@ -39,7 +39,10 @@ function providerFailure(status,rawCode){
   return Object.assign(new Error(status?`AI provider returned HTTP ${status}.`:'AI provider stream failed.'),{code,providerStatus:Number.isInteger(status)?status:undefined,providerCode});
 }
 
-export async function requestProvider(input, {provider, apiKey, model, deepModel, fetchImpl = fetch,onText,signal,task='chat',productCapabilities} = {}) {
+const parsePacket=text=>{try{return JSON.parse(text.trim().replace(/^```(?:json)?\s*([\s\S]*?)\s*```$/,'$1'));}catch{throw Object.assign(new SyntaxError('AI provider returned malformed structured data.'),{code:'invalid_json',failureStage:'packet_json'});}};
+const normalizeReply=(parsed,depth)=>{try{return normalizePacket(parsed,depth);}catch(error){throw Object.assign(new Error('AI provider returned an invalid character packet.'),{code:error.code==='output_limit'?'output_limit':'invalid_json',failureStage:'packet_schema'});}};
+
+export async function requestProvider(input, {provider, apiKey, model, deepModel, fetchImpl = fetch,onText,signal,deadlineAt,now=Date.now,task='chat',productCapabilities} = {}) {
   if (provider === 'openai'&&task!=='afterimage') return requestNox(input,{apiKey,model,fetchImpl,signal,productCapabilities});
   const spec=catalog[provider];
   if (!spec) throw new Error('Unknown AI provider.');
@@ -73,8 +76,11 @@ export async function requestProvider(input, {provider, apiKey, model, deepModel
     if(provider==='nvidia'&&selected.startsWith('nvidia/nemotron-3-'))body.chat_template_kwargs={enable_thinking:context.depth==='deep'&&task!=='summary'&&!afterimage};
     if(providerStreaming)body.stream=true;
   }
-  const deadline=AbortSignal.timeout(20000);
-  const response=await fetchImpl(url,{method:'POST',headers,body:JSON.stringify(body),signal:signal?AbortSignal.any([signal,deadline]):deadline});
+  const remaining=deadlineAt===undefined?20000:Math.min(20000,Math.ceil(deadlineAt-now()));
+  if(remaining<=0)throw new DOMException('The reply deadline expired.','TimeoutError');
+  const deadline=AbortSignal.timeout(remaining),providerSignal=signal?AbortSignal.any([signal,deadline]):deadline;
+  providerSignal.throwIfAborted();
+  const response=await fetchImpl(url,{method:'POST',headers,body:JSON.stringify(body),signal:providerSignal});
   if(!response.ok){
     let code;try{const data=await response.json();code=data.error?.code;}catch{/* Do not retain upstream bodies. */}
     throw providerFailure(response.status,code);
@@ -90,13 +96,15 @@ export async function requestProvider(input, {provider, apiKey, model, deepModel
       const partial=partialSpeech(raw,6000);
       const speech=partial.trim()?normalizePacket({speech:partial},context.depth).speech:'';
       if(speech&&speech!==previous){previous=speech;onText(speech);}
-    },signal,{quick:128000,balanced:512000,deep:1024000}[context.depth]);
+    },providerSignal,{quick:128000,balanced:512000,deep:1024000}[context.depth]);
+    providerSignal.throwIfAborted();
     if(!finished)throw Error('AI provider did not finish its stream.');
-    const packet=normalizePacket(JSON.parse(raw.trim().replace(/^```(?:json)?\s*([\s\S]*?)\s*```$/,'$1')),context.depth);
+    const packet=normalizeReply(parsePacket(raw),context.depth);
     if(packet.speech!==previous)onText(packet.speech);
     return packet;
   }
-  const data=await response.json();
+  let data;try{data=await response.json();}catch(error){providerSignal.throwIfAborted();throw Object.assign(new SyntaxError('AI provider returned a malformed response envelope.'),{code:'invalid_json',failureStage:'response_json'});}
+  providerSignal.throwIfAborted();
   let text;
   if(provider==='gemini') {
     if(data.candidates?.[0]?.finishReason!=='STOP') throw Object.assign(new Error('AI provider did not finish its reply.'),{code:data.candidates?.[0]?.finishReason==='MAX_TOKENS'?'output_limit':'finish_reason'});
@@ -107,10 +115,10 @@ export async function requestProvider(input, {provider, apiKey, model, deepModel
   }
   if(!text) throw new Error('AI provider returned no usable reply.');
   // NVIDIA models may fence JSON. Only remove a whole outer fence; never run content.
-  const parsed=JSON.parse(text.trim().replace(/^```(?:json)?\s*([\s\S]*?)\s*```$/,'$1'));
+  const parsed=parsePacket(text);
   if(afterimage)return normalizeAfterimage(parsed);
   if(task==='summary'){const summary=cleanText(parsed.summary,1200);if(!summary)throw Error('Empty conversation summary.');return summary;}
-  const packet=normalizePacket(parsed,context.depth);onText?.(packet.speech);return packet;
+  const packet=normalizeReply(parsed,context.depth);onText?.(packet.speech);return packet;
 }
 
 function geminiSchema(schema){

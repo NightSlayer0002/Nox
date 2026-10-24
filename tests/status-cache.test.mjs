@@ -74,11 +74,11 @@ test('shared generation rejections reuse the most recent usage without a status 
   let reads=0,takes=0;
   const allowance={status:async()=>{reads++;return usage(0);},take:async()=>{takes++;return {allowed:true,usage:usage(takes)};}};
   await withServer({guestAllowance:allowance},async base=>{
-    for(let index=0;index<30;index++)assert.equal((await request(base,'/api/chat',{message:`Question ${index}`},{'x-nox-guest':'1'})).status,200);
+    for(let index=0;index<24;index++)assert.equal((await request(base,'/api/chat',{message:`Question ${index}`},{'x-nox-guest':'1'})).status,200);
     for(let index=0;index<3;index++){
-      const blocked=await request(base,'/api/chat',{message:'Keep this draft.'},{'x-nox-guest':'1'});assert.equal(blocked.status,429);assert.equal(blocked.body.usage.text.used,30);
+      const blocked=await request(base,'/api/chat',{message:'Keep this draft.'},{'x-nox-guest':'1'});assert.equal(blocked.status,429);assert.equal(blocked.body.usage.text.used,24);
     }
-    assert.equal(takes,30);assert.equal(reads,0);
+    assert.equal(takes,24);assert.equal(reads,0);
   });
 });
 

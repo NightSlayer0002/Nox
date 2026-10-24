@@ -46,16 +46,17 @@ export function createGuestAllowance({now=Date.now,fetchImpl=fetch,
   }
   async function take(client,kind) {
     if(!Object.hasOwn(rates,kind))throw TypeError('Unknown allowance kind.');
-    const wait=rates[kind].take(client);
-    if(wait)return {allowed:false,code:'rate_limit',retryAfter:wait,usage:await status(client)};
+    const reservation=rates[kind].reserve(client);
+    if(reservation.wait)return {allowed:false,code:'rate_limit',retryAfter:reservation.wait,usage:await status(client)};
     const {date,reset,ttl}=day();
     if(!configured)return {allowed:true,usage:snapshot(client,'preview',null,reset)};
     try {
       const result=await command(['EVAL',SPEND,2,...keys(client,date),kind,limits[kind],ttl]);
       const counts=validCounts(result.slice(1));
       if(![0,1].includes(result[0])||!counts)throw Error('Invalid allowance result.');
+      if(result[0]===0)reservation.releaseShared();
       return {allowed:result[0]===1,...(result[0]===0?{code:'daily_limit',retryAfter:Math.max(1,Math.ceil((reset-now())/1000))}:{}),usage:snapshot(client,'daily',counts,reset)};
-    }catch{return {allowed:false,code:'allowance_unavailable',retryAfter:30,usage:snapshot(client,'unavailable',null,reset)};}
+    }catch{reservation.releaseShared();return {allowed:false,code:'allowance_unavailable',retryAfter:30,usage:snapshot(client,'unavailable',null,reset)};}
   }
   return {status,take};
 }

@@ -93,3 +93,13 @@ test('malformed provider JSON never becomes a successful character reply',async(
     await assert.rejects(requestProvider({message:'Explain'},{provider,apiKey:'fixture',fetchImpl:async()=>Response.json({choices:[{finish_reason:'stop',message:{content:'{"speech":"unfinished'}}]})}),SyntaxError);
   }
 });
+test('malformed upstream envelope and packet diagnostics identify only the safe failure stage',async()=>{
+  for(const [response,stage] of [[new Response('PRIVATE upstream invalid JSON'),'response_json'],[Response.json({choices:[{finish_reason:'stop',message:{content:'PRIVATE malformed packet'}}]}),'packet_json'],[Response.json({choices:[{finish_reason:'stop',message:{content:'{}'}}]}),'packet_schema']]){
+    await assert.rejects(requestProvider({message:'Hello'},{provider:'groq',apiKey:'PRIVATE key',fetchImpl:async()=>response}),error=>error.failureStage===stage&&!String(error).includes('PRIVATE')&&!JSON.stringify(error).includes('PRIVATE'));
+  }
+});
+test('an expired total request deadline prevents fetching and bounds later provider attempts',async()=>{
+  let calls=0;
+  await assert.rejects(requestProvider({message:'Hello'},{provider:'groq',apiKey:'fixture',deadlineAt:1000,now:()=>1000,fetchImpl:async()=>{calls++;return Response.json({});}}),error=>error.name==='TimeoutError');
+  assert.equal(calls,0);
+});

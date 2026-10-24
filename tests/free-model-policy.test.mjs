@@ -28,3 +28,19 @@ test('aborted work never calls a provider or falls back',async()=>{
   const controller=new AbortController();controller.abort();let calls=0;
   await assert.rejects(requestFreeChat({}, {model:FREE_CHAT_MODEL,signal:controller.signal,request:async()=>{calls++;return packet;}}));assert.equal(calls,0);
 });
+test('late primary quota failures do not start a fallback without four seconds remaining',async()=>{
+  let time=1000,calls=0;
+  await assert.rejects(requestFreeChat({}, {model:FREE_CHAT_MODEL,now:()=>time,request:async()=>{calls++;time+=23000;throw Object.assign(Error('Quota'),{code:'quota'});}}),error=>error.code==='quota');
+  assert.equal(calls,1);
+});
+test('fallback shares the original deadline and receives only the remaining time',async()=>{
+  let time=1000;const options=[];
+  await requestFreeChat({}, {model:FREE_CHAT_MODEL,now:()=>time,request:async(_,value)=>{options.push(value);if(options.length===1){time+=19000;throw Object.assign(Error('Quota'),{code:'quota'});}return packet;}});
+  assert.equal(options[0].deadlineAt,27000);assert.equal(options[1].deadlineAt,27000);
+  assert.equal(options[1].deadlineAt-time,7000);
+});
+test('disconnect after a retryable failure cancels before another provider request',async()=>{
+  const controller=new AbortController();let calls=0;
+  await assert.rejects(requestFreeChat({}, {model:FREE_CHAT_MODEL,signal:controller.signal,request:async()=>{calls++;controller.abort();throw Object.assign(Error('Quota'),{code:'quota'});}}));
+  assert.equal(calls,1);
+});

@@ -10,6 +10,7 @@ import {capabilitiesForModel} from './shared/product-capabilities.js';
 import { requestNox, explicitMemoryRequest } from './server/ai.mjs';
 import { getProviders, providerKey, requestProvider, requestSummary, modelForDepth } from './server/providers.mjs';
 import {FREE_CHAT_MODEL,requestFreeChat} from './server/free-model-policy.mjs';
+import {createChatBudget,CHAT_BUDGET_MS} from './server/chat-budget.mjs';
 import { createCache } from './server/cache.mjs';
 import { requestSpeech,requestSpeechClips,normalizeSpeechCues } from './server/speech.mjs';
 import { createHash, timingSafeEqual, randomUUID } from 'node:crypto';
@@ -61,10 +62,11 @@ function chatFailure(error,task='chat'){
   const reason=categories.includes(error.code)?error.code:error.name==='SyntaxError'?'invalid_json':error.name==='TimeoutError'?'timeout':'other';
   const code=['json_validate_failed','model_decommissioned','model_not_found','invalid_api_key','rate_limit_exceeded','insufficient_quota','invalid_request_error'].includes(error.providerCode)?error.providerCode:'unknown';
   const tag=task==='afterimage'?'afterimage':'chat';
-  console.warn(`[NOX ${tag}] reason=${reason} status=${Number.isInteger(error.providerStatus)?error.providerStatus:'none'} code=${code}`);
+  const stage=['response_json','packet_json','packet_schema'].includes(error.failureStage)?error.failureStage:null;
+  console.warn(`[NOX ${tag}] reason=${reason} status=${Number.isInteger(error.providerStatus)?error.providerStatus:'none'} code=${code}${stage?` stage=${stage}`:''}`);
   if(tag==='afterimage'&&reason==='invalid_json')return 'The AI returned an invalid AFTERIMAGE transmission. Please receive another take.';
   if(tag==='afterimage'&&reason==='output_limit')return 'The AI could not finish the AFTERIMAGE script within its output budget. Please receive another take.';
-  return {quota:'The AI provider’s free quota is temporarily exhausted. Wait for its limit to reset or choose another configured provider.',credentials:'The AI provider rejected its server key or model access. Check its account settings.',model_access:'The configured AI model is unavailable. Choose an enabled model in server settings.',output_limit:'The AI ran out of reply tokens. Try a shorter question.',invalid_json:'The AI returned an invalid character reply. Please try again.'}[reason]||'NOX could not finish this reply. Check provider access or limits and try again.';
+  return {quota:'The AI provider’s free quota is temporarily exhausted. Wait for its limit to reset or choose another configured provider.',credentials:'The AI provider rejected its server key or model access. Check its account settings.',model_access:'The configured AI model is unavailable. Choose an enabled model in server settings.',output_limit:'The AI ran out of reply tokens. Try a shorter question.',invalid_json:'NOX received an unreadable reply from its AI connection. Your message is safe; please try again.',timeout:'NOX could not finish before the reply deadline. Your message is safe; please try again.'}[reason]||'NOX could not finish this reply. Check provider access or limits and try again.';
 }
 
 export function createAppServer({
@@ -82,7 +84,14 @@ export function createAppServer({
 } = {}) {
   let windowStart = now();
   let requests = 0;
-  const sharedWait=()=>{if(now()-windowStart>=60000){windowStart=now();requests=0;}return ++requests>30?Math.max(1,Math.ceil((windowStart+60000-now())/1000)):0;};
+  let publicRequests=0;
+  const reserveShared=(publicTraffic=false)=>{
+    if(now()-windowStart>=60000){windowStart=now();requests=0;publicRequests=0;}
+    if(requests>=30||publicTraffic&&publicRequests>=24)return {wait:Math.max(1,Math.ceil((windowStart+60000-now())/1000))};
+    const window=windowStart;let released=false;requests++;if(publicTraffic)publicRequests++;
+    return {wait:0,release(){if(released)return;released=true;if(window!==windowStart)return;requests--;if(publicTraffic)publicRequests--;}};
+  };
+  const sharedWait=()=>reserveShared().wait;
   const audioCache=createCache();
   const speechClipCache=createCache();
   const afterimageCache=createAfterimageCache({now});
@@ -94,6 +103,16 @@ export function createAppServer({
     const decision=await guestAllowance.take(client,kind);
     if(decision.usage!==undefined)statusSnapshots.set(client,decision.usage);else statusSnapshots.invalidate(client);
     return decision;
+  };
+  // Reserve synchronously across the asynchronous allowance check. A rejection
+  // releases the slot, and a full global gate never spends a daily allowance.
+  // At most 24 anonymous text/voice generations can use the 30 shared slots.
+  const admitGeneration=async(client,kind,publicTraffic)=>{
+    const reservation=reserveShared(publicTraffic);
+    if(reservation.wait)return {wait:reservation.wait};
+    if(!publicTraffic)return {};
+    try{const decision=await takeAllowance(client,kind);if(!decision.allowed)reservation.release();return {decision};}
+    catch(error){reservation.release();throw error;}
   };
   const allowanceFailure=(response,decision,kind)=>{
     response.setHeader('retry-after',decision.retryAfter);
@@ -108,6 +127,7 @@ export function createAppServer({
   const voiceKey = speechProvider==='groq' ? speechKey : apiKey;
   const hasCloud = available.length > 0 || Boolean(naturalVoice && voiceKey);
   const server = http.createServer(async (request, response) => {
+    const requestStarted=now();
     response.setHeader('x-content-type-options', 'nosniff');
     response.setHeader('cache-control', 'no-store');
     response.setHeader('referrer-policy', 'no-referrer');
@@ -192,8 +212,9 @@ export function createAppServer({
           if (!voiceKey || !naturalVoice) return sendJson(response,503,{error:'Natural voice is not configured. Browser voice is still available.'});
           if (!input || typeof input.text !== 'string' || !input.text.trim() || input.text.length>420) return sendJson(response,400,{error:'Speech must contain 1–420 characters.'});
           let speechCues;try{speechCues=normalizeSpeechCues(input.text,input.speechCues);}catch{return sendJson(response,400,{error:'Speech cues must match four bounded script lines and known emotions.'});}
-          const wait=sharedWait();if(wait)return sharedFailure(wait,'Give NOX a moment before requesting more voice.');
-          if(!owner){const decision=await takeAllowance(clientIP,'speech');if(!decision.allowed)return allowanceFailure(response,decision,'speech');response.setHeader('x-nox-usage',JSON.stringify(decision.usage));}
+          const admission=await admitGeneration(clientIP,'speech',!owner);
+          if(admission.wait)return sharedFailure(admission.wait,'Give NOX a moment before requesting more voice.');
+          if(admission.decision){if(!admission.decision.allowed)return allowanceFailure(response,admission.decision,'speech');response.setHeader('x-nox-usage',JSON.stringify(admission.decision.usage));}
           const controller=input.stream===true?new AbortController():null;
           if(controller)response.once('close',()=>{if(!response.writableEnded)controller.abort();});
           try {
@@ -248,17 +269,18 @@ export function createAppServer({
         if(guestChat&&input.provider&&input.provider!=='groq')return sendJson(response,400,{error:'NOX Free uses its configured public connection.'});
         const selected = guestChat?guestProvider:input.provider ? available.find(p=>p.id===input.provider) : preferred;
         if(!selected) return sendJson(response,400,{error:'That provider is not configured on this server.'});
-        const wait=sharedWait();if(wait)return sharedFailure(wait,'Several requests arrived quickly. Give NOX a moment.');
+        const admission=await admitGeneration(clientIP,'text',Boolean(guestChat));
+        if(admission.wait)return sharedFailure(admission.wait,'Several requests arrived quickly. Give NOX a moment.');
         let usage=null;
-        if(guestChat){const decision=await takeAllowance(clientIP,'text');if(!decision.allowed)return allowanceFailure(response,decision,'text');usage=decision.usage;}
+        if(admission.decision){if(!admission.decision.allowed)return allowanceFailure(response,admission.decision,'text');usage=admission.decision.usage;}
+        const controller=new AbortController(),budget=createChatBudget({signal:controller.signal,now,deadlineAt:requestStarted+CHAT_BUDGET_MS}),started=performance.now();
+        response.on('close',()=>{if(!response.writableEnded)controller.abort();});
         try {
           const prompt = { message: input.message.trim(), context: sanitizeContext(guestChat?{...sanitizeContext(input.context),depth:input.context?.depth==='quick'?'quick':'balanced'}:input.context) };
           prompt.context.depth=answerDepth(prompt.context.depth);
           const selectedModel=modelForDepth(selected.id,selected.model,prompt.context.depth,groqDeepModel);
           let actualModel=selectedModel,fallbackReason=null;
-          const controller=new AbortController(),started=performance.now();
-          response.on('close',()=>{if(!response.writableEnded)controller.abort();});
-          const options={apiKey:selected.id==='openai'?apiKey:providerKey(selected.id),model:selectedModel,signal:controller.signal,provider:selected.id,deepModel:groqDeepModel,productCapabilities:capabilitiesForModel({owner,naturalVoice:Boolean(naturalVoice&&voiceKey&&(!locked||speechProvider==='groq'))})};
+          const options={apiKey:selected.id==='openai'?apiKey:providerKey(selected.id),model:selectedModel,signal:budget.signal,deadlineAt:budget.deadlineAt,now,provider:selected.id,deepModel:groqDeepModel,productCapabilities:capabilitiesForModel({owner,naturalVoice:Boolean(naturalVoice&&voiceKey&&(!locked||speechProvider==='groq'))})};
           const generate=onText=>guestChat?requestFreeChat(prompt,{...options,onText,request:providerRequest,onModel:(model,reason)=>{actualModel=model;fallbackReason=reason;}}):selected.id==='openai'?chat(prompt,options):providerRequest(prompt,{...options,onText});
           const finish=packet=>{
             const result=normalizePacket(packet,prompt.context.depth);
@@ -271,6 +293,7 @@ export function createAppServer({
             response.writeHead(200,{'content-type':'text/event-stream; charset=utf-8','x-accel-buffering':'no'});response.flushHeaders();
             const emit=(event,data)=>{if(!response.destroyed)response.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);};
             const onText=value=>{
+              if(budget.signal.aborted)return;
               if(typeof value!=='string'||!value.trim())return;
               const speech=normalizePacket({speech:value},prompt.context.depth).speech;
               if(speech===previousSpeech)return;
@@ -278,18 +301,19 @@ export function createAppServer({
               emit('text',speech.startsWith(previousSpeech)?{delta:speech.slice(previousSpeech.length)}:{speech});previousSpeech=speech;
             };
             try {
-              const packet=finish(await generate(onText));
+              const packet=finish(await budget.run(()=>generate(onText)));
               onText(packet.speech);
               emit('final',{...packet,metrics:metrics(firstTextMs),usage});
             }catch(error) {if(!controller.signal.aborted)emit('error',{error:chatFailure(error),usage});}
             response.end();return;
           }
-          const packet = await generate();
+          const packet = await budget.run(()=>generate());
           if(controller.signal.aborted)return;
           return sendJson(response, 200, {...finish(packet),metrics:metrics(Math.round(performance.now()-started)),usage});
         } catch(error) {
+          if(controller.signal.aborted||response.destroyed)return;
           return sendJson(response, 502, { error: chatFailure(error), usage });
-        }
+        }finally{budget.dispose();}
       } catch (error) {
         return sendJson(response, error.status || 400, { error: error.status === 413 ? 'Request is too large.' : 'Send valid JSON.' });
       }

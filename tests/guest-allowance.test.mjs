@@ -57,3 +57,20 @@ test('partial durable config is unavailable rather than silently bypassing confi
   const allowance=createGuestAllowance({url:'https://fixture.upstash.io',token:'',fetchImpl:async()=>{throw Error('Must not call network');}});
   assert.equal((await allowance.take('network','speech')).code,'allowance_unavailable');
 });
+test('daily rejected networks keep their abuse throttle but do not spend shared guest generation capacity',async()=>{
+  const fixture=redisFixture();let time=Date.parse('2026-10-24T12:00:00Z');
+  const allowance=createGuestAllowance({...fixture,url:'https://fixture.upstash.io',token:'fixture',textLimit:1,now:()=>time});
+  for(const network of ['a','b','c'])assert.equal((await allowance.take(network,'text')).allowed,true);
+  time+=60001;
+  for(const network of ['a','b','c'])for(let i=0;i<8;i++)assert.equal((await allowance.take(network,'text')).code,'daily_limit');
+  assert.equal((await allowance.take('a','text')).code,'rate_limit');
+  assert.equal((await allowance.take('legitimate network','text')).allowed,true);
+});
+test('concurrent allowance-store failures release shared reservations while staying fail closed',async()=>{
+  let offline=true;
+  const fixture=redisFixture();
+  const allowance=createGuestAllowance({url:'https://fixture.upstash.io',token:'fixture',now:()=>0,fetchImpl:async(...args)=>{await new Promise(resolve=>setImmediate(resolve));if(offline)throw Error('Offline');return fixture.fetchImpl(...args);}});
+  const rejected=await Promise.all(Array.from({length:24},(_,i)=>allowance.take(`rejected-${i}`,'text')));
+  assert.ok(rejected.every(result=>!result.allowed&&result.code==='allowance_unavailable'));
+  offline=false;assert.equal((await allowance.take('legitimate','text')).allowed,true);
+});
