@@ -1,6 +1,7 @@
 import { normalizeAfterimage } from '../../shared/afterimage.js';
 import { cleanText } from '../../shared/character.js';
 import { buildSelectedPerformance, normalizeEditedLines } from './afterimage-engine.js';
+import {createStorageTransaction} from './storage-transaction.js';
 
 export const AFTERIMAGE_STORAGE_KEY = 'nox.afterimage.v1';
 const VERSION = 1, LIMIT = 12;
@@ -33,19 +34,20 @@ function parseStore(raw) {
     return receptions;
 }
 
-// Local and deliberately bounded. Refresh before writes so stale tabs cannot revive deleted takes.
-export function createAfterimageStore(storage, {now = () => Date.now(), createId = () => globalThis.crypto?.randomUUID?.() ?? `take-${Date.now()}-${Math.random().toString(36).slice(2)}`} = {}) {
-  let persistent=true,memoryOnly=false,recovery=null,lastRaw,receptions=[];
+// Local and deliberately bounded. Refresh and commit share an origin-wide lock.
+export function createAfterimageStore(storage, {now = () => Date.now(), createId = () => globalThis.crypto?.randomUUID?.() ?? `take-${Date.now()}-${Math.random().toString(36).slice(2)}`,...options} = {}) {
+  let persistent=true,memoryOnly=false,recovery=null,lastRaw,receptions=[],durableIds=new Set();
   const listeners=new Set();
   if (storage === undefined) { try { storage=globalThis.localStorage; } catch { persistent=false; } }
   if (!storage?.getItem || !storage?.setItem) {persistent=false;memoryOnly=true;}
+  const transaction=createStorageTransaction(storage,'nox.afterimage.write',options);
   let state;
   function refresh() {
     if (memoryOnly) return;
     try {
       const raw=storage.getItem(AFTERIMAGE_STORAGE_KEY);if(raw===lastRaw)return;
       if(recovery)recovery={reason:'changed',raw};
-      else try{receptions=parseStore(raw);persistent=true;}catch(error){receptions=[];recovery={reason:error.message==='unsupported'?'unsupported':'invalid',raw};persistent=false;}
+      else try{receptions=parseStore(raw);durableIds=new Set(receptions.map(item=>item.id));persistent=true;}catch(error){receptions=[];recovery={reason:error.message==='unsupported'?'unsupported':'invalid',raw};persistent=false;}
       lastRaw=raw;
     } catch { persistent=false;memoryOnly=true; }
   }
@@ -53,16 +55,19 @@ export function createAfterimageStore(storage, {now = () => Date.now(), createId
     state=freeze({version:VERSION,persistent:persistent&&storage?.temporary!==true,recovery:recovery?{reason:recovery.reason}:null,receptions:[...receptions]});
     for (const listener of listeners) { try { listener(state); } catch {} }
   }
-  function persist() {
-    if (!memoryOnly&&!recovery) { try { const raw=JSON.stringify({version:VERSION,receptions});storage.setItem(AFTERIMAGE_STORAGE_KEY,raw);lastRaw=raw;persistent=true; } catch { persistent=false;memoryOnly=true; } }
+  function persist(next) {
+    if (!memoryOnly&&!recovery) { try { const raw=JSON.stringify({version:VERSION,receptions:next});storage.setItem(AFTERIMAGE_STORAGE_KEY,raw);lastRaw=raw;durableIds=new Set(next.map(item=>item.id));persistent=true; } catch { persistent=false;publish();throw Error('Could not save changes to your story archive. Browser storage may be full or blocked. The saved stories are unchanged. Export a copy and retry.'); } }
+    receptions=next;
     publish();
   }
+  const mutate=operation=>memoryOnly||recovery?operation():transaction.run(operation);
   refresh();publish();
   return {
     get persistent() { return persistent&&storage?.temporary!==true; },
+    get crossTabSafe() { return memoryOnly||transaction.supported; },
     get recovery() { refresh();return recovery?{reason:recovery.reason}:null; },
     exportOriginal() { refresh();return recovery?.raw??null; },
-    resetOriginal(expected) {
+    resetOriginal(expected) {return transaction.run(()=>{
       if(!recovery||expected!==recovery.raw)return false;
       let raw;try{raw=storage.getItem(AFTERIMAGE_STORAGE_KEY);}catch{return false;}
       if(raw!==expected){recovery={reason:'changed',raw};lastRaw=raw;publish();return false;}
@@ -78,28 +83,36 @@ export function createAfterimageStore(storage, {now = () => Date.now(), createId
         }
       }
       try{const encoded=JSON.stringify({version:VERSION,receptions:candidate});storage.setItem(AFTERIMAGE_STORAGE_KEY,encoded);lastRaw=encoded;}catch{persistent=false;publish();return false;}
-      receptions=candidate;recovery=null;persistent=true;publish();return true;
-    },
+      receptions=candidate;durableIds=new Set(candidate.map(item=>item.id));recovery=null;persistent=true;publish();return true;
+    });},
     snapshot:() => state,
     subscribe(listener) { listeners.add(listener);return () => listeners.delete(listener); },
     list:() => {refresh();return [...receptions];},
     get:id => {refresh();return receptions.find(entry => entry.id === id) ?? null;},
-    add(value) {
+    add(value) {return mutate(()=>{
       const entry=normalizeReception({...value,id:createId(),createdAt:new Date(now()).toISOString(),signalIndex:value?.signalIndex ?? 0,endingIndex:value?.endingIndex ?? 0});
       refresh();if(receptions.length>=LIMIT)throw Error('Your story archive is full (12 stories). Export a copy and delete a story before adding another. Nothing was removed.');
-      receptions=[entry,...receptions.filter(item => item.id !== entry.id)];persist();return entry;
-    },
-    update(id,patch = {}) {
+      persist([entry,...receptions.filter(item => item.id !== entry.id)]);return entry;
+    });},
+    update(id,patch = {}) {return mutate(()=>{
       refresh();const index=receptions.findIndex(entry => entry.id === id);
       if (index < 0) { publish();return null; }
       const previous=receptions[index],signalIndex=patch.signalIndex ?? previous.signalIndex,endingIndex=patch.endingIndex ?? previous.endingIndex;
       const branchChanged=signalIndex !== previous.signalIndex || endingIndex !== previous.endingIndex;
       const editedLines=Object.hasOwn(patch,'editedLines') ? patch.editedLines : branchChanged ? undefined : previous.editedLines;
       const entry=normalizeReception({...previous,signalIndex,endingIndex,editedLines});
-      receptions=receptions.map((item,i) => i === index ? entry : item);persist();return entry;
+      persist(receptions.map((item,i) => i === index ? entry : item));return entry;
+    });},
+    remove(id) {
+      const failed=error=>({removed:false,committed:false,scope:storage?.temporary!==true&&durableIds.has(id)?'browser':storage?.temporary===true||memoryOnly||recovery?'visit':'browser',error:error.message||'The saved story could not be deleted.'});
+      try{const result=mutate(()=>{
+        refresh();const scope=storage?.temporary===true||memoryOnly||recovery?'visit':'browser';
+        if(memoryOnly&&storage?.temporary!==true&&durableIds.has(id))throw Error('Could not delete the saved story because browser storage cannot be read. It is still listed. Export a copy and reload before retrying.');
+        if(!receptions.some(entry=>entry.id===id))return {removed:false,committed:false,scope};
+        persist(receptions.filter(entry=>entry.id!==id));return {removed:true,committed:true,scope};
+      });return typeof result?.then==='function'?result.catch(failed):result;}catch(error){return failed(error);}
     },
-    remove(id) { refresh();const count=receptions.length;receptions=receptions.filter(entry => entry.id !== id);if (count === receptions.length) { publish();return false; }persist();return true; },
-    clear() { refresh();receptions=[];persist(); },
+    clear() { return mutate(()=>{refresh();if(memoryOnly&&storage?.temporary!==true&&durableIds.size)throw Error('Could not clear saved stories because browser storage cannot be read. Export a copy and reload before retrying.');persist([]);}); },
     export(id) { refresh();const entry=id === undefined ? {version:VERSION,receptions} : receptions.find(item => item.id === id);if (!entry) throw new Error('This reception was deleted.');return JSON.stringify(entry,null,2); },
   };
 }

@@ -23,7 +23,7 @@ function receiver({owner=false,kind='live',exportProfile='landscape',recording=f
   const bridge={snapshot:()=>state,subscribe(fn){subscribers.add(fn);return()=>subscribers.delete(fn);},stop(){state={...state,status:'stopped'};for(const fn of subscribers)fn();},play(...args){plays.push(args);state={...state,status:'playing'};for(const fn of subscribers)fn();return true;},recordAndPlay(...args){plays.push(args);return true;},receive(options){requests.push(options);return receive(options);},setVoice(value){state={...state,voiceEnabled:value};},setExportProfile(value){state={...state,exportProfile:value};for(const fn of subscribers)fn();}};
   const mocks={'react':react,'react-dom':{createPortal:children=>children},'motion/react':{AnimatePresence:'presence',motion:{div:'motion-div'},useReducedMotion:react.useReducedMotion},'test-lattice':{},'/js/afterimage-bridge.js':{afterimageBridge:bridge},'/js/visit-scope.js':{visit:{owner,storage}},'/js/workbench.js':{downloadText:(...args)=>downloads.push(args)},'/js/companion-context.js':{}};
   const module={exports:{}};
-  vm.runInNewContext(bundle.outputFiles[0].text,{module,exports:module.exports,require:id=>mocks[id]??nativeRequire(id),window:{innerWidth:1400,matchMedia:()=>({matches:false}),addEventListener(){},removeEventListener(){},dispatchEvent(){}},Event,document:{body:{},getElementById:()=>null},AbortController,Date,console,setTimeout,clearTimeout});
+  vm.runInNewContext(bundle.outputFiles[0].text,{module,exports:module.exports,require:id=>mocks[id]??nativeRequire(id),navigator:{locks:{request:(_,operation)=>Promise.resolve().then(operation)}},window:{innerWidth:1400,matchMedia:()=>({matches:false}),addEventListener(){},removeEventListener(){},dispatchEvent(){}},Event,document:{body:{},getElementById:()=>null},AbortController,Date,console,setTimeout,clearTimeout});
   function render(){cursor=0;tree=module.exports.default();for(const effect of pendingEffects.splice(0))effect();return tree;}
   function nodes(node){if(!node||typeof node!=='object')return [];return [node,...(node.props?.children??[]).flat(Infinity).flatMap(child=>nodes(child))];}
   function text(node){return (node?.props?.children??[]).flat(Infinity).map(child=>typeof child==='object'?text(child):child??'').join('');}
@@ -50,14 +50,42 @@ test('repeated example playback and branch edits never fill the story archive',(
   assert.equal(ui.storage.getItem('nox.afterimage.v1'),null);
 });
 
-test('protected story archives offer the exact recovery download and explicit replacement',()=>{
+test('protected story archives offer the exact recovery download and explicit replacement',async()=>{
   const raw=' {"version":99,"valuable":"Original story"} ',ui=receiver({owner:true,initialRaw:raw});
   const original=ui.button('Download original stories');assert.ok(original);original.props.onClick();
   assert.equal(ui.downloads[0][0],raw);assert.equal(ui.storage.getItem('nox.afterimage.v1'),raw);
   ui.button('Replace protected archive').props.onClick();ui.render();
   assert.equal(ui.storage.getItem('nox.afterimage.v1'),raw);
-  ui.button('Confirm replacement').props.onClick();ui.render();
+  await ui.button('Confirm replacement').props.onClick();ui.render();
   assert.equal(JSON.parse(ui.storage.getItem('nox.afterimage.v1')).version,1);
+});
+
+for(const owner of [false,true])test(`${owner?'owner':'guest'} story deletion waits for confirmation and Cancel preserves its contents`,async()=>{
+  const raw=JSON.stringify({version:1,receptions:[{id:'saved',createdAt:'2026-10-24T00:00:00.000Z',packet:FIRST_CONTACT,seed:'Only copy',tone:'uncanny',source:'live',signalIndex:0,endingIndex:0}]}),ui=receiver({owner,initialRaw:raw});
+  const deletion=()=>ui.find(node=>node.props?.['aria-label']===`Delete reception ${FIRST_CONTACT.title}`);
+  deletion().props.onClick();ui.render();assert.equal(ui.storage.getItem('nox.afterimage.v1'),raw);
+  ui.button('Keep story').props.onClick();ui.render();assert.equal(ui.storage.getItem('nox.afterimage.v1'),raw);
+  deletion().props.onClick();ui.render();await ui.button('Delete story').props.onClick();ui.render();
+  assert.deepEqual(JSON.parse(ui.storage.getItem('nox.afterimage.v1')).receptions,[]);
+  assert.match(ui.text(ui.find(node=>node.props?.role==='status')),owner?/this browser/:/this visit/);
+});
+
+test('failed confirmed story deletion retains its selected content and archive row',async()=>{
+  const raw=JSON.stringify({version:1,receptions:[{id:'saved',createdAt:'2026-10-24T00:00:00.000Z',packet:FIRST_CONTACT,seed:'Only copy',tone:'uncanny',source:'live',signalIndex:0,endingIndex:0}]}),ui=receiver({owner:true,initialRaw:raw});
+  ui.find(node=>node.props?.['aria-label']===`Delete reception ${FIRST_CONTACT.title}`).props.onClick();ui.render();
+  ui.storage.setItem=()=>{throw Error('Blocked');};await ui.button('Delete story').props.onClick();ui.render();
+  assert.equal(ui.storage.getItem('nox.afterimage.v1'),raw);assert.equal(ui.text(ui.find(node=>node.props?.className==='reception-title')),FIRST_CONTACT.title);
+  assert.ok(ui.find(node=>node.props?.['aria-label']===`Confirm deletion of ${FIRST_CONTACT.title}`));assert.match(ui.text(ui.find(node=>node.props?.role==='alert')),/could not|storage/i);
+  assert.doesNotMatch(ui.text(ui.find(node=>node.props?.role==='status')),/removed from/i);
+});
+
+test('a generated story whose save fails stays visible and exportable as unsaved visit work',async()=>{
+  const ui=receiver({owner:true,receive:async()=>({packet:{...FIRST_CONTACT,title:'Keep this generated cut'},metrics:{provider:'groq',model:'fixture',totalMs:12}})});
+  ui.find(node=>node.props?.id==='afterimage-seed').props.onChange({target:{value:'An unsaved generation'}});ui.render();
+  ui.storage.setItem=()=>{throw Error('Full');};await ui.find(node=>node.type==='form').props.onSubmit({preventDefault(){}});ui.render();
+  assert.equal(ui.text(ui.find(node=>node.props?.className==='reception-title')),'Keep this generated cut');assert.equal(ui.storage.getItem('nox.afterimage.v1'),null);
+  assert.match(ui.text(ui.find(node=>node.props?.role==='alert')),/could not|not.*saved/i);assert.match(ui.text(ui.find(node=>node.props?.role==='status')),/export|this visit/i);
+  ui.button('Export script').props.onClick();assert.match(ui.downloads[0][0],/Keep this generated cut/);
 });
 
 test('voice preparation remains stoppable and captions-only playback explains its fallback',()=>{

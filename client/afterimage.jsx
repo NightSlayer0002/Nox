@@ -21,7 +21,7 @@ let receiverDraft=null;
 export default function Afterimage(){
   const [items,setItems]=useState(()=>store.list()),[current,setCurrent]=useState(()=>receiverDraft?.sample??store.list()[0]??null),[seed,setSeed]=useState(()=>receiverDraft?.seed??store.list()[0]?.seed??''),[tone,setTone]=useState(()=>receiverDraft?.tone??store.list()[0]?.tone??'uncanny');
   const [view,setView]=useState(()=>afterimageBridge.snapshot()),[busy,setBusy]=useState(false),[error,setError]=useState(''),[notice,setNotice]=useState(''),[editor,setEditor]=useState(false),[draftLines,setDraftLines]=useState([]);
-  const [replacement,setReplacement]=useState(undefined);
+  const [replacement,setReplacement]=useState(undefined),[pendingDelete,setPendingDelete]=useState(null),[saving,setSaving]=useState(false);
   const request=useRef(null),version=useRef(0),variation=useRef(0);
   const reduceMotion=useReducedMotion();
   useEffect(()=>{receiverDraft={seed,tone,sample:current&&!current.id?current:null};},[seed,tone,current]);
@@ -31,16 +31,16 @@ export default function Afterimage(){
   useEffect(()=>{if(view.status==='complete')setNotice('Cut complete. Try another ending, or capture this one.');},[view.status]);
   useEffect(()=>()=>{version.current++;request.current?.abort();afterimageBridge.stop('receiver closed');},[]);
   const packet=current?.packet||example,signalIndex=current?.signalIndex||0,endingIndex=current?.endingIndex||0,signal=packet.signals[signalIndex];
-  const selected=buildSelectedPerformance(packet,signalIndex,endingIndex,current?.editedLines),playing=view.status==='playing',preparing=view.preparing===true,disabled=busy||playing||preparing;
+  const selected=buildSelectedPerformance(packet,signalIndex,endingIndex,current?.editedLines),playing=view.status==='playing',preparing=view.preparing===true,disabled=busy||saving||playing||preparing;
   const recovery=store.recovery,full=items.length>=12;
   const playbackNotice=preparing?'Preparing voice…':view.captionsOnly?`Playing with captions only. ${view.voiceError||'Voice is unavailable for this performance.'}`:'';
   const exportProfile=resolveExportProfile(view.exportProfile);
   const canGenerate=visit.owner&&view.connected&&view.connection?.kind==='live';
   const reception=current||{packet:example,seed:'A door in a window with no wall.',tone:'uncanny',source:'authored',signalIndex:0,endingIndex:0,createdAt:new Date().toISOString()};
   const cancel=()=>{version.current++;request.current?.abort();request.current=null;setBusy(false);setNotice('Generation cancelled. Your seed is still here.');};
-  const choose=(which,index)=>{
+  const choose=async(which,index)=>{
     afterimageBridge.stop('selection changed');
-    try{const next=current?.id?store.update(current.id,{[which]:index}):{...reception,[which]:index,editedLines:undefined};if(!next)throw new Error('This reception was removed. Choose another from your archive.');buildSelectedPerformance(next.packet,next.signalIndex,next.endingIndex,next.editedLines);setCurrent(next);setEditor(false);setDraftLines([]);setError('');setNotice('A different cut. No new model request.');}catch(e){setError(e.message);}
+    setSaving(true);try{const next=current?.id?await store.update(current.id,{[which]:index}):{...reception,[which]:index,editedLines:undefined};if(!next)throw new Error('This reception was removed. Choose another from your archive.');buildSelectedPerformance(next.packet,next.signalIndex,next.endingIndex,next.editedLines);setCurrent(next);setEditor(false);setDraftLines([]);setError('');setNotice('A different cut. No new model request.');}catch(e){setError(e.message);}finally{setSaving(false);}
   };
   async function receive(event,newTake=false){
     event?.preventDefault();if(!canGenerate||!seed.trim()||busy||playing)return;
@@ -50,7 +50,12 @@ export default function Afterimage(){
     try{
       const result=await afterimageBridge.receive({seed:seed.trim(),tone,variation:variation.current,signal:controller.signal});
       if(controller.signal.aborted||version.current!==ownVersion)return;
-      const next=store.add({packet:result.packet,seed:seed.trim(),tone,source:'live',metrics:result.metrics});setCurrent(next);setEditor(false);setNotice('Story ready. Choose from six possible cuts.');
+      const generatedCut={packet:result.packet,seed:seed.trim(),tone,source:'live',metrics:result.metrics,signalIndex:0,endingIndex:0,createdAt:new Date().toISOString()};let next;
+      try{next=await store.add(generatedCut);}catch(saveError){
+        if(controller.signal.aborted||version.current!==ownVersion)return;
+        setCurrent(generatedCut);setEditor(false);setError(`Your story was generated but could not be saved. ${saveError.message}`);setNotice('This cut is available for this visit. Export it before refreshing; your saved archive is unchanged.');return;
+      }
+      if(controller.signal.aborted||version.current!==ownVersion)return;setCurrent(next);setEditor(false);setNotice('Story ready. Choose from six possible cuts.');
     }catch(e){if(version.current===ownVersion&&e.name!=='AbortError'){setError(e.message||'The story could not be generated. Your seed is still here.');setNotice('Your previous cut and seed are kept.');}}
     finally{if(version.current===ownVersion){request.current=null;setBusy(false);}}
   }
@@ -62,14 +67,19 @@ export default function Afterimage(){
     setError('');try{const started=capture?afterimageBridge.recordAndPlay(take.packet,take.signalIndex,take.endingIndex,take.editedLines):afterimageBridge.play(take.packet,take.signalIndex,take.endingIndex,take.editedLines);if(!started)throw new Error('The stage is not ready to play. Try again when it is connected.');setNotice(capture?'Capturing NOX locally. Orpheus voice is included when enabled.':'NOX is performing your selected cut.');if(window.innerWidth<=1200)document.getElementById('stage')?.scrollIntoView({behavior:reduceMotion?'instant':'smooth',block:'center'});}catch(e){setError(e.message);}
   }
   function stopPerformance(){afterimageBridge.stop('stopped by you');setNotice('Performance stopped. Your story is kept.');}
-  function saveEdits(){
-    try{buildSelectedPerformance(reception.packet,reception.signalIndex,reception.endingIndex,draftLines);const next=current?.id?store.update(current.id,{editedLines:draftLines}):{...reception,editedLines:[...draftLines]};if(!next)throw new Error('This reception was removed. Choose another from your archive.');setCurrent(next);setEditor(false);setDraftLines([]);setError('');setNotice('Your cut is edited. No model request.');}catch(e){setError(e.message);}
+  async function saveEdits(){
+    setSaving(true);try{buildSelectedPerformance(reception.packet,reception.signalIndex,reception.endingIndex,draftLines);const next=current?.id?await store.update(current.id,{editedLines:draftLines}):{...reception,editedLines:[...draftLines]};if(!next)throw new Error('This reception was removed. Choose another from your archive.');setCurrent(next);setEditor(false);setDraftLines([]);setError('');setNotice('Your cut is edited. No model request.');}catch(e){setError(e.message);}finally{setSaving(false);}
   }
   function restore(id){
     const item=store.get(id);if(!item){setError('This reception was removed from this browser.');return;}
     afterimageBridge.stop('archive selected');setCurrent(item);setSeed(item.seed);setTone(item.tone);setEditor(false);setDraftLines([]);setError('');setNotice('Reception restored. No model request.');
   }
-  function remove(id){if(current?.id===id){afterimageBridge.stop('reception deleted');setCurrent(null);setEditor(false);setDraftLines([]);}store.remove(id);setNotice('Reception removed from this browser.');}
+  async function remove(id){
+    setSaving(true);setNotice('');setError('');
+    try{const result=await store.remove(id);if(!result.committed||!result.removed){setError(result.error||'This story was already removed in another tab.');setItems(store.list());return;}
+      if(current?.id===id){afterimageBridge.stop('reception deleted');setCurrent(null);setEditor(false);setDraftLines([]);}setPendingDelete(null);setNotice(result.scope==='browser'?'Reception removed from this browser.':'Reception removed from this visit.');
+    }catch(e){setError(e.message||'The saved story could not be deleted.');}finally{setSaving(false);}
+  }
   const generated=current?.source==='live',metrics=current?.metrics;
   return <div className="afterimage-receiver">
     {createPortal(<AnimatePresence>{playing&&<motion.div className="receiver-onair" initial={{opacity:0,y:reduceMotion?0:12}} animate={{opacity:1,y:0}} exit={{opacity:0,y:reduceMotion?0:12}} transition={{duration:reduceMotion?0:.18}}><span><i/>{preparing?'Preparing voice…':view.recording?'Capturing':'Playing'} <b>{timecode(view.elapsedMs||0)}</b></span><button type="button" onClick={stopPerformance}>Stop performance</button></motion.div>}</AnimatePresence>,document.body)}
@@ -89,7 +99,8 @@ export default function Afterimage(){
     </form>}
     </details>
     {error&&<p className="receiver-error" role="alert">{error}</p>}<p className="receiver-notice" role="status">{playbackNotice||notice||'Choose a branch to explore a different cut.'}</p>
-    {recovery&&<section className="receiver-access" aria-label="Story archive recovery"><p>{recovery.reason==='changed'?'The saved archive changed in another tab.':recovery.reason==='unsupported'?'The saved stories use an unsupported format.':'The saved stories could not be read.'} The original data is untouched. New stories stay in this visit until you explicitly replace the protected archive.</p><button type="button" onClick={()=>{const raw=store.exportOriginal();if(raw!==null)downloadText(raw,'nox-original-stories.json');}}>Download original stories</button><button type="button" disabled={disabled} onClick={()=>setReplacement(store.exportOriginal())}>Replace protected archive</button>{replacement!==undefined&&<div role="group" aria-label="Confirm story archive replacement"><p>Save this visit’s {items.length} stories together with any readable original stories? Unreadable original data will be replaced. Download the original first if you need it.</p><button type="button" onClick={()=>{const saved=store.resetOriginal(replacement);setReplacement(undefined);setNotice(saved?'This visit’s stories are now saved.':'The original changed or could not be replaced. Download its current copy and review again.');}}>Confirm replacement</button><button type="button" onClick={()=>setReplacement(undefined)}>Keep original</button></div>}</section>}
+    {!store.crossTabSafe&&<p className="archive-note">This browser cannot safely save changes across tabs. Saved stories remain readable and exportable. Use a browser with Web Locks support to edit them.</p>}
+    {recovery&&<section className="receiver-access" aria-label="Story archive recovery"><p>{recovery.reason==='changed'?'The saved archive changed in another tab.':recovery.reason==='unsupported'?'The saved stories use an unsupported format.':'The saved stories could not be read.'} The original data is untouched. New stories stay in this visit until you explicitly replace the protected archive.</p><button type="button" onClick={()=>{const raw=store.exportOriginal();if(raw!==null)downloadText(raw,'nox-original-stories.json');}}>Download original stories</button><button type="button" disabled={disabled} onClick={()=>setReplacement(store.exportOriginal())}>Replace protected archive</button>{replacement!==undefined&&<div role="group" aria-label="Confirm story archive replacement"><p>Save this visit’s {items.length} stories together with any readable original stories? Unreadable original data will be replaced. Download the original first if you need it.</p><button type="button" disabled={disabled} onClick={async()=>{setSaving(true);try{const saved=await store.resetOriginal(replacement);setReplacement(undefined);setNotice(saved?'This visit’s stories are now saved.':'');setError(saved?'':'The original changed or could not be replaced. Download its current copy and review again.');}catch(e){setError(e.message);}finally{setSaving(false);}}}>Confirm replacement</button><button type="button" disabled={disabled} onClick={()=>setReplacement(undefined)}>Keep original</button></div>}</section>}
     <div className="reception-header"><span className="source-tag">{generated?'Model-generated story':'Authored sample'}</span><span>{current?new Date(current.createdAt).toLocaleDateString(undefined,{month:'short',day:'numeric'}):'No text-model request'}</span></div>
     <AnimatePresence mode="wait" initial={false}><motion.div key={current?.id||'first-contact'} initial={{opacity:0,y:reduceMotion?0:8}} animate={{opacity:1,y:0}} exit={{opacity:0,y:reduceMotion?0:-6}} transition={{duration:reduceMotion?0:.22}}>
       <h3 className="reception-title">{packet.title}</h3><p className="reception-anchor">{packet.anchor}</p>
@@ -109,6 +120,6 @@ export default function Afterimage(){
     </motion.div></AnimatePresence>
     <details className="receiver-how"><summary>How Afterimage works</summary><p>Each story has three branches and two endings per branch. Choose one of six cuts. The four-cue timeline spans 28 seconds. Slower narration can extend the final beat, up to 60 seconds.</p><p>Replays and edits use no text-model request. New stories use your configured model. Cloud voice uses its speech quota. Captions follow the cue timer; they are not aligned word by word to audio.</p></details>
     <nav className="receiver-handoffs" aria-label="More ways to use NOX"><a href="#scenes">Open Scene studio</a><a href="#conversation">Talk with NOX</a></nav>
-    <div className="receiver-archive"><div><span className="eyebrow">Recent stories</span><small>{items.length}/12 · {store.persistent?'this browser':'this visit'}</small><button type="button" onClick={()=>downloadText(store.export(),'nox-stories.json')}>Export all stories</button></div>{full&&<p className="archive-note">Your archive is full. Export a copy, then delete a story to make room. Nothing is removed automatically. The example remains available.</p>}{items.length?items.map(item=><div className="archive-row" key={item.id}><button type="button" disabled={disabled} onClick={()=>restore(item.id)}><b>{item.packet.title}</b><span>{item.source==='authored'?'Authored sample':'Model-generated'} · {new Date(item.createdAt).toLocaleDateString()}</span></button><button type="button" disabled={disabled} onClick={()=>remove(item.id)} aria-label={`Delete reception ${item.packet.title}`}>Delete</button></div>):<p>Your first custom story will appear here. The example uses no archive space.</p>}<p className="archive-note">{store.persistent?'Saved as plaintext in this browser, without cloud sync. Export before changing device or domain.':!visit.owner?'Recent stories and edits clear when you refresh. Export a script or story data to keep a copy.':'These stories last for this visit. Export anything you want to keep.'}</p></div>
+    <div className="receiver-archive"><div><span className="eyebrow">Recent stories</span><small>{items.length}/12 · {store.persistent?'this browser':'this visit'}</small><button type="button" onClick={()=>downloadText(store.export(),'nox-stories.json')}>Export all stories</button></div>{full&&<p className="archive-note">Your archive is full. Export a copy, then delete a story to make room. Nothing is removed automatically. The example remains available.</p>}{items.length?items.map(item=><div className="archive-row" key={item.id}><button type="button" disabled={disabled} onClick={()=>restore(item.id)}><b>{item.packet.title}</b><span>{item.source==='authored'?'Authored sample':'Model-generated'} · {new Date(item.createdAt).toLocaleDateString()}</span></button>{pendingDelete===item.id?<div className="inline-confirm" role="group" aria-label={`Confirm deletion of ${item.packet.title}`}><p>Delete this story {visit.owner?'from this browser':'from this visit'}? There is no cloud copy or undo.</p><button type="button" disabled={disabled} onClick={()=>remove(item.id)}>Delete story</button><button type="button" autoFocus disabled={disabled} onClick={()=>setPendingDelete(null)}>Keep story</button></div>:<button type="button" disabled={disabled} onClick={()=>setPendingDelete(item.id)} aria-label={`Delete reception ${item.packet.title}`}>Delete</button>}</div>):<p>Your first custom story will appear here. The example uses no archive space.</p>}<p className="archive-note">{store.persistent?'Saved as plaintext in this browser, without cloud sync. Export before changing device or domain.':!visit.owner?'Recent stories and edits clear when you refresh. Export a script or story data to keep a copy.':'These stories last for this visit. Export anything you want to keep.'}</p></div>
   </div>;
 }

@@ -30,30 +30,30 @@ function notebook({owner=false,enabled=true,initialRaw}={}) {
   return {knowledge,storage,downloads,render,find,text,status:()=>text(find(node=>node.props?.role==='status'))};
 }
 
-test('a protected notebook offers its exact original and requires explicit replacement',()=>{
+test('a protected notebook offers its exact original and requires explicit replacement',async()=>{
   const raw=' {"version":99,"valuable":"Original notebook"} ',ui=notebook({owner:true,initialRaw:raw});
   const button=label=>ui.find(node=>node.type==='button'&&ui.text(node)===label);
   button('Download original notebook').props.onClick();assert.equal(ui.downloads[0][0],raw);
   button('Replace protected notebook').props.onClick();ui.render();assert.equal(ui.storage.getItem('nox.knowledge.v1'),raw);
-  button('Confirm notebook replacement').props.onClick();ui.render();
+  await button('Confirm notebook replacement').props.onClick();ui.render();
   assert.equal(JSON.parse(ui.storage.getItem('nox.knowledge.v1')).version,1);assert.equal(ui.knowledge.recovery,null);
 });
 
-test('notebook recovery confirmation keeps a changed original and the current pasted draft',()=>{
+test('notebook recovery confirmation keeps a changed original and the current pasted draft',async()=>{
   const raw='{broken',ui=notebook({owner:true,initialRaw:raw}),button=label=>ui.find(node=>node.type==='button'&&ui.text(node)===label);
   ui.find(node=>node.props?.id==='knowledge-text').props.onChange({target:{value:'Keep my unfinished note'}});
   button('Replace protected notebook').props.onClick();ui.render();
   const changed='{"version":2,"valuable":"Other tab"}';ui.storage.setItem('nox.knowledge.v1',changed);
-  button('Confirm notebook replacement').props.onClick();ui.render();
+  await button('Confirm notebook replacement').props.onClick();ui.render();
   assert.equal(ui.storage.getItem('nox.knowledge.v1'),changed);assert.match(ui.status(),/changed|could not/);
   assert.equal(ui.find(node=>node.props?.id==='knowledge-text').props.value,'Keep my unfinished note');
 });
 
-test('guest note submission confirms temporary storage and tells the guest how to use the passage',()=>{
+test('guest note submission confirms temporary storage and tells the guest how to use the passage',async()=>{
   const ui=notebook();
   ui.find(node=>node.props?.id==='knowledge-title').props.onChange({target:{value:'A guest note'}});
   ui.find(node=>node.props?.id==='knowledge-text').props.onChange({target:{value:'Use this text in our discussion.'}});ui.render();
-  ui.find(node=>node.type==='form').props.onSubmit({preventDefault(){}});ui.render();
+  await ui.find(node=>node.type==='form').props.onSubmit({preventDefault(){}});ui.render();
   assert.equal(ui.knowledge.list()[0].title,'A guest note');assert.equal(ui.knowledge.persistent,false);
   assert.match(ui.status(),/this visit/);assert.match(ui.status(),/relevant passages can accompany/i);
   const context=ui.find(node=>node.type==='input'&&node.props.type==='checkbox');
@@ -66,22 +66,39 @@ test('guest file import gives the same temporary-use guidance as pasted notes',a
   assert.equal(ui.knowledge.list()[0].title,'guest.md');assert.match(ui.status(),/this visit/);assert.match(ui.status(),/relevant passages can accompany/i);
 });
 
-test('an owner with notebook context off is told to enable it after saving',()=>{
+test('an owner with notebook context off is told to enable it after saving',async()=>{
   const ui=notebook({owner:true,enabled:false});
   ui.find(node=>node.props?.id==='knowledge-title').props.onChange({target:{value:'Owner note'}});
   ui.find(node=>node.props?.id==='knowledge-text').props.onChange({target:{value:'A project brief.'}});ui.render();
-  ui.find(node=>node.type==='form').props.onSubmit({preventDefault(){}});ui.render();
+  await ui.find(node=>node.type==='form').props.onSubmit({preventDefault(){}});ui.render();
   assert.equal(ui.knowledge.persistent,true);assert.match(ui.status(),/turn on notebook context/i);
 });
 
-test('a recovered owner storage write reports its final persisted state',()=>{
+test('a recovered owner storage write reports its final persisted state',async()=>{
   const ui=notebook({owner:true});const write=ui.storage.setItem;
   ui.storage.setItem=()=>{throw Error('Storage full');};
   assert.throws(()=>ui.knowledge.add({title:'Rejected',text:'This should not save.'}));
   ui.storage.setItem=write;
   ui.find(node=>node.props?.id==='knowledge-title').props.onChange({target:{value:'Recovered note'}});
   ui.find(node=>node.props?.id==='knowledge-text').props.onChange({target:{value:'This is saved now.'}});ui.render();
-  ui.find(node=>node.type==='form').props.onSubmit({preventDefault(){}});ui.render();
+  await ui.find(node=>node.type==='form').props.onSubmit({preventDefault(){}});ui.render();
   assert.equal(ui.knowledge.persistent,true);assert.match(ui.status(),/note saved/i);
   assert.doesNotMatch(ui.status(),/this visit/);
+});
+
+for(const owner of [false,true])test(`${owner?'owner':'guest'} note deletion waits for confirmation and Cancel keeps the complete note`,async()=>{
+  const ui=notebook({owner});ui.find(node=>node.props?.id==='knowledge-title').props.onChange({target:{value:'Only copy'}});ui.find(node=>node.props?.id==='knowledge-text').props.onChange({target:{value:'Keep the complete original.'}});ui.render();await ui.find(node=>node.type==='form').props.onSubmit({preventDefault(){}});ui.render();
+  ui.find(node=>node.props?.['aria-label']==='Delete note Only copy').props.onClick();ui.render();
+  assert.equal(ui.knowledge.list()[0].text,'Keep the complete original.');
+  const button=label=>ui.find(node=>node.type==='button'&&ui.text(node)===label);
+  button('Keep note').props.onClick();ui.render();assert.equal(ui.knowledge.list().length,1);
+  ui.find(node=>node.props?.['aria-label']==='Delete note Only copy').props.onClick();ui.render();
+  await button('Delete note').props.onClick();ui.render();assert.equal(ui.knowledge.list().length,0);
+});
+
+test('failed confirmed note deletion keeps its note visible and reports failure',async()=>{
+  const ui=notebook({owner:true});ui.find(node=>node.props?.id==='knowledge-title').props.onChange({target:{value:'Only copy'}});ui.find(node=>node.props?.id==='knowledge-text').props.onChange({target:{value:'Keep my note.'}});ui.render();await ui.find(node=>node.type==='form').props.onSubmit({preventDefault(){}});ui.render();
+  ui.find(node=>node.props?.['aria-label']==='Delete note Only copy').props.onClick();ui.render();
+  ui.storage.setItem=()=>{throw Error('Blocked');};await ui.find(node=>node.type==='button'&&ui.text(node)==='Delete note').props.onClick();ui.render();
+  assert.equal(ui.knowledge.list()[0].text,'Keep my note.');assert.match(ui.status(),/could not|storage/i);assert.doesNotMatch(ui.status(),/note deleted/i);
 });

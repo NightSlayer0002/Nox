@@ -1,3 +1,5 @@
+import {createStorageTransaction} from './storage-transaction.js';
+
 // A small local notebook: source text stays in this browser. Only selected
 // excerpts leave it when the chat caller explicitly includes context(query).
 export const KNOWLEDGE_KEY='nox.knowledge.v1';
@@ -92,15 +94,16 @@ function retrieve(index,query){
   return selected.map((chunk,i)=>({id:`K${i+1}`,title:chunk.title,text:chunk.text}));
 }
 
-export function createKnowledge(storage){
+export function createKnowledge(storage,options={}){
   if(storage===undefined){try{storage=globalThis.localStorage;}catch{storage=null;}}
-  let state=blank(),persistent=Boolean(storage),memoryOnly=!storage,lastRaw,recovery=null,index=null,indexSource=null;
+  const transaction=createStorageTransaction(storage,'nox.knowledge.write',options);
+  let state=blank(),persistent=Boolean(storage),memoryOnly=!storage,lastRaw,recovery=null,index=null,indexSource=null,durableIds=new Set();
   function fresh(){
     if(memoryOnly)return state;
     try{const raw=storage.getItem(KNOWLEDGE_KEY);if(raw!==lastRaw){
       // Keep visit work if the protected original changes in another tab.
       if(recovery)recovery={reason:'changed',raw};
-      else try{state=parse(raw);persistent=true;}catch(error){state=blank();recovery={reason:error.message==='unsupported'?'unsupported':'invalid',raw};persistent=false;}
+      else try{state=parse(raw);durableIds=new Set(state.documents.map(item=>item.id));persistent=true;}catch(error){state=blank();recovery={reason:error.message==='unsupported'?'unsupported':'invalid',raw};persistent=false;}
       lastRaw=raw;
     }}
     catch{memoryOnly=true;persistent=false;}
@@ -109,16 +112,18 @@ export function createKnowledge(storage){
   function save(next){
     if(memoryOnly||recovery){state=next;return;}
     const encoded=JSON.stringify(next);
-    try{storage.setItem(KNOWLEDGE_KEY,encoded);lastRaw=encoded;state=next;persistent=true;}
+    try{storage.setItem(KNOWLEDGE_KEY,encoded);lastRaw=encoded;state=next;durableIds=new Set(next.documents.map(item=>item.id));persistent=true;}
     catch{persistent=false;throw new Error('Could not save your notebook. Browser storage may be full or blocked. Export your notes and free some space before trying again.');}
   }
+  const mutate=operation=>memoryOnly||recovery?operation():transaction.run(operation);
   fresh();
   return {
     get enabled(){return fresh().enabled;},
     get persistent(){return persistent&&storage?.temporary!==true;},
+    get crossTabSafe(){return memoryOnly||transaction.supported;},
     get recovery(){fresh();return recovery?{reason:recovery.reason}:null;},
     exportOriginal(){fresh();return recovery?.raw??null;},
-    resetOriginal(expected){
+    resetOriginal(expected){return transaction.run(()=>{
       if(!recovery||expected!==recovery.raw)return false;
       let raw;try{raw=storage.getItem(KNOWLEDGE_KEY);}catch{return false;}
       if(raw!==expected){recovery={reason:'changed',raw};lastRaw=raw;return false;}
@@ -137,10 +142,10 @@ export function createKnowledge(storage){
       }
       const encoded=JSON.stringify(candidate);
       try{storage.setItem(KNOWLEDGE_KEY,encoded);}catch{persistent=false;return false;}
-      state=candidate;lastRaw=encoded;recovery=null;persistent=true;return true;
-    },
+      state=candidate;durableIds=new Set(candidate.documents.map(item=>item.id));lastRaw=encoded;recovery=null;persistent=true;return true;
+    });},
     list(){return fresh().documents.map(copy);},
-    add(input){
+    add(input){return mutate(()=>{
       fresh();
       if(!input||typeof input.title!=='string'||!input.title.trim())throw new Error('Give this note a title or choose a text file.');
       if(input.title.trim().length>KNOWLEDGE_LIMITS.titleCharacters)throw new Error('Keep the note title within 160 characters.');
@@ -151,9 +156,9 @@ export function createKnowledge(storage){
       if(state.documents.reduce((sum,item)=>sum+item.text.length,0)+text.length>KNOWLEDGE_LIMITS.totalCharacters)throw new Error('Your notebook has a 180,000 character limit. Remove a note or shorten this one.');
       const id=globalThis.crypto?.randomUUID?.()||`note-${Date.now().toString(36)}-${Math.random().toString(36).slice(2,12)}`;
       const document={id,title,text,createdAt:Date.now()};save({...state,documents:[...state.documents,document]});return copy(document);
-    },
-    remove(id){fresh();if(!state.documents.some(item=>item.id===id))return false;save({...state,documents:state.documents.filter(item=>item.id!==id)});return true;},
-    setEnabled(value){if(typeof value!=='boolean')throw new Error('Notebook context must be on or off.');fresh();save({...state,enabled:value});},
+    });},
+    remove(id){return mutate(()=>{fresh();if(memoryOnly&&storage?.temporary!==true&&durableIds.has(id))throw Error('Could not delete the saved note because browser storage cannot be read. It is still listed. Export a copy and reload before retrying.');if(!state.documents.some(item=>item.id===id))return false;save({...state,documents:state.documents.filter(item=>item.id!==id)});return true;});},
+    setEnabled(value){return mutate(()=>{if(typeof value!=='boolean')throw new Error('Notebook context must be on or off.');fresh();save({...state,enabled:value});});},
     export(){fresh();return JSON.stringify({...state,exportedAt:new Date().toISOString()},null,2);},
     context(query){
       fresh();if(!state.enabled||!state.documents.length)return [];

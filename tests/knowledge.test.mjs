@@ -117,9 +117,9 @@ test('lost storage access preserves loaded notes in explicitly temporary memory'
   const stored=disk.getItem(KNOWLEDGE_KEY);disk.getItem=()=>{throw new DOMException('Blocked','SecurityError');};
   assert.equal(book.list().length,1);assert.equal(book.persistent,false);
   book.add({title:'Temporary',text:'Altair launch is tomorrow.'});assert.equal(book.list().length,2);
-  assert.equal(book.remove(saved.id),true);assert.match(book.export(),/Altair/);
+  assert.throws(()=>book.remove(saved.id),/could not|storage/i);assert.match(book.export(),/Altair/);assert.match(book.export(),/Vega/);
   assert.match(stored,/Vega/);assert.doesNotMatch(stored,/Altair/);
-  assert.deepEqual(book.context('Vega'),[]);assert.equal(book.persistent,false);
+  assert.match(book.context('Vega')[0].text,/shielded/);assert.equal(book.persistent,false);
 });
 
 test('a later successful save restores the persisted status after a failed write',()=>{

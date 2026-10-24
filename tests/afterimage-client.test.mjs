@@ -100,7 +100,7 @@ test('receptions refuse a thirteenth story and explicit deletion cannot revive i
   const storage=disk(),store=createAfterimageStore(storage);for(let i=0;i<12;i++)store.add({packet:packet(`Take ${i}`),seed:`Seed ${i}`,tone:'wonder',source:'live'});
   assert.throws(()=>store.add({packet:packet('Extra'),seed:'Seed',tone:'wonder',source:'live'}),/12|full/);
   assert.equal(store.list().length,12);assert.equal(store.list()[0].packet.title,'Take 11');assert.equal(store.list().at(-1).packet.title,'Take 0');
-  const stale=createAfterimageStore(storage),id=store.list()[0].id;assert.equal(store.remove(id),true);assert.equal(stale.update(id,{endingIndex:1}),null);
+  const stale=createAfterimageStore(storage),id=store.list()[0].id;assert.equal(store.remove(id).committed,true);assert.equal(stale.update(id,{endingIndex:1}),null);
   stale.add({packet:packet('Newest'),seed:'Another thought',tone:'bold',source:'authored'});
   const reloaded=createAfterimageStore(storage);assert.equal(reloaded.get(id),null);assert.equal(reloaded.list().length,12);
   reloaded.clear();assert.equal(createAfterimageStore(storage).list().length,0);assert.equal(JSON.parse(reloaded.export()).receptions.length,0);
@@ -125,8 +125,8 @@ test('corrupt, incompatible and unavailable storage stay usable and bounded',()=
   for(let i=0;i<12;i++)store.add({packet:packet(),source:'live',seed:'Hi',tone:'bold'});
   assert.throws(()=>store.add({packet:packet(),source:'live',seed:'Hi',tone:'bold'}),/12|full/);
   assert.equal(store.persistent,false);assert.equal(store.list().length,12);store.clear();assert.equal(store.list().length,0);
-  const quota=disk();quota.setItem=()=>{throw Error('full');};const limited=createAfterimageStore(quota),entry=limited.add({packet:packet(),source:'live',seed:'Hi',tone:'bold'});
-  assert.equal(limited.persistent,false);assert.equal(limited.get(entry.id).packet.title,'A second moon');
+  const quota=disk();quota.setItem=()=>{throw Error('full');};const limited=createAfterimageStore(quota);
+  assert.throws(()=>limited.add({packet:packet(),source:'live',seed:'Hi',tone:'bold'}),/could not|storage/i);assert.equal(limited.persistent,false);assert.equal(limited.list().length,0);
 });
 
 test('store snapshots prevent mutation and omit arbitrary fields and provider credentials',()=>{
