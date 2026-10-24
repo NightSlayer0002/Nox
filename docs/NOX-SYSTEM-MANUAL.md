@@ -1,6 +1,6 @@
 # NOX system manual: from first principles to founder-level understanding
 
-Code baseline: NOX 0.9.0, refined October 10, 2026. External service documentation checked October 7, 2026. Start here for the architecture, then use [FOUNDER-GUIDE.md](FOUNDER-GUIDE.md) for the earlier implementation walkthrough and [DEPLOYMENT.md](DEPLOYMENT.md) for account setup.
+Code facts refreshed October 24, 2026 against the audit-fix working revision based on `6c83c2a`. The release verification record identifies the eventual tested/deployed commit; this manual does not attest to private production settings. External service quotas and terms below are dated observations, not live account guarantees. Start here for the architecture, then use [FOUNDER-GUIDE.md](FOUNDER-GUIDE.md) for the historical implementation walkthrough and [DEPLOYMENT.md](DEPLOYMENT.md) for account setup.
 
 NOX combines a fictional character, hosted language models, local context retrieval, optional voice, and a creation studio. His most convincing quality comes from connecting these systems carefully: immediate physical reactions, useful answers, continuity, and honest connection states.
 
@@ -30,13 +30,13 @@ This system does not establish sentience, artificial general intelligence, or su
 
 The homepage at `/` introduces the product, its actual capabilities, and its privacy boundaries. Its live character shares the same expression and gesture engine used by the workspace. The homepage uses ShaderGradient’s source water-plane preset and React Three Fiber renderer. Liquid Metal applies liquid-logo’s original shader to NOX’s established blob silhouette.
 
-The workspace at `/app` has five hash-selected views: `#explore`, `#conversation`, `#scenes`, `#afterimage`, and `#library`. `/guest` forces a temporary visit; `/owner` opens owner sign-in. Hash navigation changes visible panels. Preferences handles owner access, configured providers and voice. The command palette opens with Ctrl/Cmd+K. The notebook and system explanation are React dialogs.
+The workspace at `/app` uses hash-selected views, including `#conversation`, `#discover`, `#learn`, `#guessing`, `#scenes`, `#afterimage`, `#library`, `#memory`, and `#access`. `/guest` forces a temporary visit; `/owner` opens private developer access. Hash navigation selects the panel before asynchronous connection checks finish. Settings handles owner access, configured providers and voice; Preferences controls approved personalization. The command palette opens with Ctrl/Cmd+K. The notebook and system explanation are React dialogs.
 
 Guest conversation uses configured Groq with quick, bounded replies. Owner mode adds deeper answers and a saved local archive. The explicitly selected scripted demo remains a demo. Locked, loading and unconfigured states do not silently substitute repetitive scripted answers. Gestures and scene programs work locally even when AI access is locked.
 
 Scene Studio includes expression previews, gravity, spotlight, orbit, echo, takeover, camera preview and clip recording. Takeover enlarges NOX inside his stage; it grants no operating-system access. The camera is a local preview, not model vision. The recorded WebM contains the canvas composition, captions and enabled Orpheus audio. Browser/OS speech, microphone audio and unrelated computer audio are not captured.
 
-The Library saves conversations in this browser and supports searching, reopening, deleting and exporting them. The knowledge notebook accepts pasted text and `.txt`, `.md`, or `.markdown` files. It searches locally, then supplies selected excerpts with a question when enabled. It is not web search and has no cloud synchronization.
+Chats supports searching, reopening, confirmed deletion and export. Guest chats and notes live only in memory for that page load; owner archives use this browser's local storage. The knowledge notebook accepts pasted text and `.txt`, `.md`, or `.markdown` files. It searches locally, then supplies selected excerpts with a question when enabled. It is not web search and has no cloud synchronization or public account recovery.
 
 ## 3. The code atlas
 
@@ -59,6 +59,9 @@ The Library saves conversations in this browser and supports searching, reopenin
 | `public/js/voice.js`, `speech-envelope.js`, `reply.js` | Speech engines, mouth timing and concise spoken preview |
 | `public/js/camera.js`, `public/js/recorder.js` | Local camera lifecycle and bounded canvas WebM capture |
 | `public/js/memory.js`, `history.js`, `knowledge.js` | Explicit facts, saved conversations, summary work and lexical retrieval |
+| `public/js/storage-transaction.js`, `afterimage-store.js` | Origin-wide notebook/story transactions, protected recovery and explicit deletion results |
+| `public/js/interface-observation.js`, `shared/interface-state.js` | Allowlisted current UI state and applied/already-active/stopped action receipts |
+| `public/js/reply-presentation.js`, `speech-deadline.js` | Playback-triggered text reveal, bounded escape and speech preparation deadline |
 | `public/js/connection.js`, `turns.js`, `stream.js` | Honest connection states, stale-work cancellation, browser SSE decoding |
 | `public/js/brain.js` | Explicit offline demonstration; it is not the hosted brain |
 | `shared/character.js` | Shared packet schema, depth budgets, memory-consent recognition, normalization and context/request limits |
@@ -66,6 +69,8 @@ The Library saves conversations in this browser and supports searching, reopenin
 | `server/ai.mjs` | NOX identity, depth instructions, untrusted-context framing, memory consent and legacy OpenAI adapter |
 | `server/providers.mjs`, `server/stream.mjs` | Groq/Gemini/NVIDIA adapters, server-owned model selection, provider SSE parsing |
 | `server/session.mjs`, `server/cache.mjs` | Signed owner sessions, unlock throttle and bounded speech cache |
+| `server/free-model-policy.mjs`, `chat-budget.mjs` | 120B default, one conditional 20B fallback and shared generation deadline |
+| `server/guest-allowance.mjs`, `public-quota.mjs`, `status-cache.mjs` | Optional daily counters, process-local admission and bounded status reads |
 | `server/speech.mjs`, `server/wav.mjs` | Provider speech, emotion directions, splitting and valid WAV joining |
 | `scripts/build-client.mjs`, `build-vercel.mjs`, `check.mjs` | Client bundling, explicit Vercel packaging and JS syntax checks |
 | `tests/` | Behavior, provider, HTTP security, rendering-state, storage and deployment tests |
@@ -95,31 +100,31 @@ sequenceDiagram
 
 1. `send()` rejects empty input and concurrent sends. It keeps a locked user's draft and opens access settings. An exact takeover command can still trigger the local scene.
 2. A new turn version cancels obsolete requests. The app aborts pending summary work, reads depth and mode, and combines memory, thread continuity and `knowledge.context(question)`.
-3. `prepareChatRequest()` sanitizes context and checks the UTF-8 size of the complete JSON body against 16,384 bytes. It drops oldest history first, then notebook excerpts, bridge, facts and summary, preserving the current question.
-4. The app saves the user turn and creates a draft response. `/api/chat` receives JSON; the server also enforces the 16 KiB body limit and a 1–1,200-character question limit. Client checks are convenience; server checks are the boundary.
+3. `prepareChatRequest()` sanitizes context and checks the UTF-8 size of the complete JSON body against `CHAT_REQUEST_BYTES`: 65,536 bytes. It drops whole oldest turns first, then notebook excerpts, bridge, facts and summary, preserving the current question.
+4. The app saves the user turn and creates a draft response. `/api/chat` receives JSON; the server enforces the same 64 KiB body limit and a 1–6,000-character question limit (`CHAT_INPUT_CHARACTERS`). Client checks are convenience; server checks are the boundary. IME candidate-confirmation Enter does not submit while composition is active.
 5. The server selects only a configured provider ID. The caller cannot supply a provider endpoint, API key, arbitrary model, or new tool. Groq Deep uses the configured deep model; other providers keep their configured model.
-6. The provider receives NOX's identity, answer instructions, untrusted continuity data, recent turns and the question. Identity states that his name is NOX and accurately describes his actual abilities.
-7. Text updates can paint the draft. Only the final normalized packet completes the turn and runs its allowlisted action. The browser requires a final SSE event; a broken partial stream is not treated as a finished answer.
-8. The server strips a proposed memory unless the current message explicitly requests remembering a fact. The browser saves the written answer, animates the selected mood/scene, and speaks a concise opening of at most 420 characters.
+6. The provider receives NOX's identity, answer instructions, untrusted continuity data, recent turns, allowlisted interface state/action confirmations and the question. State describes the actual gravity/held/grounded/effect state; corrections and questions do not authorize new effects. An already-active model action does not restart the effect.
+7. With voice off, text updates can paint the draft. Only the final normalized packet completes the turn and runs its allowlisted action. The browser requires a final SSE event; a broken partial stream is not treated as a finished answer. Assistant display uses safe plain-text prose cleanup; original written content remains available for history/export. No model HTML executes.
+8. The server strips a proposed memory unless the current message explicitly requests remembering a fact. The browser saves the full written answer before optional voice preparation. With voice on, text normally reveals on actual playback start; Show text now, voice failure, or a four-second maximum wait reveals it sooner. Speech reads a concise opening of at most 420 characters, rather than the entire long answer.
 9. Summary work is scheduled after three quiet seconds, when enough older turns exist. A new question aborts the browser's background request. The current summary handler does not propagate client disconnect into its provider call, so already-started inference may continue. Failure leaves the transcript intact and can retry after a later turn.
 
-The packet fields are `speech`, `emotion`, `action`, and `memory`. Nine dialogue emotions and six action values are accepted: `none`, `gravity`, `spotlight`, `orbit`, `echo`, `takeover`. Local gestures have a larger expression repertoire and do not require expanding the model's powers.
+The packet fields are `speech`, `emotion`, `action`, and `memory`. Nine dialogue emotions are accepted. Authored story actions are `none`, `gravity`, `spotlight`, `orbit`, `echo`, `takeover`; chat additionally accepts `stop`. Local gestures have a larger expression repertoire and do not expand the model's powers. `MAX_PACKET_CHARACTERS` rejects replies above 12,000 characters instead of silently clipping them. Depth sizes below guide generation; they are not destructive text truncation rules.
 
 ## 5. Answer depth, models and honest speed
 
-| Depth | Text ceiling | Output token budget | GPT-OSS reasoning setting | Default Groq model |
+| Depth | Instructed text size | Output token budget | GPT-OSS reasoning setting | Default Groq model |
 |---|---:|---:|---|---|
-| Quick | 420 characters | 900 | low | `openai/gpt-oss-20b` |
-| Balanced | 2,400 characters | 1,800 | medium | `openai/gpt-oss-20b` |
+| Quick | 420 characters | 900 | low | `openai/gpt-oss-120b` |
+| Balanced | 2,400 characters | 1,800 | medium | `openai/gpt-oss-120b` |
 | Deep | 6,000 characters | 4,000 | high | `openai/gpt-oss-120b` |
 
-Balanced is the initial UI preference. An omitted/invalid depth at the contract boundary normalizes to Quick. `GROQ_MODEL` and `GROQ_DEEP_MODEL` can override server defaults. Token budgets cover generation and may be exhausted before the text ceiling: more reasoning is not a guarantee of a longer visible answer.
+Balanced is the initial UI preference. An omitted/invalid depth at the contract boundary normalizes to Quick. Public chat permits Quick/Balanced and uses server-owned GPT-OSS 120B. It may make one GPT-OSS 20B fallback only for quota/model-access failure before any text is emitted and with at least four seconds left. Normal chat makes one model request; a retry is not free extra provider capacity. Owner provider defaults can be configured with `GROQ_MODEL` and `GROQ_DEEP_MODEL`. Token budgets can be exhausted before the instructed answer size: more reasoning is not a guarantee of a longer visible answer.
 
 Groq's strict structured output is used for recognized supporting models. It cannot currently combine that mode with provider token streaming. NOX still uses an SSE connection to its browser, but Groq text is emitted after a complete validated packet; first-text and total timings can therefore be similar. NVIDIA and Gemini have provider streaming paths. This is an API constraint, not a hidden animation delay. [Groq structured outputs](https://console.groq.com/docs/structured-outputs).
 
 The NVIDIA default is `nvidia/nemotron-3-nano-30b-a3b`; its Nemotron-3 adapter disables thinking for ordinary turns and enables it for Deep chat. The Google default is `gemini-2.5-flash-lite`. Configuration makes an adapter selectable; availability, credentials and terms still need a real runtime check. NVIDIA setup was deferred; no enabled NVIDIA account is assumed here.
 
-Provider requests have a 20-second deadline; the packaged Vercel functions have a 30-second maximum. Cancellation stops obsolete UI work and aborts applicable requests. It does not promise that a provider will refund work already done. The legacy optional paid OpenAI adapter stays outside the free-only setup unless a server key is deliberately configured.
+Chat generation has one 26-second budget shared by primary and fallback attempts (`CHAT_BUDGET_MS`); each provider attempt is bounded by its usual 20 seconds and the remaining outer budget. The packaged Vercel function maximum is 30 seconds. The generation timer does not promise a 26-second bound for the entire HTTP request, which also includes validation/admission overhead. Cancellation stops obsolete UI work and aborts applicable requests; it cannot promise a refund for work already done. The legacy optional paid OpenAI adapter stays outside the free-only setup unless a server key is deliberately configured.
 
 The working hypothesis is: relevant context plus a suitable model plus measured depth will improve useful answers while immediate local acting maintains a responsive character. Verify it with a fixed task set. A bigger model, more animation libraries, and more elaborate prompts cannot by themselves prove this hypothesis.
 
@@ -128,19 +133,21 @@ The working hypothesis is: relevant context plus a suitable model plus measured 
 | Mechanism | What it stores or supplies | What it does not do |
 |---|---|---|
 | Explicit memory | Name up to 40 characters; last 12 unique facts up to 120 each | Retrain weights or promise perfect recollection |
-| History | Up to 40 threads; last 200 messages per thread, user 1,200 / assistant 6,000 characters | Synchronize across devices or preserve an unlimited archive |
+| History | New work limited to 40 threads and 200 messages per thread; new user turns up to 6,000 / assistant replies up to 12,000 characters | Synchronize across devices or silently evict an older transcript; a full archive warns and refuses new material |
 | Summary | Continuity note up to 1,200 characters plus a sequence checkpoint | Replace the original saved transcript or prove every detail survived |
 | Bridge | Up to 1,600 characters of unsummarized older excerpts | Supply every omitted older message |
 | Notebook | Up to 24 documents, 24,000 characters each, 180,000 source characters total | Read PDFs/images, browse the web, or create semantic embeddings |
 | Audio cache | Reuses identical generated speech for five minutes in a warm process | Cache full model answers or persist across all Vercel instances |
 
-All browser records are plaintext localStorage, scoped to the origin. Clearing browser data, using another browser/profile, or changing the domain can make them unavailable. Export before moving. The provider receives the context actually sent, even though the original notebook stays local. Deleting a local record cannot retract previously transmitted data.
+Owner browser records are plaintext localStorage, scoped to the origin; guest records are an isolated in-memory map recreated on refresh. Clearing browser data, using another browser/profile, or changing the domain can make owner data unavailable. Export before moving. The provider receives the context actually sent, even though the original notebook stays local. Deleting a local record cannot retract previously transmitted data.
 
-History serializes writes through Web Locks when available and refreshes on storage events. Its fallback queue coordinates the current JavaScript environment, not all tabs. The UI reports this limitation. Notebook operations read fresh data before sequential changes, but have no cross-tab transaction lock: edit notes in one tab if simultaneous writers are possible.
+History serializes writes through Web Locks when available and refreshes on storage events. Its fallback queue coordinates the current JavaScript environment, not all tabs; the UI reports that limitation. Notebook and story stores now protect the complete durable read/modify/write operation, including explicit recovery replacement, with a per-store origin-wide Web Lock. Without Web Locks, these stores refuse durable browser writes while preserving reading/export and explaining the limitation. Guest memory remains writable. A local JavaScript queue is deliberately not presented as cross-tab safety. Close old tabs running earlier code when updating: cooperation only covers writers using the same lock contract.
+
+Unreadable/future-format notebook, story and conversation archives retain their original bytes and offer a raw download plus explicit replacement. Recovery rechecks the exact confirmed bytes inside the lock and merges a now-readable original with visit work. It refuses a changed original instead of overwriting another tab's update. Existing oversized archives load without pruning. Notes and stories require a second Delete confirmation with a Keep escape in both guest and owner modes; there is no cloud recovery or undo. Story deletion reports `committed`/`removed` and its browser/visit scope. A durable write failure keeps the story visible and selected; it does not announce successful deletion or silently switch that deletion to memory-only mode. A newly generated story that cannot save remains visible/exportable as an explicitly unsaved visit cut, separate from the unchanged saved archive.
 
 Summary work retains the last eight messages as recent context, considers up to 24 older unsummarized turns per batch, and waits until at least 12 older turns qualify. The batch is bounded below 12,000 UTF-8 bytes. Failed/delayed summaries use a bounded bridge so early goals are less likely to vanish. Summaries are lossy and may still omit or distort a detail.
 
-The server context sanitizer allows the last 12 turns, 600 characters each; 12 bounded facts; optional summary and bridge; and up to four notebook excerpts. Notebook context has a combined 6,000-character allowance including IDs/titles, with at most 2,000 characters per excerpt. The outer byte-budget pass can drop excerpts even when retrieval found them.
+The server context sanitizer admits up to 16 complete recent turns, each within the user/reply limits, plus 12 bounded facts, optional summary and bridge, approved preferences, interface state and up to four notebook excerpts. Oversized untrusted turns are omitted whole. Notebook context has a combined 6,000-character allowance including IDs/titles, with at most 2,000 characters per excerpt. The outer 64 KiB request-budget pass can omit whole older turns or excerpts even when retrieval found them. Summaries/bridge are intentionally lossy; recent answer endings are not clipped merely to fit a per-turn context cap.
 
 ### How local retrieval works, precisely
 
@@ -196,6 +203,8 @@ Natural Groq speech uses `canopylabs/orpheus-v1-english`, default speaker Troy, 
 
 Orpheus requests are split under the 200-character input allowance, including direction text, then requested in parallel and joined in order. WAV joining validates matching formats and rebuilds lengths; concatenating file headers would corrupt audio. The application limits speech input to 420 characters and audio output to 2 MiB.
 
+Browser speech preparation has a 25-second deadline covering fetch headers, blob/body consumption and stream reads, including custom transports that ignore AbortSignal. Afterimage independently bounds its preparation phase at 25 seconds, aborts pending voice and continues with captions only when voice cannot become ready. The performance timeline/capture starts after preparation, preserves Stop, and can extend its final spoken beat up to 60 seconds. This bound prevents an indefinite Preparing voice state; it does not guarantee low provider latency.
+
 `speech-envelope.js` reads PCM16 WAV samples in 20 ms windows. Root-mean-square energy is `sqrt(sum(sample²)/sampleCount)`. Values below `0.012` close the mouth; remaining energy maps to a bounded opening. Playback's actual `currentTime` selects the window. This follows audible pauses rather than a free-running talking sine wave.
 
 This is amplitude-based mouth timing, not phoneme recognition or anatomically exact lip sync. Browser speech uses word boundary events where available, with an estimated timeline fallback and 180 ms gaps between sentence utterances. Waiting, pause, cancellation, stale callbacks and playback errors release the talking state.
@@ -234,7 +243,7 @@ The speech cache has a five-minute TTL, at most 12 entries, and at most 12 MiB. 
 
 Provider prompts put stable identity/schema before changing context, which is friendly to supported prefix caching. The app does not implement or guarantee a provider-side KV cache, account-level prompt-cache hits, a semantic answer cache, or cross-instance audio reuse. No cached answer substitutes for reasoning on a changed conversation.
 
-`firstTextMs` measures server-side time until emitted text, and `totalMs` measures that server turn through completion. The UI separately measures voice request time and reports the audio cache header. These are not end-to-end time-to-audible-word or full page performance metrics. Strict Groq output makes early partial text unavailable in this mode.
+`firstTextMs` measures server-side time until emitted text, and `totalMs` measures that server turn through completion. Voice lifecycle diagnostics separately report preparation, audio readiness, playback wait and actual playback-start timing; the cache header identifies cached audio. These are distinct measurements, not a full page performance benchmark. Strict Groq output makes early partial text unavailable in this mode. Text/playback synchronization changes presentation, not provider inference time.
 
 Measure p50/p95 question-to-first-visible-text, question-to-audible-word, errors, cancellation correctness, request sizes, token use, and mobile frame time. Compare equivalent prompts and cold/warm conditions. A single fast sample is evidence about that sample, not a service-level guarantee.
 
@@ -248,16 +257,18 @@ Production cookies use `__Host-nox_session`, `Path=/`, `HttpOnly`, `Secure`, and
 
 Unlock requires the exact Origin; other protected JSON APIs reject a foreign Origin when present. Host allowlisting rejects unconfigured addresses. SameSite cookies and JSON content requirements add CSRF defenses. Origin checks alone are not authentication: a non-browser caller can fabricate headers, so valid credentials/session and server validation remain essential.
 
-The unlock throttle allows eight failed attempts in five minutes per IP, with a bounded 512-entry map and a Retry-After response. Cloud operations have a shared 30-request/minute counter per server instance. Vercel instances and the separately packaged API functions do not share these counters. These guards supplement a high-entropy owner secret; they are not a distributed abuse-control service.
+The unlock throttle allows eight failed attempts in five minutes per IP, with a bounded 512-entry map and a Retry-After response. Accepted cloud operations have a hard ceiling of 30 shared generation admissions per minute per server process. Anonymous text/voice can use at most 24, leaving capacity for six owner admissions; owner traffic may use additional otherwise-unused capacity up to the hard 30. An anonymous reservation spans the asynchronous daily-allowance check and is released if that check rejects or fails, so rejected requests do not consume shared generation capacity. The client's own abuse throttle still counts rejected attempts. Status polling uses a separate bounded/coalesced path. Vercel instances and separately packaged API functions do not share process counters.
+
+Optional Upstash configuration provides atomic daily text/speech counters per public IP/shared network; absent configuration explicitly reports a preview without durable daily counting, and partial/broken configuration fails closed. Current per-process text and speech burst controls are separate from daily counting and from Groq's account-wide quotas. Neither these source controls nor a successful build establish that private production Upstash, edge rules, spending limits or a sufficiently strong owner token are configured. Distributed generation admission and provider spending budgets remain operating work, rather than a verified production guarantee.
 
 Lock clears this browser's cookie. Changing the owner token invalidates all signed sessions after the new configuration is deployed. A copied valid cookie can remain usable until expiry/rotation: there is no server-side individual-session revocation table. This owner gate is not a password-based account system, MFA, passkeys or multi-tenant authorization.
 
 | Breach path | Current mitigation | Remaining operating obligation |
 |---|---|---|
 | Leaked keys in public bundles/Git/logs | Provider secrets stay in server environment; build copies explicit public/runtime files; safe diagnostic categories | Inspect changes, keep `.env` private, rotate exposed keys; removing a file does not erase past exposure |
-| Model or note text becomes HTML/JavaScript | UI uses textContent or React text escaping; action enums; same-origin CSP | Preserve safe rendering; adding Markdown/plugins requires a reviewed sanitizer and safe links |
+| Model or note text becomes HTML/JavaScript | UI uses safe plain-text prose cleanup plus textContent or React escaping; action enums; same-origin CSP | Preserve safe rendering; rich Markdown/plugins would require reviewed sanitization and safe links |
 | Prompt injection in notes/history | Background labeled untrusted; restricted schema/actions; memory consent enforced by server | Prompts can still be manipulated; never let a model decide authentication or execute arbitrary commands |
-| Unauthorized quota use | Owner gate, signed cookie, bounded input, local throttles | Protect account/token, monitor quota; use distributed limits before public user access |
+| Unauthorized quota use | Owner gate, signed cookie, bounded input, local throttles and optional daily counters | Protect account/token, monitor quota; verify distributed enforcement and provider spending budgets before treating the preview as hardened |
 | Malicious destination / SSRF | Provider endpoints are fixed in server code; IDs/model selection bounded | Review any future URL-fetch tool, redirects, private-network access and response sizes |
 | Supply-chain compromise | Pinned dependencies/lockfile, self-hosted bundles, install scripts disabled in deployment | Review updates, vulnerability reports and changed licenses; a lockfile is not a security audit |
 | Data theft from a shared device | Explicit storage notice and exports/deletion | localStorage is plaintext; trusted extensions/device users can access it; avoid sensitive notes |
@@ -271,15 +282,17 @@ The system has no cloud user database or tenant permissions to audit today. That
 
 Groq's published free table currently lists GPT-OSS 20B and 120B at 30 requests/minute, 1,000/day, 8,000 tokens/minute and 200,000/day. Orpheus is separate, listed at 10 requests/minute and 100/day with its own token limits. Actual account limits and reset headers are authoritative; models and quotas can change. Chunking speech can consume several requests for one spoken answer. [Groq rate limits](https://console.groq.com/docs/rate-limits).
 
-Google's free pricing table says content may be used to improve its products. Review applicable terms before sending sensitive data. NVIDIA API Catalog trial terms restrict use to internal testing/evaluation and require a separate subscription for production. Keeping its adapter available does not make hosted commercial inference perpetually free. [Gemini pricing](https://ai.google.dev/gemini-api/docs/pricing), [NVIDIA API trial terms](https://assets.ngc.nvidia.com/products/api-catalog/legal/NVIDIA%20API%20Trial%20Terms%20of%20Service.pdf).
+The October 23 provider-selection review records why the production-listed Groq 120B was chosen for this setup and why the available Gemini/NVIDIA alternatives were not automatically enabled for NOX's intended worldwide younger audience. Recheck current service terms before deployment or audience changes. Keeping an adapter available does not establish free commercial production rights or appropriate data use. See [the dated selection record](superpowers/specs/2026-10-23-free-model-selection.md), [Gemini terms](https://ai.google.dev/gemini-api/terms) and [NVIDIA API trial terms](https://assets.ngc.nvidia.com/products/api-catalog/legal/NVIDIA%20API%20Trial%20Terms%20of%20Service.pdf).
 
 Vercel Hobby is for personal, non-commercial use. This setup is suitable for the personal prototype; monetizing a hosted business requires reviewing hosting and provider terms and a suitable plan. There is no claim of unlimited free generation or a production SLA. [Vercel Hobby plan](https://vercel.com/docs/plans/hobby).
 
-`npm.cmd start` builds client bundles, then starts the local Node server. `npm.cmd run dev` does the client build once and watches the Node server. If you change `client/*.jsx` or source-scene code, run `npm.cmd run build:client` again and refresh; this setup has no full client hot-module replacement. Local environment changes require restart.
+`npm.cmd start` builds client bundles, then starts the local Node server. `npm.cmd run dev` uses `scripts/dev.mjs` to keep esbuild watching frontend sources alongside the Node server watcher. JSX/source changes rebuild the served bundle without restarting the development command; refresh the browser to view the new bundle. This is file watching, not React hot-module replacement. Local environment changes require a server restart.
 
 `build-client.mjs` uses esbuild to produce minified ESM entry bundles and shared/lazy chunks in ignored `public/dist`. `build-vercel.mjs` rebuilds these, copies public assets and the shared contract, and packages five Node 24 functions: status, chat, speech, summary and session. It writes explicit Build Output API v3 routes into ignored `.vercel/output`.
 
-`npm.cmd run verify` runs the complete Node test suite, JS syntax checks, then the build. JSX is compiled by esbuild; `check.mjs` checks `.js/.mjs`. Verification includes actual HTTP contracts, provider payloads, storage behavior and the deploy output. Browser QA separately checks layout, keyboard navigation, media permissions and GPU fallback; passing unit tests cannot prove all of those.
+`npm.cmd run verify` runs the complete Node test suite, JS syntax checks, then the build. JSX is compiled by esbuild; `check.mjs` checks `.js/.mjs`. Verification includes local HTTP contracts, provider payloads with controlled transports, storage behavior and deploy output. `npm.cmd run test:browser` runs the separate Playwright Chromium journeys in `tests/browser`, also invoked by CI. Its model/media upstreams are synthetic so routine CI does not consume provider quota or request a real microphone. These browser tests exercise real DOM, navigation, input and storage integration, not live inference quality or physical-device performance.
+
+Retain separate acceptance evidence for real provider responses, physical Android/iOS keyboard resizing, microphone/camera permission flows, touch behavior, GPU rendering and assistive technology. A Chromium test, mocked media lifecycle, or a large Node test count does not certify those paths. The workflow can require green checks, but source YAML alone does not enable GitHub branch protection: inspect repository rules and verify normal merges cannot bypass the required checks before claiming that enforcement is active.
 
 Local editing does not instantly update production. The chain is: edit → verify → Git commit → push main → Vercel build → Ready → live runtime checks. A failed build preserves the previous production deployment. Environment changes also need a redeployment. Keep secrets, node_modules, generated output and artifacts out of Git.
 
@@ -322,7 +335,9 @@ For performance, collect enough cold/warm samples to report median and tail late
 Your founder-level responsibility is to explain what each component can do, where authority lives, what evidence supports quality, and which limits remain. The best next upgrade is the one that improves a measured user task while preserving that clarity.
 
 
-## October 10: public visits, voice and privacy
+## Historical October 10 notes — superseded by the current sections above
+
+This section preserves the earlier implementation record. Its 20B default, 600-character guest input, eight-turn context and older request rates are historical, not today's runtime contract.
 
 - Share `/guest#conversation` for a temporary trial. A verified owner can enter
   `/owner#conversation`, open Preferences and sign in with the existing owner
