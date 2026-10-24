@@ -1,5 +1,7 @@
 export function createCamera() {
-  let stream = null;
+  let stream = null, generation=0;
+  const release=value=>value?.getTracks().forEach(track=>track.stop());
+  const interrupted=()=>new DOMException('Camera preview stopped.','AbortError');
   const video = document.createElement('video');
   video.muted = true; video.playsInline = true;
   return {
@@ -8,16 +10,22 @@ export function createCamera() {
     async start() {
       if (!navigator.mediaDevices?.getUserMedia) throw new Error('Camera preview is unavailable in this browser. NOX’s stage still works.');
       if (stream) return video;
+      const version=++generation;let acquired;
       try {
-        stream = await navigator.mediaDevices.getUserMedia({ video: { width: 640, height: 480 }, audio: false });
+        acquired = await navigator.mediaDevices.getUserMedia({ video: { width: 640, height: 480 }, audio: false });
+        if(version!==generation){release(acquired);acquired=null;throw interrupted();}
+        stream=acquired;
         video.srcObject = stream;
         await video.play();
+        if(version!==generation)throw interrupted();
         return video;
       } catch (error) {
-        stream?.getTracks().forEach(track => track.stop()); stream = null;
+        if(version!==generation)throw interrupted();
+        release(acquired);if(stream===acquired){stream=null;video.srcObject=null;}
+        if(error.name==='AbortError')throw interrupted();
         throw new Error(error.name === 'NotAllowedError' ? 'Camera permission was declined. You can keep using NOX without it.' : 'Could not start your camera. Check that it’s connected and available.');
       }
     },
-    stop() { stream?.getTracks().forEach(track => track.stop()); stream = null; video.srcObject = null; },
+    stop() { generation++;release(stream);stream = null; video.srcObject = null; },
   };
 }

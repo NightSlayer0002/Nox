@@ -41,6 +41,7 @@ export function createAfterimageBridge(options = {}) {
       captureRequested=false;ownsRecording=true;adapter.startRecording();refreshState();
     },
     onSpeak:(script,emotion,cues) => adapter?.speak?.(script,emotion,cues),
+    onVoiceUnavailable:reason=>adapter?.stop?.(reason),
     onSpeaking:() => adapter?.isSpeaking?.(),onStop:stopBody,
   });
   controller.subscribe(refreshState);refreshState();

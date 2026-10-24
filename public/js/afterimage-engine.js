@@ -4,6 +4,7 @@ import { ACTIONS, EMOTIONS, cleanText } from '../../shared/character.js';
 export const AFTERIMAGE_CUE_MS = 7000;
 export const AFTERIMAGE_DURATION_MS = AFTERIMAGE_CUE_MS * 4;
 const MAX_DURATION_MS = 60000;
+export const AFTERIMAGE_PREPARATION_MS=25000;
 
 export function normalizeEditedLines(value) {
   if (!Array.isArray(value) || value.length !== 4) throw new TypeError('A rehearsal needs four lines.');
@@ -34,8 +35,8 @@ function safePerformance(value) {
 }
 
 // Owns cue timing only. Stage and voice keep their existing animation/audio clocks.
-export function createAfterimageController({onCue, onPrepare, onBegin, onSpeak, onSpeaking, onStop, now = () => performance.now(), setTimer = setTimeout, clearTimer = clearTimeout, visibilityTarget} = {}) {
-  let version = 0, timer = null, startedAt = 0, disposed = false, run = null, abortCleanup;
+export function createAfterimageController({onCue, onPrepare, onBegin, onSpeak, onSpeaking, onStop,onVoiceUnavailable, now = () => performance.now(), setTimer = setTimeout, clearTimer = clearTimeout, visibilityTarget} = {}) {
+  let version = 0, timer = null, preparationTimer=null, startedAt = 0, disposed = false, run = null, abortCleanup;
   let state = Object.freeze({status:'idle',cueIndex:-1,elapsedMs:0,durationMs:AFTERIMAGE_DURATION_MS,preparing:false,captionsOnly:false,voiceError:'',reason:'',version});
   const listeners = new Set();
   function publish(next) {
@@ -44,6 +45,7 @@ export function createAfterimageController({onCue, onPrepare, onBegin, onSpeak, 
   }
   function cleanup() {
     if (timer !== null) clearTimer(timer);
+    if(preparationTimer!==null)clearTimer(preparationTimer);preparationTimer=null;
     timer = null; abortCleanup?.(); abortCleanup = undefined;
   }
   const isCurrent = currentVersion => !disposed && currentVersion === version && state.status === 'playing';
@@ -74,21 +76,23 @@ export function createAfterimageController({onCue, onPrepare, onBegin, onSpeak, 
     const deadline = elapsedMs < AFTERIMAGE_DURATION_MS ? AFTERIMAGE_DURATION_MS : MAX_DURATION_MS;
     if (isCurrent(currentVersion)) timer = setTimer(() => tick(currentVersion), Math.min(250, deadline - elapsedMs));
   }
-  function startTimeline(currentVersion, captionsOnly = false) {
-    if (!isCurrent(currentVersion)) return;
+  function startTimeline(currentVersion, captionsOnly = false,timedOut=false) {
+    if (!isCurrent(currentVersion)||!state.preparing) return;
+    if(preparationTimer!==null)clearTimer(preparationTimer);preparationTimer=null;
     startedAt = now();
-    publish({preparing:false,captionsOnly,voiceError:captionsOnly?'Voice unavailable. This cut will continue with captions.':'',cueIndex:0,elapsedMs:0});
+    publish({preparing:false,captionsOnly,voiceError:captionsOnly?timedOut?'Voice preparation timed out. This cut will continue with captions.':'Voice unavailable. This cut will continue with captions.':'',cueIndex:0,elapsedMs:0});
     if (!isCurrent(currentVersion)) return;
     try { onCue?.(run.cues[0],0); }
     catch { finish('error'); return; }
     if (isCurrent(currentVersion)) timer = setTimer(() => tick(currentVersion),250);
   }
-  function begin(currentVersion, prepared) {
-    if (!isCurrent(currentVersion)) return;
+  function begin(currentVersion, prepared,timedOut=false) {
+    if (!isCurrent(currentVersion)||!state.preparing||run.begun) return;
+    run.begun=true;
     // Arm capture after provider preparation, just before the first audio can play.
     try { onBegin?.(); } catch { finish('error'); return; }
     if (!isCurrent(currentVersion)) return;
-    if (prepared === false) { startTimeline(currentVersion,true); return; }
+    if (prepared === false) { startTimeline(currentVersion,true,timedOut); return; }
     try {
       const speaking = onSpeak?.(run.script,run.cues[0].emotion,run.cues);
       if (speaking && typeof speaking.then === 'function') {
@@ -113,6 +117,12 @@ export function createAfterimageController({onCue, onPrepare, onBegin, onSpeak, 
       }
       publish({status:'playing',preparing:true,captionsOnly:false,voiceError:'',cueIndex:-1,elapsedMs:0,durationMs:AFTERIMAGE_DURATION_MS,reason:''});
       if(currentVersion !== version || state.status !== 'playing')return false;
+      preparationTimer=setTimer(()=>{
+        preparationTimer=null;if(!isCurrent(currentVersion)||!state.preparing)return;
+        try{onVoiceUnavailable?.('timeout');}catch{}
+        if(!isCurrent(currentVersion))return;
+        if(run.begun)startTimeline(currentVersion,true,true);else begin(currentVersion,false,true);
+      },AFTERIMAGE_PREPARATION_MS);
       try {
         const prepared = onPrepare?.(run.script,run.cues[0].emotion,run.cues);
         if (prepared && typeof prepared.then === 'function') {

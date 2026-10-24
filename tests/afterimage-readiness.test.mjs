@@ -41,21 +41,21 @@ function naturalFixture({delayedPlayback=false}={}){
   return {timer,voice,bridge,disconnect,requests,events,players,errors,target,playback};
 }
 
-test('slow natural preparation spends none of the rehearsal or capture before audio is ready',async t=>{
+test('natural preparation within its deadline spends none of the rehearsal or capture before audio is ready',async t=>{
   const f=naturalFixture();t.after(()=>f.bridge.dispose());
   assert.equal(f.bridge.recordAndPlay(FIRST_CONTACT),true);
   assert.equal(f.requests.length,1);
   assert.equal(f.bridge.snapshot().status,'playing');assert.equal(f.bridge.snapshot().preparing,true);
-  f.timer.advance(90000);
+  f.timer.advance(12000);
   assert.equal(f.bridge.snapshot().elapsedMs,0);assert.equal(f.bridge.snapshot().recording,false);assert.deepEqual(f.events,[]);
   f.requests[0].resolve(new Blob(['the selected narration']));await settle();
   assert.equal(f.requests.length,1);assert.equal(f.bridge.snapshot().preparing,false);
-  assert.deepEqual(f.events.map(({type,at})=>({type,at})),[{type:'capture',at:90000},{type:'audio',at:90000},{type:'cue',at:90000}]);
+  assert.deepEqual(f.events.map(({type,at})=>({type,at})),[{type:'capture',at:12000},{type:'audio',at:12000},{type:'cue',at:12000}]);
   f.timer.advance(7000);assert.equal(f.events.filter(event=>event.type==='cue').length,2);
   f.timer.advance(21000);
   assert.equal(f.bridge.snapshot().status,'complete');assert.equal(f.bridge.snapshot().recording,false);
-  assert.deepEqual(f.events.filter(event=>event.type==='cue').map(event=>event.at),[90000,97000,104000,111000]);
-  assert.deepEqual(f.events.at(-1),{type:'saved',at:118000});assert.equal(f.timer.pending,0);
+  assert.deepEqual(f.events.filter(event=>event.type==='cue').map(event=>event.at),[12000,19000,26000,33000]);
+  assert.deepEqual(f.events.at(-1),{type:'saved',at:40000});assert.equal(f.timer.pending,0);
 });
 
 test('the cue clock waits for the first playback promise after prepared audio reaches the player',async t=>{
@@ -88,7 +88,7 @@ for(const action of ['stop','hidden','disconnect','dispose'])test(`${action} dur
   else if(action==='disconnect')f.disconnect();
   else f.bridge.dispose();
   assert.equal(f.requests[0].signal.aborted,true);
-  f.requests[0].resolve(new Blob(['obsolete narration']));await settle();f.timer.advance(90000);
+  f.requests[0].resolve(new Blob(['obsolete narration']));await settle();f.timer.advance(12000);
   assert.equal(f.players.length,0);assert.deepEqual(f.events,[]);assert.equal(f.timer.pending,0);
   assert.notEqual(f.bridge.snapshot().status,'playing');
 });
@@ -168,4 +168,18 @@ test('an unrelated manual recording started during preparation is never adopted 
   bridge.recordAndPlay(FIRST_CONTACT);recording=true;preparation.resolve(true);await settle();
   assert.equal(starts,0);assert.equal(bridge.snapshot().status,'stopped');assert.equal(bridge.snapshot().reason,'error');
   assert.equal(recording,true);assert.equal(saves,0);assert.equal(timer.pending,0);bridge.dispose();assert.equal(recording,true);
+});
+
+test('stalled Afterimage preparation continues clearly with captions after 25 seconds',async()=>{
+  const timer=clock(),pending=deferred(),cues=[],stops=[];let begins=0;
+  const controller=createAfterimageController({...timer,onPrepare:()=>pending.promise,onBegin:()=>begins++,onVoiceUnavailable:reason=>stops.push(reason),onCue:cue=>cues.push(cue)});
+  controller.play(buildSelectedPerformance(FIRST_CONTACT));timer.advance(24999);assert.equal(cues.length,0);timer.advance(1);
+  assert.equal(controller.snapshot().preparing,false);assert.equal(controller.snapshot().captionsOnly,true);assert.match(controller.snapshot().voiceError,/timed out.*captions/i);assert.equal(begins,1);assert.deepEqual(stops,['timeout']);
+  pending.resolve(true);await settle();assert.equal(begins,1);assert.equal(cues.length,1);timer.advance(28000);assert.equal(controller.snapshot().status,'complete');assert.equal(cues.length,4);assert.equal(timer.pending,0);controller.dispose();
+});
+test('Afterimage playback-start stalls share the same deadline and Stop removes its watchdog',async()=>{
+  const timer=clock(),pending=deferred(),cues=[],stops=[];
+  const controller=createAfterimageController({...timer,onSpeak:()=>pending.promise,onVoiceUnavailable:reason=>stops.push(reason),onCue:cue=>cues.push(cue)});
+  controller.play(buildSelectedPerformance(FIRST_CONTACT));timer.advance(25000);assert.equal(controller.snapshot().captionsOnly,true);assert.equal(cues.length,1);assert.deepEqual(stops,['timeout']);pending.resolve();await settle();assert.equal(cues.length,1);controller.stop();assert.equal(timer.pending,0);
+  controller.play(buildSelectedPerformance(FIRST_CONTACT));controller.stop();timer.advance(25000);assert.equal(stops.length,1);assert.equal(timer.pending,0);controller.dispose();
 });

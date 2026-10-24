@@ -1,5 +1,6 @@
 // Browser voice is an optional layer. Text remains the source of truth.
 import { wavEnvelope, envelopeAt, speechChunks, speechTimeline, timelineAt } from './speech-envelope.js';
+import {createSpeechDeadline,SPEECH_PREPARATION_MS} from './speech-deadline.js';
 export function selectBrowserVoice(voices) {
   const english = voices.filter(voice => voice.lang?.startsWith('en'));
   const male=english.filter(voice=>/\b(Guy|Christopher|Eric|David|Mark|Daniel|Alex|Tom|Fred|Ravi|Ryan|Andrew|Brian|George|James|Arthur|Oliver)\b|English Male/i.test(voice.name));
@@ -8,7 +9,7 @@ export function selectBrowserVoice(voices) {
     || english.find(voice => !voice.localService)
     || english.find(voice => /Daniel|Guy|David/i.test(voice.name)) || english[0];
 }
-export function createVoice({ onStart, onEnd, onError, onState, onTiming, requestAudio, requestClips, AudioCtor = globalThis.Audio, AudioContextCtor=globalThis.AudioContext||globalThis.webkitAudioContext, urls = URL, now=()=>performance.now()/1000 } = {}) {
+export function createVoice({ onStart, onEnd, onError, onState, onTiming, requestAudio, requestClips, AudioCtor = globalThis.Audio, AudioContextCtor=globalThis.AudioContext||globalThis.webkitAudioContext, urls = URL, now=()=>performance.now()/1000,preparationTimeoutMs=SPEECH_PREPARATION_MS,setTimer=setTimeout,clearTimer=clearTimeout } = {}) {
   let enabled = false, generation = 0, engine = 'browser', natural = false,speaker='troy',browserName='',pace=1;
   let mouthPlayback=null,gapTimer,currentUtterance=null;
   let player, objectUrl, currentAudio=null, preparedAudio=null, state='idle',narration=null,latency=null;
@@ -60,7 +61,7 @@ export function createVoice({ onStart, onEnd, onError, onState, onTiming, reques
   }
   const discard=entry=>{
     if(!entry)return;
-    if(entry.loading){entry.controller.abort();entry.loading=false;entry.status='aborted';wake(entry);}
+    if(entry.loading){entry.deadline.cancel();entry.loading=false;entry.status='aborted';wake(entry);}
     if(audioCache.get(entry.key)===entry)audioCache.delete(entry.key);
     if(preparedAudio===entry)preparedAudio=null;
   };
@@ -77,26 +78,33 @@ export function createVoice({ onStart, onEnd, onError, onState, onTiming, reques
     if(preparedAudio&&preparedAudio!==currentAudio)discard(preparedAudio);
     // Keep at most the active/recent reply and the next reply, each up to 2 MiB.
     while(audioCache.size>=2){const oldest=[...audioCache.values()].find(value=>value!==currentAudio);if(!oldest)break;discard(oldest);}
-    entry={key,status:'pending',loading:true,clips:[],waiters:new Set(),controller:new AbortController(),requestedAt:now()};audioCache.set(key,entry);
+    const deadline=createSpeechDeadline({timeoutMs:preparationTimeoutMs,setTimer,clearTimer});
+    entry={key,status:'pending',loading:true,clips:[],waiters:new Set(),controller:deadline.controller,deadline,requestedAt:now()};audioCache.set(key,entry);
     // Start the provider before returning, so history writes and rendering can overlap it.
     entry.promise=clipAt(entry,0);
+    let iterator;
     entry.completion=(async()=>{
-      const source=requestClips?await requestClips(text,mode,entry.controller.signal,emotion,speaker,speechCues):[{blob:await requestAudio(text,mode,entry.controller.signal,emotion,speaker,speechCues)}];
+      const source=requestClips?await deadline.wait(requestClips(text,mode,entry.controller.signal,emotion,speaker,speechCues)):[{blob:await deadline.wait(requestAudio(text,mode,entry.controller.signal,emotion,speaker,speechCues))}];
+      iterator=source[Symbol.asyncIterator]?.()||source[Symbol.iterator]();
       let size=0;
-      for await(const clip of source){
+      while(true){
+        const {done,value:clip}=await deadline.wait(iterator.next());if(done)break;
         if(entry.controller.signal.aborted)return;
         const blob=clip.blob;
         size+=blob.size;if(!blob.size||size>2*1024*1024||entry.clips.length>=4)throw Error('Natural voice returned invalid audio.');
         // MP3 cannot produce a WAV envelope; avoid copying the entire file just
         // to reject its header. Unknown types still retain the WAV sniffing path.
-        const envelope=clip.envelope??(blob.type==='audio/mpeg'?null:wavEnvelope(await blob.arrayBuffer()));
+        const envelope=clip.envelope??(blob.type==='audio/mpeg'?null:wavEnvelope(await deadline.wait(blob.arrayBuffer())));
         if(entry.controller.signal.aborted)return;
         entry.readyAt??=now();
         entry.clips.push({blob,envelope});entry.status='ready';wake(entry);updateState();
       }
       if(!entry.clips.length)throw Error('Natural voice returned no audio.');
       entry.loading=false;wake(entry);updateState();
-    })().catch(error=>{entry.error=error;entry.loading=false;entry.status='error';if(audioCache.get(key)===entry)audioCache.delete(key);wake(entry);updateState();});
+    })().catch(error=>{deadline.cancel();entry.error=error;entry.loading=false;entry.status='error';if(audioCache.get(key)===entry)audioCache.delete(key);wake(entry);updateState();}).finally(()=>{
+      deadline.dispose();
+      if(entry.controller.signal.aborted){try{void Promise.resolve(iterator?.return?.()).catch(()=>{});}catch{}}
+    });
     return entry;
   }
   let audioContext,audioDestination,audioSource,captureSilence;

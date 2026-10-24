@@ -1,16 +1,19 @@
+import {createSpeechDeadline} from './speech-deadline.js';
+
 const MAX_AUDIO=2*1024*1024,MAX_WIRE=3*1024*1024,MAX_CLIPS=4;
 const invalid=()=>Error('Natural voice returned an invalid audio stream.');
 const interrupted=()=>new DOMException('Speech stopped.','AbortError');
 
 // One bounded reply, delivered as complete ordered audio files. Text has already
 // been validated before this request; this parser never synthesizes draft text.
-export async function* readSpeechClips(response,{signal}={}){
+export async function* readSpeechClips(response,{signal,timeoutMs}={}){
   if(response.headers.get('content-type')?.split(';')[0].trim().toLowerCase()!=='application/x-ndjson')throw invalid();
   const reader=response.body?.getReader();if(!reader)throw invalid();
+  const deadline=createSpeechDeadline({signal,timeoutMs});
   const decoder=new TextDecoder('utf-8',{fatal:true});
   let buffer='',wireSize=0,audioSize=0,index=0;
-  const abort=()=>{void reader.cancel().catch(()=>{});};
-  signal?.addEventListener('abort',abort,{once:true});
+  const abort=()=>{try{void Promise.resolve(reader.cancel()).catch(()=>{});}catch{}};
+  deadline.signal.addEventListener('abort',abort,{once:true});
   function event(line){
     const value=JSON.parse(line);
     if(!value||typeof value!=='object'||Array.isArray(value))throw invalid();
@@ -33,7 +36,7 @@ export async function* readSpeechClips(response,{signal}={}){
   try{
     while(true){
       if(signal?.aborted)throw interrupted();
-      const {done,value}=await reader.read();
+      const {done,value}=await deadline.wait(reader.read());
       if(signal?.aborted)throw interrupted();
       if(done){buffer+=decoder.decode();if(buffer.trim())buffer+='\n';}
       else{
@@ -53,12 +56,12 @@ export async function* readSpeechClips(response,{signal}={}){
       if(done)throw invalid();
     }
   }catch(error){
+    if(error.name==='TimeoutError')throw error;
     if(signal?.aborted||error.name==='AbortError')throw interrupted();
     if(error.message==='Natural voice could not respond.')throw error;
     throw invalid();
   }finally{
-    signal?.removeEventListener('abort',abort);
-    await reader.cancel().catch(()=>{});
-    reader.releaseLock();
+    deadline.signal.removeEventListener('abort',abort);deadline.dispose();
+    abort();try{reader.releaseLock();}catch{}
   }
 }

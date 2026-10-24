@@ -63,3 +63,10 @@ test('speech stream sanitizes provider errors and cancels pending reads on abort
   await assert.rejects(pending,{name:'AbortError'});
   assert.equal(stream.cancelled,1);assert.equal(stream.response.body.locked,false);
 });
+
+test('a stalled stream reader is bounded even when cancellation never resolves',async()=>{
+  let cancelled=0,released=0;
+  const response={headers:new Headers({'content-type':'application/x-ndjson'}),body:{getReader:()=>({read:()=>new Promise(()=>{}),cancel(){cancelled++;return new Promise(()=>{});},releaseLock(){released++;}})}};
+  await assert.rejects(collect(response,{timeoutMs:15}),/timed out/i);
+  assert.ok(cancelled>=1);assert.equal(released,1);
+});
