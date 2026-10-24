@@ -6,3 +6,8 @@ node_modules/
 artifacts/
 *.log
 public/dist/
+
+# Internal plans, audits, research, and working notes remain local.
+/docs/*
+!/docs/DEPLOYMENT.md
+/.github/main-protection.json

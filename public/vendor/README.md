@@ -86,8 +86,8 @@ October 11's sculpture/workspace refinement keeps those same assets and notices.
 The existing icon extrusion gains physical lighting and gesture/blink integration;
 the Liquid Glass layouts are reduced to open columns and dividers. Terafab is a
 composition reference only: no images, branding, copy or proprietary source from
-it ship in NOX. See `docs/SCULPTURE-AND-RESPONSIVENESS.md` for the rendering clocks,
-gesture ownership and adaptation boundaries.
+it ship in NOX. Source commits and adaptation boundaries are recorded in
+`sources.json` and the accompanying upstream notices.
 # Connected brain presentation
 
 The connected-particle rendering pattern follows the official Three.js
