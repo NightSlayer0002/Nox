@@ -17,6 +17,21 @@ npm.cmd ci --ignore-scripts
 npm.cmd start
 ```
 
+Use `npm run dev` while editing. It watches the JSX/CSS bundle dependencies and
+the Node server together; refresh the browser after a client rebuild. Closing
+the command stops both watchers and its server.
+
+`npm run verify` runs the unit/HTTP suite, syntax checks and production build.
+For the separate real-browser journeys, first run
+`npx --no-install playwright install chromium`, then `npm run build:client` and
+`npm run test:browser`. The suite launches a localhost server with synthetic
+model replies and fake camera media; it uses no provider credentials or quotas.
+Its Chromium functional checks deliberately use the Canvas fallback, including
+startup, IME events, Stop/retry, keyboard menus, failed lazy loading, cross-tab
+storage, source export and narrow reading clearance. GPU rendering, physical
+phone keyboards and real microphone permission flows remain manual acceptance
+checks. CI runs these as the separate **Browser journeys** job.
+
 Open http://127.0.0.1:3000 for the landing page, then enter the workspace at `/app`. Dark is the default; a deliberate new Light choice can be saved. NOX looks toward your cursor across the browser window. Click him, drag him, or double-click to wink. Presence is the soft blob; Liquid Metal applies liquid-logo’s flowing Chrome shader to that same character. Signal is a faceless liquid core. NOX motion stays on with no website switch, including when the browser requests reduced motion as explicitly requested by the owner. ShaderGradient’s Mint water-plane scene animates automatically; GPU drawing is capped at 30 FPS and stops when the page is hidden. Voice starts off; enable it when you want spoken replies. Browser audio still needs interaction. Scene programs stop on a second click. F enters portrait film mode; Escape resets the scene.
 
 Normal NOX uses a soft matte 3D body with warm eyes, a mint rim, held stretch and
