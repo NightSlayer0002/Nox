@@ -1,6 +1,15 @@
 /* Phone chapters share a measured space with the same animated emblem. */
 .chapter-heading{display:contents}
 .mobile-emblem-slot{display:none}
+/* A failed/missing WebGL scene uses a mark attached to each chapter, never a
+   fixed square floating over the next chapter's copy. Keep the opposite copy
+   column clear at desktop widths; phones already allocate an inline slot. */
+.contact-emblem .logo-static{display:none}
+@media(min-width:701px){
+  .contact-page:not(:has(.source-logo[data-state=solid],.source-logo[data-state=metal])) .mobile-emblem-slot{display:grid;place-items:center;position:absolute;left:calc(100% + 8vw);top:15%;width:clamp(112px,16vw,210px);height:auto;aspect-ratio:1;pointer-events:none}
+  .mobile-emblem-slot img{width:100%;height:auto}
+  .contact-page:not(:has(.source-logo[data-state=solid],.source-logo[data-state=metal])) :is(#features,#about) .mobile-emblem-slot{left:auto;right:calc(100% + 8vw)}
+}
 @media(max-width:700px){
   .contact-chapter{padding:124px 7vw 148px;min-height:100svh}
   #home.contact-chapter{padding:124px 7vw 148px;min-height:100svh}

@@ -1,6 +1,7 @@
 import {createFloatingDynamics} from './floating-dynamics.js';
 import {createFloatingFollower,floatingBotTarget} from './floating-follower.js';
 import {floatingAllowed,floatingLayout,createKeyboardTracker} from './floating-layout.js';
+import {attachPresenceClearance} from './presence-clearance.js';
 
 // The existing Stage is moved, never copied. Only the small character handle
 // and bot receive pointer events; the viewport-sized trail layer is inert.
@@ -26,6 +27,8 @@ export function attachFloatingPresence({stage,documentTarget=document,windowTarg
   panel.append(utilities);
   let active=false,disposed=false,layout=null,placed=false,held=null,pressed=null,moved=false,previousGravity=false,saved=null,measureFrame=null,lastImpact=0,lastKeyboard=false;
   let bot={x:0,y:0},previousAction='none',takeoverHome=null,restorePlacement=null;
+  let userPlaced=false,clearancePose='';
+  const clearance=attachPresenceClearance({conversation:$('conversation'),windowTarget:win,getPlacement:()=>({enabled:active&&!userPlaced&&!previousGravity&&previousAction!=='takeover'&&win.innerWidth<=700,character:{left:motion.state.x,top:motion.state.y,right:motion.state.x+motion.state.size,bottom:motion.state.y+motion.state.size}})});
   const beforeFrame=stage.onBeforeFrame;
   const point=event=>({x:event.clientX,y:event.clientY});
   function isEditable(element){return Boolean(element?.isContentEditable||['TEXTAREA','INPUT'].includes(element?.tagName));}
@@ -55,7 +58,7 @@ export function attachFloatingPresence({stage,documentTarget=document,windowTarg
     draw(0,stage.time);
   }
   function scheduleMeasure(){if(active&&measureFrame===null)measureFrame=win.requestAnimationFrame(measure);}
-  function park(){if(!active)return;onClear();if(!layout)measure();motion.place(layout.park);stage.character.react?.('content',stage.time,.8);draw(0,stage.time);}
+  function park(){if(!active)return;userPlaced=true;clearance.update();onClear();if(!layout)measure();motion.place(layout.park);stage.character.react?.('content',stage.time,.8);draw(0,stage.time);}
   function finish(cancel=false){
     if(held===null)return;
     const pointer=held;held=null;handle.dataset.dragging='false';
@@ -85,6 +88,8 @@ export function attachFloatingPresence({stage,documentTarget=document,windowTarg
     // A preference can change without a resize or keyboard transition.
     motion.keyboard(lastKeyboard,{reduceMotion:reducedMotion});
     const state=motion.step(dt);
+    const pose=`${active}:${userPlaced}:${previousGravity}:${previousAction}:${win.innerWidth}:${state.x}:${state.y}:${state.size}`;
+    if(pose!==clearancePose){clearancePose=pose;clearance.update();}
     world.style.transform=`translate3d(${state.x.toFixed(2)}px,${state.y.toFixed(2)}px,0)`;
     world.dataset.x=state.x.toFixed(2);world.dataset.y=state.y.toFixed(2);world.dataset.gravity=String(previousGravity);world.dataset.grounded=String(state.grounded);world.dataset.hops=String(state.hopCount);
     stage.character.setFalling?.(previousGravity&&!state.dragging&&!state.grounded&&state.vy>15);
@@ -109,6 +114,7 @@ export function attachFloatingPresence({stage,documentTarget=document,windowTarg
     const eligible=floatingAllowed({...doc.body.dataset,film:doc.body.classList.contains('film'),recording:stage.recordingLocked});
     if(eligible===active){scheduleMeasure();return;}
     active=eligible;doc.body.dataset.floating=String(active);layer.hidden=!active;
+    clearance.update();
     if(active){
       saved={transparent:stage.transparent,tabIndex:stage.canvas.tabIndex,pose:{x:stage.character.x,y:stage.character.y,targetX:stage.character.targetX,targetY:stage.character.targetY,scale:stage.character.scale,rotation:stage.character.rotation}};
       layer.append(world,toolbar);stage.externalPlacement=true;stage.transparent=true;stage.canvas.tabIndex=-1;handle.hidden=false;
@@ -152,7 +158,7 @@ export function attachFloatingPresence({stage,documentTarget=document,windowTarg
     if(held!==event.pointerId)return;
     event.preventDefault();const next=point(event);motion.drag(next);
     moved||=Math.hypot(next.x-pressed.x,next.y-pressed.y)>=6;
-    if(moved){takeoverHome=null;stage.character.setHeld?.(true,stage.time);stage.character.moveDrag?.(next,stage.time);}
+    if(moved){userPlaced=true;clearance.update();takeoverHome=null;stage.character.setHeld?.(true,stage.time);stage.character.moveDrag?.(next,stage.time);}
     onInspect({...next,dragging:true});
   });
   listen(handle,'pointerup',event=>{if(event.pointerId===held)finish(false);});
@@ -160,7 +166,7 @@ export function attachFloatingPresence({stage,documentTarget=document,windowTarg
   listen(handle,'dblclick',()=>stage.character.wink?.(stage.time));
   listen(handle,'keydown',event=>{
     const delta={ArrowLeft:[-12,0],ArrowRight:[12,0],ArrowUp:[0,-12],ArrowDown:[0,12]}[event.key];
-    if(delta){event.preventDefault();onClear();takeoverHome=null;motion.place({x:motion.state.x+delta[0],y:motion.state.y+delta[1]});draw(0,stage.time);}
+    if(delta){event.preventDefault();userPlaced=true;clearance.update();onClear();takeoverHome=null;motion.place({x:motion.state.x+delta[0],y:motion.state.y+delta[1]});draw(0,stage.time);}
     else if(event.key==='Enter'){event.preventDefault();stage.character.poke(stage.time);}
     else if(event.key===' '){event.preventDefault();stage.character.wink?.(stage.time);}
     else if(event.key==='Escape'){event.preventDefault();finish(true);onClear();park();}
@@ -176,7 +182,7 @@ export function attachFloatingPresence({stage,documentTarget=document,windowTarg
     if(disposed)return;
     // Leave the shared Stage in its original DOM home before removing helpers.
     if(active){doc.body.dataset.presence='hidden';sync();}
-    disposed=true;events.abort();observer.disconnect();resize.disconnect();stage.onBeforeFrame=beforeFrame;stage.externalPlacement=false;
+    disposed=true;clearance.dispose();events.abort();observer.disconnect();resize.disconnect();stage.onBeforeFrame=beforeFrame;stage.externalPlacement=false;
     if(measureFrame!==null)win.cancelAnimationFrame(measureFrame);
     utilities.remove();handle.remove();layer.remove();marker.remove();toolbarMarker.remove();delete doc.body.dataset.floating;
   }};

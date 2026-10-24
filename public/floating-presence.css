@@ -51,3 +51,5 @@
 }
 .workspace .floating-ui[data-motion=reduced] :is(.presence-bot,.floating-nox-handle){transition:none}
 .workspace .floating-ui[data-motion=reduced] .floating-bot-trail{display:none}
+/* Reserve the occupied lines, not a whole empty row or a narrow full reply. */
+.workspace .message[data-presence-clearance] .message-content::before{content:"";float:right;width:var(--presence-clearance-width);height:var(--presence-clearance-height);pointer-events:none}
