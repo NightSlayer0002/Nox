@@ -1,5 +1,5 @@
 // SphereGeometry / transparent MeshPhysicalMaterial adapted from the official
-// Three.js transmission example retained in public/vendor/three-atmosphere.
+// Three.js transmission example pinned in public/vendor/sources.json.
 import * as THREE from 'three';
 
 export function createCinematicAtmosphere(renderer,camera,canvas,small){
