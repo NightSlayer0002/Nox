@@ -90,6 +90,35 @@ test('shared generation rejection with no anonymous snapshot returns minimal usa
   });
 });
 
+test('local guest rejections retain the last daily snapshot without any Redis work',async()=>{
+  const {createGuestAllowance}=await import('../server/guest-allowance.mjs');
+  let commands=0,used=0;
+  const allowance=createGuestAllowance({url:'https://fixture.upstash.io',token:'fixture',now:()=>Date.parse('2026-10-25T12:00:00Z'),fetchImpl:async(_url,options)=>{
+    const command=JSON.parse(options.body);commands++;
+    if(command[0]==='MGET')return Response.json({result:[used,0]});
+    assert.equal(command[0],'EVAL');used++;return Response.json({result:[1,used,0]});
+  }});
+  await withServer({guestAllowance:allowance},async base=>{
+    for(let index=0;index<8;index++)assert.equal((await request(base,'/api/chat',{message:`Question ${index}`},{'x-nox-guest':'1'})).status,200);
+    const before=commands;
+    for(let index=0;index<3;index++){
+      const blocked=await request(base,'/api/chat',{message:'Keep this draft.'},{'x-nox-guest':'1'});
+      assert.equal(blocked.status,429);assert.equal(blocked.body.usage,null);
+    }
+    const status=await request(base);
+    assert.equal(status.body.usage?.mode,'daily');assert.equal(status.body.usage.text.used,8);
+    assert.equal(commands,before,'rejections and a fresh cached status must not call Redis');
+  });
+});
+
+for(const [reason,failedRead] of [['null',async()=>null],['failure',async()=>{throw Error('temporarily offline');}]])test(`an unknown status snapshot can be checked again without waiting for cache expiry (${reason})`,async()=>{
+  let reads=0;
+  await withServer({guestAllowance:{status:async()=>{reads++;return reads===1?failedRead():usage(2);},take:async()=>({allowed:true,usage:usage(1)})}},async base=>{
+    assert.equal((await request(base)).body.usage,null);
+    assert.deepEqual((await request(base)).body.usage,usage(2));assert.equal(reads,2);
+  });
+});
+
 test('status snapshots isolate networks and expire using the supplied clock',async()=>{
   let time=0,reads=0;const cache=await cacheFor({now:()=>time,ttlMs:100,maxEntries:2});
   assert.deepEqual(await cache.get('network-a',async()=>{reads++;return usage(1);}),usage(1));
@@ -121,6 +150,15 @@ test('fresh decisions supersede pending reads while explicit invalidation preven
   const second=cache.get('network-b',()=>invalid.promise);cache.invalidate('network-b');invalid.resolve(usage(0));
   assert.equal(await second,null);assert.equal(cache.peek('network-b'),undefined);
   assert.deepEqual(await cache.get('network-b',async()=>usage(5)),usage(5));
+});
+
+test('null decisions preserve a usable snapshot and let pending status reads finish',async()=>{
+  let time=0;const cache=await cacheFor({now:()=>time,ttlMs:100}),pending=deferred();
+  cache.set('network-a',usage(4));time=50;cache.set('network-a',null);
+  assert.deepEqual(cache.peek('network-a'),usage(4));
+  time=100;assert.equal(cache.peek('network-a'),undefined,'unknown decisions must not extend a known snapshot');
+  const status=cache.get('network-b',()=>pending.promise);cache.set('network-b',null);pending.resolve(usage(3));
+  assert.deepEqual(await status,usage(3));assert.deepEqual(cache.peek('network-b'),usage(3));
 });
 
 test('a failed status read releases its coalescing slot and can be retried',async()=>{
