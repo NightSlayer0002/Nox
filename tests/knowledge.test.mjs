@@ -7,6 +7,33 @@ function storage(initial=null){
   return {getItem:key=>values.get(key)??null,setItem:(key,value)=>values.set(key,value)};
 }
 
+test('pasted notes derive a bounded first-line title when naming is skipped',()=>{
+  const disk=storage(),book=createKnowledge(disk);
+  const pasted=book.add({text:'\n  Aurora launch checklist\nVerify the canopy seals before launch.  '});
+  assert.equal(pasted.title,'Aurora launch checklist');
+  assert.equal(pasted.text,'Aurora launch checklist\nVerify the canopy seals before launch.');
+  const long=book.add({title:' ',text:'🌙'.repeat(100)+'\nThe lunar sample is kept intact.'});
+  assert.ok(long.title.length<=KNOWLEDGE_LIMITS.titleCharacters);
+  assert.doesNotMatch(long.title,/[\uD800-\uDBFF]$/);
+  assert.equal(createKnowledge(disk).list().length,2);
+  const boundary=book.add({text:'x'.repeat(159)+'🌙\nKeep the complete body.'});
+  assert.equal(boundary.title,'x'.repeat(159));assert.match(boundary.text,/🌙/);
+  assert.ok(book.context('canopy seals').some(item=>item.title==='Aurora launch checklist'));
+  assert.equal(book.add({title:'Chosen title',text:'The first line is different.'}).title,'Chosen title');
+  assert.throws(()=>book.add({text:'  '}),/empty|text/i);
+});
+
+test('a malformed pasted first line cannot turn the notebook into an invalid archive',()=>{
+  const disk=storage(),book=createKnowledge(disk);
+  book.add({title:'Existing note',text:'Keep this existing note.'});
+  for(const text of ['\uD800','Project \uD800 launch','\uDC00 text']){
+    const note=book.add({text});
+    assert.ok(note.title.length>0);assert.equal(note.title.isWellFormed(),true);
+    assert.equal(note.text,text);
+  }
+  const restored=createKnowledge(disk);assert.equal(restored.recovery,null);assert.equal(restored.list().length,4);
+});
+
 test('retrieval finds a relevant passage near the end of a long document',()=>{
   const book=createKnowledge(storage());
   book.add({title:'Station maintenance.md',text:('Routine inspection of the green corridors and their lights.\n\n'.repeat(330))+'\n\nThe zephyr reactor emergency restart code is ORBIT-47. Disconnect the coolant valve before restarting.'});
