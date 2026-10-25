@@ -23,6 +23,7 @@ export default function Afterimage(){
   const [view,setView]=useState(()=>afterimageBridge.snapshot()),[busy,setBusy]=useState(false),[error,setError]=useState(''),[notice,setNotice]=useState(''),[editor,setEditor]=useState(false),[draftLines,setDraftLines]=useState([]);
   const [replacement,setReplacement]=useState(undefined),[pendingDelete,setPendingDelete]=useState(null),[saving,setSaving]=useState(false);
   const request=useRef(null),version=useRef(0),variation=useRef(0);
+  const editPending=useRef(false),draftRevision=useRef(0);
   const reduceMotion=useReducedMotion();
   useEffect(()=>{receiverDraft={seed,tone,sample:current&&!current.id?current:null};},[seed,tone,current]);
   useEffect(()=>afterimageBridge.subscribe(()=>setView(afterimageBridge.snapshot())),[]);
@@ -68,7 +69,16 @@ export default function Afterimage(){
   }
   function stopPerformance(){afterimageBridge.stop('stopped by you');setNotice('Performance stopped. Your story is kept.');}
   async function saveEdits(){
-    setSaving(true);try{buildSelectedPerformance(reception.packet,reception.signalIndex,reception.endingIndex,draftLines);const next=current?.id?await store.update(current.id,{editedLines:draftLines}):{...reception,editedLines:[...draftLines]};if(!next)throw new Error('This reception was removed. Choose another from your archive.');setCurrent(next);setEditor(false);setDraftLines([]);setError('');setNotice('Your cut is edited. No model request.');}catch(e){setError(e.message);}finally{setSaving(false);}
+    if(disabled||editPending.current)return;
+    editPending.current=true;const editedLines=[...draftLines],revision=draftRevision.current;
+    setSaving(true);try{
+      buildSelectedPerformance(reception.packet,reception.signalIndex,reception.endingIndex,editedLines);
+      const next=current?.id?await store.update(current.id,{editedLines}):{...reception,editedLines};
+      if(!next)throw new Error('This reception was removed. Choose another from your archive.');
+      setCurrent(next);setError('');
+      if(draftRevision.current===revision){setEditor(false);setDraftLines([]);setNotice('Your cut is edited. No model request.');}
+      else setNotice('Your earlier edits were applied. Your newer edits are still open; apply them when ready.');
+    }catch(e){setError(e.message);}finally{editPending.current=false;setSaving(false);}
   }
   function restore(id){
     const item=store.get(id);if(!item){setError('This reception was removed from this browser.');return;}
@@ -114,7 +124,7 @@ export default function Afterimage(){
       <div className="performance-actions"><button className="receive-button" type="button" onClick={()=>play()} disabled={disabled||!view.connected}>Play this cut</button><button type="button" onClick={()=>play(true)} disabled={disabled||!view.connected||!view.recordSupported||view.recording}>Capture performance</button>{playing&&<button type="button" onClick={stopPerformance}>Stop</button>}</div>
       <p className="capture-note" id="afterimage-capture-note">{exportProfile.width} × {exportProfile.height} · {exportProfile.frameRate} fps · Cues span 28 seconds; slower narration can extend the final beat, up to 60 seconds. Captioned WebM saves locally with enabled Orpheus audio. Browser voice cannot be captured.</p>
       <div className="receiver-export"><button type="button" disabled={!view.connected} onClick={()=>afterimageBridge.setVoice(!view.voiceEnabled)} aria-pressed={view.voiceEnabled}>{view.voiceEnabled?'Voice on':'Voice off'}</button><button type="button" onClick={()=>{setDraftLines(selected.cues.map(cue=>cue.speech));setEditor(!editor);}} disabled={disabled} aria-expanded={editor}>Edit this cut</button><button type="button" onClick={()=>downloadText(toMarkdown(reception),`nox-afterimage-script.md`)}>Export script</button><button type="button" onClick={()=>downloadText(JSON.stringify(reception,null,2),'nox-afterimage-reception.json')}>Export story data</button>{generated&&canGenerate&&<button type="button" disabled={disabled||!seed.trim()} onClick={event=>receive(event,true)}>New take</button>}</div>
-      {editor&&<div className="cut-editor"><p>{current?.id&&store.persistent?'Your edits stay in this browser.':'Your edits last for this visit; export before refreshing.'} Changing branch starts a fresh cut.</p>{draftLines.map((line,index)=><label key={index}>{index===3?'Ending':`Beat ${index+1}`}<textarea value={line} maxLength={90} onChange={e=>setDraftLines(lines=>lines.map((old,i)=>i===index?e.target.value:old))} rows={2}/></label>)}<button type="button" className="receive-button" onClick={saveEdits} disabled={disabled||draftLines.length!==4||draftLines.some(line=>!line.trim())}>Apply edits</button></div>}
+      {editor&&<div className="cut-editor"><p>{current?.id&&store.persistent?'Your edits stay in this browser.':'Your edits last for this visit; export before refreshing.'} Changing branch starts a fresh cut.</p>{draftLines.map((line,index)=><label key={index}>{index===3?'Ending':`Beat ${index+1}`}<textarea value={line} maxLength={90} onChange={e=>{draftRevision.current++;const value=e.target.value;setDraftLines(lines=>lines.map((old,i)=>i===index?value:old));}} rows={2}/></label>)}<button type="button" className="receive-button" onClick={saveEdits} disabled={disabled||draftLines.length!==4||draftLines.some(line=>!line.trim())}>Apply edits</button></div>}
       <div className="reception-caption"><span>Caption</span><p>{packet.caption}</p></div>
       {metrics&&<p className="reception-metrics">{metrics.provider} · {metrics.model} · received in {(metrics.totalMs/1000).toFixed(1)}s{metrics.cacheHit?' · warm cache':''}{metrics.attempts===2?' · written in 2 attempts':''}</p>}
     </motion.div></AnimatePresence>

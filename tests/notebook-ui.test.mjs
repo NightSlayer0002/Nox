@@ -57,7 +57,7 @@ test('guest note submission confirms temporary storage and tells the guest how t
   assert.equal(ui.knowledge.list()[0].title,'A guest note');assert.equal(ui.knowledge.persistent,false);
   assert.match(ui.status(),/this visit/);assert.match(ui.status(),/relevant passages can accompany/i);
   const context=ui.find(node=>node.type==='input'&&node.props.type==='checkbox');
-  assert.equal(context.props.disabled,undefined);assert.equal(context.props.checked,true);
+  assert.equal(context.props.disabled,false);assert.equal(context.props.checked,true);
 });
 
 test('guest file import gives the same temporary-use guidance as pasted notes',async()=>{
