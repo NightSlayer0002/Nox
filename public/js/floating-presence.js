@@ -28,7 +28,7 @@ export function attachFloatingPresence({stage,documentTarget=document,windowTarg
   let active=false,disposed=false,layout=null,placed=false,held=null,pressed=null,moved=false,previousGravity=false,saved=null,measureFrame=null,lastImpact=0,lastKeyboard=false;
   let bot={x:0,y:0},previousAction='none',takeoverHome=null,restorePlacement=null;
   let userPlaced=false,clearancePose='';
-  const clearance=attachPresenceClearance({conversation:$('conversation'),windowTarget:win,getPlacement:()=>({enabled:active&&!userPlaced&&!previousGravity&&previousAction!=='takeover'&&win.innerWidth<=700,character:{left:motion.state.x,top:motion.state.y,right:motion.state.x+motion.state.size,bottom:motion.state.y+motion.state.size}})});
+  const clearance=attachPresenceClearance({conversation:$('conversation'),windowTarget:win,getPlacement:()=>({enabled:active&&!userPlaced&&!previousGravity&&previousAction!=='takeover',character:{left:motion.state.x,top:motion.state.y,right:motion.state.x+motion.state.size,bottom:motion.state.y+motion.state.size}})});
   const beforeFrame=stage.onBeforeFrame;
   const point=event=>({x:event.clientX,y:event.clientY});
   function isEditable(element){return Boolean(element?.isContentEditable||['TEXTAREA','INPUT'].includes(element?.tagName));}
