@@ -74,3 +74,15 @@ test('concurrent allowance-store failures release shared reservations while stay
   assert.ok(rejected.every(result=>!result.allowed&&result.code==='allowance_unavailable'));
   offline=false;assert.equal((await allowance.take('legitimate','text')).allowed,true);
 });
+
+for(const [kind,accepted] of [['text',8],['speech',4]])test(`locally throttled ${kind} requests perform no Redis work`,async()=>{
+  const fixture=redisFixture();
+  const allowance=createGuestAllowance({...fixture,url:'https://fixture.upstash.io',token:'fixture',now:()=>Date.parse('2026-10-24T12:00:00Z')});
+  for(let i=0;i<accepted;i++)assert.equal((await allowance.take('busy-network',kind)).allowed,true);
+  const before=fixture.requests.length;
+  const rejected=await Promise.all(Array.from({length:100},()=>allowance.take('busy-network',kind)));
+  assert.ok(rejected.every(result=>!result.allowed&&result.code==='rate_limit'&&result.retryAfter===60));
+  assert.equal(fixture.requests.length,before,'locally rejected traffic must not read or write the allowance store');
+  assert.ok(rejected.every(result=>result.usage===null),'usage on this cheap rejection path is explicitly unavailable');
+  assert.equal((await allowance.take('another-network',kind)).allowed,true);
+});

@@ -47,7 +47,9 @@ export function createGuestAllowance({now=Date.now,fetchImpl=fetch,
   async function take(client,kind) {
     if(!Object.hasOwn(rates,kind))throw TypeError('Unknown allowance kind.');
     const reservation=rates[kind].reserve(client);
-    if(reservation.wait)return {allowed:false,code:'rate_limit',retryAfter:reservation.wait,usage:await status(client)};
+    // A local rejection must stay local. Usage is optional display data; looking
+    // it up here lets a burst of rejected requests become a burst of Redis reads.
+    if(reservation.wait)return {allowed:false,code:'rate_limit',retryAfter:reservation.wait,usage:null};
     const {date,reset,ttl}=day();
     if(!configured)return {allowed:true,usage:snapshot(client,'preview',null,reset)};
     try {
