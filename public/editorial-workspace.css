@@ -75,10 +75,6 @@
 .workspace .cue-tape li{padding:18px 0;background:transparent;border-bottom-color:var(--line)}
 .workspace .cue-tape li.cue-active{border-left:0;padding-left:0;background:transparent}.workspace .cue-active>span{color:var(--accent)}
 .workspace .cue-active p{color:var(--text)}
-.workspace .afterimage-lattice{background:transparent;border:0;border-radius:0}
-.workspace .afterimage-lattice .react-flow{background:transparent}
-.workspace .reception-node{background:var(--bg);border-radius:4px;border-width:0 0 1px;padding:12px 0;box-shadow:none}
-.workspace .reception-node.is-active{background:var(--surface);box-shadow:none;padding-inline:8px}
 .workspace .performance-actions button,.workspace .receiver-export button{border-radius:4px}
 .workspace .cut-editor{border:0;border-top:1px solid var(--line);border-bottom:1px solid var(--line);border-radius:0;background:transparent;padding:18px 0}
 .workspace .cut-editor textarea{background:transparent;border-radius:4px}
