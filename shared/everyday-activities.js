@@ -18,12 +18,12 @@ export function moonPhase(angle){
   return {degrees,fraction,name:names[Math.round(degrees/45)%8],waxing:degrees<=180};
 }
 export function createExploreState(preferences={}){
-  return {version:ACTIVITY_VERSION,kind:'explore',topic:'',example:'moon',angle:45,approach:preferences.learningStyle==='hints'?'hints':'explain',clues:preferences.learningStyle==='hints'?1:0,prediction:'',teachBack:'',selfCheck:[],recap:false,paused:false};
+  return {version:ACTIVITY_VERSION,kind:'explore',topic:'',example:'moon',angle:45,approach:preferences.learningStyle==='hints'?'hints':'explain',clues:preferences.learningStyle==='hints'?1:0,prediction:'',teachBack:'',selfCheck:[],recap:false};
 }
 export function restoreExploreState(value,preferences={}){
   const raw=own(value),base=createExploreState(preferences);
   if(raw.version!==ACTIVITY_VERSION||raw.kind!=='explore')return base;
-  return {...base,topic:text(raw.topic,EXPLORE_MAX_TEXT),angle:clamp(raw.angle,0,360,45),approach:['hints','explain'].includes(raw.approach)?raw.approach:base.approach,clues:clamp(raw.clues,0,3,0),prediction:['between','opposite','quarter'].includes(raw.prediction)?raw.prediction:'',teachBack:text(raw.teachBack,1600),selfCheck:Array.isArray(raw.selfCheck)?[...new Set(raw.selfCheck.filter(x=>['light','view','question'].includes(x)))]:[],recap:raw.recap===true,paused:raw.paused===true};
+  return {...base,topic:text(raw.topic,EXPLORE_MAX_TEXT),angle:clamp(raw.angle,0,360,45),approach:['hints','explain'].includes(raw.approach)?raw.approach:base.approach,clues:clamp(raw.clues,0,3,0),prediction:['between','opposite','quarter'].includes(raw.prediction)?raw.prediction:'',teachBack:text(raw.teachBack,1600),selfCheck:Array.isArray(raw.selfCheck)?[...new Set(raw.selfCheck.filter(x=>['light','view','question'].includes(x)))]:[],recap:raw.recap===true};
 }
 export function exploreRecap(value){
   const state=restoreExploreState(value),checked=state.selfCheck;
@@ -62,8 +62,6 @@ export function createGuessingState({seed=0,rules={}}={}){
   return {version:ACTIVITY_VERSION,kind:'guessing',targetId:GUESS_OBJECTS[index].id,rules:normalizeGameRules(rules),events:[],turns:0,hintsUsed:0,status:'playing'};
 }
 function transitionGuessing(state,action){
-  if(action.type==='pause')return state.status==='playing'?{...state,status:'paused'}:state;
-  if(action.type==='resume')return state.status==='paused'?{...state,status:'playing'}:state;
   if(state.status!=='playing')return state;
   const target=objectFor(state.targetId),events=state.events;
   if(action.type==='hint'){
@@ -93,12 +91,12 @@ export function restoreGuessingState(value){
     const action=event.type==='guess'?{type:'guess',value:objectFor(event.id)?.name}:event.type==='question'?{type:'question',id:event.id}:{type:event.type==='hint'?'hint':'invalid'};
     state=transitionGuessing(state,action);
   }
-  return raw.status==='paused'&&state.status==='playing'?{...state,status:'paused'}:state;
+  return state;
 }
 export function updateGuessingState(value,action){return transitionGuessing(restoreGuessingState(value),own(action));}
 export function guessingResult(value){
   const state=restoreGuessingState(value),target=objectFor(state.targetId);
   if(state.status==='won')return `You found ${target.name} in ${state.turns} ${state.turns===1?'turn':'turns'}.`;
   if(state.status==='lost')return `The object was ${target.name}. You used all ${state.rules.questionLimit} turns.`;
-  return state.status==='paused'?'Round paused. Your questions and guesses are kept.':`${state.rules.questionLimit-state.turns} turns left. Questions and guesses each use one turn.`;
+  return `${state.rules.questionLimit-state.turns} turns left. Questions and guesses each use one turn.`;
 }

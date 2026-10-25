@@ -84,7 +84,7 @@
 .eact-rules input[type=number]{width:75px;background:var(--glass,#111817);color:var(--eact-ink);border:1px solid var(--eact-line);border-radius:4px;padding:7px 10px}
 .eact-rules>p{font-size:13px}
 .eact-rules>button{margin:0 8px 8px 0}
-.eact-round-result,.eact-paused{padding:26px 0}
+.eact-round-result{padding:26px 0}
 .eact-other-play{color:var(--eact-soft);font-size:14px;margin-top:30px!important}
 @media(hover:hover) and (pointer:fine){.everyday-activity button:hover:not(:disabled){border-color:var(--cream,#f0ead4);box-shadow:0 2px 12px #e6dfbc14}.everyday-activity .eact-primary:hover:not(:disabled){background:#fff8df}}
 @media(max-width:600px){.everyday-activity{padding:20px 4px 32px}.eact-header{gap:12px;margin-bottom:24px}.eact-header>button{font-size:13px;padding:8px 10px}.eact-topic>div{align-items:flex-start;flex-direction:column;gap:12px}.eact-topic>div>span{max-width:none}.eact-topic>div>button{align-self:flex-end}.eact-toolbar{gap:10px;flex-wrap:wrap;margin-top:20px}.eact-toolbar button{font-size:13px;padding:8px 11px}.eact-moon{margin-top:12px}.eact-phase-stops{gap:4px}.eact-phase-stops button{font-size:11px;padding:5px 7px}.eact-game-status{gap:10px}.eact-game-status>p{font-size:18px}.eact-game-status>span{font-size:13px}.eact-explanation{font-size:17px}.eact-turns{max-height:340px}.eact-approach button{font-size:14px}}
