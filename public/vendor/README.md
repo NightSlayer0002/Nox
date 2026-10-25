@@ -1,102 +1,70 @@
-# Visual sources
+# Visual sources and licenses
 
-Signal now uses actual anatomical geometry from BodyParts3D's official 4.0 OBJ
-archive. Forty original cortical, cerebellar and brainstem parts are merged for
-two draw calls. Source/archive and per-part checksums, packing settings, current
-licensor grant and attribution are retained in `bodyparts3d/geometry.json` and
-`bodyparts3d/NOTICE.md`. The licensor changed the dataset to CC BY 4.0 on February
-27, 2025; the current grant is recorded alongside the legacy OBJ header note.
-Attribution: BodyParts3D, © The Database Center for Life Science licensed under
-CC Attribution 4.0 International. NOX adapts the light/material/view, not anatomy.
-Lucide's unmodified brain paths provide its immediate/loading/error fallback.
-The visualization is a theme for NOX, not evidence of superintelligence.
+`sources.json` records upstream repositories, source paths, revisions and hashes.
+Published runtime packages are pinned separately in `package-lock.json`.
+Upstream demo and specimen copies are omitted from the public payload; their
+source records and all license and attribution files remain available here.
 
-October 12's quiet interface uses Adobe's unmodified Source Sans 3 variable
-webfont, self-hosted with its SIL OFL notice in `source-sans`. The official
-repository was cloned and pinned in `sources.json`. Flat rectangular controls
-adapt Vercel AI Elements' shadcn `Button` primary/secondary/ghost variants;
-the original `button.tsx` and Apache-2.0 notice ship under `ai-elements`.
-The screenshot supplies proportions and the small corner radius. NOX omits
-decorative chevrons, shimmer borders and pill outlines.
+## Runtime assets and adaptations
 
-Terafab is a composition reference; its footage, copy and branding are not
-repackaged. MotionSites was inspected, but its public gallery alone does not
-establish a free redistribution license for its videos. Its previews are used
-as design references only. Existing licensed liquid-logo/ShaderGradient/R3F
-assets remain the interactive landing artwork instead of a new stock video.
-
-Vercel AI Elements' Apache-2.0 `PromptInput` and shadcn `InputGroup` sources
-supply the compact composer structure: transparent textarea, a block-end footer,
-ghost tool buttons, model selection and a compact submit/stop control. The
-unmodified source files and license ship under `ai-elements`; NOX adapts their
-layout to native HTML and existing controller IDs rather than installing their
-React/shadcn dependency graph. The provided screenshot is a layout reference,
-not copied branding. Native selects and labelled buttons retain keyboard access.
-Lucide supplies the actual unmodified SVG icons, with its ISC notice in `lucide`.
-Both repositories were cloned and pinned in `sources.json`. All shipped assets
-are local: no runtime icon CDN or remote scripts were added.
-
-ARWES's MIT FrameCircle artwork now supplies the Orbit program. Original
-`createFrameCircleSettings.ts` and `filterProps.ts` ship unchanged with the
-license. `scripts/export-orbit-asset.mjs` exports those descriptors to
-`arwes/orbit-frame.svg`, changing only the transparent mint palette and exposed
-generator settings. The canvas adapter rotates/scales this artwork in two tilted
-planes, split behind/in front of NOX. No generated dots or particle fallback is
-used. Because the SVG is drawn into the stage canvas, it appears in recordings.
-
-The four repositories requested by the NOX owner were cloned, inspected, and
-pinned in `sources.json`. Clones live in ignored `artifacts/upstream/`; only
-required source files and license notices ship with NOX.
-
-| Source | Used in NOX | Adaptations |
+| Source | Use in NOX | Retained notice |
 | --- | --- | --- |
-| collidingScopes/liquid-logo | Original vertex/fragment shaders; Chrome preset | Existing NOX silhouette / logo texture, reusable renderer lifecycle, bounded resolution |
-| ruucm/shadergradient | Published React renderer; Mint water-plane preset and Vite example | Charcoal/teal palette, orientation, no external environment map |
-| dashersw/liquid-glass-js | Original Container shader, glass/demo/controls CSS | Native accessible HTML controls; public gradient texture instead of body screenshots |
-| pmndrs/react-three-fiber | Published renderer; Page/DemoPanel and model/gesture demo patterns | Responsive chapters; existing NOX SVG adapted into a separate 3D emblem |
+| Adobe Source Sans 3 | Unmodified, self-hosted upright variable WOFF2 font | `source-sans/LICENSE.md` (SIL OFL 1.1) |
+| Vercel AI Elements / shadcn | Native HTML/CSS adaptations of Button variants, PromptInput and InputGroup; the React/shadcn demo dependency graph is not installed | `ai-elements/LICENSE` (Apache-2.0) |
+| Lucide | Unmodified SVG control icons and the immediate/loading/error brain fallback | `lucide/LICENSE` (ISC, with the included MIT icon notices); `lucide/*-NOTICE.md` |
+| collidingScopes/liquid-logo | Original vertex and fragment shaders; Chrome parameters adapted to NOX's existing silhouette, materials and renderer lifecycle | `liquid-logo/LICENSE.txt` (MIT) |
+| dashersw/liquid-glass-js | Original Container shaders and `glass.css`; native accessible controls and a public gradient texture | `liquid-glass-js/LICENSE` (MIT) |
+| ruucm/shadergradient | Published React renderer and Mint water-plane parameters; adapted palette, orientation and local presentation | `shadergradient/LICENSE` (MIT) |
+| pmndrs/react-three-fiber | Published renderer; adapted scene, model and gesture patterns | `react-three-fiber/LICENSE` (MIT) |
+| Codrops OnScrollTypographyAnimations | Effects 6 and 26 adapted for perspective typography, readable anchor entry and a short pinned chapter | `scroll-typography/LICENSE` (MIT) |
+| darkroomengineering/lenis | GSAP ticker integration and local scrolling CSS | `lenis/LICENSE` (MIT) |
+| ARWES | FrameCircle descriptors exported to `arwes/orbit-frame.svg`, with a transparent mint palette and canvas rotation/scaling | `arwes/LICENSE` (MIT) |
+| Three.js | Transmission material, PipeSpline control points and connected-particle Points/LineSegments patterns adapted in NOX's local renderers | `three-atmosphere/LICENSE`, `three-cinematic/LICENSE`, `three-neural/LICENSE` (MIT) |
+| pmndrs/meshline | MeshLineGeometry, MeshLineMaterial and motion ribbons using the sourced spline contours | `meshline/LICENSE` (MIT) |
 
-Shader source files are unmodified. Adaptation modules and CSS explicitly identify
-their upstream source. No upstream sample company logo is represented as NOX's
-brand. NOX's established face/body/icon remain the brand assets the owner asked
-to adapt. The 3D emblem extrudes that existing icon; it introduces no new
-decorative artwork, bitmap, stock model or shader.
+The GLSL files remain unmodified; NOX's runtime adapters identify any shader
+changes applied while creating materials. The ARWES source generators
+`createFrameCircleSettings.ts` and `filterProps.ts` remain available for
+`scripts/export-orbit-asset.mjs`. Drawing the exported Orbit asset into the stage
+canvas also includes it in recordings.
 
-The original demos do not provide chat/history/authentication pages. Integration
-code maps their components to NOX's existing semantic HTML and controller IDs.
-No private DOM screenshot library, external script CDN or analytics was added.
+NOX's face, body, icon and 3D emblem use its existing brand assets. Upstream
+sample company logos are not used as NOX branding. Icons, fonts, shaders and
+geometry are served locally; no runtime asset CDN is required for these sources.
 
-The owner subsequently authorized another repository for actual scroll effects.
-Codrops OnScrollTypographyAnimations effects 6 and 26 supply perspective letter
-reveals and the shorter pinned material chapter. Original source files and MIT
-license are retained in `scroll-typography`. The NOX adaptation explicitly adds
-pin spacing for its layout and retains readable letters at anchor entry.
-The official Lenis repo was also cloned for its GSAP ticker integration and
-scrolling CSS. Both commits are recorded in `sources.json`. No stock photos or
-external Typekit fonts from the demos are loaded.
+## BodyParts3D anatomy
 
-Magic UI's MIT ShimmerButton supplies the conic shimmer, inset highlight and
-backdrop pattern in `/source-buttons.css`. The repository was cloned at
-`cdb348cb4c72a9b54b554d8617801e479fbc8714`; source:
-`apps/www/registry/magicui/shimmer-button.tsx`. NOX adapts it to native buttons
-and links, a mint/charcoal gradient, a masked border, and hover/focus animation.
-Its copyright and permission notice ship in `magicui/LICENSE`. Source notices
-belong with the shipped code; the homepage does not need a promotional link wall.
+BodyParts3D, © The Database Center for Life Science licensed under CC
+Attribution 4.0 International.
 
-October 11's sculpture/workspace refinement keeps those same assets and notices.
-The existing icon extrusion gains physical lighting and gesture/blink integration;
-the Liquid Glass layouts are reduced to open columns and dividers. Terafab is a
-composition reference only: no images, branding, copy or proprietary source from
-it ship in NOX. Source commits and adaptation boundaries are recorded in
-`sources.json` and the accompanying upstream notices.
-# Connected brain presentation
+`bodyparts3d/brain.bin` packs forty original cortical, cerebellar and brainstem
+parts from the official BodyParts3D 4.0 OBJ archive. NOX adapts orientation,
+lighting, materials and presentation. Archive and per-part checksums, packing
+settings, citation and the licensor's current grant are retained in
+`bodyparts3d/geometry.json` and `bodyparts3d/NOTICE.md`, alongside
+`bodyparts3d/LICENSE-CC-BY-4.0.txt`. The current license page records the change
+to CC BY 4.0 on February 27, 2025; the notice also explains legacy OBJ headers.
 
-The connected-particle rendering pattern follows the official Three.js
-`webgl_buffergeometry_drawrange` example, pinned to commit
-`9b4a2ac29c63ccb43fd51c5661f2f873ac2c39b8` (r186 / 0.186.1).
-The exact upstream example and MIT license are retained in `three-neural/`.
-NOX adapts its `Points`, `LineSegments` and typed-buffer pattern to the sourced
-BodyParts3D anatomy. The static local-neighbour graph and animated illumination
-are artistic activity visualizations, not measured anatomical connections,
-biological neuron simulation or a representation of the LLM's internal weights.
-Desktop uses up to 4,200 anchors and 11,000 connections; compact screens use
-up to 2,000 and 5,000. Existing BodyParts3D attribution continues to apply.
+The connected-particle presentation follows Three.js commit
+`9b4a2ac29c63ccb43fd51c5661f2f873ac2c39b8` (r186 / 0.186.1),
+`examples/webgl_buffergeometry_drawrange.html`. Its static local-neighbour graph
+and animated illumination are artistic activity visualizations, not measured
+anatomical connections, biological neuron simulation or the model's internal
+thoughts or weights.
+
+## Retained historical credits
+
+Magic UI's ShimmerButton was an earlier button reference. Its MIT notice remains
+in `magicui/LICENSE`; the source revision is
+`cdb348cb4c72a9b54b554d8617801e479fbc8714`,
+`apps/www/registry/magicui/shimmer-button.tsx`. Current flat button variants are
+the AI Elements adaptation described above.
+
+The React Flow MIT license remains in `react-flow/LICENSE`. The unused Manrope
+font is no longer distributed; its original credit and SIL OFL 1.1 notice remain
+in `../fonts/OFL.txt`: Copyright 2018 The Manrope Project Authors
+(https://github.com/googlefonts/manrope).
+
+Terafab and MotionSites were composition references only. Their footage,
+branding, copy and proprietary sources are not distributed. No stock photos,
+external Typekit fonts or gallery videos from those references are loaded.
