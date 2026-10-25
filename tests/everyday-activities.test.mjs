@@ -13,8 +13,8 @@ test('Moon geometry matches new, quarter and full phases, with periodic angles',
 });
 test('Explore restores only bounded authored fields and preserves a real teach-back',()=>{
   const initial=createExploreState({learningStyle:'hints'});assert.equal(initial.approach,'hints');assert.equal(initial.clues,1);
-  const saved=restoreExploreState({...initial,topic:'a passage',angle:999,clues:-1,teachBack:'We see a different part of the sunlit half.',selfCheck:['view','view','light','fabricated'],paused:true});
-  assert.equal(saved.topic,'a passage');assert.equal(saved.angle,360);assert.equal(saved.clues,0);assert.deepEqual(saved.selfCheck,['view','light']);assert.equal(saved.paused,true);
+  const saved=restoreExploreState({...initial,topic:'a passage',angle:999,clues:-1,teachBack:'We see a different part of the sunlit half.',selfCheck:['view','view','light','fabricated']});
+  assert.equal(saved.topic,'a passage');assert.equal(saved.angle,360);assert.equal(saved.clues,0);assert.deepEqual(saved.selfCheck,['view','light']);
   assert.equal(exploreRecap(saved).teachBack,saved.teachBack);assert.match(exploreRecap(saved).understood,/You marked/);
   assert.equal(restoreExploreState({version:9,kind:'explore',angle:90}).angle,45);
 });
@@ -51,12 +51,11 @@ test('turn limit ends the round and offers a truthful result',()=>{
   assert.deepEqual(normalizeGameRules({questionLimit:200,hints:false}),{questionLimit:20,hints:false});
   assert.equal(normalizeGameRules({questionLimit:0}).questionLimit,5);assert.equal(createGuessingState({seed:Infinity}).targetId,'apple');
 });
-test('pause, JSON restore and resume preserve the same object, turns and hints',()=>{
-  let state=createGuessingState({seed:10,rules:{questionLimit:7,hints:true}});
-  state=updateGuessingState(state,{type:'question',id:'rain'});state=updateGuessingState(state,{type:'hint'});state=updateGuessingState(state,{type:'pause'});
-  const restored=restoreGuessingState(JSON.parse(JSON.stringify(state)));assert.deepEqual(restored,state);
-  assert.equal(updateGuessingState(restored,{type:'guess',value:'umbrella'}).status,'paused');
-  const resumed=updateGuessingState(restored,{type:'resume'});assert.equal(resumed.targetId,'umbrella');assert.equal(resumed.turns,1);assert.equal(updateGuessingState(resumed,{type:'guess',value:'umbrella'}).status,'won');
+test('a legacy paused round continues immediately with its existing object and progress',()=>{
+  const restored=restoreGuessingState({version:1,kind:'guessing',targetId:'umbrella',rules:{questionLimit:7,hints:true},events:[{type:'question',id:'rain'},{type:'hint'}],turns:1,hintsUsed:1,status:'paused'});
+  assert.equal(restored.status,'playing');assert.equal(restored.targetId,'umbrella');assert.equal(restored.turns,1);assert.equal(restored.hintsUsed,1);
+  const next=updateGuessingState(restored,{type:'guess',value:'umbrella'});
+  assert.equal(next.status,'won');assert.equal(next.turns,2);assert.equal(next.hintsUsed,1);assert.equal(next.events.length,3);
 });
 test('imported outcomes and counters are recomputed from bounded valid events',()=>{
   const forged={...createGuessingState({seed:0,rules:{questionLimit:5}}),turns:-9,hintsUsed:100,status:'won',events:[{type:'question',id:'made',answer:true},{type:'question',id:'made',answer:true},{type:'guess',id:'pencil',answer:true},{type:'question',id:'does-not-exist'}]};
