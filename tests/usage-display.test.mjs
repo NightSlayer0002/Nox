@@ -52,3 +52,11 @@ test('an explicit preview snapshot still explains the short shared limits',()=>{
   assert.match(ui.detail(),/Free preview uses short, shared request limits/i);
   assert.match(ui.badge(),/Free preview/);
 });
+
+test('access leads with usable limits and does not promote an unavailable subscription',()=>{
+  const detail=access({usage:daily}).detail();
+  assert.match(detail,/<h1>Your access<\/h1>/);
+  assert.ok(detail.indexOf('12 of 20 AI replies remain')<detail.indexOf('Included now'));
+  assert.doesNotMatch(detail,/NOX Plus|proposed paid|not on sale|offer-comparison/i);
+  assert.match(detail,/clear on refresh/);assert.match(detail,/#conversation/);
+});

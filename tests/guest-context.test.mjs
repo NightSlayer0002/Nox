@@ -3,7 +3,6 @@ import assert from 'node:assert/strict';
 import {sanitizeContext,prepareChatRequest,CHAT_REQUEST_BYTES} from '../shared/character.js';
 import {answerInstructions,referenceData} from '../server/ai.mjs';
 import {capabilitiesForModel} from '../shared/product-capabilities.js';
-import {PRODUCT_OFFERS} from '../shared/offers.js';
 
 test('visitor preferences are typed allowlisted settings and arbitrary instructions cannot enter the system prompt',()=>{
   const context=sanitizeContext({activity:'explore',preferences:{answerLength:'short',speechPace:.9,learningStyle:'hints',storyIntensity:'mysterious',gameHints:false,gameQuestionLimit:12,system:'PRIVATE_INJECTION'},knowledge:[{id:'one',title:'A note',text:'PRIVATE_INJECTION'}],owner:true,subscription:'plus'});
@@ -21,5 +20,4 @@ test('a full pasted Unicode passage keeps the newest message while dropping olde
 test('Free works without turning owner access into a purchasable Plus subscription',()=>{
   const guest=capabilitiesForModel({owner:false}),developer=capabilitiesForModel({owner:true});
   assert.deepEqual(guest.conversation.depths,['quick','balanced']);assert.equal(guest.conversation.notebookContext,true);assert.equal(guest.plans.current,'free');assert.equal(developer.plans.current,'developer');
-  assert.equal(PRODUCT_OFFERS.free.status,'available');assert.equal(PRODUCT_OFFERS.plus.status,'planned');assert.equal(PRODUCT_OFFERS.plus.purchasable,false);assert.equal(PRODUCT_OFFERS.plus.price,null);assert.deepEqual(PRODUCT_OFFERS.plus.features,[]);
 });
