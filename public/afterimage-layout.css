@@ -13,10 +13,14 @@
 .workspace[data-view=afterimage] .stage-wrap{height:clamp(180px,calc(var(--workspace-height,100dvh) - 285px),360px)}
 .workspace[data-view=afterimage] .afterimage-column{min-height:0;height:100%;overflow-y:auto;overscroll-behavior-y:contain;scrollbar-gutter:stable;padding-right:12px;padding-bottom:20px}
 .workspace[data-view=afterimage] footer{display:none}
-@media(max-width:1000px){
+/* Match the single-column workspace breakpoint and keep the stage in its row. */
+@media(max-width:1200px){
  .workspace[data-view=afterimage] .studio{grid-template-rows:auto minmax(0,1fr);gap:16px}
- .workspace[data-view=afterimage] .stage-wrap{height:clamp(140px,calc(var(--workspace-height,100dvh) * .25),240px)}
+ body.workspace[data-view=afterimage] .stage-wrap{height:clamp(140px,calc(var(--workspace-height,100dvh) * .25),240px)}
  .workspace[data-view=afterimage] .instrument-heading{min-height:28px;margin-bottom:5px}
  .workspace[data-view=afterimage] .intro{margin:8px 0 12px}
  .workspace[data-view=afterimage] .intro-note{display:none}
+}
+@media(max-width:900px){
+ .workspace[data-view=afterimage] .receiver-onair{bottom:calc(76px + env(safe-area-inset-bottom))}
 }

@@ -20,6 +20,7 @@ export function createNavigation({history,onOpen,onNew,onStart}) {
     // Reparent the existing controls, never the canvas or narration state.
     $(current==='conversation'?'presence-menu-panel':'stage-wrap').append($('stage-playback'));
     $(current==='conversation'?'stage-playback':'stage-heading').append($('stage-time'));
+    const replay=$('replay-voice');replay.hidden=replay.disabled=current!=='conversation';
     $('presence-menu').open=false;
     const panel=current==='guessing'?'learn':current==='explore'?'discover':current;
     document.querySelectorAll('[data-panel]').forEach(p=>p.hidden=p.dataset.panel!==panel);

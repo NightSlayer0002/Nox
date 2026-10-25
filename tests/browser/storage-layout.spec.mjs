@@ -61,3 +61,29 @@ test('WebGL-disabled homepage keeps fallback art separate from feature copy and 
   }
   await page.getByRole('button',{name:'Say hello',exact:true}).click();
 });
+
+for(const width of [1440,1024,562,390])test(`untouched NOX leaves both roles readable in fresh and restored history at ${width}px`,async({page})=>{
+  await page.setViewportSize({width,height:900});await page.goto('/app#conversation');
+  await expect(page.locator('#brain-status')).toContainText('Synthetic CI provider');
+  for(const [index,text] of ['CI long reading','Here is a longer user message. '.repeat(12),'Please keep the entire conversation readable. '.repeat(10)].entries()){
+    await page.locator('#message').fill(text);await page.locator('#send-button').click();
+    await expect(page.locator('#conversation .message.nox:not(.draft)')).toHaveCount(index+1);
+  }
+  for(const restored of [false,true]){
+    if(restored){await page.reload();await expect(page.locator('#conversation .message.user')).toHaveCount(3);}
+    for(const selector of ['.message.user','.message.nox']){
+      await page.locator(`#conversation ${selector}`).nth(1).evaluate(message=>{
+        const conversation=document.getElementById('conversation'),handle=document.querySelector('.floating-nox-handle').getBoundingClientRect();
+        conversation.scrollTop+=message.getBoundingClientRect().top-handle.top;
+      });
+      await expect.poll(()=>page.evaluate(()=>{
+        const handle=document.querySelector('.floating-nox-handle').getBoundingClientRect(),viewport=document.getElementById('conversation').getBoundingClientRect();
+        return [...document.querySelectorAll('#conversation .message-content')].flatMap(content=>{
+          const range=document.createRange();range.selectNodeContents(content);
+          return [...range.getClientRects()].filter(rect=>rect.width>0&&rect.height>0&&rect.bottom>viewport.top&&rect.top<viewport.bottom&&rect.bottom>handle.top&&rect.top<handle.bottom&&rect.right>handle.left&&rect.left<handle.right).map(rect=>({left:rect.left,right:rect.right,top:rect.top,bottom:rect.bottom}));
+        });
+      }),{message:`Text must clear the untouched character (${restored?'restored':'fresh'} ${selector})`}).toEqual([]);
+    }
+  }
+  await page.screenshot({path:`artifacts/audit-repair-2026-10-24/chat-${width}.png`});
+});

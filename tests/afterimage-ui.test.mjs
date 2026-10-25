@@ -151,3 +151,40 @@ test('capture format is locked while recording but remains available for the nex
   const rehearsal=receiver();rehearsal.button('Play this cut').props.onClick();rehearsal.render();
   assert.equal(rehearsal.find(node=>node.props?.id==='afterimage-export-profile').props.disabled,false);
 });
+
+test('a changed saved cut preserves the draft and requires review before applying it to the new branch',async()=>{
+  const raw=JSON.stringify({version:1,receptions:[{id:'saved',revision:0,createdAt:'2026-10-24T00:00:00.000Z',packet:FIRST_CONTACT,seed:'Only copy',tone:'uncanny',source:'live',signalIndex:0,endingIndex:0}]}),ui=receiver({owner:true,initialRaw:raw});
+  ui.button('Edit this cut').props.onClick();ui.render();
+  const firstLine=()=>ui.find(node=>node.type==='textarea'&&node.props.maxLength===90);
+  firstLine().props.onChange({target:{value:'Keep my original branch draft.'}});ui.render();
+  const archive=JSON.parse(raw);archive.receptions[0].signalIndex=1;archive.receptions[0].revision=1;
+  const changed=JSON.stringify(archive);ui.storage.setItem('nox.afterimage.v1',changed);
+  await ui.button('Apply edits').props.onClick();ui.render();
+  assert.equal(ui.storage.getItem('nox.afterimage.v1'),changed);
+  assert.equal(firstLine().props.value,'Keep my original branch draft.');
+  assert.match(ui.text(ui.find(node=>node.props?.role==='alert')),/another tab|changed/i);
+  assert.equal(ui.button('Apply edits').props.disabled,true);
+  ui.button('Review saved cut').props.onClick();ui.render();
+  assert.equal(firstLine().props.value,'Keep my original branch draft.');
+  assert.match(ui.text(ui.find(node=>node.props?.role==='status')),/review|replace/i);
+  await ui.button('Apply edits').props.onClick();ui.render();
+  const saved=JSON.parse(ui.storage.getItem('nox.afterimage.v1')).receptions[0];
+  assert.equal(saved.signalIndex,1);assert.equal(saved.editedLines[0],'Keep my original branch draft.');
+});
+
+for(const transition of ['deletion','unsaved generation'])test(`a story conflict is cleared when ${transition} replaces the selected cut`,async()=>{
+  const raw=JSON.stringify({version:1,receptions:[{id:'saved',revision:0,createdAt:'2026-10-24T00:00:00.000Z',packet:FIRST_CONTACT,seed:'Only copy',tone:'uncanny',source:'live',signalIndex:0,endingIndex:0}]}),ui=receiver({owner:true,initialRaw:raw,receive:async()=>({packet:{...FIRST_CONTACT,title:'Unsaved new cut'}})});
+  ui.button('Edit this cut').props.onClick();ui.render();
+  const changed=JSON.parse(raw);changed.receptions[0].revision=1;changed.receptions[0].signalIndex=1;ui.storage.setItem('nox.afterimage.v1',JSON.stringify(changed));
+  await ui.button('Apply edits').props.onClick();ui.render();assert.ok(ui.button('Review saved cut'));
+  if(transition==='deletion'){
+    ui.find(node=>node.props?.['aria-label']===`Delete reception ${FIRST_CONTACT.title}`).props.onClick();ui.render();
+    await ui.button('Delete story').props.onClick();ui.render();
+  }else{
+    ui.storage.setItem=()=>{throw Error('Full');};await ui.find(node=>node.type==='form').props.onSubmit({preventDefault(){}});ui.render();
+    assert.equal(ui.text(ui.find(node=>node.props?.className==='reception-title')),'Unsaved new cut');
+  }
+  assert.equal(ui.button('Review saved cut'),undefined);
+  ui.button('Edit this cut').props.onClick();ui.render();
+  assert.equal(ui.button('Apply edits').props.disabled,false);
+});

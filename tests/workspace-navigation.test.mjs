@@ -15,7 +15,7 @@ class Element extends EventTarget {
   close(){this.open=false;}
 }
 function fixture(hash='#conversation') {
-  const ids=['view-label','workspace-heading','workspace-note','workspace-main','workspace-shell','recent-chats','resume-chats','history-search','history-count','history-list','history-storage-note','new-chat','export-history','today-label','menu-button','close-navigation','workspace-nav','presence-toggle','message','stage-time','stage-heading','stage-playback','stage-wrap','presence-toolbar','presence-menu','presence-menu-panel','conversation-privacy','archive-notice','archive-notice-text','archive-download','archive-reset','archive-reset-dialog','archive-reset-cancel','archive-reset-confirm'];
+  const ids=['view-label','workspace-heading','workspace-note','workspace-main','workspace-shell','recent-chats','resume-chats','history-search','history-count','history-list','history-storage-note','new-chat','export-history','today-label','menu-button','close-navigation','workspace-nav','presence-toggle','message','stage-time','stage-heading','stage-playback','replay-voice','stage-wrap','presence-toolbar','presence-menu','presence-menu-panel','conversation-privacy','archive-notice','archive-notice-text','archive-download','archive-reset','archive-reset-dialog','archive-reset-cancel','archive-reset-confirm'];
   const nodes=Object.fromEntries(ids.map(id=>[id,new Element()]));
   const panels=['conversation','explore','library','scenes','afterimage'].map(view=>new Element({panel:view}));
   const links=panels.map(panel=>new Element({view:panel.dataset.panel}));

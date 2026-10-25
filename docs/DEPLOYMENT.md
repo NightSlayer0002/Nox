@@ -46,7 +46,14 @@ npx --no-install playwright install chromium
 npm run test:browser
 ```
 
-Both GitHub checks must pass for the release revision: **Tests and production build** and **Browser journeys**. Configure branch protection in GitHub to enforce those checks before merging; a workflow alone does not enforce branch protection.
+Both GitHub checks must pass for the release revision: **Tests and production build** and **Browser journeys**. The release has two separate gates:
+
+1. **GitHub main-branch protection:** require a pull request, both status checks, an up-to-date branch, and resolved review conversations. Apply the rules to administrators too, and disallow force pushes and branch deletion. A solo maintainer can merge their own passing pull request; no second approving reviewer is required.
+2. **Vercel Deployment Checks:** in Project Settings → Build and Deployment → Deployment Checks, import both existing GitHub checks and require them for Production. Keep automatic production-domain assignment enabled. Vercel can build immediately, but must wait for the selected checks before assigning production domains. Do not use Force Promote to bypass failed checks.
+
+Both gates were configured for `NightSlayer0002/Nox` and its `nox` Vercel project on 2026-10-24. Vercel applies newly configured checks to the next production deployment; this configuration change does not deploy local code. Other installations must configure these settings separately: neither the workflow file nor this document enforces hosting settings.
+
+Work on a feature branch, push it, open a pull request against `main`, wait for both checks, and merge the tested revision. Preserve the check names above when editing workflows, or update both gates to match. See [Vercel Deployment Checks](https://vercel.com/docs/deployment-checks) and [GitHub branch protection](https://docs.github.com/en/rest/branches/branch-protection).
 
 After deployment, verify the exact commit's Vercel status and inspect the public site. Check guest entry, a short conversation, navigation, and owner authorization. Keep test input synthetic and bounded. A successful build does not establish provider availability or production configuration correctness.
 
@@ -54,5 +61,14 @@ After deployment, verify the exact commit's Vercel status and inspect the public
 
 - Provider keys stay server-side. Owner sessions use a signed HttpOnly cookie; locking clears the current browser cookie. Individual copied stateless sessions cannot be revoked separately; rotating the owner secret invalidates all sessions.
 - Per-process admission limits are not distributed spending or concurrency limits. Optional daily storage counts accepted requests per public network, not per person or account. Configure provider-side billing controls and deployment-wide budgets separately where needed.
+- Locally rate-rejected requests return immediately without Redis reads or writes. Their response has no fresh daily-usage snapshot; the normal status path and accepted requests supply usage. This keeps rejected bursts from turning into allowance-store traffic.
 - Guest work clears on refresh. Owner archives remain plaintext browser-local data, without cloud recovery or synchronization. Exports provide portable copies.
 - Browser functional checks use synthetic providers/media. Full GPU rendering, physical devices, real microphone permissions, and offline/PWA behavior need separate acceptance checks.
+
+## Allowances and spending
+
+The existing defaults remain 20 accepted text requests and 30 accepted natural-voice requests per public network per UTC day when Redis is configured. These are separate from short burst limits. Provider failures count after admission because generation may already have begun. Without Redis, the service explicitly uses a process-local preview allowance instead.
+
+A per-network allowance does not cap the sum across all networks. A deployment-wide request ceiling would need shared counters covering every relevant function and instance, with separate text and speech limits. It would still not be a monetary ceiling: model selection, input/output lengths, voice generation, retries, database requests, and hosting have different costs.
+
+Before enabling paid usage, choose a budget for each provider and hosting/storage service, check whether its controls are hard stops or notification thresholds, and define what visitors see when capacity runs out. Do not treat a billing alert or this app's request counter as proof of a hard spending limit. Deployment-wide allowance changes are a separate product decision; this repair does not change existing allowances or enable paid services.

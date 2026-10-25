@@ -19,7 +19,8 @@ export function createStatusCache({now=Date.now,ttlMs=5000,maxEntries=512}={}){
   }
   return {
     peek,invalidate,
-    set(key,value){const active=pending.get(key);if(active)active.superseded=true;store(key,value);},
+    // Missing display data must not erase a snapshot or supersede a real read.
+    set(key,value){if(value==null)return;const active=pending.get(key);if(active)active.superseded=true;store(key,value);},
     async get(key,read){
       const cached=peek(key);if(cached!==undefined)return cached;
       const active=pending.get(key);if(active)return active.promise;
@@ -28,7 +29,7 @@ export function createStatusCache({now=Date.now,ttlMs=5000,maxEntries=512}={}){
       const entry={superseded:false};pending.set(key,entry);
       entry.promise=Promise.resolve().then(read).then(value=>{
         if(entry.superseded)return peek(key)??null;
-        store(key,value);return value;
+        if(value!=null)store(key,value);return value;
       }).finally(()=>{if(pending.get(key)===entry)pending.delete(key);});
       return entry.promise;
     },

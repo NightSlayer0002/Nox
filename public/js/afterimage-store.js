@@ -18,7 +18,9 @@ function normalizeReception(value) {
   const editedLines = value.editedLines === undefined ? undefined : normalizeEditedLines(value.editedLines);
   buildSelectedPerformance(packet,signalIndex,endingIndex,editedLines);
   const metrics = sanitizeAfterimageMetrics(value.metrics);
-  return freeze({id:cleanText(value.id,100),createdAt:new Date(value.createdAt).toISOString(),packet,seed:cleanText(value.seed,600),tone:value.tone,source:value.source,signalIndex,endingIndex,...(editedLines ? {editedLines} : {}),...(metrics ? {metrics} : {})});
+  const revision=value.revision===undefined?0:value.revision;
+  if(!Number.isSafeInteger(revision)||revision<0)throw new TypeError('This reception revision is invalid.');
+  return freeze({id:cleanText(value.id,100),revision,createdAt:new Date(value.createdAt).toISOString(),packet,seed:cleanText(value.seed,600),tone:value.tone,source:value.source,signalIndex,endingIndex,...(editedLines ? {editedLines} : {}),...(metrics ? {metrics} : {})});
 }
 
 function parseStore(raw) {
@@ -94,13 +96,15 @@ export function createAfterimageStore(storage, {now = () => Date.now(), createId
       refresh();if(receptions.length>=LIMIT)throw Error('Your story archive is full (12 stories). Export a copy and delete a story before adding another. Nothing was removed.');
       persist([entry,...receptions.filter(item => item.id !== entry.id)]);return entry;
     });},
-    update(id,patch = {}) {return mutate(()=>{
+    update(id,patch = {},{expectedRevision} = {}) {return mutate(()=>{
       refresh();const index=receptions.findIndex(entry => entry.id === id);
       if (index < 0) { publish();return null; }
       const previous=receptions[index],signalIndex=patch.signalIndex ?? previous.signalIndex,endingIndex=patch.endingIndex ?? previous.endingIndex;
+      // Compare after the fresh read, inside the same cross-tab write lock.
+      if(expectedRevision!==undefined&&expectedRevision!==previous.revision)throw Object.assign(Error('This story changed in another tab. Your edits are still here. Review the saved cut before applying them.'),{code:'story_conflict'});
       const branchChanged=signalIndex !== previous.signalIndex || endingIndex !== previous.endingIndex;
       const editedLines=Object.hasOwn(patch,'editedLines') ? patch.editedLines : branchChanged ? undefined : previous.editedLines;
-      const entry=normalizeReception({...previous,signalIndex,endingIndex,editedLines});
+      const entry=normalizeReception({...previous,revision:previous.revision+1,signalIndex,endingIndex,editedLines});
       persist(receptions.map((item,i) => i === index ? entry : item));return entry;
     });},
     remove(id) {
