@@ -33,11 +33,20 @@ function receiver({owner=false,kind='live',exportProfile='landscape',recording=f
 test('guest entry plays the authored example directly and offers no unavailable seed form',()=>{
   const ui=receiver();
   assert.equal(ui.find(node=>node.type==='textarea'),undefined);
+  assert.equal(ui.find(node=>node.props?.className==='receiver-create'),undefined);
+  assert.equal(ui.find(node=>node.props?.className==='receiver-archive'),undefined);
+  assert.match(ui.nodes().map(node=>ui.text(node)).join(' '),/clear on refresh/);
   assert.ok(ui.button('Play example'));
   ui.button('Play example').props.onClick();ui.render();
   assert.equal(ui.plays.length,1);assert.equal(ui.requests.length,0);
   assert.equal(ui.plays[0][0].title,FIRST_CONTACT.title);
   assert.ok(ui.button('Edit this cut'));assert.ok(ui.button('Export script'));assert.ok(ui.button('Capture performance'));
+});
+
+test('a connected owner retains custom generation and the empty archive controls',()=>{
+  const ui=receiver({owner:true});
+  assert.ok(ui.find(node=>node.props?.id==='afterimage-seed'));
+  assert.ok(ui.button('Generate story'));assert.ok(ui.button('Export all stories'));
 });
 
 test('repeated example playback and branch edits never fill the story archive',()=>{
