@@ -14,7 +14,7 @@ import {setChatContent} from '../public/js/chat-message.js';
 import {observeInterface} from '../public/js/interface-observation.js';
 import {attachVoiceCall} from '../public/js/voice-call-controls.js';
 
-const source=await readFile(new URL('../public/js/app.js',import.meta.url),'utf8');
+const source=(await readFile(new URL('../public/js/app.js',import.meta.url),'utf8')).replace(/\r\n/g,'\n');
 function between(start,end){const first=source.indexOf(start),last=source.indexOf(end,first);assert.ok(first>=0&&last>first);return source.slice(first,last);}
 const sendSource=between('async function send(','\nconst greetings =');
 const performSource=between('async function perform(','\nfunction setBusy(');

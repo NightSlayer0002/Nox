@@ -83,11 +83,16 @@ let captureProfile=DEFAULT_EXPORT_PROFILE;
 try{captureProfile=resolveExportProfile(disk.getItem('nox.export.profile.v1')||DEFAULT_EXPORT_PROFILE);}catch{}
 function openSettings({owner=false}={}) {
   if(owner)$('owner-access').open=true;
+  $('speech-pace-note').textContent=`Default pace across conversations. ${visit.owner&&approvedPreferences.persistent?'Saved on this device.':'This visit only; clears on refresh.'} Activity preferences still apply.`;
   $('inside-dialog').showModal();
   if(owner)$('owner-token').focus();
 }
 function setUsage(value){if(value){publicUsage=value;companionChanged();}}
-function applyApprovedPreferences(){const preferences=approvedPreferences.context(currentActivity),pace=preferences.speechPace??1;voice.setPace?.(pace);const select=$('speech-pace');if(select){if(![...select.options].some(option=>Number(option.value)===pace))select.add(new Option(`${pace}× · Your pace`,String(pace)));select.value=String(pace);}}
+function applyApprovedPreferences(){
+  voice.setPace?.(approvedPreferences.context(currentActivity).speechPace??1);
+  const select=$('speech-pace'),pace=approvedPreferences.context().speechPace??1;
+  if(select){if(![...select.options].some(option=>Number(option.value)===pace))select.add(new Option(`${pace}× · Your pace`,String(pace)));select.value=String(pace);}
+}
 let preferredEngine='natural';
 
 function toast(text) {
@@ -480,7 +485,18 @@ $('clear-memory').addEventListener('click', async () => {
 });
 $('inside-button').addEventListener('click', () => { $('packet-view').textContent = JSON.stringify(lastPacket, null, 2); openSettings(); });
 $('settings-button').addEventListener('click', () => openSettings());
-$('speech-pace')?.addEventListener('change',event=>{const pace=Number(event.target.value);voice.setPace?.(pace);companionBridge.propose(`Speak at ${pace}x`,'general');});
+$('speech-pace')?.addEventListener('change',async event=>{
+  const select=event.currentTarget;if(select.disabled)return;
+  const proposal=approvedPreferences.propose(`Speak at ${Number(select.value)}x`,'general');
+  select.disabled=true;$('speech-pace-note').textContent='Applying your default pace…';
+  try{
+    if(!proposal||!await approvedPreferences.approve(proposal))throw new Error('Preference not applied');
+    companionBridge.preferenceChanged();
+    $('speech-pace-note').textContent=visit.owner&&approvedPreferences.persistent?'Default pace saved on this device. Activity preferences still apply.':'Default pace applies across conversations for this visit; clears on refresh. Activity preferences still apply.';
+  }catch{
+    applyApprovedPreferences();$('speech-pace-note').textContent='Could not apply this pace. Your previous preference is unchanged.';
+  }finally{select.disabled=false;}
+});
 $('stop-voice')?.addEventListener('click',()=>{afterimageBridge.stop('user');voice.stop();stage.captionUntil=0;toast('Speech stopped. Your conversation is still here.');});
 $('stop-speaking')?.addEventListener('click',()=>{afterimageBridge.stop('user');voice.stop();stage.captionUntil=0;});
 document.querySelectorAll('.consumer-settings a').forEach(link=>link.addEventListener('click',()=>$('inside-dialog').close()));
@@ -577,6 +593,8 @@ function showVoice() {
   $('composer-voice').setAttribute('aria-pressed',voice.enabled);$('composer-voice').setAttribute('aria-label',voice.enabled?'Spoken replies on':'Spoken replies off');$('composer-voice').title=voice.enabled?'Spoken replies are on. Turn voice off.':'Spoken replies are off. Turn voice on.';
   $('composer-voice').querySelector('.composer-voice-label').textContent=voice.enabled?'Voice on':'Voice off';
   $('voice-engine').value=voice.engine;
+  $('natural-speaker-row').hidden=voice.engine!=='natural';
+  $('browser-speaker-row').hidden=voice.engine!=='browser';
   $('voice-note').textContent=voice.engine==='natural'?'This is an AI-generated voice. Each reply uses your configured speech provider’s quota.':'Browser voice is free. Quality depends on the voices available on your device.';
   afterimageBridge.refreshState();
 }
