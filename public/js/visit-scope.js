@@ -21,8 +21,14 @@ export async function requestVisitStatus({headers={},forceGuest=guestRequested}=
     return await Promise.race([checked,deadline]);
   }finally{clearTimeout(timer);}
 }
+// Guests already have an explicit temporary scope. Share the connection check
+// with the app without making local activities or typing wait for its network.
+export const initialVisitStatusPromise=requestVisitStatus();
+// The app observes this same rejection after its local controls are attached.
+// Handle early failures here too, before a slower module graph reaches it.
+initialVisitStatusPromise.catch(()=>{});
 let status,storage;
-try{status=await requestVisitStatus();}catch{/* Keep private local data closed if access cannot be verified. */}
+if(!guestRequested)try{status=await initialVisitStatusPromise;}catch{/* Keep private local data closed if access cannot be verified. */}
 try{if(status?.owner===true&&!guestRequested)storage=globalThis.localStorage;}catch{/* The visit can stay temporary. */}
 export const visit=createVisitScope({owner:status?.owner===true,guest:guestRequested,storage});
 export const initialVisitStatus=status;
