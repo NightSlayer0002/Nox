@@ -22,6 +22,7 @@ export default function Afterimage(){
   const [items,setItems]=useState(()=>store.list()),[current,setCurrent]=useState(()=>receiverDraft?.sample??store.list()[0]??null),[seed,setSeed]=useState(()=>receiverDraft?.seed??store.list()[0]?.seed??''),[tone,setTone]=useState(()=>receiverDraft?.tone??store.list()[0]?.tone??'uncanny');
   const [view,setView]=useState(()=>afterimageBridge.snapshot()),[busy,setBusy]=useState(false),[error,setError]=useState(''),[notice,setNotice]=useState(''),[editor,setEditor]=useState(false),[draftLines,setDraftLines]=useState([]);
   const [replacement,setReplacement]=useState(undefined),[pendingDelete,setPendingDelete]=useState(null),[saving,setSaving]=useState(false);
+  const [conflict,setConflict]=useState(false);
   const request=useRef(null),version=useRef(0),variation=useRef(0);
   const editPending=useRef(false),draftRevision=useRef(0);
   const reduceMotion=useReducedMotion();
@@ -41,7 +42,7 @@ export default function Afterimage(){
   const cancel=()=>{version.current++;request.current?.abort();request.current=null;setBusy(false);setNotice('Generation cancelled. Your seed is still here.');};
   const choose=async(which,index)=>{
     afterimageBridge.stop('selection changed');
-    setSaving(true);try{const next=current?.id?await store.update(current.id,{[which]:index}):{...reception,[which]:index,editedLines:undefined};if(!next)throw new Error('This reception was removed. Choose another from your archive.');buildSelectedPerformance(next.packet,next.signalIndex,next.endingIndex,next.editedLines);setCurrent(next);setEditor(false);setDraftLines([]);setError('');setNotice('A different cut. No new model request.');}catch(e){setError(e.message);}finally{setSaving(false);}
+    setSaving(true);try{const next=current?.id?await store.update(current.id,{[which]:index},{expectedRevision:current.revision}):{...reception,[which]:index,editedLines:undefined};if(!next)throw new Error('This reception was removed. Choose another from your archive.');buildSelectedPerformance(next.packet,next.signalIndex,next.endingIndex,next.editedLines);setCurrent(next);setConflict(false);setEditor(false);setDraftLines([]);setError('');setNotice('A different cut. No new model request.');}catch(e){if(e.code==='story_conflict')setConflict(true);setError(e.message);}finally{setSaving(false);}
   };
   async function receive(event,newTake=false){
     event?.preventDefault();if(!canGenerate||!seed.trim()||busy||playing)return;
@@ -54,40 +55,46 @@ export default function Afterimage(){
       const generatedCut={packet:result.packet,seed:seed.trim(),tone,source:'live',metrics:result.metrics,signalIndex:0,endingIndex:0,createdAt:new Date().toISOString()};let next;
       try{next=await store.add(generatedCut);}catch(saveError){
         if(controller.signal.aborted||version.current!==ownVersion)return;
-        setCurrent(generatedCut);setEditor(false);setError(`Your story was generated but could not be saved. ${saveError.message}`);setNotice('This cut is available for this visit. Export it before refreshing; your saved archive is unchanged.');return;
+        setCurrent(generatedCut);setConflict(false);setEditor(false);setError(`Your story was generated but could not be saved. ${saveError.message}`);setNotice('This cut is available for this visit. Export it before refreshing; your saved archive is unchanged.');return;
       }
-      if(controller.signal.aborted||version.current!==ownVersion)return;setCurrent(next);setEditor(false);setNotice('Story ready. Choose from six possible cuts.');
+      if(controller.signal.aborted||version.current!==ownVersion)return;setCurrent(next);setConflict(false);setEditor(false);setNotice('Story ready. Choose from six possible cuts.');
     }catch(e){if(version.current===ownVersion&&e.name!=='AbortError'){setError(e.message||'The story could not be generated. Your seed is still here.');setNotice('Your previous cut and seed are kept.');}}
     finally{if(version.current===ownVersion){request.current=null;setBusy(false);}}
   }
   function useExample(){
     cancel();afterimageBridge.stop('authored example');
-    const next={packet:example,seed:'A door in a window with no wall.',tone:'uncanny',source:'authored',signalIndex:0,endingIndex:0,createdAt:new Date().toISOString()};setCurrent(next);setEditor(false);setDraftLines([]);play(false,next);
+    const next={packet:example,seed:'A door in a window with no wall.',tone:'uncanny',source:'authored',signalIndex:0,endingIndex:0,createdAt:new Date().toISOString()};setCurrent(next);setConflict(false);setEditor(false);setDraftLines([]);play(false,next);
   }
   function play(capture=false,take=reception){
     setError('');try{const started=capture?afterimageBridge.recordAndPlay(take.packet,take.signalIndex,take.endingIndex,take.editedLines):afterimageBridge.play(take.packet,take.signalIndex,take.endingIndex,take.editedLines);if(!started)throw new Error('The stage is not ready to play. Try again when it is connected.');setNotice(capture?'Capturing NOX locally. Orpheus voice is included when enabled.':'NOX is performing your selected cut.');if(window.innerWidth<=1200)document.getElementById('stage')?.scrollIntoView({behavior:reduceMotion?'instant':'smooth',block:'center'});}catch(e){setError(e.message);}
   }
   function stopPerformance(){afterimageBridge.stop('stopped by you');setNotice('Performance stopped. Your story is kept.');}
   async function saveEdits(){
-    if(disabled||editPending.current)return;
+    if(disabled||conflict||editPending.current)return;
     editPending.current=true;const editedLines=[...draftLines],revision=draftRevision.current;
     setSaving(true);try{
       buildSelectedPerformance(reception.packet,reception.signalIndex,reception.endingIndex,editedLines);
-      const next=current?.id?await store.update(current.id,{editedLines}):{...reception,editedLines};
+      const next=current?.id?await store.update(current.id,{editedLines},{expectedRevision:current.revision}):{...reception,editedLines};
       if(!next)throw new Error('This reception was removed. Choose another from your archive.');
       setCurrent(next);setError('');
       if(draftRevision.current===revision){setEditor(false);setDraftLines([]);setNotice('Your cut is edited. No model request.');}
       else setNotice('Your earlier edits were applied. Your newer edits are still open; apply them when ready.');
-    }catch(e){setError(e.message);}finally{editPending.current=false;setSaving(false);}
+    }catch(e){if(e.code==='story_conflict')setConflict(true);setError(e.message);}finally{editPending.current=false;setSaving(false);}
+  }
+  function reviewSavedCut(){
+    const latest=store.get(current?.id);
+    if(!latest){setError('This story was removed in another tab. Your open edits are still here; export them before leaving.');return;}
+    afterimageBridge.stop('review saved cut');setCurrent(latest);setConflict(false);setError('');
+    setNotice(editor?'Reviewing the latest saved branch. Your draft is still open; applying it will replace this cut’s lines.':'Showing the latest saved cut. Review it before choosing another branch.');
   }
   function restore(id){
     const item=store.get(id);if(!item){setError('This reception was removed from this browser.');return;}
-    afterimageBridge.stop('archive selected');setCurrent(item);setSeed(item.seed);setTone(item.tone);setEditor(false);setDraftLines([]);setError('');setNotice('Reception restored. No model request.');
+    afterimageBridge.stop('archive selected');setCurrent(item);setSeed(item.seed);setTone(item.tone);setConflict(false);setEditor(false);setDraftLines([]);setError('');setNotice('Reception restored. No model request.');
   }
   async function remove(id){
     setSaving(true);setNotice('');setError('');
     try{const result=await store.remove(id);if(!result.committed||!result.removed){setError(result.error||'This story was already removed in another tab.');setItems(store.list());return;}
-      if(current?.id===id){afterimageBridge.stop('reception deleted');setCurrent(null);setEditor(false);setDraftLines([]);}setPendingDelete(null);setNotice(result.scope==='browser'?'Reception removed from this browser.':'Reception removed from this visit.');
+      if(current?.id===id){afterimageBridge.stop('reception deleted');setCurrent(null);setConflict(false);setEditor(false);setDraftLines([]);}setPendingDelete(null);setNotice(result.scope==='browser'?'Reception removed from this browser.':'Reception removed from this visit.');
     }catch(e){setError(e.message||'The saved story could not be deleted.');}finally{setSaving(false);}
   }
   const generated=current?.source==='live',metrics=current?.metrics;
@@ -109,6 +116,7 @@ export default function Afterimage(){
     </form>}
     </details>
     {error&&<p className="receiver-error" role="alert">{error}</p>}<p className="receiver-notice" role="status">{playbackNotice||notice||'Choose a branch to explore a different cut.'}</p>
+    {conflict&&<div className="receiver-access"><p>The saved cut changed. Review it before applying your draft or changing its branch.</p><button type="button" disabled={disabled} onClick={reviewSavedCut}>Review saved cut</button>{editor&&<button type="button" onClick={()=>downloadText(draftLines.join('\n'),'nox-unsaved-story-lines.txt')}>Export open edits</button>}</div>}
     {!store.crossTabSafe&&<p className="archive-note">This browser cannot safely save changes across tabs. Saved stories remain readable and exportable. Use a browser with Web Locks support to edit them.</p>}
     {recovery&&<section className="receiver-access" aria-label="Story archive recovery"><p>{recovery.reason==='changed'?'The saved archive changed in another tab.':recovery.reason==='unsupported'?'The saved stories use an unsupported format.':'The saved stories could not be read.'} The original data is untouched. New stories stay in this visit until you explicitly replace the protected archive.</p><button type="button" onClick={()=>{const raw=store.exportOriginal();if(raw!==null)downloadText(raw,'nox-original-stories.json');}}>Download original stories</button><button type="button" disabled={disabled} onClick={()=>setReplacement(store.exportOriginal())}>Replace protected archive</button>{replacement!==undefined&&<div role="group" aria-label="Confirm story archive replacement"><p>Save this visit’s {items.length} stories together with any readable original stories? Unreadable original data will be replaced. Download the original first if you need it.</p><button type="button" disabled={disabled} onClick={async()=>{setSaving(true);try{const saved=await store.resetOriginal(replacement);setReplacement(undefined);setNotice(saved?'This visit’s stories are now saved.':'');setError(saved?'':'The original changed or could not be replaced. Download its current copy and review again.');}catch(e){setError(e.message);}finally{setSaving(false);}}}>Confirm replacement</button><button type="button" disabled={disabled} onClick={()=>setReplacement(undefined)}>Keep original</button></div>}</section>}
     <div className="reception-header"><span className="source-tag">{generated?'Model-generated story':'Authored sample'}</span><span>{current?new Date(current.createdAt).toLocaleDateString(undefined,{month:'short',day:'numeric'}):'No text-model request'}</span></div>
@@ -124,7 +132,7 @@ export default function Afterimage(){
       <div className="performance-actions"><button className="receive-button" type="button" onClick={()=>play()} disabled={disabled||!view.connected}>Play this cut</button><button type="button" onClick={()=>play(true)} disabled={disabled||!view.connected||!view.recordSupported||view.recording}>Capture performance</button>{playing&&<button type="button" onClick={stopPerformance}>Stop</button>}</div>
       <p className="capture-note" id="afterimage-capture-note">{exportProfile.width} × {exportProfile.height} · {exportProfile.frameRate} fps · Cues span 28 seconds; slower narration can extend the final beat, up to 60 seconds. Captioned WebM saves locally with enabled Orpheus audio. Browser voice cannot be captured.</p>
       <div className="receiver-export"><button type="button" disabled={!view.connected} onClick={()=>afterimageBridge.setVoice(!view.voiceEnabled)} aria-pressed={view.voiceEnabled}>{view.voiceEnabled?'Voice on':'Voice off'}</button><button type="button" onClick={()=>{setDraftLines(selected.cues.map(cue=>cue.speech));setEditor(!editor);}} disabled={disabled} aria-expanded={editor}>Edit this cut</button><button type="button" onClick={()=>downloadText(toMarkdown(reception),`nox-afterimage-script.md`)}>Export script</button><button type="button" onClick={()=>downloadText(JSON.stringify(reception,null,2),'nox-afterimage-reception.json')}>Export story data</button>{generated&&canGenerate&&<button type="button" disabled={disabled||!seed.trim()} onClick={event=>receive(event,true)}>New take</button>}</div>
-      {editor&&<div className="cut-editor"><p>{current?.id&&store.persistent?'Your edits stay in this browser.':'Your edits last for this visit; export before refreshing.'} Changing branch starts a fresh cut.</p>{draftLines.map((line,index)=><label key={index}>{index===3?'Ending':`Beat ${index+1}`}<textarea value={line} maxLength={90} onChange={e=>{draftRevision.current++;const value=e.target.value;setDraftLines(lines=>lines.map((old,i)=>i===index?value:old));}} rows={2}/></label>)}<button type="button" className="receive-button" onClick={saveEdits} disabled={disabled||draftLines.length!==4||draftLines.some(line=>!line.trim())}>Apply edits</button></div>}
+      {editor&&<div className="cut-editor"><p>{current?.id&&store.persistent?'Your edits stay in this browser.':'Your edits last for this visit; export before refreshing.'} Changing branch starts a fresh cut.</p>{draftLines.map((line,index)=><label key={index}>{index===3?'Ending':`Beat ${index+1}`}<textarea value={line} maxLength={90} onChange={e=>{draftRevision.current++;const value=e.target.value;setDraftLines(lines=>lines.map((old,i)=>i===index?value:old));}} rows={2}/></label>)}<button type="button" className="receive-button" onClick={saveEdits} disabled={disabled||conflict||draftLines.length!==4||draftLines.some(line=>!line.trim())}>Apply edits</button></div>}
       <div className="reception-caption"><span>Caption</span><p>{packet.caption}</p></div>
       {metrics&&<p className="reception-metrics">{metrics.provider} · {metrics.model} · received in {(metrics.totalMs/1000).toFixed(1)}s{metrics.cacheHit?' · warm cache':''}{metrics.attempts===2?' · written in 2 attempts':''}</p>}
     </motion.div></AnimatePresence>
