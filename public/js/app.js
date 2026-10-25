@@ -498,7 +498,7 @@ document.addEventListener('keydown', event => {
   if (event.key.toLowerCase() === 'r') toggleRecording();
 });
 window.addEventListener('pagehide', event => { if(event.persisted)voiceCall?.session.end();else voiceCall?.dispose();afterimageBridge.stop('pagehide');ownerToken=''; camera.stop(); voice.stop(); microphone.stop();callMicrophone.stop(); });
-window.addEventListener('hashchange',()=>{if(location.hash==='#afterimage')cancelConversation();else afterimageBridge.stop('navigation');requestAnimationFrame(composer.resize);});
+window.addEventListener('hashchange',()=>{if(location.hash==='#afterimage'){cancelConversation();stage.caption='';stage.captionUntil=0;}else afterimageBridge.stop('navigation');requestAnimationFrame(composer.resize);});
 setInterval(() => { const seconds = Math.floor(stage.time); $('stage-time').textContent = `${String(Math.floor(seconds / 60)).padStart(2, '0')}:${String(seconds % 60).padStart(2, '0')}`; }, 1000);
 setInterval(() => {
   const signal = stage.character.signal;
@@ -639,7 +639,7 @@ try{preferredEngine=disk.getItem('nox.voice.engine.v2')||'natural';const savedSp
 voice.setSpeaker($('speaker-select').value);voice.setBrowserVoice(savedBrowserVoice);browserVoices();globalThis.speechSynthesis?.addEventListener('voiceschanged',browserVoices);
 $('speaker-select').addEventListener('change',e=>{changeVoiceConfiguration(()=>voice.setSpeaker(e.target.value));try{disk.setItem('nox.voice.speaker.v2',e.target.value);}catch{}});
 $('browser-speaker').addEventListener('change',e=>{savedBrowserVoice=e.target.value;changeVoiceConfiguration(()=>voice.setBrowserVoice(savedBrowserVoice));try{disk.setItem('nox.voice.browser.v2',savedBrowserVoice);}catch{}});
-$('replay-voice').addEventListener('click',()=>{afterimageBridge.stop('voice-preview');if(!voice.enabled)toast('Turn Voice on to hear this reply.');else playReplyPreview(lastPacket,{stage,voice,mode});});
+$('replay-voice').addEventListener('click',()=>{if(document.body.dataset.view!=='conversation')return;afterimageBridge.stop('voice-preview');if(!voice.enabled)toast('Turn Voice on to hear this reply.');else playReplyPreview(lastPacket,{stage,voice,mode});});
 $('test-voice').addEventListener('click',()=>{afterimageBridge.stop('voice-preview');voice.setEnabled(true);showVoice();const speech='Oh, you found me. I was just thinking about something strange. Want to hear it?',emotion=mode==='uncanny'?'uncanny':'happy';stage.speak({speech,emotion,action:'none'});voice.speak(speech,mode,emotion);});
 try{voice.setEnabled(disk.getItem('nox.voice.v2')==='on');}catch{voice.setEnabled(false);}showVoice();
 try {await refreshConnection('',initialVisitStatus);if(location.pathname.replace(/\/$/,'')==='/owner'){openSettings({owner:!visit.owner});}}
