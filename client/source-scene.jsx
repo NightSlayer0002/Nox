@@ -3,7 +3,6 @@
 import React,{Component,useEffect,useRef,useState} from 'react';
 import {ShaderGradient,ShaderGradientCanvas} from '@shadergradient/react';
 import {useFrame,useThree} from '@react-three/fiber';
-import {useSpring} from '@react-spring/web';
 import {createFrameBudget,sourcePixelRatio,SOURCE_MATERIAL_FPS} from '/js/source-effects.js';
 import {createTerrainMotion,advanceTerrain} from '/js/source-terrain.js';
 import {readMotionPreference} from '/js/preferences.js';
@@ -36,12 +35,11 @@ function revealTerrain(material){
   material.customProgramCacheKey=()=> 'nox-water-relief-v2';
   material.needsUpdate=true;
 }
-function Budget({onCanvas,tilt,sculpture,pose}){
+function Budget({onCanvas,pose}){
   const {gl,setFrameloop,invalidate}=useThree(),due=useRef(createFrameBudget(SOURCE_MATERIAL_FPS));
   const terrain=useRef(createTerrainMotion()),lastFrame=useRef(null),frames=useRef(0);
   const signals=useRef({pointerX:0,pointerY:0,scroll:0,scrollImpulse:0,typingUntil:0,reduced:!readMotionPreference()});
   useEffect(()=>{
-    if(sculpture)return;
     const input=signals.current;
     // Use the same explicit app motion choice as NOX and his companions.
     input.reduced=!readMotionPreference();
@@ -75,7 +73,7 @@ function Budget({onCanvas,tilt,sculpture,pose}){
       document.removeEventListener('scroll',scroll,true);document.removeEventListener('input',typing);
       window.removeEventListener('blur',reset);
     };
-  },[sculpture]);
+  },[]);
   useEffect(()=>{
     onCanvas?.(gl.domElement);
     let visible=true;const visibility=()=>{lastFrame.current=null;setFrameloop(document.hidden||!visible?'never':'always');if(!document.hidden&&visible)invalidate();};
@@ -88,48 +86,40 @@ function Budget({onCanvas,tilt,sculpture,pose}){
     const delta=lastFrame.current===null?1/SOURCE_MATERIAL_FPS:(now-lastFrame.current)/1000;lastFrame.current=now;
     const mesh=scene.getObjectByName('shadergradient-mesh');
     if(mesh){
-      if(sculpture){
-        mesh.rotation.x=tilt.rotateX.get()*Math.PI/180;mesh.rotation.y=tilt.rotateY.get()*Math.PI/180;
-        gl.domElement.dataset.tiltY=mesh.rotation.y.toFixed(3);
-      }else{
-        revealTerrain(mesh.material);
-        const input=signals.current;
-        terrain.current=advanceTerrain(terrain.current,{...input,activity:document.body.dataset.activity,voice:document.body.dataset.voiceState,typing:now<input.typingUntil?1:0},delta);
-        input.scrollImpulse=0;
-        const water=terrain.current,uniforms=mesh.material.userData;
-        // These are the incumbent water shader's actual deformation uniforms.
-        // Shape and metal use one cadence, independent of the display rate.
-        if(uniforms.uTime)uniforms.uTime.value=water.time;
-        if(uniforms.uNoiseStrength)uniforms.uNoiseStrength.value=water.strength;
-        if(uniforms.uNoiseDensity)uniforms.uNoiseDensity.value=water.density;
-        mesh.rotation.set(Math.PI/4+water.tiltX,water.tiltY,(pose?.waterTurn||0)+water.turn);
-        mesh.position.set((pose?.waterX||0)+water.x,.9+water.y,-.3);
-        gl.domElement.dataset.scrollTurn=(pose?.waterTurn||0).toFixed(3);
-        gl.domElement.dataset.motion=input.reduced?'reduced':'flow';
-        gl.domElement.dataset.terrainTime=uniforms.uTime?uniforms.uTime.value.toFixed(2):'unavailable';
-        gl.domElement.dataset.terrainEnergy=water.energy.toFixed(3);
-        gl.domElement.dataset.terrainDrift=water.x.toFixed(3);
-      }
+      revealTerrain(mesh.material);
+      const input=signals.current;
+      terrain.current=advanceTerrain(terrain.current,{...input,activity:document.body.dataset.activity,voice:document.body.dataset.voiceState,typing:now<input.typingUntil?1:0},delta);
+      input.scrollImpulse=0;
+      const water=terrain.current,uniforms=mesh.material.userData;
+      // These are the incumbent water shader's actual deformation uniforms.
+      // Shape and metal use one cadence, independent of the display rate.
+      if(uniforms.uTime)uniforms.uTime.value=water.time;
+      if(uniforms.uNoiseStrength)uniforms.uNoiseStrength.value=water.strength;
+      if(uniforms.uNoiseDensity)uniforms.uNoiseDensity.value=water.density;
+      mesh.rotation.set(Math.PI/4+water.tiltX,water.tiltY,(pose?.waterTurn||0)+water.turn);
+      mesh.position.set((pose?.waterX||0)+water.x,.9+water.y,-.3);
+      gl.domElement.dataset.scrollTurn=(pose?.waterTurn||0).toFixed(3);
+      gl.domElement.dataset.motion=input.reduced?'reduced':'flow';
+      gl.domElement.dataset.terrainTime=uniforms.uTime?uniforms.uTime.value.toFixed(2):'unavailable';
+      gl.domElement.dataset.terrainEnergy=water.energy.toFixed(3);
+      gl.domElement.dataset.terrainDrift=water.x.toFixed(3);
     }
     gl.render(scene,camera);gl.domElement.dataset.source='shadergradient';
-    gl.domElement.dataset.geometry=sculpture?'icosahedron':'water-plane';
+    gl.domElement.dataset.geometry='water-plane';
     gl.domElement.dataset.frame=String(++frames.current);
   },1);
   return null;
 }
-function SourceScene({onCanvas,interactive=false,className='',variant='water',pose}){
+function SourceScene({onCanvas,className='',pose}){
   const host=useRef(),[ready,setReady]=useState(false),[failed,setFailed]=useState(false);
   const [pixelDensity,setPixelDensity]=useState(()=>sourcePixelRatio(globalThis.devicePixelRatio));
-  const [{rotateX,rotateY},spring]=useSpring(()=>({rotateX:0,rotateY:0,config:{mass:1.2,tension:90,friction:24}}));
   useEffect(()=>{const observer=new IntersectionObserver(entries=>{if(entries[0].isIntersecting){setReady(true);observer.disconnect();}},{rootMargin:'100px'});observer.observe(host.current);return()=>observer.disconnect();},[]);
   useEffect(()=>{const resize=()=>setPixelDensity(sourcePixelRatio(window.devicePixelRatio));window.addEventListener('resize',resize,{passive:true});return()=>window.removeEventListener('resize',resize);},[]);
-  useEffect(()=>{if(!interactive)return;const pointer=e=>{if(e.pointerType==='touch')return;const rect=host.current.getBoundingClientRect(),clamp=v=>Math.max(-1,Math.min(1,v));spring.start({rotateX:clamp(.5-(e.clientY-rect.top)/Math.max(1,rect.height))*12,rotateY:clamp((e.clientX-rect.left)/Math.max(1,rect.width)-.5)*20});};document.addEventListener('pointermove',pointer,{passive:true});return()=>document.removeEventListener('pointermove',pointer);},[interactive,spring]);
-  const sculpture=variant==='sphere';
   return <div ref={host} className={`source-scene ${className}`} aria-hidden="true" data-effect={failed?'fallback':'shadergradient'}>
     <div className="source-fallback"/>{ready&&!failed&&<Boundary onError={()=>setFailed(true)}><div className="source-scene-spring">
       <ShaderGradientCanvas pixelDensity={pixelDensity} pointerEvents="none" lazyLoad={false} powerPreference="default">
-        {sculpture?<ShaderGradient type="sphere" animate="on" cAzimuthAngle={250} cDistance={1.5} cPolarAngle={90} cameraZoom={3.2} color1="#83bdb6" color2="#1b4c58" color3="#d1dcd2" brightness={1.5} lightType="3d" grain="off" positionX={0} positionY={0} positionZ={0} reflection={.5} rotationX={0} rotationY={0} rotationZ={140} shader="defaults" uAmplitude={7} uDensity={.8} uFrequency={5.5} uSpeed={.3} uStrength={.4} uTime={0} wireframe={false}/>:<ShaderGradient type="waterPlane" animate="off" cAzimuthAngle={170} cDistance={4.4} cPolarAngle={70} cameraZoom={1} color1="#0c1b25" color2="#284a50" color3="#49766f" brightness={.62} lightType="3d" grain="off" positionX={0} positionY={.9} positionZ={-.3} reflection={.04} rotationX={45} rotationY={0} rotationZ={0} shader="defaults" uAmplitude={0} uDensity={1.12} uFrequency={0} uSpeed={.32} uStrength={3.6} uTime={0} wireframe={false}/>}
-        <Budget onCanvas={onCanvas} tilt={{rotateX,rotateY}} sculpture={sculpture} pose={pose}/>
+        <ShaderGradient type="waterPlane" animate="off" cAzimuthAngle={170} cDistance={4.4} cPolarAngle={70} cameraZoom={1} color1="#0c1b25" color2="#284a50" color3="#49766f" brightness={.62} lightType="3d" grain="off" positionX={0} positionY={.9} positionZ={-.3} reflection={.04} rotationX={45} rotationY={0} rotationZ={0} shader="defaults" uAmplitude={0} uDensity={1.12} uFrequency={0} uSpeed={.32} uStrength={3.6} uTime={0} wireframe={false}/>
+        <Budget onCanvas={onCanvas} pose={pose}/>
       </ShaderGradientCanvas>
     </div></Boundary>}
   </div>;
