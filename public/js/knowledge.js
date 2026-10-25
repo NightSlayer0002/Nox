@@ -147,10 +147,14 @@ export function createKnowledge(storage,options={}){
     list(){return fresh().documents.map(copy);},
     add(input){return mutate(()=>{
       fresh();
-      if(!input||typeof input.title!=='string'||!input.title.trim())throw new Error('Give this note a title or choose a text file.');
-      if(input.title.trim().length>KNOWLEDGE_LIMITS.titleCharacters)throw new Error('Keep the note title within 160 characters.');
-      if(typeof input.text!=='string'||!input.text.trim())throw new Error('This note is empty. Add some text first.');
-      const title=input.title.trim(),text=input.text.trim();
+      if(typeof input?.text!=='string'||!input.text.trim())throw new Error('This note is empty. Add some text first.');
+      if(input.title!==undefined&&typeof input.title!=='string')throw new Error('Use plain text for the optional note title.');
+      const providedTitle=input.title?.trim()||'',text=input.text.trim();
+      if(providedTitle.length>KNOWLEDGE_LIMITS.titleCharacters)throw new Error('Keep the note title within 160 characters.');
+      // A display title must remain valid even when pasted text contains a lone
+      // surrogate. Preserve the body; replace only invalid title characters.
+      const firstLine=Array.from(text.split(/\r?\n/,1)[0],char=>/^[\uD800-\uDFFF]$/.test(char)?'\uFFFD':char).join('');
+      const title=providedTitle||firstLine.slice(0,KNOWLEDGE_LIMITS.titleCharacters).replace(/[\uD800-\uDBFF]$/,'').trim();
       if(text.length>KNOWLEDGE_LIMITS.documentCharacters)throw new Error('Each note can contain up to 24,000 characters. Split this file into smaller notes.');
       if(state.documents.length>=KNOWLEDGE_LIMITS.documents)throw new Error('Your notebook holds up to 24 notes. Remove a note before adding another.');
       if(state.documents.reduce((sum,item)=>sum+item.text.length,0)+text.length>KNOWLEDGE_LIMITS.totalCharacters)throw new Error('Your notebook has a 180,000 character limit. Remove a note or shorten this one.');

@@ -102,3 +102,13 @@ test('failed confirmed note deletion keeps its note visible and reports failure'
   ui.storage.setItem=()=>{throw Error('Blocked');};await ui.find(node=>node.type==='button'&&ui.text(node)==='Delete note').props.onClick();ui.render();
   assert.equal(ui.knowledge.list()[0].text,'Keep my note.');assert.match(ui.status(),/could not|storage/i);assert.doesNotMatch(ui.status(),/note deleted/i);
 });
+
+test('a pasted passage can be added without inventing a separate title',async()=>{
+  const ui=notebook();
+  ui.find(node=>node.props?.id==='knowledge-text').props.onChange({target:{value:'Aurora opening hours\nThe observatory opens at six.'}});ui.render();
+  const title=ui.find(node=>node.props?.id==='knowledge-title');assert.ok(!title.props.required);
+  const submit=ui.find(node=>node.type==='button'&&node.props?.type==='submit');assert.equal(submit.props.disabled,false);
+  await ui.find(node=>node.type==='form').props.onSubmit({preventDefault(){}});ui.render();
+  assert.equal(ui.knowledge.list()[0].title,'Aurora opening hours');
+  assert.equal(ui.knowledge.list()[0].text,'Aurora opening hours\nThe observatory opens at six.');
+});
