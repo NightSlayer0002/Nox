@@ -1,4 +1,4 @@
-import React,{Suspense,lazy,useEffect,useRef,useState} from 'react';
+import React,{useEffect,useRef,useState} from 'react';
 import {createPortal} from 'react-dom';
 import {AnimatePresence,motion,useReducedMotion} from 'motion/react';
 import {normalizeAfterimage} from '../shared/afterimage.js';
@@ -9,7 +9,6 @@ import {downloadText} from '/js/workbench.js';
 import {FIRST_CONTACT} from './afterimage-example.js';
 import {visit} from '/js/visit-scope.js';
 import {EXPORT_PROFILES,resolveExportProfile} from '/js/export-profile.js';
-const Lattice=lazy(()=>import('./afterimage-lattice.jsx'));
 const disk=visit.storage;
 const store=createAfterimageStore(disk);
 const example=normalizeAfterimage(FIRST_CONTACT);
@@ -122,7 +121,6 @@ export default function Afterimage(){
     <div className="reception-header"><span className="source-tag">{generated?'Model-generated story':'Authored sample'}</span><span>{current?new Date(current.createdAt).toLocaleDateString(undefined,{month:'short',day:'numeric'}):'No text-model request'}</span></div>
     <AnimatePresence mode="wait" initial={false}><motion.div key={current?.id||'first-contact'} initial={{opacity:0,y:reduceMotion?0:8}} animate={{opacity:1,y:0}} exit={{opacity:0,y:reduceMotion?0:-6}} transition={{duration:reduceMotion?0:.22}}>
       <h3 className="reception-title">{packet.title}</h3><p className="reception-anchor">{packet.anchor}</p>
-      <Suspense fallback={<div className="lattice-loading">Opening story branches…</div>}><Lattice packet={packet} signalIndex={signalIndex} endingIndex={endingIndex} onSignal={index=>choose('signalIndex',index)} onEnding={index=>choose('endingIndex',index)} playing={playing&&!reduceMotion} disabled={disabled}/></Suspense>
       <p className="receiver-choice-label">Choose a branch</p><div className="signal-choices" role="group" aria-label="Choose a branch">{packet.signals.map((item,index)=><button key={index} aria-pressed={signalIndex===index} disabled={disabled} onClick={()=>choose('signalIndex',index)}>{item.label}</button>)}</div>
       <p className="signal-premise">{signal.premise}</p>
       <p className="receiver-choice-label">Choose an ending</p><div className="ending-choices" role="group" aria-label="Choose an ending">{signal.endings.map((ending,index)=><button key={index} aria-pressed={endingIndex===index} disabled={disabled} onClick={()=>choose('endingIndex',index)}>{ending.label}</button>)}</div>
