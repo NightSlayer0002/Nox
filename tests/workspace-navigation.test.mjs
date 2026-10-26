@@ -45,7 +45,7 @@ test('archive recovery needs an explicit confirmation and reports a changed orig
 });
 
 test('deleting a chat requires a separate confirmation and Keep preserves the row',async()=>{
-  const {nodes,thread,history,navigation}=fixture('#library');let removed=0;history.remove=async()=>{removed++;};
+  const {nodes,thread,history,navigation}=fixture('#library');let removed=0;history.remove=async()=>{removed++;return true;};
   thread.title='Important conversation';thread.turns.push({role:'user',content:'Keep until confirmed'});navigation.render();
   let row=nodes['history-list'].children[0];row.children[1].click();assert.equal(removed,0);
   row.children.at(-1).children.find(node=>node.textContent==='Keep').click();assert.equal(removed,0);
@@ -133,4 +133,17 @@ test('conversation shares its input dock and moves playback controls without reb
   assert.equal(nodes['stage-wrap'].children.at(-1),nodes['stage-playback']);
   navigation.setView('conversation');assert.equal(dock.hidden,false);
   assert.equal(nodes.message.value,'A thought still being written');
+});
+
+
+test('failed chat deletion keeps its row and offers retry or Keep instead of opening another chat',async()=>{
+  const {nodes,thread,history,navigation,calls}=fixture('#library');
+  thread.title='Still saved';thread.turns.push({role:'user',content:'Do not hide this conversation'});
+  history.lastError='delete-not-saved';history.remove=async()=>false;navigation.render();
+  const row=nodes['history-list'].children[0];row.children[1].click();
+  const confirmation=row.children.at(-1),confirm=confirmation.children.find(node=>node.textContent==='Delete conversation');
+  confirm.click();await new Promise(resolve=>setImmediate(resolve));
+  assert.deepEqual(calls,[]);assert.equal(nodes['history-list'].children[0],row);
+  assert.match(confirmation.children[0].textContent,/not.*removed|could not.*delet/i);
+  assert.equal(confirm.disabled,false);assert.equal(confirmation.children.at(-1).disabled,false);
 });

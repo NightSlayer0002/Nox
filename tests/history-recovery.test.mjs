@@ -89,3 +89,42 @@ test('quota failure keeps the newly generated reply in this visit without replac
   await history.setMode('director');assert.equal(storage.getItem(KEY),saved);
   assert.equal(history.persistent,false);assert.match(history.export(),/Unsaved but recoverable answer/);
 });
+
+
+test('rejected deletion keeps the saved archive and visible conversation unchanged, and can retry',async()=>{
+  const storage=disk(),history=await createHistory(storage);
+  await history.append('user','Keep this saved conversation');
+  const id=history.active().id,before=history.list(),saved=storage.getItem(KEY),write=storage.setItem;
+  storage.setItem=()=>{throw Object.assign(Error('blocked'),{name:'QuotaExceededError'});};
+  assert.equal(await history.remove(id),false);
+  assert.deepEqual(history.list(),before);assert.equal(history.active().id,id);assert.equal(storage.getItem(KEY),saved);
+  assert.equal(history.lastError,'delete-not-saved');
+  storage.setItem=write;
+  assert.equal(await history.remove(id),true);
+  assert.notEqual(history.active().id,id);
+  assert.equal((await createHistory(storage)).list().some(thread=>thread.id===id),false);
+});
+
+test('deletion cannot discard recoverable unsaved replies after storage has already failed',async()=>{
+  const storage=disk(),history=await createHistory(storage);await history.append('user','Saved question');
+  const saved=storage.getItem(KEY),id=history.active().id;
+  storage.setItem=()=>{throw Error('Blocked storage');};
+  await history.append('assistant','Keep this unsaved answer for export');const before=history.list();
+  assert.equal(await history.remove(id),false);assert.deepEqual(history.list(),before);
+  assert.equal(storage.getItem(KEY),saved);assert.equal(history.lastError,'delete-not-saved');
+});
+
+test('temporary guest conversation deletion succeeds without claiming durable storage',async()=>{
+  const storage={...disk(),temporary:true},history=await createHistory(storage);await history.append('user','Temporary guest chat');
+  const id=history.active().id;assert.equal(await history.remove(id),true);
+  assert.notEqual(history.active().id,id);assert.equal(history.active().turns.length,0);assert.equal(history.persistent,false);
+});
+
+
+test('a failed archive read cannot turn owner deletion into a temporary success',async()=>{
+  const storage=disk(),history=await createHistory(storage);await history.append('user','Original saved question');
+  const id=history.active().id,before=history.list(),saved=storage.getItem(KEY);
+  storage.getItem=()=>{throw Error('Storage access denied');};
+  assert.equal(await history.remove(id),false);assert.deepEqual(history.list(),before);
+  assert.equal(storage.values.get(KEY),saved);assert.equal(history.lastError,'delete-not-saved');
+});

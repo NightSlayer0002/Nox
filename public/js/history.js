@@ -102,7 +102,20 @@ export async function createHistory(storage,legacy=[]){
     select(id){return write(()=>{if(!state.threads.some(t=>t.id===id))return false;currentId=id;return true;});},
     setMode(mode){const id=currentId;return write(()=>{const t=state.threads.find(t=>t.id===id);if(!t)return false;t.mode=MODES.includes(mode)?mode:'companion';return true;});},
     append(role,content,{sources}={}){const id=currentId,text=turnText(content,role),metadata=sourceMetadata(role,sources);return write(()=>{if(!['user','assistant'].includes(role)||!text)return false;const t=state.threads.find(t=>t.id===id);if(!t)return false;if(t.turns.length>=HISTORY_LIMITS.turns-(role==='user'?1:0)){lastError='turn-limit';return false;}t.turns.push({role,content:text,seq:t.next++,...metadata});t.updated=Date.now();if(role==='user'&&t.title==='New conversation')t.title=cleanText(text,60);return true;});},
-    remove(id){return write(()=>{state.threads=state.threads.filter(t=>t.id!==id);});},
+    remove(id){return serialize(storage,()=>{
+      lastError='';if(persistent)load();choose();
+      const failed=()=>{lastError='delete-not-saved';return false;};
+      if(!persistent||recovery)return failed();
+      if(!state.threads.some(thread=>thread.id===id))return false;
+      // Deletion is destructive: commit a separate candidate before changing
+      // the usable visit. Unlike new replies, failed deletions never fall back
+      // to an in-memory success that would return from disk after a reload.
+      const candidate=structuredClone(state);candidate.threads=candidate.threads.filter(thread=>thread.id!==id);
+      if(!candidate.threads.length)candidate.threads.push(newThread());
+      candidate.active=candidate.threads.some(thread=>thread.id===currentId)?currentId:candidate.threads[0].id;
+      try{storage.setItem(KEY,JSON.stringify(candidate));}catch{return failed();}
+      state=candidate;currentId=candidate.active;return true;
+    });},
     context(){const t=active(),pending=t.turns.filter(v=>v.seq>t.summaryThrough),opening=t.turns.find(v=>v.seq===1&&v.role==='user');
       const dialogue=turns=>(opening&&!turns.includes(opening)?[opening,...turns]:turns).map(({role,content})=>({role,content}));
       if(pending.length<=12)return {summary:t.summary,history:dialogue(pending)};
