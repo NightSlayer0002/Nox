@@ -1,4 +1,4 @@
-import {historyNotice} from './history-notice.js';
+import {historyNotice,historyFailure} from './history-notice.js';
 const $=id=>document.getElementById(id);
 const views={explore:['Explore','','A place to begin.'],conversation:['Conversation','','Think something through with NOX.'],scenes:['Scene studio','','Shape a performance and capture it.'],library:['Chats','','Return to a conversation.'],afterimage:['Afterimage','','A fictional transmission you can change.']};
 Object.assign(views,{discover:['Discover','','Follow your curiosity.'],memory:['Preferences','','Only what you approve.'],access:['Your access','','Current capabilities and limits.'],learn:['Explore together','','Bring an idea or try an example.'],guessing:['Play together','','Ask questions. Follow the clues.']});
@@ -52,7 +52,14 @@ export function createNavigation({history,onOpen,onNew,onStart}) {
         const confirmation=document.createElement('div'),note=document.createElement('p'),confirm=document.createElement('button'),keep=document.createElement('button');
         confirmation.className='history-delete-confirm';note.textContent='Delete this conversation? Export a copy first if you want to keep it.';confirm.textContent='Delete conversation';keep.textContent='Keep';remove.hidden=true;
         keep.addEventListener('click',()=>{remove.hidden=false;row.replaceChildren(button,remove);remove.focus();});
-        confirm.addEventListener('click',async()=>{confirm.disabled=keep.disabled=true;await history.remove(t.id);await onOpen(history.active().id);render();});
+        confirm.addEventListener('click',async()=>{
+          if(confirm.disabled)return;confirm.disabled=keep.disabled=true;
+          try{
+            let removed=false;try{removed=await history.remove(t.id);}catch{/* Keep the confirmation recoverable when storage or its lock fails. */}
+            if(!removed){note.textContent=historyFailure(history,'The conversation was not removed. Reopen Chats and try again.');note.setAttribute('role','alert');return;}
+            await onOpen(history.active().id);render();
+          }finally{confirm.disabled=keep.disabled=false;}
+        });
         confirmation.append(note,confirm,keep);row.append(confirmation);keep.focus();
       });
       row.append(button,remove);$('history-list').append(row);
