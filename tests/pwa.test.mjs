@@ -116,14 +116,14 @@ test('concurrent asset requests cannot race past the cache entry bound',async()=
   const store=[...env.stores.values()][0];assert.ok(store.size<=220,`cached ${store.size} entries`);assert.ok(store.has(origin+'/offline.html'));
 });
 
-function installUI({online=true,register=async()=>({active:{postMessage(){}}})}={}){
+function installUI({online=true,register=async()=>({active:{postMessage(){}}}),resources=[],PerformanceObserver}={}){
   const events=new Map(),elements=new Map();let prevented=0;
   function element(id){return {id,hidden:true,disabled:false,textContent:'',dataset:{},listeners:new Map(),addEventListener(name,callback){this.listeners.set(name,callback);},setAttribute(){},after(value){elements.set(value.id,value);}};}
   for(const id of ['install-nox','install-note','header'])elements.set(id,element(id));
-  const navigator={onLine:online,serviceWorker:{register,ready:Promise.resolve({active:{postMessage(){}}})}};
+  const navigator={onLine:online,serviceWorker:{register,ready:Promise.resolve().then(()=>register())}};
   const window={addEventListener:(name,callback)=>events.set(name,callback)};
   const document={body:{dataset:{}},getElementById:id=>elements.get(id),createElement:()=>element(''),querySelector:selector=>selector==='.header'?elements.get('header'):null};
-  runInNewContext(installSource,{window,document,navigator,location:{protocol:'https:',hostname:'nox.example',origin},URL,performance:{getEntriesByType:()=>[]}});
+  runInNewContext(installSource,{window,document,navigator,location:{protocol:'https:',hostname:'nox.example',origin},URL,PerformanceObserver,performance:{getEntriesByType:()=>resources}});
   return {elements,events,navigator,async offer(outcome){await events.get('beforeinstallprompt')({preventDefault(){prevented++;},prompt:async()=>{},userChoice:Promise.resolve({outcome})});},click:()=>elements.get('install-nox').listeners.get('click')(),prevented:()=>prevented};
 }
 
@@ -178,4 +178,34 @@ test('offline hash-route navigation restores the public shell without allowing a
   assert.ok(restored,'a normal hash-based workspace navigation must reach the worker');assert.equal(await restored.text(),'cached public workspace');
   assert.equal(await env.dispatch('fetch',{request:env.request('/js/app.js#private')}),undefined);
   assert.equal(await env.dispatch('fetch',{request:env.request('/guest?token=private#learn',{mode:'navigate'})}),undefined);
+});
+
+
+test('a late public module is queued while an earlier shell warm is still fetching',async()=>{
+  let release,started;const gate=new Promise(resolve=>{release=resolve;}),waiting=new Promise(resolve=>{started=resolve;});
+  const env=worker({fetcher:async input=>{if(new URL(input,origin).pathname==='/guest'){started();await gate;}return response('public module');}});
+  const first=env.dispatch('message',{data:{type:'cache-saved-shell',urls:['/js/app.js']}});await waiting;
+  const second=env.dispatch('message',{data:{type:'cache-saved-shell',urls:['/dist/liquid-character.js']}});release();
+  await Promise.all([first,second]);
+  assert.ok(env.requests.includes(origin+'/dist/liquid-character.js'),'late modules must not be dropped while warming');
+});
+
+test('late static resource completion requests another public-shell warm without observing API traffic',async()=>{
+  let observe;const messages=[],resources=[];
+  class Observer{constructor(callback){observe=callback;}observe(){}disconnect(){}}
+  installUI({resources,PerformanceObserver:Observer,register:async()=>({active:{postMessage:message=>messages.push(message)}})});
+  assert.equal(typeof observe,'function');
+  resources.push({name:origin+'/dist/liquid-character.js'});observe({getEntries:()=>resources});await new Promise(resolve=>setImmediate(resolve));
+  // serviceWorker.ready is the registration used by actual warming.
+  assert.ok(messages.some(message=>message.urls.includes(origin+'/dist/liquid-character.js')));
+  const count=messages.length;observe({getEntries:()=>[{name:origin+'/api/status'}]});await new Promise(resolve=>setImmediate(resolve));assert.equal(messages.length,count);
+});
+
+
+test('a synchronous cache failure does not prevent a later shell warm from retrying',async()=>{
+  const env=worker();env.caches.open=()=>{throw Error('Cache temporarily blocked');};
+  await env.dispatch('message',{data:{type:'cache-saved-shell',urls:['/js/app.js']}});
+  env.caches.open=async name=>env.cacheFor(name);
+  await env.dispatch('message',{data:{type:'cache-saved-shell',urls:['/js/app.js']}});
+  assert.ok(env.requests.includes(origin+'/js/app.js'));
 });

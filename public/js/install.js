@@ -6,8 +6,19 @@ window.addEventListener('appinstalled',()=>{installPrompt=null;if(button)button.
 if('serviceWorker' in navigator&&(location.protocol==='https:'||['localhost','127.0.0.1'].includes(location.hostname)))navigator.serviceWorker.register('/sw.js').catch(()=>{if(note)note.textContent='NOX works in this browser. Offline support is unavailable here.';});
 function network(){document.body.dataset.offline=String(!navigator.onLine);let status=document.getElementById('network-status');if(!status){status=document.createElement('p');status.id='network-status';status.className='network-status';status.setAttribute('role','status');document.querySelector('.header')?.after(status);}status.hidden=navigator.onLine;status.textContent='You’re offline. This loaded conversation and local activities remain available; new AI replies need a connection.';}
 window.addEventListener('online',network);window.addEventListener('offline',network);network();
-let warming=false;
-window.addEventListener('nox:companion-change',async()=>{
-  if(warming||!navigator.onLine||!navigator.serviceWorker)return;warming=true;
-  try{const registration=await navigator.serviceWorker.ready;registration.active?.postMessage({type:'cache-saved-shell',urls:performance.getEntriesByType('resource').map(entry=>entry.name)});}catch{}finally{warming=false;}
-});
+let warming=false,pendingWarm=false;
+async function warmShell(){
+  if(!navigator.onLine||!navigator.serviceWorker)return;
+  if(warming){pendingWarm=true;return;}warming=true;
+  try{const registration=await navigator.serviceWorker.ready;registration.active?.postMessage({type:'cache-saved-shell',urls:performance.getEntriesByType('resource').map(entry=>entry.name)});}catch{}
+  finally{warming=false;if(pendingWarm){pendingWarm=false;void warmShell();}}
+}
+window.addEventListener('nox:companion-change',warmShell);
+// A late import can finish after the first state-change snapshot. Observe only
+// public script/style completions; worker fetching never appears in this list.
+if(typeof PerformanceObserver==='function')try{
+  const resources=new PerformanceObserver(list=>{
+    if(list.getEntries().some(entry=>{try{const url=new URL(entry.name);return url.origin===location.origin&&!url.search&&/\.(?:js|css)$/.test(url.pathname);}catch{return false;}}))void warmShell();
+  });
+  resources.observe({type:'resource',buffered:true});
+}catch{/* State changes still warm the shell on older browsers. */}
