@@ -27,7 +27,7 @@ import {attachMessageCompanion} from './message-companion.js';
 import {selfDeclaredName} from './name-intent.js';
 import {sourceBackground} from './source-background.js';
 import { afterimageBridge, applyAfterimageCue } from './afterimage-bridge.js';
-import {visit,initialVisitStatus,requestVisitStatus} from './visit-scope.js';
+import {visit,initialVisitStatus,initialVisitStatusPromise,requestVisitStatus} from './visit-scope.js';
 import {attachComposerOptions,attachDetailsMenu,createComposerSizer,createReplyDiagnostics} from './conversation-controls.js';
 import {createChatMessage,setChatContent} from './chat-message.js';
 import {attachMessageSources} from './message-sources.js';
@@ -50,7 +50,7 @@ let mode = history.active().mode;
 let navigation,summaryController,summaryTimer,pendingDraft,pendingPresentation,floatingPresence,messageCompanion;
 let editTarget=null,currentActivity='conversation',publicUsage=initialVisitStatus?.usage;
 let brain = 'loading'; let busy = false;
-let ownerToken = '', selectedProvider = '', connectionVersion = 0, connection = {};
+let ownerToken = '', selectedProvider = '', connectionVersion = 0, connection = {}, connectionFailed=false;
 const providerControls=createProviderControls([$('provider-select'),$('composer-provider')],value=>{cancelConversation();selectedProvider=value;showConnection();});
 const apiHeaders = (token = ownerToken) => ({'content-type':'application/json',...(token ? {authorization:`Bearer ${token}`} : visit.owner?{'x-nox-owner':'1'}:{'x-nox-guest':'1','x-nox-visit-id':visit.id})});
 const turns = createTurnGate();
@@ -208,10 +208,11 @@ const callMicrophone=createMicrophone({
 });
 voiceCall=attachVoiceCall({options:{
   supported:()=>callMicrophone.supported&&voice.supported,
-  startListening:()=>{if(!['live','demo'].includes(brain))throw Error('The AI connection is not ready. Close this view and check Settings.');microphone.stop();voice.setEnabled(true);showVoice();callMicrophone.start();},
+  startListening:()=>{if(brain==='loading')throw Error('The AI connection is not ready. Your typed draft is kept; try again when NOX is connected.');if(!['live','demo'].includes(brain))throw Error('The AI connection is not ready. Close this view and check Settings.');microphone.stop();voice.setEnabled(true);showVoice();callMicrophone.start();},
   stopListening:()=>callMicrophone.stop(),stopReply:()=>cancelConversation(),
   async submit(text){
     if(busy)throw Error('NOX is finishing another reply. Try again in a moment.');
+    if(brain==='loading')throw Error('The AI connection is not ready. Your typed message is still here.');
     const packet=await send(text);
     // A failed voice turn is already in chat. Its retry draft must not hide the
     // unfinished typed edit that was set aside when this call opened.
@@ -345,7 +346,7 @@ async function perform(value, save = true, draft, version, depth='quick',remembe
 }
 
 function setBusy(value) {
-  busy = value; $('send-button').disabled = value||!$('message').value.trim();$('send-button').hidden=value; $('chat-form').setAttribute('aria-busy', value);
+  busy = value; $('send-button').disabled = value||brain==='loading'||!$('message').value.trim();$('send-button').hidden=value; $('chat-form').setAttribute('aria-busy', value);
   $('cancel-reply').hidden=!value;$('reply-depth').disabled=value;
   stage.character.activity = value||voice.state==='preparing' ? 'thinking' : dictating||callListening?'listening':'idle';
   companionChanged();
@@ -354,6 +355,7 @@ function setBusy(value) {
 async function send(raw,{recorded=false}={}) {
   composerOptions.close();
   const text = raw.trim(); if (!text || busy) return;
+  if(brain==='loading'){replyDiagnostics.setStatus('The AI connection is not ready. Your message is still here.');return;}
   if(editTarget!==null){const revised=await history.replaceFrom(editTarget,text);editTarget=null;if(!revised){toast('That message could not be edited. Your draft is still here.');return;}await restoreConversation({retrying:true});recorded=true;}
   // Failed or interrupted replies already keep their user turn. Sending the
   // same unanswered draft retries it without recording it a second time.
@@ -433,7 +435,7 @@ $('reply-depth').value=readDepth();depthNote();
 for(const option of $('reply-depth').options)option.disabled=!visit.owner&&option.value==='deep';
 $('reply-depth').addEventListener('change',()=>{saveDepth($('reply-depth').value);depthNote();});
 $('message').addEventListener('input',()=>{
-  contextPreview();$('send-button').disabled=busy||!$('message').value.trim();
+  contextPreview();$('send-button').disabled=busy||brain==='loading'||!$('message').value.trim();
   const input=$('chat-form').getBoundingClientRect(),frame=stage.canvas.getBoundingClientRect();
   if(frame.width&&frame.height)stage.character.attendTo?.({x:(input.left+input.width*.6-frame.left)/frame.width,y:(input.top+20-frame.top)/frame.height},stage.time);
 });window.addEventListener('nox:knowledge',contextPreview);window.addEventListener('storage',contextPreview);
@@ -571,11 +573,11 @@ await restoreConversation();
 companionBridge.connect({
   snapshot:()=>({usage:publicUsage,owner:visit.owner}),
   async fresh(){if(!await newConversation())return;navigation.setView('conversation');},
-  async start(text,kind='conversation'){if(!await newConversation())return;currentActivity=['conversation','explore','mystery'].includes(kind)?kind:'conversation';navigation.setView('conversation');await send(text);},
+  async start(text,kind='conversation'){if(brain==='loading'){toast('The AI connection is not ready. Your current work is kept; try again when NOX is connected.');return;}if(!await newConversation())return;currentActivity=['conversation','explore','mystery'].includes(kind)?kind:'conversation';navigation.setView('conversation');await send(text);},
   preferenceChanged:applyApprovedPreferences,
 });
 EverydayBridge.connect({
-  async ask(message,{activity:source}={}){if(!await newConversation())return;currentActivity=(typeof source==='string'?source:source?.kind)==='explore'?'explore':'conversation';if(source?.state)rememberActivity('explore',{state:source.state,id:source.id});navigation.setView('conversation');await send(message);},
+  async ask(message,{activity:source}={}){if(brain==='loading'){toast('The AI connection is not ready. Your current work is kept; try again when NOX is connected.');return;}if(!await newConversation())return;currentActivity=(typeof source==='string'?source:source?.kind)==='explore'?'explore':'conversation';if(source?.state)rememberActivity('explore',{state:source.state,id:source.id});navigation.setView('conversation');await send(message);},
   speak(text,{activity:source}={}){const scope=['explore','guessing'].includes(source)?source:currentActivity;voice.setPace?.(approvedPreferences.context(scope).speechPace??1);voice.setEnabled(true);showVoice();const speech=spokenPreview(text);stage.speak({speech,emotion:'curious',action:'none',memory:''});return voice.speak(speech,mode,'curious');},
   stop(){voice.stop();stage.captionUntil=0;},
   proposePreference(value){const words=value.key==='learningStyle'?(value.value==='hints'?'One clue at a time':'Explain first'):value.key==='gameQuestionLimit'?`Use ${value.value} questions in the guessing game`:value.key==='gameHints'?`Turn hints ${value.value?'on':'off'} in the guessing game`:value.origin;return companionBridge.propose(words,value.scope);},
@@ -600,13 +602,16 @@ function showVoice() {
 }
 function showConnection() {
   const state=connectionState(connection,selectedProvider),provider=state.provider;brain=state.kind;
-  const labels={locked:'AI locked',loading:'Connecting…',unconfigured:'AI unavailable',demo:'Scripted demo'};
+  const labels={locked:'AI locked',loading:connectionFailed?'AI unavailable':'Connecting…',unconfigured:'AI unavailable',demo:'Scripted demo'};
   $('brain-status').lastChild.textContent=brain==='live'?` ${visit.owner?provider.name:'Guest visit'}`:` ${labels[brain]}`;
-  const note=brain==='live'?`Model-generated replies · ${provider.name}. Your name, notebook, and conversation context travel with each turn. Camera stays local.`:brain==='locked'?'Your AI brain is locked. Unlock it once in Settings; access lasts up to 12 hours in this browser. Scenes and touch still work.':brain==='demo'?'You selected the scripted demo. Switch to a configured AI provider for fresh conversation.':brain==='loading'?'Checking the AI connection…':'No AI provider is configured. Add a server key to enable conversation; scenes and touch still work.';
+  const note=brain==='live'?`Model-generated replies · ${provider.name}. Your name, notebook, and conversation context travel with each turn. Camera stays local.`:brain==='locked'?'Your AI brain is locked. Unlock it once in Settings; access lasts up to 12 hours in this browser. Scenes and touch still work.':brain==='demo'?'You selected the scripted demo. Switch to a configured AI provider for fresh conversation.':brain==='loading'?connectionFailed?'Could not reach the AI server. Retry the connection; your draft and local activities are still here.':'Checking the AI connection… You can write your message or explore a local activity.':'No AI provider is configured. Add a server key to enable conversation; scenes and touch still work.';
   const scopeNote=!visit.owner&&brain==='live'?'NOX Free · complete everyday answers. Chats and preferences clear when you refresh. Natural voice has a separate allowance.':note;
   $('brain-status').title=scopeNote;$('brain-note').textContent=scopeNote;
   $('connection-message').textContent=scopeNote;$('connection-help').hidden=brain==='live';$('unlock-ai').hidden=brain==='demo';
-  $('unlock-ai').textContent=brain==='locked'?'Unlock AI ':'Connection settings ';
+  $('unlock-ai').textContent=brain==='locked'?'Unlock AI ':connectionFailed?'Retry AI connection':'Connection settings ';
+  $('unlock-ai').disabled=brain==='loading'&&!connectionFailed;
+  $('send-button').disabled=busy||brain==='loading'||!$('message').value.trim();
+  if(brain!=='loading'&&$('reply-timing').textContent==='The AI connection is not ready. Your message is still here.')replyDiagnostics.setStatus('');
   $('inspector-brain').textContent=brain==='live'?`${provider.model} · providers.mjs`:labels[brain];
   afterimageBridge.refreshState();
 }
@@ -617,7 +622,7 @@ async function refreshConnection(token = ownerToken,initial) {
   if(version!==connectionVersion) return false;
   if(visit.owner&&!status.owner){cancelConversation();location.replace(`/guest${location.hash}`);return false;}
   if(token && status.access==='locked') throw new Error('The owner token was not accepted.');
-  ownerToken=''; connection=status;setUsage(status.usage);
+  ownerToken=''; connection=status;connectionFailed=false;setUsage(status.usage);
   const configured=status.providers||[];
   const choices=[{id:'',name:status.access==='locked'?'AI · unlock to connect':'Automatic AI'},{id:'demo',name:'Scripted demo · offline'},...['groq','nvidia','gemini'].map(id=>configured.find(p=>p.id===id)||{id,name:id==='nvidia'?'NVIDIA NIM · To be connected':({groq:'GroqCloud',gemini:'Google Gemini'}[id])+` · ${status.access==='locked'?'unlock first':'add key'}`,disabled:true}),...configured.filter(p=>!['groq','nvidia','gemini'].includes(p.id))];
   if(selectedProvider!=='demo'&&!status.providers?.some(p=>p.id===selectedProvider)) selectedProvider=status.provider||'';
@@ -650,7 +655,11 @@ $('lock-owner').addEventListener('click',async()=>{
   try{const response=await fetch('/api/session',{method:'DELETE'});if(!response.ok)throw Error('lock');}catch{toast('Could not end the browser session. Try Lock again.');return;}
   location.replace(`/guest${location.hash||'#conversation'}`);
 });
-$('unlock-ai').addEventListener('click',()=>openSettings({owner:brain==='locked'}));
+$('unlock-ai').addEventListener('click',async()=>{
+  if(!connectionFailed){openSettings({owner:brain==='locked'});return;}
+  connectionFailed=false;showConnection();
+  try{await refreshConnection();}catch{connectionFailed=true;showConnection();toast('The AI connection is still unavailable. Your draft and local activities are kept.');}
+});
 function browserVoices(){const voices=globalThis.speechSynthesis?.getVoices().filter(v=>v.lang?.startsWith('en'))||[];const selected=$('browser-speaker').value;$('browser-speaker').replaceChildren(new Option('Automatic',''),...voices.map(v=>new Option(v.name,v.name)));$('browser-speaker').value=selected||savedBrowserVoice;}
 let savedBrowserVoice='';
 try{preferredEngine=disk.getItem('nox.voice.engine.v2')||'natural';const savedSpeaker=disk.getItem('nox.voice.speaker.v2');$('speaker-select').value=['troy','austin','daniel'].includes(savedSpeaker)?savedSpeaker:'troy';savedBrowserVoice=disk.getItem('nox.voice.browser.v2')||'';}catch{}
@@ -660,8 +669,9 @@ $('browser-speaker').addEventListener('change',e=>{savedBrowserVoice=e.target.va
 $('replay-voice').addEventListener('click',()=>{if(document.body.dataset.view!=='conversation')return;afterimageBridge.stop('voice-preview');if(!voice.enabled)toast('Turn Voice on to hear this reply.');else playReplyPreview(lastPacket,{stage,voice,mode});});
 $('test-voice').addEventListener('click',()=>{afterimageBridge.stop('voice-preview');voice.setEnabled(true);showVoice();const speech='Oh, you found me. I was just thinking about something strange. Want to hear it?',emotion=mode==='uncanny'?'uncanny':'happy';stage.speak({speech,emotion,action:'none'});voice.speak(speech,mode,emotion);});
 try{voice.setEnabled(disk.getItem('nox.voice.v2')==='on');}catch{voice.setEnabled(false);}showVoice();
-try {await refreshConnection('',initialVisitStatus);if(location.pathname.replace(/\/$/,'')==='/owner'){openSettings({owner:!visit.owner});}}
-catch {connection={};showConnection();$('connection-message').textContent='Could not reach the AI server. Reload to retry. Scenes and touch still work.';toast('The AI server could not be reached. No scripted reply was substituted.');}
+showConnection();
+try {await refreshConnection('',await initialVisitStatusPromise);if(location.pathname.replace(/\/$/,'')==='/owner'){openSettings({owner:!visit.owner});}}
+catch {connection={};connectionFailed=true;showConnection();toast('The AI server could not be reached. No scripted reply was substituted.');}
 if(visit.owner){
   const checkOwner=async()=>{try{const status=await requestVisitStatus({headers:apiHeaders()});if(!status.owner)location.replace(`/guest${location.hash}`);}catch(error){if(error.status===401)location.replace(`/guest${location.hash}`);}};
   const ownerCheck=setInterval(checkOwner,60000);window.addEventListener('pagehide',()=>clearInterval(ownerCheck),{once:true});document.addEventListener('visibilitychange',()=>{if(!document.hidden)void checkOwner();});
