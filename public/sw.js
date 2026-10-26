@@ -1,6 +1,6 @@
 // Cache only the public application shell and same-origin static assets.
 // API responses, account status, keys and user messages are never cached.
-const CACHE='nox-shell-v3';
+const CACHE='nox-shell-v4';
 const CORE=['/offline.html','/offline.css','/source-ui.css','/icon.svg','/assets/nox/icon-192.png','/assets/nox/icon-512.png','/manifest.webmanifest'];
 const NAV=new Set(['/','/guest','/guest/','/app','/app/','/owner','/owner/']);
 const PUBLIC_NAV=new Set(['/','/guest','/guest/','/app','/app/']);
@@ -11,7 +11,7 @@ function publicAsset(url){
   const path=url.pathname;
   return CORE.includes(path)||/^\/[a-z0-9-]+\.css$/i.test(path)||
     /^\/(?:js|dist|assets|vendor|fonts)\/[^?]+\.(?:js|css|svg|png|jpg|woff2?|ttf|glb|bin|glsl|vert|frag)$/i.test(path)||
-    ['/shared/character.js','/shared/afterimage.js'].includes(path);
+    ['/shared/character.js','/shared/afterimage.js','/shared/interface-state.js'].includes(path);
 }
 function publicResponse(response){
   return response.ok&&response.type==='basic'&&!response.redirected&&
@@ -22,7 +22,8 @@ function publicResponse(response){
 // Serialize writes and eviction: parallel module requests must share one bound.
 // The server deliberately marks even these known public shell files no-store;
 // only this static allowlist is persisted, never a general response cache.
-let writes=Promise.resolve(),warming=false;
+let writes=Promise.resolve(),warming=null;
+const warmQueue=new Set();
 function remember(request,response){
   const copy=response.clone();
   const next=writes.then(async()=>{
@@ -36,30 +37,35 @@ function remember(request,response){
 self.addEventListener('install',event=>event.waitUntil(caches.open(CACHE).then(cache=>cache.addAll(CORE))));
 self.addEventListener('activate',event=>event.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(key=>key.startsWith('nox-shell-')&&key!==CACHE).map(key=>caches.delete(key)))).then(()=>self.clients.claim())));
 self.addEventListener('message',event=>{
-  if(event.data?.type!=='cache-saved-shell'||!Array.isArray(event.data.urls)||warming)return;
-  warming=true;
-  event.waitUntil((async()=>{
+  if(event.data?.type!=='cache-saved-shell'||!Array.isArray(event.data.urls))return;
+  warmQueue.add(self.location.origin+'/guest');
+  for(const value of event.data.urls.slice(0,MAX_WARM_URLS*4)){
+    if(warmQueue.size>MAX_WARM_URLS)break;
+    if(typeof value!=='string')continue;
+    try{const url=new URL(value,self.location.origin);if(publicAsset(url))warmQueue.add(url.href);}catch{}
+  }
+  // Late modules join the bounded queue instead of being discarded while an
+  // earlier snapshot is fetching. Every message keeps that drain alive.
+  if(!warming)warming=(async()=>{
     try{
-      const cache=await caches.open(CACHE),urls=new Set([self.location.origin+'/guest']);
-      for(const value of event.data.urls.slice(0,MAX_WARM_URLS*4)){
-        if(urls.size>MAX_WARM_URLS)break;
-        if(typeof value!=='string')continue;
-        try{const url=new URL(value,self.location.origin);if(publicAsset(url))urls.add(url.href);}catch{}
-      }
-      for(const url of urls){
+      const cache=await caches.open(CACHE);
+      while(warmQueue.size){
+        const url=warmQueue.values().next().value;warmQueue.delete(url);
         try{
           if(await cache.match(url))continue;
           const response=await fetch(url);if(publicResponse(response))await remember(url,response);
         }catch{/* A missing asset never changes the loaded visit. */}
       }
     }catch{/* Offline shell preparation is optional. */}
-    finally{warming=false;}
-  })());
+    finally{warmQueue.clear();}
+  })().finally(()=>{warming=null;});
+  event.waitUntil(warming);
 });
 self.addEventListener('fetch',event=>{
   const request=event.request,url=new URL(request.url);
-  if(request.method!=='GET'||url.origin!==self.location.origin||url.search||url.hash||request.headers.has('authorization'))return;
   const navigation=request.mode==='navigate'&&NAV.has(url.pathname);
+  // Workspace routes use fragments; only allow them for known navigations.
+  if(request.method!=='GET'||url.origin!==self.location.origin||url.search||(url.hash&&!navigation)||request.headers.has('authorization'))return;
   const asset=publicAsset(url);
   if(!navigation&&!asset)return;
   event.respondWith((async()=>{

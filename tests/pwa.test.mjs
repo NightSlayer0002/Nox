@@ -2,6 +2,8 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFile} from 'node:fs/promises';
 import {runInNewContext} from 'node:vm';
+import {build} from 'esbuild';
+import {fileURLToPath} from 'node:url';
 
 const origin='https://nox.example';
 const workerSource=await readFile(new URL('../public/sw.js',import.meta.url),'utf8');
@@ -114,14 +116,14 @@ test('concurrent asset requests cannot race past the cache entry bound',async()=
   const store=[...env.stores.values()][0];assert.ok(store.size<=220,`cached ${store.size} entries`);assert.ok(store.has(origin+'/offline.html'));
 });
 
-function installUI({online=true,register=async()=>({active:{postMessage(){}}})}={}){
+function installUI({online=true,register=async()=>({active:{postMessage(){}}}),resources=[],PerformanceObserver}={}){
   const events=new Map(),elements=new Map();let prevented=0;
   function element(id){return {id,hidden:true,disabled:false,textContent:'',dataset:{},listeners:new Map(),addEventListener(name,callback){this.listeners.set(name,callback);},setAttribute(){},after(value){elements.set(value.id,value);}};}
   for(const id of ['install-nox','install-note','header'])elements.set(id,element(id));
-  const navigator={onLine:online,serviceWorker:{register,ready:Promise.resolve({active:{postMessage(){}}})}};
+  const navigator={onLine:online,serviceWorker:{register,ready:Promise.resolve().then(()=>register())}};
   const window={addEventListener:(name,callback)=>events.set(name,callback)};
   const document={body:{dataset:{}},getElementById:id=>elements.get(id),createElement:()=>element(''),querySelector:selector=>selector==='.header'?elements.get('header'):null};
-  runInNewContext(installSource,{window,document,navigator,location:{protocol:'https:',hostname:'nox.example',origin},URL,performance:{getEntriesByType:()=>[]}});
+  runInNewContext(installSource,{window,document,navigator,location:{protocol:'https:',hostname:'nox.example',origin},URL,PerformanceObserver,performance:{getEntriesByType:()=>resources}});
   return {elements,events,navigator,async offer(outcome){await events.get('beforeinstallprompt')({preventDefault(){prevented++;},prompt:async()=>{},userChoice:Promise.resolve({outcome})});},click:()=>elements.get('install-nox').listeners.get('click')(),prevented:()=>prevented};
 }
 
@@ -151,4 +153,59 @@ test('manifest offers practical 192 and 512 pixel icons derived from the existin
     const bytes=await readFile(new URL('../public'+icon.src,import.meta.url));assert.equal(bytes.subarray(1,4).toString(),'PNG');assert.equal(bytes.readUInt32BE(16),size);assert.equal(bytes.readUInt32BE(20),size);
   }
   assert.ok(manifest.icons.some(value=>value.src==='/icon.svg'),'original vector stays available');
+});
+
+
+test('every shared dependency of the application is eligible for warming and offline restoration',async()=>{
+  const graph=await build({absWorkingDir:fileURLToPath(new URL('../',import.meta.url)),entryPoints:['public/js/app.js'],bundle:true,write:false,metafile:true,format:'esm',platform:'browser',external:['/dist/*','/js/*'],logLevel:'silent'});
+  const modules=Object.keys(graph.metafile.inputs).filter(file=>file.startsWith('shared/')).map(file=>'/'+file);
+  assert.ok(modules.includes('/shared/interface-state.js'),'the graph must include the observed startup dependency');
+  let online=true;const env=worker({fetcher:async()=>{if(!online)throw Error('Offline');return response('cached shared module');}});
+  await env.dispatch('message',{data:{type:'cache-saved-shell',urls:modules}});
+  online=false;
+  for(const path of modules){
+    const restored=await env.dispatch('fetch',{request:env.request(path)});
+    assert.ok(restored,`${path} must be handled by the public worker`);
+    assert.equal(restored.status,200,`${path} must restore from the offline cache`);
+  }
+});
+
+
+test('offline hash-route navigation restores the public shell without allowing asset fragments or queries',async()=>{
+  const env=worker({fetcher:async()=>{throw Error('Offline');}});await env.dispatch('install');
+  const store=[...env.stores.values()][0];store.set(origin+'/guest',response('cached public workspace'));
+  const restored=await env.dispatch('fetch',{request:env.request('/guest#learn',{mode:'navigate'})});
+  assert.ok(restored,'a normal hash-based workspace navigation must reach the worker');assert.equal(await restored.text(),'cached public workspace');
+  assert.equal(await env.dispatch('fetch',{request:env.request('/js/app.js#private')}),undefined);
+  assert.equal(await env.dispatch('fetch',{request:env.request('/guest?token=private#learn',{mode:'navigate'})}),undefined);
+});
+
+
+test('a late public module is queued while an earlier shell warm is still fetching',async()=>{
+  let release,started;const gate=new Promise(resolve=>{release=resolve;}),waiting=new Promise(resolve=>{started=resolve;});
+  const env=worker({fetcher:async input=>{if(new URL(input,origin).pathname==='/guest'){started();await gate;}return response('public module');}});
+  const first=env.dispatch('message',{data:{type:'cache-saved-shell',urls:['/js/app.js']}});await waiting;
+  const second=env.dispatch('message',{data:{type:'cache-saved-shell',urls:['/dist/liquid-character.js']}});release();
+  await Promise.all([first,second]);
+  assert.ok(env.requests.includes(origin+'/dist/liquid-character.js'),'late modules must not be dropped while warming');
+});
+
+test('late static resource completion requests another public-shell warm without observing API traffic',async()=>{
+  let observe;const messages=[],resources=[];
+  class Observer{constructor(callback){observe=callback;}observe(){}disconnect(){}}
+  installUI({resources,PerformanceObserver:Observer,register:async()=>({active:{postMessage:message=>messages.push(message)}})});
+  assert.equal(typeof observe,'function');
+  resources.push({name:origin+'/dist/liquid-character.js'});observe({getEntries:()=>resources});await new Promise(resolve=>setImmediate(resolve));
+  // serviceWorker.ready is the registration used by actual warming.
+  assert.ok(messages.some(message=>message.urls.includes(origin+'/dist/liquid-character.js')));
+  const count=messages.length;observe({getEntries:()=>[{name:origin+'/api/status'}]});await new Promise(resolve=>setImmediate(resolve));assert.equal(messages.length,count);
+});
+
+
+test('a synchronous cache failure does not prevent a later shell warm from retrying',async()=>{
+  const env=worker();env.caches.open=()=>{throw Error('Cache temporarily blocked');};
+  await env.dispatch('message',{data:{type:'cache-saved-shell',urls:['/js/app.js']}});
+  env.caches.open=async name=>env.cacheFor(name);
+  await env.dispatch('message',{data:{type:'cache-saved-shell',urls:['/js/app.js']}});
+  assert.ok(env.requests.includes(origin+'/js/app.js'));
 });
