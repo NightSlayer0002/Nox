@@ -1,6 +1,6 @@
 // Cache only the public application shell and same-origin static assets.
 // API responses, account status, keys and user messages are never cached.
-const CACHE='nox-shell-v3';
+const CACHE='nox-shell-v4';
 const CORE=['/offline.html','/offline.css','/source-ui.css','/icon.svg','/assets/nox/icon-192.png','/assets/nox/icon-512.png','/manifest.webmanifest'];
 const NAV=new Set(['/','/guest','/guest/','/app','/app/','/owner','/owner/']);
 const PUBLIC_NAV=new Set(['/','/guest','/guest/','/app','/app/']);
@@ -11,7 +11,7 @@ function publicAsset(url){
   const path=url.pathname;
   return CORE.includes(path)||/^\/[a-z0-9-]+\.css$/i.test(path)||
     /^\/(?:js|dist|assets|vendor|fonts)\/[^?]+\.(?:js|css|svg|png|jpg|woff2?|ttf|glb|bin|glsl|vert|frag)$/i.test(path)||
-    ['/shared/character.js','/shared/afterimage.js'].includes(path);
+    ['/shared/character.js','/shared/afterimage.js','/shared/interface-state.js'].includes(path);
 }
 function publicResponse(response){
   return response.ok&&response.type==='basic'&&!response.redirected&&
@@ -58,8 +58,9 @@ self.addEventListener('message',event=>{
 });
 self.addEventListener('fetch',event=>{
   const request=event.request,url=new URL(request.url);
-  if(request.method!=='GET'||url.origin!==self.location.origin||url.search||url.hash||request.headers.has('authorization'))return;
   const navigation=request.mode==='navigate'&&NAV.has(url.pathname);
+  // Workspace routes use fragments; only allow them for known navigations.
+  if(request.method!=='GET'||url.origin!==self.location.origin||url.search||(url.hash&&!navigation)||request.headers.has('authorization'))return;
   const asset=publicAsset(url);
   if(!navigation&&!asset)return;
   event.respondWith((async()=>{

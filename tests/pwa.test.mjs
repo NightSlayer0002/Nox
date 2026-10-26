@@ -2,6 +2,8 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFile} from 'node:fs/promises';
 import {runInNewContext} from 'node:vm';
+import {build} from 'esbuild';
+import {fileURLToPath} from 'node:url';
 
 const origin='https://nox.example';
 const workerSource=await readFile(new URL('../public/sw.js',import.meta.url),'utf8');
@@ -151,4 +153,29 @@ test('manifest offers practical 192 and 512 pixel icons derived from the existin
     const bytes=await readFile(new URL('../public'+icon.src,import.meta.url));assert.equal(bytes.subarray(1,4).toString(),'PNG');assert.equal(bytes.readUInt32BE(16),size);assert.equal(bytes.readUInt32BE(20),size);
   }
   assert.ok(manifest.icons.some(value=>value.src==='/icon.svg'),'original vector stays available');
+});
+
+
+test('every shared dependency of the application is eligible for warming and offline restoration',async()=>{
+  const graph=await build({absWorkingDir:fileURLToPath(new URL('../',import.meta.url)),entryPoints:['public/js/app.js'],bundle:true,write:false,metafile:true,format:'esm',platform:'browser',external:['/dist/*','/js/*'],logLevel:'silent'});
+  const modules=Object.keys(graph.metafile.inputs).filter(file=>file.startsWith('shared/')).map(file=>'/'+file);
+  assert.ok(modules.includes('/shared/interface-state.js'),'the graph must include the observed startup dependency');
+  let online=true;const env=worker({fetcher:async()=>{if(!online)throw Error('Offline');return response('cached shared module');}});
+  await env.dispatch('message',{data:{type:'cache-saved-shell',urls:modules}});
+  online=false;
+  for(const path of modules){
+    const restored=await env.dispatch('fetch',{request:env.request(path)});
+    assert.ok(restored,`${path} must be handled by the public worker`);
+    assert.equal(restored.status,200,`${path} must restore from the offline cache`);
+  }
+});
+
+
+test('offline hash-route navigation restores the public shell without allowing asset fragments or queries',async()=>{
+  const env=worker({fetcher:async()=>{throw Error('Offline');}});await env.dispatch('install');
+  const store=[...env.stores.values()][0];store.set(origin+'/guest',response('cached public workspace'));
+  const restored=await env.dispatch('fetch',{request:env.request('/guest#learn',{mode:'navigate'})});
+  assert.ok(restored,'a normal hash-based workspace navigation must reach the worker');assert.equal(await restored.text(),'cached public workspace');
+  assert.equal(await env.dispatch('fetch',{request:env.request('/js/app.js#private')}),undefined);
+  assert.equal(await env.dispatch('fetch',{request:env.request('/guest?token=private#learn',{mode:'navigate'})}),undefined);
 });
