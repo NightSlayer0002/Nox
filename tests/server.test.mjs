@@ -41,11 +41,28 @@ test('owner unlock issues an HttpOnly session that survives a page reload and lo
 });
 
 test('summaries use the same owner gate and selected server model as chat',async()=>{
-  let calls=0;
-  await withServer({providers:[{id:'nvidia',name:'NVIDIA NIM',model:'fixture'}],accessToken:'owner',summary:async(input,options)=>{calls++;assert.equal(options.provider,'nvidia');assert.equal(options.model,'fixture');assert.equal(input.turns.length,2);return 'Saved continuity.';}},async base=>{
+  let calls=0,completedSignal;
+  await withServer({providers:[{id:'nvidia',name:'NVIDIA NIM',model:'fixture'}],accessToken:'owner',summary:async(input,options)=>{calls++;completedSignal=options.signal;assert.equal(options.provider,'nvidia');assert.equal(options.model,'fixture');assert.equal(input.turns.length,2);return 'Saved continuity.';}},async base=>{
     const body=JSON.stringify({provider:'nvidia',turns:[{role:'user',content:'Hi'},{role:'assistant',content:'Hello'}]});
     const locked=await fetch(`${base}/api/summary`,{method:'POST',headers:{'content-type':'application/json'},body});assert.equal(locked.status,401);
     const open=await fetch(`${base}/api/summary`,{method:'POST',headers:{'content-type':'application/json',authorization:'Bearer owner'},body});assert.equal(open.status,200);assert.equal((await open.json()).summary,'Saved continuity.');assert.equal(calls,1);
+    assert.ok(completedSignal instanceof AbortSignal);await new Promise(resolve=>setImmediate(resolve));assert.equal(completedSignal.aborted,false);
+  });
+});
+
+test('disconnecting a pending summary aborts its upstream operation',async()=>{
+  let started,aborted,release;const entered=new Promise(resolve=>{started=resolve;}),canceled=new Promise(resolve=>{aborted=resolve;});
+  await withServer({providers:[{id:'nvidia',name:'Synthetic summary provider',model:'fixture'}],summary:async(_input,{signal})=>{
+    started();return new Promise((resolve,reject)=>{
+      release=()=>resolve('An unnecessary late summary');
+      signal?.addEventListener('abort',()=>{aborted(true);reject(signal.reason);},{once:true});
+    });
+  }},async base=>{
+    const controller=new AbortController();
+    const pending=fetch(`${base}/api/summary`,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({turns:[{role:'user',content:'A fictional summary input'}]}),signal:controller.signal});
+    const rejected=assert.rejects(pending,{name:'AbortError'});await entered;controller.abort();await rejected;
+    let timer;try{assert.equal(await Promise.race([canceled,new Promise(resolve=>{timer=setTimeout(()=>resolve(false),1000);})]),true,'upstream must receive cancellation after the client disconnects');}
+    finally{clearTimeout(timer);release();}
   });
 });
 

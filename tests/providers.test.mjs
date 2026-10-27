@@ -19,6 +19,14 @@ test('direct summary calls reject an oversized batch before spending a provider 
   assert.equal(calls,0);
 });
 
+test('summary cancellation reaches the actual provider transport signal',async()=>{
+  const controller=new AbortController();let started,upstream;const entered=new Promise(resolve=>{started=resolve;});
+  const pending=requestSummary({turns:[{role:'user',content:'A fictional decision'}]},{provider:'groq',apiKey:'fixture',signal:controller.signal,fetchImpl:async(_url,{signal})=>{
+    upstream=signal;started();return new Promise((_resolve,reject)=>signal.addEventListener('abort',()=>reject(signal.reason),{once:true}));
+  }});
+  const rejected=assert.rejects(pending,{name:'AbortError'});await entered;controller.abort();await rejected;assert.equal(upstream.aborted,true);
+});
+
 test('provider catalog exposes configuration without disclosing keys', () => {
   const providers = getProviders({GROQ_API_KEY:'secret-a', GEMINI_API_KEY:'secret-b'});
   assert.deepEqual(providers.map(p=>p.id),['groq','gemini']);
