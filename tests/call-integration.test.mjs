@@ -20,6 +20,9 @@ const sendSource=between('async function send(','\nconst greetings =');
 const performSource=between('async function perform(','\nfunction setBusy(');
 const cancelSource=between('function cancelConversation()','\nasync function restoreConversation');
 const restoreSource=between('async function restoreConversation(','\nfunction scheduleSummary');
+const modeSource=between('async function setMode(',"\ndocument.querySelectorAll('[data-mode]')");
+const newSource=between('async function newConversation(','\nnavigation=createNavigation(');
+const navigationSource=between('navigation=createNavigation(','\nmessageCompanion=');
 const adapterSource=between('voiceCall=attachVoiceCall(','\n\nafterimageBridge.connect(');
 const noop=()=>{},packet={speech:'A complete spoken response.',emotion:'curious',action:'none',memory:''};
 
@@ -33,23 +36,24 @@ async function fixture(){
     replyFollow:{update:change=>change(),latest:()=>{}},
     composerOptions:{close:noop},composer:{setValue:value=>{$('message').value=value;},resize:noop},
     editTarget:null,currentActivity:'conversation',brain:'live',busy:false,mode:'companion',selectedProvider:'',
-    summaryController:null,summaryTimer:null,pendingDraft:null,pendingPresentation:null,floatingPresence:null,document:{body:{dataset:{view:'conversation',presence:'visible'}}},activityTurn:null,lastPacket:{speech:'Before the call'},
+    summaryController:null,summaryTimer:null,pendingDraft:null,pendingPresentation:null,floatingPresence:null,document:{body:{dataset:{view:'conversation',presence:'visible'}},querySelectorAll:()=>[]},activityTurn:null,lastPacket:{speech:'Before the call'},
     turns:createTurnGate(),activity:{beginTurn:()=>1,transition:noop,finishTurn:noop},
     replyDiagnostics:{begin:()=>1,complete:noop,setStatus:noop,invalidate:noop,clear:noop},
-    afterimageBridge:{stop:noop},memory:{setName:noop,remember:noop},visit:{owner:false},
+    afterimageBridge:{stop:noop},memory:{setName:noop,remember:noop,setMode:async()=>true},visit:{owner:false},
     approvedPreferences:{context:()=>({})},knowledge:{context:()=>[]},companionBridge:{propose:noop},
     applyApprovedPreferences:noop,apiHeaders:()=>({}),contextPreview:noop,updateMemory:noop,
     navigation:{render:noop},companionChanged:noop,messageCompanion:{clear:noop},
     voice:{enabled:true,supported:true,prepare:noop,speak:(text,_m,_e,_c,options)=>{spoken.push(text);options?.onPlaybackStart?.();},stop:noop,setEnabled:noop},
     microphone:{stop:noop},callMicrophone:{supported:true,start:noop,stop:noop},showVoice:noop,
-    stage:{character:{react:noop},run:noop,speak:noop},addMessage,attachMessageActions:noop,
-    scheduleSummary:noop,setUsage:noop,toast:noop,openSettings:noop,refreshConnection:noop,setMode:async()=>{},
+    stage:{character:{react:noop},run:noop,speak:noop,setMode:noop},addMessage,attachMessageActions:noop,
+    scheduleSummary:noop,setUsage:noop,toast:noop,openSettings:noop,refreshConnection:noop,
     greetings:{companion:'Hello'},
     attachVoiceCall:configuration=>{adapter=configuration;return {session:{end:noop}};},
+    createNavigation:hooks=>{context.navigationHooks=hooks;return {render:noop};},
     async fetch(url,options){assert.equal(url,'/api/chat');requests.push(JSON.parse(options.body));return responder();},
   });
   context.setBusy=value=>{context.busy=value;};
-  vm.runInContext(`${performSource}\n${cancelSource}\n${restoreSource}\n${sendSource}\n${adapterSource}`,context);
+  vm.runInContext(`${modeSource}\n${performSource}\n${cancelSource}\n${restoreSource}\n${newSource}\n${sendSource}\n${adapterSource}\n${navigationSource}`,context);
   return {history,context,$,adapter,requests,spoken,respondWith:fn=>{responder=fn;}};
 }
 
@@ -137,6 +141,33 @@ test('a rejected edit keeps its target and draft without issuing a model request
   ui.history.replaceFrom=async()=>null;
   await ui.context.send('My corrected question');
   assert.equal(ui.context.editTarget,1);assert.equal(ui.$('message').value,'My corrected question');assert.deepEqual(ui.history.active(),original);assert.equal(ui.requests.length,0);
+});
+
+for(const switchThread of [false,true])test(`a revision canceled during mode restoration cannot send into ${switchThread?'another thread':'the canceled thread'}`,async()=>{
+  const ui=await fixture();await ui.history.append('user','Original question');await ui.history.append('assistant','Original answer');
+  ui.context.editTarget=1;ui.$('message').value='Corrected question';
+  let release,entered;const blocked=new Promise(resolve=>{release=resolve;}),restoring=new Promise(resolve=>{entered=resolve;});
+  ui.context.memory.setMode=async()=>{entered();await blocked;return true;};
+  const sending=ui.context.send('Corrected question');await restoring;
+  ui.context.cancelConversation();if(switchThread)await ui.history.create();
+  release();await sending;
+  assert.equal(ui.requests.length,0);assert.equal(ui.spoken.length,0);
+  assert.equal(ui.history.active().turns.some(turn=>turn.role==='assistant'),false);
+});
+
+test('a start prompt canceled during mode restoration cannot launch a new request',async()=>{
+  const ui=await fixture();let release,entered;const blocked=new Promise(resolve=>{release=resolve;}),restoring=new Promise(resolve=>{entered=resolve;});
+  ui.context.memory.setMode=async()=>{entered();await blocked;return true;};
+  const starting=ui.context.navigationHooks.onStart('An obsolete start prompt','companion');await restoring;
+  ui.context.cancelConversation();release();await starting;assert.equal(ui.requests.length,0);
+});
+
+for(const phase of ['create','restore'])test(`a new conversation canceled during ${phase} does not report a successful start`,async()=>{
+  const ui=await fixture();let release,entered;const blocked=new Promise(resolve=>{release=resolve;}),waiting=new Promise(resolve=>{entered=resolve;});
+  if(phase==='create'){const create=ui.history.create.bind(ui.history);ui.history.create=async()=>{const result=await create();entered();await blocked;return result;};}
+  else ui.context.memory.setMode=async()=>{entered();await blocked;return true;};
+  const starting=ui.context.newConversation();await waiting;ui.context.cancelConversation();release();
+  assert.equal(await starting,false);assert.equal(ui.requests.length,0);
 });
 
 class Element extends EventTarget{

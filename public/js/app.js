@@ -281,7 +281,7 @@ function attachMessageActions(message,turn){
   const actions=document.createElement('div');actions.className='message-actions';
   message.tabIndex=-1;message.addEventListener('pointerup',event=>{if(event.pointerType==='touch'&&!event.target.closest('button,a,textarea'))message.focus({preventScroll:true});});
   const copy=messageAction('copy',`Copy ${turn.role==='user'?'your message':'NOX’s reply'}`);copy.addEventListener('click',async()=>{try{await navigator.clipboard.writeText(turn.content);toast('Copied.');}catch{toast('Copy is unavailable. Select the text and copy it with your keyboard.');}});actions.append(copy);
-  const revise=messageAction(turn.role==='user'?'pencil':'rotate-ccw',turn.role==='user'?'Edit your message':'Retry NOX’s reply');revise.addEventListener('click',async()=>{if(busy){toast('Stop the current reply before revising this conversation.');return;}cancelConversation();if(turn.role==='user'){editTarget=turn.seq;composer.setValue(turn.content);replyDiagnostics.setStatus('Editing this message. Sending replaces the replies after it.');$('message').focus();}else{const retrying=turns.begin(),result=await history.retryFrom(turn.seq);if(!turns.isCurrent(retrying))return;if(!result){toast(historyFailure(history,'That reply changed. Reopen the conversation and try again.'));return;}editTarget=null;await restoreConversation({retrying:true});await send(result.draft,{recorded:true,keepDraft:true});}});actions.append(revise);
+  const revise=messageAction(turn.role==='user'?'pencil':'rotate-ccw',turn.role==='user'?'Edit your message':'Retry NOX’s reply');revise.addEventListener('click',async()=>{if(busy){toast('Stop the current reply before revising this conversation.');return;}cancelConversation();if(turn.role==='user'){editTarget=turn.seq;composer.setValue(turn.content);replyDiagnostics.setStatus('Editing this message. Sending replaces the replies after it.');$('message').focus();}else{const retrying=turns.begin(),result=await history.retryFrom(turn.seq);if(!turns.isCurrent(retrying))return;if(!result){toast(historyFailure(history,'That reply changed. Reopen the conversation and try again.'));return;}editTarget=null;const restored=await restoreConversation({retrying:true});if(!turns.isCurrent(restored))return;await send(result.draft,{recorded:true,keepDraft:true});}});actions.append(revise);
   const companion=messageAction('brain','Explore this message with NOX');companion.addEventListener('click',()=>messageCompanion?.openFor(message));actions.append(companion);message.append(actions);
 }
 function messageAction(icon,label){
@@ -360,7 +360,7 @@ async function send(raw,{recorded=false,keepDraft=false}={}) {
   const text = raw.trim(); if (!text || busy) return;
   const submittedDraft=$('message').value;
   if(brain==='loading'){replyDiagnostics.setStatus('The AI connection is not ready. Your message is still here.');return;}
-  if(editTarget!==null){const editing=turns.begin(),revised=await history.replaceFrom(editTarget,text);if(!turns.isCurrent(editing))return;if(!revised){toast(historyFailure(history,'That message could not be edited. Your draft is still here.'));return;}editTarget=null;await restoreConversation({retrying:true});recorded=true;}
+  if(editTarget!==null){const editing=turns.begin(),revised=await history.replaceFrom(editTarget,text);if(!turns.isCurrent(editing))return;if(!revised){toast(historyFailure(history,'That message could not be edited. Your draft is still here.'));return;}editTarget=null;const restored=await restoreConversation({retrying:true});if(!turns.isCurrent(restored))return;recorded=true;}
   // Failed or interrupted replies already keep their user turn. Sending the
   // same unanswered draft retries it without recording it a second time.
   const unanswered=history.active().turns.at(-1);
@@ -426,6 +426,7 @@ async function setMode(next, greet = true) {
   $('mood-label').textContent = stage.character.emotion;
   document.querySelectorAll('[data-mode]').forEach(button => { const active = button.dataset.mode === mode; button.classList.toggle('active', active); button.setAttribute('aria-pressed', active); });
   if (greet) await perform({ speech: greetings[mode], emotion: mode === 'uncanny' ? 'uncanny' : 'curious', action: 'none', memory: '' },false,undefined,version);
+  return version;
 }
 
 document.querySelectorAll('[data-mode]').forEach(button => button.addEventListener('click', () => setMode(button.dataset.mode)));
@@ -547,7 +548,7 @@ setInterval(() => {
 }, 120);
 
 function cancelConversation(){afterimageBridge.stop('conversation');turns.cancel();pendingPresentation?.cancel();pendingPresentation=null;activity.finishTurn(activityTurn);replyDiagnostics.invalidate();replyDiagnostics.setStatus('');setBusy(false);voice.stop();microphone.stop();summaryController?.abort();clearTimeout(summaryTimer);pendingDraft?.remove();pendingDraft=null;}
-async function restoreConversation({retrying=false}={}){messageCompanion?.clear();cancelConversation();const thread=history.active();await setMode(thread.mode,false);if(history.active().id!==thread.id)return;$('conversation').replaceChildren();$('chat-title').textContent=thread.title;
+async function restoreConversation({retrying=false}={}){messageCompanion?.clear();cancelConversation();const thread=history.active(),restored=await setMode(thread.mode,false);if(!turns.isCurrent(restored)||history.active().id!==thread.id)return;$('conversation').replaceChildren();$('chat-title').textContent=thread.title;
   thread.turns.forEach(turn=>{const message=addMessage(turn.role==='user'?'user':'nox',turn.content,turn);attachMessageActions(message,turn);});
   replyFollow.latest();
   const last=thread.turns.findLast(t=>t.role==='assistant');lastPacket={speech:last?.content||(thread.turns.length?'Your last message is still here. Ready when the AI connection is available.':greetings[mode]),emotion:stage.character.emotion,action:'none',memory:''};
@@ -555,6 +556,7 @@ async function restoreConversation({retrying=false}={}){messageCompanion?.clear(
   else if(thread.turns.length){if(!retrying)addMessage('system','Your last message is still here. Send it again to retry.');stage.caption='';stage.captionUntil=0;}
   else{stage.caption='';stage.captionUntil=0;}
   replyDiagnostics.clear();composer.resize();$('summary-note').textContent=thread.summary?'Older model context is summarized. The transcript remains available in Chats.':'';navigation?.render();updateMemory();companionChanged();
+  return restored;
 }
 function scheduleSummary(){clearTimeout(summaryTimer);if(!visit.owner||brain!=='live'||!history.summaryWork()||selectedProvider==='openai')return;summaryTimer=setTimeout(async()=>{
   const work=history.summaryWork();if(!work||busy)return;const controller=new AbortController();summaryController=controller;
@@ -564,10 +566,10 @@ function scheduleSummary(){clearTimeout(summaryTimer);if(!visit.owner||brain!=='
 },3000);}
 async function newConversation(){
   cancelConversation();
-  const thread=await history.create();if(!thread){toast(historyFailure(history));return false;}
-  editTarget=null;currentActivity='conversation';await restoreConversation();return true;
+  const starting=turns.begin(),thread=await history.create();if(!turns.isCurrent(starting))return false;if(!thread){toast(historyFailure(history));return false;}
+  editTarget=null;currentActivity='conversation';const restored=await restoreConversation();return turns.isCurrent(restored);
 }
-navigation=createNavigation({history,onOpen:async id=>{cancelConversation();editTarget=null;currentActivity='conversation';const selected=await history.select(id);await restoreConversation();if(!selected)toast('That conversation was removed in another tab.');},onNew:newConversation,onStart:async(text,persona)=>{await setMode(persona,false);await send(text);}});
+navigation=createNavigation({history,onOpen:async id=>{cancelConversation();editTarget=null;currentActivity='conversation';const selected=await history.select(id);await restoreConversation();if(!selected)toast('That conversation was removed in another tab.');},onNew:newConversation,onStart:async(text,persona)=>{const started=await setMode(persona,false);if(turns.isCurrent(started))await send(text);}});
 messageCompanion=attachMessageCompanion({conversation:$('conversation'),onAction:exploreWithNox});
 floatingPresence=attachFloatingPresence({stage,onInspect:value=>messageCompanion.inspect(value),onRelease:value=>messageCompanion.release(value),onClear:()=>messageCompanion.clear()});
 window.addEventListener('pagehide',event=>{if(!event.persisted){floatingPresence.dispose();messageCompanion.dispose();}},{once:true});
