@@ -258,8 +258,17 @@ export function createAppServer({
           const selected=input.provider?available.find(p=>p.id===input.provider):preferred;
           if(!selected||selected.id==='openai')return sendJson(response,400,{error:'Choose a configured Groq, Gemini or NVIDIA provider for summaries.'});
           const wait=sharedWait();if(wait)return sharedFailure(wait,'Give NOX a moment before summarizing more conversation.');
-          try {return sendJson(response,200,{summary:await summary(input,{provider:selected.id,apiKey:providerKey(selected.id),model:selected.model})});}
-          catch{return sendJson(response,502,{error:'The conversation summary could not finish. Your saved transcript is unchanged.'});}
+          const controller=new AbortController(),disconnect=()=>{if(!response.writableEnded)controller.abort();};
+          request.once('aborted',disconnect);response.once('close',disconnect);
+          if(request.aborted||response.destroyed)controller.abort();
+          try{
+            if(controller.signal.aborted)return;
+            const value=await summary(input,{provider:selected.id,apiKey:providerKey(selected.id),model:selected.model,signal:controller.signal});
+            if(!controller.signal.aborted&&!response.destroyed)return sendJson(response,200,{summary:value});
+          }catch{
+            if(!controller.signal.aborted&&!response.destroyed)return sendJson(response,502,{error:'The conversation summary could not finish. Your saved transcript is unchanged.'});
+          }finally{request.off('aborted',disconnect);response.off('close',disconnect);}
+          return;
         }
         const messageLimit=CHAT_INPUT_CHARACTERS;
         if (!input || typeof input.message !== 'string' || !input.message.trim() || input.message.length > messageLimit) {
