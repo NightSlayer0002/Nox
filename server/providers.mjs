@@ -1,5 +1,5 @@
 import { IDENTITY, requestNox, answerInstructions, conversationMessages } from './ai.mjs';
-import { PACKET_SCHEMA, ANSWER_DEPTHS, answerDepth, normalizePacket, sanitizeContext, cleanText } from '../shared/character.js';
+import { PACKET_SCHEMA, ANSWER_DEPTHS, answerDepth, normalizePacket, sanitizeContext, cleanText, CHAT_INPUT_CHARACTERS, MAX_PACKET_CHARACTERS, CHAT_REQUEST_BYTES } from '../shared/character.js';
 import {productInstructions} from '../shared/product-capabilities.js';
 import { AFTERIMAGE_SCHEMA, normalizeAfterimage, sanitizeAfterimageInput } from '../shared/afterimage.js';
 import { consumeSSE, partialSpeech } from './stream.mjs';
@@ -130,7 +130,10 @@ function geminiSchema(schema){
 }
 
 export async function requestSummary(input,options) {
-  const turns=(Array.isArray(input.turns)?input.turns:[]).filter(t=>t&&['user','assistant'].includes(t.role)&&typeof t.content==='string').slice(0,24).map(t=>({role:t.role,content:cleanText(t.content,600)}));
-  if(!turns.length)throw Error('Summary needs conversation turns.');
-  return requestProvider({message:JSON.stringify({previous:cleanText(input.previous,1200),turns})},{...options,task:'summary'});
+  const source=Array.isArray(input.turns)?input.turns:[];
+  const turns=source.filter(t=>t&&['user','assistant'].includes(t.role)&&typeof t.content==='string').map(({role,content})=>({role,content}));
+  if(!turns.length||turns.length>24||turns.some(t=>t.content.length>(t.role==='assistant'?MAX_PACKET_CHARACTERS:CHAT_INPUT_CHARACTERS)))throw Error('Summary needs complete bounded conversation turns.');
+  const message=JSON.stringify({previous:cleanText(input.previous,1200),turns});
+  if(new TextEncoder().encode(message).byteLength>CHAT_REQUEST_BYTES)throw Error('Summary input exceeds its transport budget.');
+  return requestProvider({message},{...options,task:'summary'});
 }
