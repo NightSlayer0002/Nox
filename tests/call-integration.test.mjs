@@ -106,6 +106,23 @@ test('busy and disconnected call submissions reject without inventing speech or 
   assert.equal(ui.requests.length,0);assert.equal(ui.spoken.length,0);
 });
 
+for(const failed of [false,true])test(`a newer typed draft survives a pending history append and ${failed?'failed':'successful'} reply`,async()=>{
+  const ui=await fixture();ui.$('message').value='Submitted thought';
+  let release,started;const gate=new Promise(resolve=>{release=resolve;}),waiting=new Promise(resolve=>{started=resolve;});
+  const append=ui.history.append.bind(ui.history);
+  ui.history.append=async(role,...args)=>{if(role==='user'){started();await gate;}return append(role,...args);};
+  if(failed)ui.respondWith(async()=>Response.json({error:'Synthetic unavailable reply'},{status:503}));
+  const work=ui.context.send('Submitted thought');await waiting;
+  ui.$('message').value='A newer unfinished thought';release();await work;
+  assert.equal(ui.$('message').value,'A newer unfinished thought');
+  assert.equal(ui.history.active().turns[0].content,'Submitted thought');
+});
+
+test('the unchanged submitted draft still clears after it is recorded',async()=>{
+  const ui=await fixture();ui.$('message').value='Submitted thought';
+  await ui.context.send('Submitted thought');assert.equal(ui.$('message').value,'');
+});
+
 class Element extends EventTarget{
   constructor(){super();this.children=[];this.dataset={};this.open=false;}
   append(node){node.parentNode?.remove(node);this.children.push(node);node.parentNode=this;}
