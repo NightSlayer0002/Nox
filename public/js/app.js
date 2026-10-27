@@ -569,7 +569,7 @@ async function newConversation(){
   const starting=turns.begin(),thread=await history.create();if(!turns.isCurrent(starting))return false;if(!thread){toast(historyFailure(history));return false;}
   editTarget=null;currentActivity='conversation';const restored=await restoreConversation();return turns.isCurrent(restored);
 }
-navigation=createNavigation({history,onOpen:async id=>{cancelConversation();editTarget=null;currentActivity='conversation';const selected=await history.select(id);await restoreConversation();if(!selected)toast('That conversation was removed in another tab.');},onNew:newConversation,onStart:async(text,persona)=>{const started=await setMode(persona,false);if(turns.isCurrent(started))await send(text);}});
+navigation=createNavigation({history,onOpen:async id=>{cancelConversation();const opening=turns.begin();editTarget=null;currentActivity='conversation';const selected=await history.select(id);if(!turns.isCurrent(opening))return;await restoreConversation();if(!selected)toast('That conversation was removed in another tab.');},onNew:newConversation,onStart:async(text,persona)=>{const started=await setMode(persona,false);if(turns.isCurrent(started))await send(text);}});
 messageCompanion=attachMessageCompanion({conversation:$('conversation'),onAction:exploreWithNox});
 floatingPresence=attachFloatingPresence({stage,onInspect:value=>messageCompanion.inspect(value),onRelease:value=>messageCompanion.release(value),onClear:()=>messageCompanion.clear()});
 window.addEventListener('pagehide',event=>{if(!event.persisted){floatingPresence.dispose();messageCompanion.dispose();}},{once:true});

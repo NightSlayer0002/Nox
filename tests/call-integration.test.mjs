@@ -170,6 +170,14 @@ for(const phase of ['create','restore'])test(`a new conversation canceled during
   assert.equal(await starting,false);assert.equal(ui.requests.length,0);
 });
 
+test('an older chat-open continuation cannot cancel a newer conversation start',async()=>{
+  const ui=await fixture();await ui.history.append('user','Earlier question');await ui.history.append('assistant','Earlier answer');
+  const earlier=ui.history.active().id;await ui.history.create();await ui.history.append('user','Another question');
+  const opening=ui.context.navigationHooks.onOpen(earlier),starting=ui.context.newConversation();
+  await opening;assert.equal(await starting,true);assert.notEqual(ui.history.active().id,earlier);
+  assert.equal(ui.history.active().turns.length,0);assert.equal(ui.requests.length,0);
+});
+
 class Element extends EventTarget{
   constructor(){super();this.children=[];this.dataset={};this.open=false;}
   append(node){node.parentNode?.remove(node);this.children.push(node);node.parentNode=this;}
