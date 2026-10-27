@@ -21,6 +21,10 @@
 .voice-call-dialog[data-status=listening] .voice-call-signal i:nth-child(3){animation-delay:.3s}
 .voice-call-status{font-size:18px;line-height:1.4;text-align:center;margin:0 0 8px;min-height:26px}
 .voice-call-heard{font-size:14px;color:var(--muted);line-height:1.5;text-align:center;margin:0 auto;max-width:55ch;max-height:64px;overflow:auto;white-space:pre-wrap}
+.voice-call-answer{margin:20px auto 0;width:100%;max-width:65ch;min-height:0}
+.voice-call-answer[hidden]{display:none}
+.voice-call-answer h3{font-size:14px;font-weight:500;color:var(--muted);margin:0 0 8px}
+.voice-call-answer p{font-size:16px;line-height:1.65;white-space:pre-wrap;overflow-wrap:anywhere;margin:0}
 .voice-call-actions{display:flex;justify-content:center;align-items:center;flex-wrap:wrap;gap:10px;margin:24px 0 16px}
 .workspace .voice-call-actions button{display:inline-flex;align-items:center;gap:8px;border:1px solid var(--line);background:transparent;color:var(--text);min-height:44px;border-radius:24px;padding:10px 18px;font-size:14px}
 .workspace .voice-call-actions .call-connect{background:var(--accent);border-color:transparent;color:var(--bg)}
