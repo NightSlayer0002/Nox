@@ -123,6 +123,14 @@ test('the unchanged submitted draft still clears after it is recorded',async()=>
   await ui.context.send('Submitted thought');assert.equal(ui.$('message').value,'');
 });
 
+test('a rejected edit keeps its target and draft without issuing a model request',async()=>{
+  const ui=await fixture();await ui.history.append('user','Original question');await ui.history.append('assistant','Original answer');
+  const original=ui.history.active();ui.context.editTarget=1;ui.$('message').value='My corrected question';
+  ui.history.replaceFrom=async()=>null;
+  await ui.context.send('My corrected question');
+  assert.equal(ui.context.editTarget,1);assert.equal(ui.$('message').value,'My corrected question');assert.deepEqual(ui.history.active(),original);assert.equal(ui.requests.length,0);
+});
+
 class Element extends EventTarget{
   constructor(){super();this.children=[];this.dataset={};this.open=false;}
   append(node){node.parentNode?.remove(node);this.children.push(node);node.parentNode=this;}

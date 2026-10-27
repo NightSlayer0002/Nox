@@ -1,4 +1,5 @@
 export function historyFailure(history,fallback='This conversation changed in another tab. Reopen it and try again.'){
+  if(history.lastError==='transcript-not-saved')return 'The conversation was not changed. NOX could not save this revision to browser storage. Your draft is kept; export a copy before refreshing.';
   if(history.lastError==='delete-not-saved')return 'The conversation was not removed. NOX could not save the deletion to browser storage. Export a copy and try again when storage is available.';
   if(history.lastError==='conversation-limit')return 'This archive has reached 40 conversations. Export a copy, then delete a conversation to make room. Nothing was removed automatically.';
   if(history.lastError==='turn-limit')return 'This conversation has reached its 200-message limit. Start a new conversation to continue. Your transcript and draft are unchanged.';

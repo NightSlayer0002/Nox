@@ -41,6 +41,10 @@ export async function createHistory(storage,legacy=[]){
     state.active=currentId;if(!persistent||recovery)return;
     try{storage.setItem(KEY,JSON.stringify(state));}catch{persistent=false;lastError='storage-unavailable';}
   }
+  function commitCandidate(candidate,error){
+    try{storage.setItem(KEY,JSON.stringify(candidate));}catch{lastError=error;return false;}
+    state=candidate;currentId=candidate.active;return true;
+  }
   function choose(){if(!active()){if(!state.threads.length)state.threads.push(newThread());currentId=state.threads[0].id;}}
   await serialize(storage,()=>{load();currentId=state.threads.some(t=>t.id===state.active)?state.active:state.threads[0]?.id||'';
     if(!state.threads.length){const t=newThread();state.threads.push(t);currentId=t.id;for(const turn of legacy.slice(-24))if(['user','assistant'].includes(turn.role))t.turns.push({role:turn.role,content:cleanText(turn.content,1200),seq:t.next++});if(t.turns.length)t.title=cleanText(t.turns.find(v=>v.role==='user')?.content,60)||'Earlier conversation';save();}
@@ -53,11 +57,14 @@ export async function createHistory(storage,legacy=[]){
   });
   function replaceFrom(seq,content){
     const id=currentId,text=turnText(content,'user');if(!Number.isSafeInteger(seq)||!text||typeof content!=='string'||content.length>CHAT_INPUT_CHARACTERS)return Promise.resolve(null);
-    return write(()=>{
-      const t=state.threads.find(thread=>thread.id===id),index=t?.turns.findIndex(turn=>turn.seq===seq&&turn.role==='user');
+    return serialize(storage,()=>{
+      lastError='';if(persistent)load();choose();
+      if(!persistent||recovery){lastError='transcript-not-saved';return null;}
+      const candidate=structuredClone(state),t=candidate.threads.find(thread=>thread.id===id),index=t?.turns.findIndex(turn=>turn.seq===seq&&turn.role==='user');
       if(!t||index<0)return null;
       t.turns=t.turns.slice(0,index+1);t.turns[index].content=text;t.next=seq+1;t.summary='';t.summaryThrough=0;t.updated=Date.now();
-      if(index===0)t.title=cleanText(text,60);return {draft:text,seq,thread:structuredClone(t)};
+      if(index===0)t.title=cleanText(text,60);candidate.active=currentId;
+      return commitCandidate(candidate,'transcript-not-saved')?{draft:text,seq,thread:structuredClone(t)}:null;
     });
   }
   async function refresh(){return serialize(storage,()=>{const before=JSON.stringify(active()),id=currentId;if(persistent)load();choose();const currentChanged=id!==currentId||before!==JSON.stringify(active());listeners.forEach(fn=>fn({currentChanged}));});}
@@ -113,8 +120,7 @@ export async function createHistory(storage,legacy=[]){
       const candidate=structuredClone(state);candidate.threads=candidate.threads.filter(thread=>thread.id!==id);
       if(!candidate.threads.length)candidate.threads.push(newThread());
       candidate.active=candidate.threads.some(thread=>thread.id===currentId)?currentId:candidate.threads[0].id;
-      try{storage.setItem(KEY,JSON.stringify(candidate));}catch{return failed();}
-      state=candidate;currentId=candidate.active;return true;
+      return commitCandidate(candidate,'delete-not-saved');
     });},
     context(){const t=active(),pending=t.turns.filter(v=>v.seq>t.summaryThrough),opening=t.turns.find(v=>v.seq===1&&v.role==='user');
       const dialogue=turns=>(opening&&!turns.includes(opening)?[opening,...turns]:turns).map(({role,content})=>({role,content}));

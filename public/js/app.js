@@ -280,7 +280,7 @@ function attachMessageActions(message,turn){
   const actions=document.createElement('div');actions.className='message-actions';
   message.tabIndex=-1;message.addEventListener('pointerup',event=>{if(event.pointerType==='touch'&&!event.target.closest('button,a,textarea'))message.focus({preventScroll:true});});
   const copy=messageAction('copy',`Copy ${turn.role==='user'?'your message':'NOX’s reply'}`);copy.addEventListener('click',async()=>{try{await navigator.clipboard.writeText(turn.content);toast('Copied.');}catch{toast('Copy is unavailable. Select the text and copy it with your keyboard.');}});actions.append(copy);
-  const revise=messageAction(turn.role==='user'?'pencil':'rotate-ccw',turn.role==='user'?'Edit your message':'Retry NOX’s reply');revise.addEventListener('click',async()=>{if(busy){toast('Stop the current reply before revising this conversation.');return;}cancelConversation();if(turn.role==='user'){editTarget=turn.seq;composer.setValue(turn.content);replyDiagnostics.setStatus('Editing this message. Sending replaces the replies after it.');$('message').focus();}else{const result=await history.retryFrom(turn.seq);if(!result){toast('That reply changed. Reopen the conversation and try again.');return;}await restoreConversation({retrying:true});await send(result.draft,{recorded:true});}});actions.append(revise);
+  const revise=messageAction(turn.role==='user'?'pencil':'rotate-ccw',turn.role==='user'?'Edit your message':'Retry NOX’s reply');revise.addEventListener('click',async()=>{if(busy){toast('Stop the current reply before revising this conversation.');return;}cancelConversation();if(turn.role==='user'){editTarget=turn.seq;composer.setValue(turn.content);replyDiagnostics.setStatus('Editing this message. Sending replaces the replies after it.');$('message').focus();}else{const retrying=turns.begin(),result=await history.retryFrom(turn.seq);if(!turns.isCurrent(retrying))return;if(!result){toast(historyFailure(history,'That reply changed. Reopen the conversation and try again.'));return;}editTarget=null;await restoreConversation({retrying:true});await send(result.draft,{recorded:true,keepDraft:true});}});actions.append(revise);
   const companion=messageAction('brain','Explore this message with NOX');companion.addEventListener('click',()=>messageCompanion?.openFor(message));actions.append(companion);message.append(actions);
 }
 function messageAction(icon,label){
@@ -352,12 +352,12 @@ function setBusy(value) {
   companionChanged();
 }
 
-async function send(raw,{recorded=false}={}) {
+async function send(raw,{recorded=false,keepDraft=false}={}) {
   composerOptions.close();
   const text = raw.trim(); if (!text || busy) return;
   const submittedDraft=$('message').value;
   if(brain==='loading'){replyDiagnostics.setStatus('The AI connection is not ready. Your message is still here.');return;}
-  if(editTarget!==null){const revised=await history.replaceFrom(editTarget,text);editTarget=null;if(!revised){toast('That message could not be edited. Your draft is still here.');return;}await restoreConversation({retrying:true});recorded=true;}
+  if(editTarget!==null){const editing=turns.begin(),revised=await history.replaceFrom(editTarget,text);if(!turns.isCurrent(editing))return;if(!revised){toast(historyFailure(history,'That message could not be edited. Your draft is still here.'));return;}editTarget=null;await restoreConversation({retrying:true});recorded=true;}
   // Failed or interrupted replies already keep their user turn. Sending the
   // same unanswered draft retries it without recording it a second time.
   const unanswered=history.active().turns.at(-1);
@@ -386,7 +386,7 @@ async function send(raw,{recorded=false}={}) {
   setBusy(true);
   if(!recorded&&!await history.append('user',text)){const message=historyFailure(history);cancelConversation();await restoreConversation();toast(message);return;}
   if(!turns.isCurrent(version))return;
-  if(!recorded){const userTurn=history.active().turns.at(-1),message=addMessage('user', text,userTurn);attachMessageActions(message,userTurn);}if($('message').value===submittedDraft)composer.setValue(''); contextPreview();updateMemory();navigation?.render();companionChanged();
+  if(!recorded){const userTurn=history.active().turns.at(-1),message=addMessage('user', text,userTurn);attachMessageActions(message,userTurn);}if(!keepDraft&&$('message').value===submittedDraft)composer.setValue(''); contextPreview();updateMemory();navigation?.render();companionChanged();
   setBusy(true); voice.stop(); microphone.stop(); stage.character.emotion = 'curious';
   try {
     let packet;

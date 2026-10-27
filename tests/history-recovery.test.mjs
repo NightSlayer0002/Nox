@@ -128,3 +128,18 @@ test('a failed archive read cannot turn owner deletion into a temporary success'
   assert.equal(await history.remove(id),false);assert.deepEqual(history.list(),before);
   assert.equal(storage.values.get(KEY),saved);assert.equal(history.lastError,'delete-not-saved');
 });
+
+for(const operation of ['edit','retry'])test(`${operation} commits its candidate before changing the saved or visible transcript`,async()=>{
+  const storage=disk(),history=await createHistory(storage);
+  for(const [role,content] of [['user','Original question'],['assistant','Original answer'],['user','Later question'],['assistant','Later answer']])await history.append(role,content);
+  await history.applySummary(history.active().id,2,'Original summary');
+  const saved=storage.getItem(KEY),before=history.active(),write=storage.setItem;
+  storage.setItem=()=>{throw Error('Storage rejected this revision');};
+  const revise=()=>operation==='edit'?history.replaceFrom(1,'Corrected question'):history.retryFrom(2);
+  assert.equal(await revise(),null);assert.deepEqual(history.active(),before);assert.equal(storage.getItem(KEY),saved);
+  assert.equal(history.lastError,'transcript-not-saved');
+  assert.deepEqual((await createHistory(storage)).active().turns,before.turns);
+  storage.setItem=write;const result=await revise();assert.ok(result);assert.equal(history.active().turns.length,1);assert.equal(history.active().summary,'');
+  const restored=await createHistory(storage);assert.equal(restored.active().turns.length,1);
+  assert.equal(restored.active().turns[0].content,operation==='edit'?'Corrected question':'Original question');
+});
