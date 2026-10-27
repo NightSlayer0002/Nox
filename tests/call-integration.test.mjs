@@ -107,6 +107,13 @@ test('busy and disconnected call submissions reject without inventing speech or 
   assert.equal(ui.requests.length,0);assert.equal(ui.spoken.length,0);
 });
 
+test('call answers retain complete readable text while audio remains a bounded preview',async()=>{
+  const ui=await fixture(),speech='A complete explanation. '.repeat(60)+'The final decision belongs in the call too.';
+  ui.respondWith(async()=>Response.json({...packet,speech}));
+  const result=await ui.adapter.options.submit('A long spoken question');
+  assert.equal(result.reply,speech);assert.ok(ui.spoken[0].length<=420);
+});
+
 for(const failed of [false,true])test(`a newer typed draft survives a pending history append and ${failed?'failed':'successful'} reply`,async()=>{
   const ui=await fixture();ui.$('message').value='Submitted thought';
   let release,started;const gate=new Promise(resolve=>{release=resolve;}),waiting=new Promise(resolve=>{started=resolve;});
@@ -145,7 +152,7 @@ class Element extends EventTarget{
 test('native dialog closure restores the same stage and stops the call after the open attribute is cleared',async()=>{
   const oldWindow=globalThis.window,oldLocation=globalThis.location;
   globalThis.window=new EventTarget();globalThis.location={hash:'#conversation'};
-  const ids=['voice-call-dialog','stage-bezel','voice-call-presence','call-button','voice-call-status','voice-call-heard','voice-call-connect','voice-call-mute','voice-call-interrupt','voice-call-type','voice-call-end','voice-call-close','message'];
+  const ids=['voice-call-dialog','stage-bezel','voice-call-presence','call-button','voice-call-status','voice-call-heard','voice-call-answer','voice-call-reply','voice-call-connect','voice-call-mute','voice-call-interrupt','voice-call-type','voice-call-end','voice-call-close','message'];
   const nodes=Object.fromEntries(ids.map(id=>[id,new Element()])),home=new Element(),doc=new Element(),stops=[];home.append(nodes['stage-bezel']);
   doc.body={dataset:{}};doc.getElementById=id=>nodes[id];doc.createComment=()=>new Element();
   const ui=attachVoiceCall({documentTarget:doc,options:{supported:true,startListening:noop,stopListening:()=>stops.push('microphone'),stopReply:()=>stops.push('reply')}});

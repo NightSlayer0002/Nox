@@ -220,7 +220,7 @@ voiceCall=attachVoiceCall({options:{
     // unfinished typed edit that was set aside when this call opened.
     if(!packet&&$('message').value===text)composer.setValue('');
     if(!packet)throw Error(historyFailure(history,'NOX could not start or finish this reply. Check the conversation limit or connection, then try again.'));
-    return {reply:spokenPreview(packet.speech),voicePending:voice.enabled&&voice.supported};
+    return {reply:packet.speech,voicePending:voice.enabled&&voice.supported};
   }
 },getDraft:()=>{
   const draft={text:$('message').value,edit:editTarget,thread:history.active().id};editTarget=null;return draft;

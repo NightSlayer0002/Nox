@@ -19,6 +19,10 @@ export function attachVoiceCall({documentTarget=globalThis.document,options,getD
     dialog.dataset.status=state.status;
     $('voice-call-status').textContent=state.error||labels[state.status]||'NOX is here.';
     $('voice-call-heard').textContent=state.heard?`You: ${state.heard}`:'';
+    // The stage caption is decorative and spoken audio is a preview. Keep the
+    // complete, revealed answer inside the dialog's accessible reading order.
+    if($('voice-call-reply').textContent!==state.reply)$('voice-call-reply').textContent=state.reply;
+    $('voice-call-answer').hidden=!state.reply;
     $('voice-call-connect').hidden=state.active&&!['paused','error'].includes(state.status);
     $('voice-call-connect').disabled=state.status==='unsupported';
     $('voice-call-connect').textContent=state.active?'Resume listening':'Connect microphone';
