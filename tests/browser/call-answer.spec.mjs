@@ -19,6 +19,12 @@ test('the call dialog exposes the full answer while speaking only the bounded pr
   await expect(page.locator('#voice-call-reply')).toHaveText(speech);await expect(page.locator('#voice-call-reply')).toHaveAttribute('aria-live','polite');
   expect(await page.locator('#voice-call-reply').evaluate(node=>node.closest('[aria-hidden="true"], [inert]'))).toBeNull();
   expect((await page.evaluate(()=>ciSpoken.join(' '))).length).toBeLessThanOrEqual(420);
+  const bounds=await page.evaluate(()=>{
+    const bottom=id=>document.getElementById(id).getBoundingClientRect().bottom;
+    return {text:bottom('voice-call-reply'),section:bottom('voice-call-answer'),controls:document.querySelector('.voice-call-actions').getBoundingClientRect().top};
+  });
+  expect(bounds.text).toBeLessThanOrEqual(bounds.section+1);
+  expect(bounds.text).toBeLessThanOrEqual(bounds.controls);
   await page.getByRole('button',{name:'Close voice conversation',exact:true}).click();
   await expect(page.locator('#conversation .message.nox .message-content')).toHaveText(speech);
 });

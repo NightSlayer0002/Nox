@@ -37,14 +37,15 @@ test('narrow untouched chat reserves reading space and deliberate movement resto
   await page.locator('#message').fill('CI long reading');await page.locator('#send-button').click();
   await expect(page.locator('#conversation .message.nox:not(.draft)')).toHaveCount(1);
   await expect.poll(()=>page.locator('#conversation .message').evaluateAll(nodes=>nodes.some(node=>parseFloat(node.style.marginInlineEnd)>0||node.hasAttribute('data-presence-clearance')))).toBe(true);
-  const bounds=await page.evaluate(()=>{
+  // Following and character clearance settle through real resize/scroll events.
+  // Wait for the actual reading invariant, not only the first clearance style.
+  await expect.poll(()=>page.evaluate(()=>{
     const handle=document.querySelector('.floating-nox-handle').getBoundingClientRect();
     return [...document.querySelectorAll('#conversation .message')].flatMap(node=>{
       const range=document.createRange();range.selectNodeContents(node.querySelector('.message-content'));
-      return [...range.getClientRects()].filter(rect=>rect.bottom>handle.top&&rect.top<handle.bottom&&rect.width>0).map(rect=>({right:rect.right,left:handle.left}));
+      return [...range.getClientRects()].filter(rect=>rect.bottom>handle.top&&rect.top<handle.bottom&&rect.width>0&&rect.right>handle.left).map(rect=>({right:rect.right,left:handle.left}));
     });
-  });
-  for(const box of bounds)expect(box.right).toBeLessThanOrEqual(box.left);
+  })).toEqual([]);
   await page.locator('.floating-nox-handle').focus();await page.keyboard.press('ArrowLeft');
   await expect.poll(()=>page.locator('#conversation .message').evaluateAll(nodes=>nodes.every(node=>!node.style.marginInlineEnd&&!node.hasAttribute('data-presence-clearance')))).toBe(true);
 });
