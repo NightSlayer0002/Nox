@@ -49,6 +49,19 @@ test('summaries use the same owner gate and selected server model as chat',async
   });
 });
 
+test('summary HTTP accepts a complete long Unicode answer and rejects out-of-contract turns before calling a provider',async()=>{
+  let seen,calls=0;
+  await withServer({providers:[{id:'nvidia',name:'Synthetic summary provider',model:'fixture'}],summary:async input=>{calls++;seen=input;return 'The final decision is retained.';}},async base=>{
+    const answer='\u6708'.repeat(11000)+' Final decision: keep the lighthouse.';
+    const send=turns=>fetch(`${base}/api/summary`,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({turns})});
+    const response=await send([{role:'assistant',content:answer}]);assert.equal(response.status,200);assert.equal(seen.turns[0].content,answer);
+    assert.equal((await send([{role:'assistant',content:'A'.repeat(12001)}])).status,400);
+    assert.equal((await send([{role:'user',content:'U'.repeat(6001)}])).status,400);
+    assert.equal((await send([{role:'assistant',content:'\ud800'.repeat(12000)}])).status,413);
+    assert.equal(calls,1);
+  });
+});
+
 test('streaming chat delivers text then a normalized final packet with timings',async()=>{
   await withServer({providers:[{id:'groq',name:'GroqCloud',model:'fixture'}],providerRequest:async(input,options)=>{options.onText('Hello');return {speech:'Hello world',emotion:'happy',action:'evil',memory:''};}},async base=>{
     const response=await fetch(`${base}/api/chat`,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({message:'Hi',stream:true})});

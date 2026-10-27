@@ -5,7 +5,7 @@ import { readFile } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-import { normalizePacket, sanitizeContext, answerDepth, EMOTIONS, CHAT_INPUT_CHARACTERS, CHAT_REQUEST_BYTES } from './shared/character.js';
+import { normalizePacket, sanitizeContext, answerDepth, EMOTIONS, CHAT_INPUT_CHARACTERS, CHAT_REQUEST_BYTES, MAX_PACKET_CHARACTERS } from './shared/character.js';
 import {capabilitiesForModel} from './shared/product-capabilities.js';
 import { requestNox, explicitMemoryRequest } from './server/ai.mjs';
 import { getProviders, providerKey, requestProvider, requestSummary, modelForDepth } from './server/providers.mjs';
@@ -184,7 +184,7 @@ export function createAppServer({
       if (locked&&!publicSpeech&&!guestChat) return sendJson(response, 401, { error: 'Unlock owner access in Settings before using cloud AI.' });
       if (!request.headers['content-type']?.startsWith('application/json')) return sendJson(response, 415, { error: 'Send application/json.' });
       try {
-        const input = await readJson(request,pathname==='/api/chat'?CHAT_REQUEST_BYTES:16384);
+        const input = await readJson(request,['/api/chat','/api/summary'].includes(pathname)?CHAT_REQUEST_BYTES:16384);
         if(pathname==='/api/afterimage'){
           let creative;
           try{creative=sanitizeAfterimageInput(input);}catch{return sendJson(response,400,{error:'Send a seed of 1–600 characters, a wonder/uncanny/bold tone, and an optional variation from 0 to 1024 or configured provider.'});}
@@ -254,7 +254,7 @@ export function createAppServer({
           }
         }
         if(pathname==='/api/summary') {
-          if(!input||!Array.isArray(input.turns)||input.turns.length<1||input.turns.length>24||input.turns.some(t=>!t||!['user','assistant'].includes(t.role)||typeof t.content!=='string'||t.content.length>1200)||typeof input.previous!=='undefined'&&typeof input.previous!=='string')return sendJson(response,400,{error:'Send 1–24 conversation turns and an optional previous summary.'});
+          if(!input||!Array.isArray(input.turns)||input.turns.length<1||input.turns.length>24||input.turns.some(t=>!t||!['user','assistant'].includes(t.role)||typeof t.content!=='string'||t.content.length>(t.role==='assistant'?MAX_PACKET_CHARACTERS:CHAT_INPUT_CHARACTERS))||typeof input.previous!=='undefined'&&typeof input.previous!=='string')return sendJson(response,400,{error:'Send 1–24 conversation turns and an optional previous summary.'});
           const selected=input.provider?available.find(p=>p.id===input.provider):preferred;
           if(!selected||selected.id==='openai')return sendJson(response,400,{error:'Choose a configured Groq, Gemini or NVIDIA provider for summaries.'});
           const wait=sharedWait();if(wait)return sharedFailure(wait,'Give NOX a moment before summarizing more conversation.');

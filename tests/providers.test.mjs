@@ -1,7 +1,23 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { getProviders, requestProvider } from '../server/providers.mjs';
+import { getProviders, requestProvider, requestSummary } from '../server/providers.mjs';
 const packet = {speech:'An original thought.',emotion:'curious',action:'none',memory:''};
+
+test('summary provider receives the complete answer ending without a second clipping pass',async()=>{
+  const answer='Detailed reasoning. '.repeat(200)+'Final decision: keep the violet lighthouse.';
+  const result=await requestSummary({previous:'A previous goal',turns:[{role:'assistant',content:answer}]},{provider:'groq',apiKey:'fixture',fetchImpl:async(_url,options)=>{
+    const body=JSON.parse(options.body),input=JSON.parse(body.messages.at(-1).content);
+    assert.equal(input.turns[0].content,answer);
+    return Response.json({choices:[{finish_reason:'stop',message:{content:JSON.stringify({summary:'Keep the violet lighthouse.'})}}]});
+  }});
+  assert.equal(result,'Keep the violet lighthouse.');
+});
+
+test('direct summary calls reject an oversized batch before spending a provider request',async()=>{
+  let calls=0;
+  await assert.rejects(requestSummary({turns:Array.from({length:8},()=>({role:'assistant',content:'A'.repeat(12000)}))},{provider:'groq',apiKey:'fixture',fetchImpl:async()=>{calls++;return Response.json({});}}),/budget/);
+  assert.equal(calls,0);
+});
 
 test('provider catalog exposes configuration without disclosing keys', () => {
   const providers = getProviders({GROQ_API_KEY:'secret-a', GEMINI_API_KEY:'secret-b'});

@@ -1,4 +1,4 @@
-import { cleanText, MODES, CHAT_INPUT_CHARACTERS, MAX_PACKET_CHARACTERS } from '../../shared/character.js';
+import { cleanText, MODES, CHAT_INPUT_CHARACTERS, MAX_PACKET_CHARACTERS, CHAT_REQUEST_BYTES } from '../../shared/character.js';
 import {messageSources} from './message-sources.js';
 
 const KEY='nox.chats.v1',queues=new WeakMap();
@@ -128,7 +128,21 @@ export async function createHistory(storage,legacy=[]){
       const recent=t.turns.slice(-8),older=pending.filter(v=>v.seq<recent[0].seq);const excerpts=older.length<=10?older:[...older.slice(0,6),...older.slice(-4)];
       return {summary:t.summary,bridge:cleanText(excerpts.map(v=>`${v.role}: ${cleanText(v.content,130)}`).join(' | '),1600),history:dialogue(recent)};
     },
-    summaryWork(){const t=active(),older=t.turns.slice(0,-8).filter(v=>v.seq>t.summaryThrough);if(older.length<12)return null;const turns=older.slice(0,24).map(v=>({...v,content:cleanText(v.content,600)}));while(new TextEncoder().encode(JSON.stringify({previous:t.summary,turns})).byteLength>12000&&turns.length>1)turns.pop();return {id:t.id,through:turns.at(-1).seq,previous:t.summary,turns:turns.map(({role,content})=>({role,content}))};},
+    summaryWork(){
+      const t=active(),older=t.turns.slice(0,-8).filter(v=>v.seq>t.summaryThrough);
+      if(!older.length||!t.summaryThrough&&older.length<12)return null;
+      const turns=[];
+      for(const turn of older.slice(0,24)){
+        if(turn.content.length>(turn.role==='assistant'?MAX_PACKET_CHARACTERS:CHAT_INPUT_CHARACTERS))break;
+        const next=[...turns,{role:turn.role,content:turn.content,seq:turn.seq}];
+        const size=new TextEncoder().encode(JSON.stringify({previous:t.summary,turns:next})).byteLength;
+        // Keep full turns. A single long answer may exceed the ordinary batch
+        // target, but never the transport ceiling with envelope headroom.
+        if(size>CHAT_REQUEST_BYTES-4096||turns.length&&size>24000)break;
+        turns.push(next.at(-1));
+      }
+      return turns.length?{id:t.id,through:turns.at(-1).seq,previous:t.summary,turns:turns.map(({role,content})=>({role,content}))}:null;
+    },
     applySummary(id,through,text){return write(()=>{const t=state.threads.find(t=>t.id===id);if(!t||through<=t.summaryThrough||!t.turns.some(v=>v.seq===through)||typeof text!=='string'||!text.trim())return false;t.summary=cleanText(text,1200);t.summaryThrough=through;return true;});},
     export:()=>JSON.stringify({version:1,exportedAt:new Date().toISOString(),threads:state.threads},null,2),
   };

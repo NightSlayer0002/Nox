@@ -35,7 +35,37 @@ test('unavailable storage preserves a bounded usable visit without silently evic
 
 test('a Unicode summary batch fits the HTTP budget and advances through only included turns',async()=>{
   const history=await createHistory(storage());for(let i=0;i<40;i++)await history.append(i%2?'assistant':'user','🌙'.repeat(600));
-  const work=history.summaryWork();assert.ok(new TextEncoder().encode(JSON.stringify(work)).byteLength<16384);assert.equal(work.through,work.turns.length);assert.ok(work.turns.length<24);
+  const work=history.summaryWork();assert.ok(new TextEncoder().encode(JSON.stringify(work)).byteLength<65536);assert.equal(work.through,work.turns.length);assert.ok(work.turns.length<24);
+});
+
+test('summary batches keep complete long answers including their final decisions',async()=>{
+  const history=await createHistory(storage()),answer='Reasoning. '.repeat(700)+'Final decision: use the violet lighthouse.';
+  await history.append('assistant',answer);
+  for(let i=1;i<24;i++)await history.append(i%2?'user':'assistant','Other turn '+i);
+  const work=history.summaryWork();assert.equal(work.turns[0].content,answer);assert.ok(work.turns[0].content.endsWith('violet lighthouse.'));
+  assert.equal(work.through,work.turns.length);assert.equal(history.active().turns[0].content,answer);
+});
+
+test('one long Unicode turn remains whole while the batch stays within its transport ceiling',async()=>{
+  const history=await createHistory(storage()),answer='\u6708'.repeat(11000)+' Final decision: retain the conclusion.';
+  await history.append('assistant',answer);
+  for(let i=1;i<24;i++)await history.append(i%2?'user':'assistant','Other turn '+i);
+  const work=history.summaryWork();assert.equal(work.turns.length,1);assert.equal(work.turns[0].content,answer);
+  assert.ok(new TextEncoder().encode(JSON.stringify(work)).byteLength<65536);
+  await history.applySummary(work.id,work.through,'The conclusion was retained.');
+  assert.ok(history.summaryWork(),'remaining complete older turns remain eligible after the first batch');
+});
+
+test('successive summary batches cover complete older turns exactly once',async()=>{
+  const history=await createHistory(storage());
+  for(let i=0;i<30;i++)await history.append(i%2?'assistant':'user',('Turn '+i+' ').repeat(450)+`Final decision ${i}.`);
+  const expected=history.active().turns.slice(0,-8).map(({role,content})=>({role,content})),included=[];
+  for(let batch=0;batch<30;batch++){
+    const work=history.summaryWork();if(!work)break;
+    assert.ok(new TextEncoder().encode(JSON.stringify(work)).byteLength<65536);included.push(...work.turns);
+    await history.applySummary(work.id,work.through,'An updated continuity note.');
+  }
+  assert.deepEqual(included,expected);assert.equal(history.summaryWork(),null);
 });
 
 test('context preserves early unsummarized turns and supplies a bounded bridge if summarization is delayed',async()=>{
