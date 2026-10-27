@@ -26,7 +26,8 @@ function fixture(){
   assert.ok(addMessageSource,'the app exposes its message insertion boundary');
   const conversation=new Element('div');conversation.scrollHeight=180;conversation.scrollTop=0;
   const document={createElement:tag=>new Element(tag)};
-  const context=vm.createContext({document,createChatMessage,$:id=>{assert.equal(id,'conversation');return conversation;}});
+  const replyFollow={update:change=>{change();conversation.scrollTop=conversation.scrollHeight;}};
+  const context=vm.createContext({document,createChatMessage,replyFollow,$:id=>{assert.equal(id,'conversation');return conversation;}});
   const addMessage=vm.runInContext(`(${addMessageSource})`,context);
   return {addMessage,conversation,document};
 }

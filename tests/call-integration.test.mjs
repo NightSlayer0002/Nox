@@ -30,6 +30,7 @@ async function fixture(){
   function addMessage(){const content={textContent:''};return {classList:{add:noop,remove:noop},querySelector:()=>content,append:noop,remove:noop};}
   const context=vm.createContext({
     $,history,normalizePacket,prepareChatRequest,explicitMemoryRequest,readChatStream,selfDeclaredName,historyFailure,spokenPreview,createReplyPresentation,setChatContent,observeInterface,AbortController,clearTimeout,setTimeout,
+    replyFollow:{update:change=>change(),latest:()=>{}},
     composerOptions:{close:noop},composer:{setValue:value=>{$('message').value=value;},resize:noop},
     editTarget:null,currentActivity:'conversation',brain:'live',busy:false,mode:'companion',selectedProvider:'',
     summaryController:null,summaryTimer:null,pendingDraft:null,pendingPresentation:null,floatingPresence:null,document:{body:{dataset:{view:'conversation',presence:'visible'}}},activityTurn:null,lastPacket:{speech:'Before the call'},
