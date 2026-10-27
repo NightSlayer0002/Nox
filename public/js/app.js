@@ -30,6 +30,7 @@ import { afterimageBridge, applyAfterimageCue } from './afterimage-bridge.js';
 import {visit,initialVisitStatus,initialVisitStatusPromise,requestVisitStatus} from './visit-scope.js';
 import {attachComposerOptions,attachDetailsMenu,createComposerSizer,createReplyDiagnostics} from './conversation-controls.js';
 import {createChatMessage,setChatContent} from './chat-message.js';
+import {attachReplyFollow} from './reply-follow.js';
 import {attachMessageSources} from './message-sources.js';
 import {attachComposerSubmission} from './composer-submission.js';
 import {createActivitySignal} from './activity-signal.js';
@@ -56,6 +57,7 @@ const apiHeaders = (token = ownerToken) => ({'content-type':'application/json',.
 const turns = createTurnGate();
 let voiceCall;
 const composer=createComposerSizer($('message'));
+const replyFollow=attachReplyFollow({conversation:$('conversation'),button:$('latest-reply')});
 const composerOptions=attachComposerOptions($('composer-options'));
 attachDetailsMenu($('presence-menu'));
 function closePresenceMenu(){
@@ -271,8 +273,7 @@ function addMessage(speaker, text,turn) {
   const message = createChatMessage(speaker, text, document);
   if(turn)message.dataset.seq=String(turn.seq);
   if(turn?.sources)attachMessageSources(message,turn.sources);
-  $('conversation').append(message);
-  $('conversation').scrollTop = $('conversation').scrollHeight;
+  replyFollow.update(()=>$('conversation').append(message));
   return message;
 }
 function attachMessageActions(message,turn){
@@ -331,8 +332,10 @@ async function perform(value, save = true, draft, version, depth='quick',remembe
   const presentation=createReplyPresentation({voiceEnabled:voice.enabled&&voice.supported,isCurrent:()=>version===undefined||turns.isCurrent(version),
     onWaiting:waiting=>{$('show-reply-text').hidden=!waiting;if(waiting)replyDiagnostics.setStatus('Preparing NOX’s voice…');else if($('reply-timing').textContent==='Preparing NOX’s voice…')replyDiagnostics.setStatus('');},
     onReveal:()=>{
-      if(draft){draft.classList.remove('draft');setChatContent(draft.querySelector('.message-content'),packet.speech);attachMessageActions(draft,replyTurn);if(pendingDraft===draft)pendingDraft=null;}else{const message=addMessage('nox', packet.speech,replyTurn);attachMessageActions(message,replyTurn);}
-      if(draft&&sources.length)attachMessageSources(draft,sources);
+      replyFollow.update(()=>{
+        if(draft){draft.classList.remove('draft');setChatContent(draft.querySelector('.message-content'),packet.speech);attachMessageActions(draft,replyTurn);if(pendingDraft===draft)pendingDraft=null;}else{const message=addMessage('nox', packet.speech,replyTurn);attachMessageActions(message,replyTurn);}
+        if(draft&&sources.length)attachMessageSources(draft,sources);
+      });
       stage.speak({...packet,speech:spoken});
       if(packet.action==='takeover'&&!floatingPresence?.active)stage.canvas.scrollIntoView({behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'instant':'smooth',block:'center'});
     }});
@@ -396,7 +399,7 @@ async function send(raw,{recorded=false,keepDraft=false}={}) {
       const draft=addMessage('nox','');draft.classList.add('draft');pendingDraft=draft;
       const response = await fetch('/api/chat', { method: 'POST', headers: apiHeaders(), body: JSON.stringify(request), signal: requestController.signal });
       if(!response.ok){const error=await response.json();setUsage(error.usage);if(response.status===401){await refreshConnection();}throw new Error(error.error||'The AI connection did not respond.');}
-      const result = await readChatStream(response,speech=>{if(turns.isCurrent(version)&&!voice.enabled){draft.querySelector('.message-content').textContent=speech;$('conversation').scrollTop=$('conversation').scrollHeight;}});
+      const result = await readChatStream(response,speech=>{if(turns.isCurrent(version)&&!voice.enabled)replyFollow.update(()=>{draft.querySelector('.message-content').textContent=speech;});});
       setUsage(result.usage);
       packet = result;
       if (turns.isCurrent(version)) {$('brain-status').lastChild.textContent = visit.owner?' AI connected':' Guest visit';const timing=result.metrics;replyDiagnostics.complete(timingVersion,timing,depth);if(timing)$('inspector-brain').textContent=`${timing.model||'Configured model'} · ${timing.depth||depth} · ${timing.provider}`;}
@@ -546,6 +549,7 @@ setInterval(() => {
 function cancelConversation(){afterimageBridge.stop('conversation');turns.cancel();pendingPresentation?.cancel();pendingPresentation=null;activity.finishTurn(activityTurn);replyDiagnostics.invalidate();replyDiagnostics.setStatus('');setBusy(false);voice.stop();microphone.stop();summaryController?.abort();clearTimeout(summaryTimer);pendingDraft?.remove();pendingDraft=null;}
 async function restoreConversation({retrying=false}={}){messageCompanion?.clear();cancelConversation();const thread=history.active();await setMode(thread.mode,false);if(history.active().id!==thread.id)return;$('conversation').replaceChildren();$('chat-title').textContent=thread.title;
   thread.turns.forEach(turn=>{const message=addMessage(turn.role==='user'?'user':'nox',turn.content,turn);attachMessageActions(message,turn);});
+  replyFollow.latest();
   const last=thread.turns.findLast(t=>t.role==='assistant');lastPacket={speech:last?.content||(thread.turns.length?'Your last message is still here. Ready when the AI connection is available.':greetings[mode]),emotion:stage.character.emotion,action:'none',memory:''};
   if(last){stage.caption=last.content;stage.captionUntil=0;}
   else if(thread.turns.length){if(!retrying)addMessage('system','Your last message is still here. Send it again to retry.');stage.caption='';stage.captionUntil=0;}

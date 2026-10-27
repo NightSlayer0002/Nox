@@ -1,4 +1,9 @@
 .workspace .reply-status{display:flex;align-items:center;gap:12px;min-width:0}
+.workspace .conversation{overflow-anchor:none}
+.workspace .conversation-dock{position:relative}
+.workspace #latest-reply{position:absolute;bottom:calc(100% + 8px);left:50%;transform:translateX(-50%);padding:7px 14px;min-height:34px;font-size:13px;color:var(--text);background:var(--surface);border:1px solid var(--line);border-radius:20px;z-index:3;white-space:nowrap}
+.workspace #latest-reply[hidden]{display:none}
+.workspace #latest-reply:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
 .workspace .reply-status .reply-timing{margin:0;flex:1}
 .workspace .reply-status:has(.reply-timing:empty):has(#show-reply-text[hidden]){display:none}
 .workspace #show-reply-text{flex:none;min-height:30px;padding:4px 8px;border:0;background:transparent;color:var(--accent);font-size:12px;text-decoration:underline;text-underline-offset:3px;box-shadow:none}

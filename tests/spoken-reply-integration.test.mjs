@@ -19,6 +19,7 @@ function fixture(enabled=true){
     stage:{speak:value=>stageEvents.push(value),canvas:{scrollIntoView:noop}},memory:{remember:noop},
     $:id=>{if(!nodes.has(id))nodes.set(id,{hidden:true,textContent:''});return nodes.get(id);},
     attachMessageActions:noop,updateMemory:noop,navigation:{render:noop},companionChanged:noop,
+    replyFollow:{update:change=>change()},
     matchMedia:()=>({matches:false}),floatingPresence:{active:true},
   });vm.runInContext(body,context);
   return {context,text,draft,saved,stageEvents,callbacks:()=>callbacks,stale:()=>{current=false;},start:()=>context.perform(packet,true,draft,1,'balanced')};
