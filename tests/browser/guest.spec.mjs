@@ -35,7 +35,7 @@ test('send, Stop and retry preserve history and restore the failed draft without
 });
 
 test('completed prose uses safe formatting, message menus support keys and navigation retains the conversation',async({page})=>{
-  await openChat(page);await send(page,'CI format prose');await expect(answers(page)).toHaveText('A useful plan\n1. Read.\n2. Practice.');
+  await openChat(page);await send(page,'CI format prose');await expect(answers(page).locator('strong')).toHaveText('A useful plan');await expect(answers(page).getByRole('listitem')).toHaveText(['Read.','Practice.']);
   const trigger=page.locator('#conversation .message.nox button[aria-label="Explore this message with NOX"]');
   await trigger.focus();await trigger.press('Enter');
   const menu=page.getByRole('group',{name:'Actions for this message'});

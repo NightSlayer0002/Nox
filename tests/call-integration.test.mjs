@@ -13,6 +13,7 @@ import {createReplyPresentation} from '../public/js/reply-presentation.js';
 import {setChatContent} from '../public/js/chat-message.js';
 import {observeInterface} from '../public/js/interface-observation.js';
 import {attachVoiceCall} from '../public/js/voice-call-controls.js';
+import {messageDocument} from './helpers/message-dom.mjs';
 
 const source=(await readFile(new URL('../public/js/app.js',import.meta.url),'utf8')).replace(/\r\n/g,'\n');
 function between(start,end){const first=source.indexOf(start),last=source.indexOf(end,first);assert.ok(first>=0&&last>first);return source.slice(first,last);}
@@ -30,7 +31,7 @@ async function fixture(){
   const stored=new Map(),history=await createHistory({getItem:key=>stored.get(key)??null,setItem:(key,value)=>stored.set(key,String(value))});
   const nodes=new Map(),requests=[],spoken=[];let adapter,responder=async()=>Response.json(packet);
   function $(id){if(!nodes.has(id))nodes.set(id,{value:id==='reply-depth'?'balanced':'',lastChild:{textContent:''},focus:noop,scrollHeight:100,replaceChildren:noop});return nodes.get(id);}
-  function addMessage(){const content={textContent:''};return {classList:{add:noop,remove:noop},querySelector:()=>content,append:noop,remove:noop};}
+  function addMessage(){const content=messageDocument().createElement('div');return {classList:{add:noop,remove:noop},querySelector:()=>content,append:noop,remove:noop};}
   const context=vm.createContext({
     $,history,normalizePacket,prepareChatRequest,explicitMemoryRequest,readChatStream,selfDeclaredName,historyFailure,spokenPreview,createReplyPresentation,setChatContent,observeInterface,AbortController,clearTimeout,setTimeout,
     replyFollow:{update:change=>change(),latest:()=>{}},

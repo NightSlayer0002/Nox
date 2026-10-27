@@ -9,6 +9,7 @@ import {setChatContent} from '../public/js/chat-message.js';
 import {createTurnGate} from '../public/js/turns.js';
 import {createVoice} from '../public/js/voice.js';
 import {createVoiceCall} from '../public/js/voice-call.js';
+import {messageDocument} from './helpers/message-dom.mjs';
 
 const source=await readFile(new URL('../public/js/app.js',import.meta.url),'utf8');
 const performSource=source.slice(source.indexOf('async function perform('),source.indexOf('\nfunction setBusy('));
@@ -16,7 +17,7 @@ const cancelSource=source.slice(source.indexOf('function cancelConversation()'),
 const noop=()=>{},packet={speech:'The complete valid written answer remains readable when audio fails.',emotion:'curious',action:'none',memory:''};
 
 for(const failure of ['provider','autoplay'])test(`a call ${failure} failure preserves the completed written reply`,async()=>{
-  const saved=[],nodes=new Map(),text={textContent:''},turns=createTurnGate();
+  const saved=[],nodes=new Map(),text=messageDocument().createElement('div'),turns=createTurnGate();
   const draft={removed:false,classList:{remove:noop},querySelector:()=>text,remove(){this.removed=true;}};
   let call,context;
   const voice=createVoice({
