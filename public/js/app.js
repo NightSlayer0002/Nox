@@ -355,6 +355,7 @@ function setBusy(value) {
 async function send(raw,{recorded=false}={}) {
   composerOptions.close();
   const text = raw.trim(); if (!text || busy) return;
+  const submittedDraft=$('message').value;
   if(brain==='loading'){replyDiagnostics.setStatus('The AI connection is not ready. Your message is still here.');return;}
   if(editTarget!==null){const revised=await history.replaceFrom(editTarget,text);editTarget=null;if(!revised){toast('That message could not be edited. Your draft is still here.');return;}await restoreConversation({retrying:true});recorded=true;}
   // Failed or interrupted replies already keep their user turn. Sending the
@@ -385,7 +386,7 @@ async function send(raw,{recorded=false}={}) {
   setBusy(true);
   if(!recorded&&!await history.append('user',text)){const message=historyFailure(history);cancelConversation();await restoreConversation();toast(message);return;}
   if(!turns.isCurrent(version))return;
-  if(!recorded){const userTurn=history.active().turns.at(-1),message=addMessage('user', text,userTurn);attachMessageActions(message,userTurn);}composer.setValue(''); contextPreview();updateMemory();navigation?.render();companionChanged();
+  if(!recorded){const userTurn=history.active().turns.at(-1),message=addMessage('user', text,userTurn);attachMessageActions(message,userTurn);}if($('message').value===submittedDraft)composer.setValue(''); contextPreview();updateMemory();navigation?.render();companionChanged();
   setBusy(true); voice.stop(); microphone.stop(); stage.character.emotion = 'curious';
   try {
     let packet;
