@@ -61,16 +61,16 @@ async function fixture(){
 test('call turns preserve downstream history while a pending edited draft is suspended and restored',async()=>{
   const ui=await fixture();
   for(const [role,content] of [['user','Original question'],['assistant','Original answer'],['user','Later question'],['assistant','Later answer']])await ui.history.append(role,content);
-  ui.context.editTarget=1;ui.$('message').value='My unsent revision';
+  ui.context.editTarget=ui.history.revisionTarget(1);ui.$('message').value='My unsent revision';
   const draft=ui.adapter.getDraft();assert.equal(ui.context.editTarget,null);
   const result=await ui.adapter.options.submit('A new spoken question');
   assert.equal(result.reply,packet.speech);assert.equal(result.voicePending,true);
   assert.deepEqual(ui.history.active().turns.map(turn=>turn.content),['Original question','Original answer','Later question','Later answer','A new spoken question',packet.speech]);
-  ui.adapter.restoreDraft(draft);assert.equal(ui.$('message').value,'My unsent revision');assert.equal(ui.context.editTarget,1);
+  ui.adapter.restoreDraft(draft);assert.equal(ui.$('message').value,'My unsent revision');assert.deepEqual(ui.context.editTarget,draft.edit);
 });
 
 test('a call cannot restore an old edit into a different thread or overwrite a newer draft',async()=>{
-  const ui=await fixture();await ui.history.append('user','Old thread');ui.context.editTarget=1;ui.$('message').value='Old edit';
+  const ui=await fixture();await ui.history.append('user','Old thread');ui.context.editTarget=ui.history.revisionTarget(1);ui.$('message').value='Old edit';
   const draft=ui.adapter.getDraft();await ui.history.create();ui.$('message').value='';
   ui.adapter.restoreDraft(draft);assert.equal(ui.$('message').value,'');assert.equal(ui.context.editTarget,null);
   await ui.history.select(draft.thread);ui.$('message').value='A newer draft';ui.adapter.restoreDraft(draft);
@@ -97,11 +97,11 @@ test('a response that loses its reserved archive slot cannot be mistaken for a c
 
 test('a failed spoken request does not discard the pre-call edited draft',async()=>{
   const ui=await fixture();await ui.history.append('user','Original question');await ui.history.append('assistant','Original answer');
-  ui.context.editTarget=1;ui.$('message').value='My private unfinished edit';const draft=ui.adapter.getDraft();
+  ui.context.editTarget=ui.history.revisionTarget(1);ui.$('message').value='My private unfinished edit';const draft=ui.adapter.getDraft();
   ui.respondWith(async()=>Response.json({error:'Network unavailable'},{status:503}));
   await assert.rejects(ui.adapter.options.submit('Failed spoken question'));
   ui.adapter.restoreDraft(draft);
-  assert.equal(ui.$('message').value,'My private unfinished edit');assert.equal(ui.context.editTarget,1);
+  assert.equal(ui.$('message').value,'My private unfinished edit');assert.deepEqual(ui.context.editTarget,draft.edit);
   assert.equal(ui.history.active().turns.at(-1).content,'Failed spoken question');
 });
 
@@ -138,15 +138,15 @@ test('the unchanged submitted draft still clears after it is recorded',async()=>
 
 test('a rejected edit keeps its target and draft without issuing a model request',async()=>{
   const ui=await fixture();await ui.history.append('user','Original question');await ui.history.append('assistant','Original answer');
-  const original=ui.history.active();ui.context.editTarget=1;ui.$('message').value='My corrected question';
+  const original=ui.history.active();ui.context.editTarget=ui.history.revisionTarget(1);ui.$('message').value='My corrected question';
   ui.history.replaceFrom=async()=>null;
   await ui.context.send('My corrected question');
-  assert.equal(ui.context.editTarget,1);assert.equal(ui.$('message').value,'My corrected question');assert.deepEqual(ui.history.active(),original);assert.equal(ui.requests.length,0);
+  assert.deepEqual(ui.context.editTarget,ui.history.revisionTarget(1));assert.equal(ui.$('message').value,'My corrected question');assert.deepEqual(ui.history.active(),original);assert.equal(ui.requests.length,0);
 });
 
 for(const switchThread of [false,true])test(`a revision canceled during mode restoration cannot send into ${switchThread?'another thread':'the canceled thread'}`,async()=>{
   const ui=await fixture();await ui.history.append('user','Original question');await ui.history.append('assistant','Original answer');
-  ui.context.editTarget=1;ui.$('message').value='Corrected question';
+  ui.context.editTarget=ui.history.revisionTarget(1);ui.$('message').value='Corrected question';
   let release,entered;const blocked=new Promise(resolve=>{release=resolve;}),restoring=new Promise(resolve=>{entered=resolve;});
   ui.context.memory.setMode=async()=>{entered();await blocked;return true;};
   const sending=ui.context.send('Corrected question');await restoring;
