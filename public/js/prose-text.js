@@ -25,3 +25,8 @@ function mapProse(value,transform){
 }
 export const proseText=value=>mapProse(value,paragraph);
 export const decodeProseBreaks=value=>mapProse(value,breaks);
+
+// Preserve step numbers, code bodies and link destinations when reading aloud.
+// Match code as one token to keep Markdown-looking strings inside it literal.
+export const spokenPassage=value=>proseText(value).replace(/```[^\n]*\n([\s\S]*?)(?:```|$)|`([^`\n]+)`|\[([^\]\n]+)\]\((https?:\/\/[^\s)]+)\)/g,
+  (_match,block,code,label,url)=>block??code??`${label}: ${url}`);
