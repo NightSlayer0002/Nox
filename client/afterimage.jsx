@@ -40,6 +40,7 @@ export default function Afterimage(){
   const reception=current||{packet:example,seed:'A door in a window with no wall.',tone:'uncanny',source:'authored',signalIndex:0,endingIndex:0,createdAt:new Date().toISOString()};
   const cancel=()=>{version.current++;request.current?.abort();request.current=null;setBusy(false);setNotice('Generation cancelled. Your seed is still here.');};
   const choose=async(which,index)=>{
+    if(reception[which]===index)return;
     afterimageBridge.stop('selection changed');
     setSaving(true);try{const next=current?.id?await store.update(current.id,{[which]:index},{expectedRevision:current.revision}):{...reception,[which]:index,editedLines:undefined};if(!next)throw new Error('This reception was removed. Choose another from your archive.');buildSelectedPerformance(next.packet,next.signalIndex,next.endingIndex,next.editedLines);setCurrent(next);setConflict(false);setEditor(false);setDraftLines([]);setError('');setNotice('A different cut. No new model request.');}catch(e){if(e.code==='story_conflict')setConflict(true);setError(e.message);}finally{setSaving(false);}
   };
