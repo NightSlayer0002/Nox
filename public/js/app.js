@@ -9,6 +9,7 @@ import { createRecorder } from './recorder.js';
 import {DEFAULT_EXPORT_PROFILE,resolveExportProfile} from './export-profile.js';
 import { createTurnGate } from './turns.js';
 import { createHistory } from './history.js';
+import {createRevisionControls,attachRevisionControls} from './revision-controls.js';
 import { createNavigation } from './navigation.js';
 import { readChatStream } from './stream.js';
 import {readSpeechClips} from './speech-stream.js';
@@ -60,6 +61,10 @@ let voiceCall;
 const composer=createComposerSizer($('message'));
 const replyFollow=attachReplyFollow({conversation:$('conversation'),button:$('latest-reply')});
 const composerOptions=attachComposerOptions($('composer-options'));
+const revisionControls=createRevisionControls({getEdit:()=>editTarget,setEdit:target=>{editTarget=target;},getDraft:()=>$('message').value,getThread:()=>history.active(),
+  setDraft:value=>{composer.setValue(value);contextPreview();$('send-button').disabled=busy||brain==='loading'||!value.trim();},onNotice:toast,onFocus:()=>$('message').focus()});
+const releaseRevisionControls=attachRevisionControls({controls:revisionControls,form:$('chat-form'),input:$('message')});
+window.addEventListener('pagehide',event=>{if(!event.persisted)releaseRevisionControls();},{once:true});
 attachDetailsMenu($('presence-menu'));
 function closePresenceMenu(){
   $('presence-menu').open=false;
@@ -221,9 +226,9 @@ voiceCall=attachVoiceCall({options:{
     return {reply:packet.speech,voicePending:voice.enabled&&voice.supported};
   }
 },getDraft:()=>{
-  const draft={text:$('message').value,edit:editTarget,thread:history.active().id};editTarget=null;return draft;
+  const draft={text:$('message').value,edit:editTarget,thread:history.active().id};editTarget=null;revisionControls.sync();return draft;
 },restoreDraft:draft=>{
-  if(draft?.text&&(!$('message').value||$('message').value===draft.text)&&draft.thread===history.active().id){composer.setValue(draft.text);editTarget=draft.edit;}
+  if(draft&&(draft.text||draft.edit)&&(!$('message').value||$('message').value===draft.text)&&draft.thread===history.active().id){composer.setValue(draft.text);editTarget=draft.edit;}revisionControls.sync();
 }});
 
 afterimageBridge.connect({
@@ -280,13 +285,31 @@ function attachMessageActions(message,turn){
   const sourceThread=history.active().id,actions=document.createElement('div');actions.className='message-actions';
   message.tabIndex=-1;message.addEventListener('pointerup',event=>{if(event.pointerType==='touch'&&!event.target.closest('button,a,textarea'))message.focus({preventScroll:true});});
   const copy=messageAction('copy',`Copy ${turn.role==='user'?'your message':'NOX’s reply'}`);copy.addEventListener('click',async()=>{try{await navigator.clipboard.writeText(turn.content);toast('Copied.');}catch{toast('Copy is unavailable. Select the text and copy it with your keyboard.');}});actions.append(copy);
-  const revise=messageAction(turn.role==='user'?'pencil':'rotate-ccw',turn.role==='user'?'Edit your message':'Retry NOX’s reply');revise.addEventListener('click',async()=>{if(busy){toast('Stop the current reply before revising this conversation.');return;}if(!viewReady){toast('This conversation is updating. Reopen it before revising.');return;}const target=history.revisionTarget(turn.seq,{threadId:sourceThread,role:turn.role,content:turn.content});if(!target){toast(historyFailure(history));return;}cancelConversation();if(turn.role==='user'){editTarget=target;composer.setValue(turn.content);replyDiagnostics.setStatus('Editing this message. Sending replaces the replies after it.');$('message').focus();}else{const retrying=turns.begin(),result=await history.retryFrom(target);if(!turns.isCurrent(retrying))return;if(!result){toast(historyFailure(history,'That reply changed. Reopen the conversation and try again.'));return;}editTarget=null;const restored=await restoreConversation({retrying:true});if(!turns.isCurrent(restored))return;await send(result.draft,{recorded:true,keepDraft:true});}});actions.append(revise);
+  const revise=messageAction(turn.role==='user'?'pencil':'rotate-ccw',turn.role==='user'?'Edit your message':'Retry NOX’s reply');
+  revise.addEventListener('click',async()=>{
+    if(busy){toast('Stop the current reply before revising this conversation.');return;}
+    if(!viewReady){toast('This conversation is updating. Reopen it before revising.');return;}
+    const target=history.revisionTarget(turn.seq,{threadId:sourceThread,role:turn.role,content:turn.content});
+    if(!target){toast(historyFailure(history));return;}
+    cancelConversation();
+    if(turn.role==='user')revisionControls.edit(target,turn.content);
+    else await revisionControls.requestRetry(target,retryRevision);
+  });actions.append(revise);
   const companion=messageAction('brain','Explore this message with NOX');companion.addEventListener('click',()=>messageCompanion?.openFor(message));actions.append(companion);message.append(actions);
 }
 function messageAction(icon,label){
   const button=document.createElement('button');button.type='button';button.title=label;button.setAttribute('aria-label',label);
   const image=document.createElement('img');image.src=`/vendor/lucide/${icon}.svg`;image.alt='';image.width=16;image.height=16;image.setAttribute('aria-hidden','true');
   button.append(image);return button;
+}
+async function retryRevision(target){
+  if(busy||!viewReady){toast('This conversation is updating. Try Retry again when it is ready.');return false;}
+  if(editTarget!==null){toast('Finish or cancel your current edit before retrying a reply.');return false;}
+  cancelConversation();const retrying=turns.begin(),result=await history.retryFrom(target);
+  if(!result){if(turns.isCurrent(retrying)||history.active().id===target.threadId&&history.lastError==='revision-conflict')toast(historyFailure(history,'That reply changed. Reopen the conversation and try again.'));return false;}
+  if(!turns.isCurrent(retrying))return false;
+  const restored=await restoreConversation({retrying:true});if(!turns.isCurrent(restored))return false;
+  await send(result.draft,{recorded:true,keepDraft:true});return true;
 }
 
 async function exploreWithNox({kind,text}){
@@ -349,6 +372,7 @@ async function perform(value, save = true, draft, version, depth='quick',remembe
 }
 
 function setBusy(value) {
+  if(value)revisionControls.cancelRetry();
   busy = value; $('send-button').disabled = value||brain==='loading'||!$('message').value.trim();$('send-button').hidden=value; $('chat-form').setAttribute('aria-busy', value);
   $('cancel-reply').hidden=!value;$('reply-depth').disabled=value;
   stage.character.activity = value||voice.state==='preparing' ? 'thinking' : dictating||callListening?'listening':'idle';
@@ -361,7 +385,7 @@ async function send(raw,{recorded=false,keepDraft=false,source='programmatic'}={
   const submittedDraft=$('message').value;
   if(brain==='loading'){replyDiagnostics.setStatus('The AI connection is not ready. Your message is still here.');return;}
   if(visit.owner&&history.crossTabSafe===false){toast(historyFailure(history));return;}
-  if(source==='composer'&&editTarget!==null){const editing=turns.begin(),revised=await history.replaceFrom(editTarget,text);if(!turns.isCurrent(editing))return;if(!revised){toast(historyFailure(history,'That message could not be edited. Your draft is still here.'));return;}editTarget=null;const restored=await restoreConversation({retrying:true});if(!turns.isCurrent(restored))return;recorded=true;}
+  if(source==='composer'&&editTarget!==null){const editing=turns.begin(),revised=await history.replaceFrom(editTarget,text);if(!turns.isCurrent(editing))return;if(!revised){toast(historyFailure(history,'That message could not be edited. Your draft is still here.'));return;}if(revisionControls.finish(submittedDraft))keepDraft=true;const restored=await restoreConversation({retrying:true});if(!turns.isCurrent(restored))return;recorded=true;}
   // Failed or interrupted replies already keep their user turn. Sending the
   // same unanswered draft retries it without recording it a second time.
   const unanswered=history.active().turns.at(-1);
@@ -523,7 +547,7 @@ document.addEventListener('keydown', event => {
   if (event.key.toLowerCase() === 'r') toggleRecording();
 });
 window.addEventListener('pagehide', event => { if(event.persisted)voiceCall?.session.end();else voiceCall?.dispose();afterimageBridge.stop('pagehide');ownerToken=''; camera.stop(); voice.stop(); microphone.stop();callMicrophone.stop(); });
-window.addEventListener('hashchange',()=>{if(location.hash==='#afterimage'){cancelConversation();stage.caption='';stage.captionUntil=0;}else afterimageBridge.stop('navigation');requestAnimationFrame(composer.resize);});
+window.addEventListener('hashchange',()=>{revisionControls.cancelRetry();if(location.hash==='#afterimage'){cancelConversation();stage.caption='';stage.captionUntil=0;}else afterimageBridge.stop('navigation');requestAnimationFrame(composer.resize);});
 setInterval(() => { const seconds = Math.floor(stage.time); $('stage-time').textContent = `${String(Math.floor(seconds / 60)).padStart(2, '0')}:${String(seconds % 60).padStart(2, '0')}`; }, 1000);
 setInterval(() => {
   const signal = stage.character.signal;
@@ -567,11 +591,12 @@ function scheduleSummary(){clearTimeout(summaryTimer);if(!visit.owner||brain!=='
   finally{if(summaryController===controller)summaryController=null;}
 },3000);}
 async function newConversation(){
+  if(!revisionControls.canLeave())return false;
   cancelConversation();
   const starting=turns.begin(),thread=await history.create();if(!turns.isCurrent(starting))return false;if(!thread){toast(historyFailure(history));return false;}
   editTarget=null;currentActivity='conversation';const restored=await restoreConversation();return turns.isCurrent(restored);
 }
-navigation=createNavigation({history,onOpen:async id=>{cancelConversation();const opening=turns.begin();editTarget=null;currentActivity='conversation';const selected=await history.select(id);if(!turns.isCurrent(opening))return;await restoreConversation();if(!selected)toast('That conversation was removed in another tab.');},onNew:newConversation,onStart:async(text,persona)=>{const started=await setMode(persona,false);if(turns.isCurrent(started))await send(text);}});
+navigation=createNavigation({history,onOpen:async id=>{if(!revisionControls.canLeave())return;cancelConversation();const opening=turns.begin();editTarget=null;currentActivity='conversation';const selected=await history.select(id);if(!turns.isCurrent(opening))return;await restoreConversation();if(!selected)toast('That conversation was removed in another tab.');},onNew:newConversation,onStart:async(text,persona)=>{if(!revisionControls.canLeave())return;const started=await setMode(persona,false);if(turns.isCurrent(started))await send(text);}});
 messageCompanion=attachMessageCompanion({conversation:$('conversation'),onAction:exploreWithNox});
 floatingPresence=attachFloatingPresence({stage,onInspect:value=>messageCompanion.inspect(value),onRelease:value=>messageCompanion.release(value),onClear:()=>messageCompanion.clear()});
 window.addEventListener('pagehide',event=>{if(!event.persisted){floatingPresence.dispose();messageCompanion.dispose();}},{once:true});
