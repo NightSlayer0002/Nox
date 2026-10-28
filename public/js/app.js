@@ -193,7 +193,7 @@ const recorder = createRecorder($('stage'), (active, clip) => {
 },{getAudioStream:()=>voice.prepareCapture(),onError:toast});
 let dictating=false,callListening=false;
 const microphone = createMicrophone({
-  onText: text => {composer.setValue(text);contextPreview();send(text);},
+  onText: text => {composer.setValue(text);contextPreview();send(text,{source:'composer'});},
   onState: active => {
     dictating=active;
     activity.transition(busy?'thinking':active?'listening':'idle');
@@ -217,16 +217,13 @@ voiceCall=attachVoiceCall({options:{
     if(busy)throw Error('NOX is finishing another reply. Try again in a moment.');
     if(brain==='loading')throw Error('The AI connection is not ready. Your typed message is still here.');
     const packet=await send(text);
-    // A failed voice turn is already in chat. Its retry draft must not hide the
-    // unfinished typed edit that was set aside when this call opened.
-    if(!packet&&$('message').value===text)composer.setValue('');
     if(!packet)throw Error(historyFailure(history,'NOX could not start or finish this reply. Check the conversation limit or connection, then try again.'));
     return {reply:packet.speech,voicePending:voice.enabled&&voice.supported};
   }
 },getDraft:()=>{
   const draft={text:$('message').value,edit:editTarget,thread:history.active().id};editTarget=null;return draft;
 },restoreDraft:draft=>{
-  if(draft?.text&&!$('message').value&&draft.thread===history.active().id){composer.setValue(draft.text);editTarget=draft.edit;}
+  if(draft?.text&&(!$('message').value||$('message').value===draft.text)&&draft.thread===history.active().id){composer.setValue(draft.text);editTarget=draft.edit;}
 }});
 
 afterimageBridge.connect({
@@ -356,12 +353,12 @@ function setBusy(value) {
   companionChanged();
 }
 
-async function send(raw,{recorded=false,keepDraft=false}={}) {
+async function send(raw,{recorded=false,keepDraft=false,source='programmatic'}={}) {
   composerOptions.close();
   const text = raw.trim(); if (!text || busy) return;
   const submittedDraft=$('message').value;
   if(brain==='loading'){replyDiagnostics.setStatus('The AI connection is not ready. Your message is still here.');return;}
-  if(editTarget!==null){const editing=turns.begin(),revised=await history.replaceFrom(editTarget,text);if(!turns.isCurrent(editing))return;if(!revised){toast(historyFailure(history,'That message could not be edited. Your draft is still here.'));return;}editTarget=null;const restored=await restoreConversation({retrying:true});if(!turns.isCurrent(restored))return;recorded=true;}
+  if(source==='composer'&&editTarget!==null){const editing=turns.begin(),revised=await history.replaceFrom(editTarget,text);if(!turns.isCurrent(editing))return;if(!revised){toast(historyFailure(history,'That message could not be edited. Your draft is still here.'));return;}editTarget=null;const restored=await restoreConversation({retrying:true});if(!turns.isCurrent(restored))return;recorded=true;}
   // Failed or interrupted replies already keep their user turn. Sending the
   // same unanswered draft retries it without recording it a second time.
   const unanswered=history.active().turns.at(-1);
@@ -390,7 +387,7 @@ async function send(raw,{recorded=false,keepDraft=false}={}) {
   setBusy(true);
   if(!recorded&&!await history.append('user',text)){const message=historyFailure(history);cancelConversation();await restoreConversation();toast(message);return;}
   if(!turns.isCurrent(version))return;
-  if(!recorded){const userTurn=history.active().turns.at(-1),message=addMessage('user', text,userTurn);attachMessageActions(message,userTurn);}if(!keepDraft&&$('message').value===submittedDraft)composer.setValue(''); contextPreview();updateMemory();navigation?.render();companionChanged();
+  if(!recorded){const userTurn=history.active().turns.at(-1),message=addMessage('user', text,userTurn);attachMessageActions(message,userTurn);}if(source==='composer'&&!keepDraft&&$('message').value===submittedDraft)composer.setValue(''); contextPreview();updateMemory();navigation?.render();companionChanged();
   setBusy(true); voice.stop(); microphone.stop(); stage.character.emotion = 'curious';
   try {
     let packet;
@@ -411,7 +408,7 @@ async function send(raw,{recorded=false,keepDraft=false}={}) {
     }
     if (turns.isCurrent(version)) {activity.transition('reply-ready',activityTurn);if(takeover)packet={...packet,action:'takeover'};const draft=pendingDraft;const completed=await perform(packet,true,draft,version,depth,explicitMemoryRequest(text),brain==='live'?request.context.knowledge:[]);if(turns.isCurrent(version)){pendingDraft=null;scheduleSummary();return completed;}}
   } catch (error) {
-    if (turns.isCurrent(version)){setUsage(error.usage);pendingDraft?.remove();pendingDraft=null;if(error.name!=='AbortError'){activity.finishTurn(activityTurn,'error');if(!$('message').value){composer.setValue(text);contextPreview();}stage.character.react?.('worried',stage.time,2);if (brain === 'live') $('brain-status').lastChild.textContent = ' AI error'; addMessage('system', error.message); toast(error.message);replyDiagnostics.setStatus('Reply interrupted. Your message is still in this visit.');}}
+    if (turns.isCurrent(version)){setUsage(error.usage);pendingDraft?.remove();pendingDraft=null;if(error.name!=='AbortError'){activity.finishTurn(activityTurn,'error');if(source==='composer'&&!$('message').value){composer.setValue(text);contextPreview();}stage.character.react?.('worried',stage.time,2);if (brain === 'live') $('brain-status').lastChild.textContent = ' AI error'; addMessage('system', error.message); toast(error.message);replyDiagnostics.setStatus('Reply interrupted. Your message is still in this visit.');}}
   } finally { if (turns.isCurrent(version)) { setBusy(false); $('message').focus(); } }
 }
 
@@ -432,7 +429,7 @@ async function setMode(next, greet = true) {
 
 document.querySelectorAll('[data-mode]').forEach(button => button.addEventListener('click', () => setMode(button.dataset.mode)));
 document.querySelectorAll('[data-prompt]').forEach(button => button.addEventListener('click', () => send(button.dataset.prompt)));
-attachComposerSubmission({input:$('message'),form:$('chat-form'),onSend:text=>send(text)});
+attachComposerSubmission({input:$('message'),form:$('chat-form'),onSend:text=>send(text,{source:'composer'})});
 $('cancel-reply').addEventListener('click',()=>{cancelConversation();replyDiagnostics.setStatus('Reply stopped. Your sent message is saved.');});
 $('show-reply-text').addEventListener('click',()=>pendingPresentation?.reveal('requested'));
 function contextPreview(){const notes=knowledge.context($('message').value);$('knowledge-context').hidden=!notes.length;$('knowledge-context').textContent=notes.length?'Relevant context for this thought: '+notes.map(n=>`[${n.id}] ${n.title}`).join(' · '):'';}

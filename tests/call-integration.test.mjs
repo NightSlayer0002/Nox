@@ -125,7 +125,7 @@ for(const failed of [false,true])test(`a newer typed draft survives a pending hi
   const append=ui.history.append.bind(ui.history);
   ui.history.append=async(role,...args)=>{if(role==='user'){started();await gate;}return append(role,...args);};
   if(failed)ui.respondWith(async()=>Response.json({error:'Synthetic unavailable reply'},{status:503}));
-  const work=ui.context.send('Submitted thought');await waiting;
+  const work=ui.context.send('Submitted thought',{source:'composer'});await waiting;
   ui.$('message').value='A newer unfinished thought';release();await work;
   assert.equal(ui.$('message').value,'A newer unfinished thought');
   assert.equal(ui.history.active().turns[0].content,'Submitted thought');
@@ -133,14 +133,45 @@ for(const failed of [false,true])test(`a newer typed draft survives a pending hi
 
 test('the unchanged submitted draft still clears after it is recorded',async()=>{
   const ui=await fixture();ui.$('message').value='Submitted thought';
-  await ui.context.send('Submitted thought');assert.equal(ui.$('message').value,'');
+  await ui.context.send('Submitted thought',{source:'composer'});assert.equal(ui.$('message').value,'');
+});
+
+// Uncertainty: does an out-of-composer send own or erase the current draft/edit?
+// Boundary: real send/history with synthetic HTTP and DOM. No real browser,
+// provider quality, microphone or durable physical-disk guarantees are established.
+for(const failed of [false,true])test(`an activity prompt preserves an unrelated draft after a ${failed?'failed':'successful'} reply`,async()=>{
+  const ui=await fixture();ui.$('message').value='An unrelated unfinished idea';
+  if(failed)ui.respondWith(async()=>Response.json({error:'Synthetic unavailable reply'},{status:503}));
+  await ui.context.send('Explain this activity');
+  assert.equal(ui.$('message').value,'An unrelated unfinished idea');
+  assert.equal(ui.requests[0].message,'Explain this activity');
+});
+
+test('a programmatic request appends without submitting an unfinished edit',async()=>{
+  const ui=await fixture();await ui.history.append('user','Original question');await ui.history.append('assistant','Original answer');
+  const target=ui.history.revisionTarget(1);ui.context.editTarget=target;ui.$('message').value='An unfinished correction';
+  await ui.context.send('A separate activity question');
+  assert.deepEqual(ui.history.active().turns.map(turn=>turn.content),['Original question','Original answer','A separate activity question',packet.speech]);
+  assert.equal(ui.$('message').value,'An unfinished correction');assert.equal(ui.context.editTarget,target);
+});
+
+test('a failed programmatic request does not put its activity prompt into an empty composer',async()=>{
+  const ui=await fixture();ui.respondWith(async()=>Response.json({error:'Synthetic unavailable reply'},{status:503}));
+  await ui.context.send('A separate activity question');assert.equal(ui.$('message').value,'');
+  assert.equal(ui.history.active().turns[0].content,'A separate activity question');
+});
+
+test('a navigation start prompt preserves the composer draft through mode restoration',async()=>{
+  const ui=await fixture();ui.$('message').value='An independent typed thought';
+  await ui.context.navigationHooks.onStart('A started conversation','companion');
+  assert.equal(ui.$('message').value,'An independent typed thought');assert.equal(ui.requests[0].message,'A started conversation');
 });
 
 test('a rejected edit keeps its target and draft without issuing a model request',async()=>{
   const ui=await fixture();await ui.history.append('user','Original question');await ui.history.append('assistant','Original answer');
   const original=ui.history.active();ui.context.editTarget=ui.history.revisionTarget(1);ui.$('message').value='My corrected question';
   ui.history.replaceFrom=async()=>null;
-  await ui.context.send('My corrected question');
+  await ui.context.send('My corrected question',{source:'composer'});
   assert.deepEqual(ui.context.editTarget,ui.history.revisionTarget(1));assert.equal(ui.$('message').value,'My corrected question');assert.deepEqual(ui.history.active(),original);assert.equal(ui.requests.length,0);
 });
 
@@ -149,7 +180,7 @@ for(const switchThread of [false,true])test(`a revision canceled during mode res
   ui.context.editTarget=ui.history.revisionTarget(1);ui.$('message').value='Corrected question';
   let release,entered;const blocked=new Promise(resolve=>{release=resolve;}),restoring=new Promise(resolve=>{entered=resolve;});
   ui.context.memory.setMode=async()=>{entered();await blocked;return true;};
-  const sending=ui.context.send('Corrected question');await restoring;
+  const sending=ui.context.send('Corrected question',{source:'composer'});await restoring;
   ui.context.cancelConversation();if(switchThread)await ui.history.create();
   release();await sending;
   assert.equal(ui.requests.length,0);assert.equal(ui.spoken.length,0);
