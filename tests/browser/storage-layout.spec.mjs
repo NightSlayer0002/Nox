@@ -42,8 +42,11 @@ test('narrow untouched chat reserves reading space and deliberate movement resto
   await expect.poll(()=>page.evaluate(()=>{
     const handle=document.querySelector('.floating-nox-handle').getBoundingClientRect();
     return [...document.querySelectorAll('#conversation .message')].flatMap(node=>{
-      const range=document.createRange();range.selectNodeContents(node.querySelector('.message-content'));
-      return [...range.getClientRects()].filter(rect=>rect.bottom>handle.top&&rect.top<handle.bottom&&rect.width>0&&rect.right>handle.left).map(rect=>({right:rect.right,left:handle.left}));
+      const walker=document.createTreeWalker(node.querySelector('.message-content'),NodeFilter.SHOW_TEXT),rects=[];
+      // Structured answers contain block boxes as well as glyphs. Only actual
+      // text rectangles establish whether NOX obscures the reading surface.
+      while(walker.nextNode()){if(!walker.currentNode.textContent.trim())continue;const range=document.createRange();range.selectNodeContents(walker.currentNode);rects.push(...range.getClientRects());}
+      return rects.filter(rect=>rect.bottom>handle.top&&rect.top<handle.bottom&&rect.width>0&&rect.right>handle.left).map(rect=>({right:rect.right,left:handle.left}));
     });
   })).toEqual([]);
   await page.locator('.floating-nox-handle').focus();await page.keyboard.press('ArrowLeft');
@@ -80,8 +83,9 @@ for(const width of [1440,1024,562,390])test(`untouched NOX leaves both roles rea
       await expect.poll(()=>page.evaluate(()=>{
         const handle=document.querySelector('.floating-nox-handle').getBoundingClientRect(),viewport=document.getElementById('conversation').getBoundingClientRect();
         return [...document.querySelectorAll('#conversation .message-content')].flatMap(content=>{
-          const range=document.createRange();range.selectNodeContents(content);
-          return [...range.getClientRects()].filter(rect=>rect.width>0&&rect.height>0&&rect.bottom>viewport.top&&rect.top<viewport.bottom&&rect.bottom>handle.top&&rect.top<handle.bottom&&rect.right>handle.left&&rect.left<handle.right).map(rect=>({left:rect.left,right:rect.right,top:rect.top,bottom:rect.bottom}));
+          const walker=document.createTreeWalker(content,NodeFilter.SHOW_TEXT),rects=[];
+          while(walker.nextNode()){if(!walker.currentNode.textContent.trim())continue;const range=document.createRange();range.selectNodeContents(walker.currentNode);rects.push(...range.getClientRects());}
+          return rects.filter(rect=>rect.width>0&&rect.height>0&&rect.bottom>viewport.top&&rect.top<viewport.bottom&&rect.bottom>handle.top&&rect.top<handle.bottom&&rect.right>handle.left&&rect.left<handle.right).map(rect=>({left:rect.left,right:rect.right,top:rect.top,bottom:rect.bottom}));
         });
       }),{message:`Text must clear the untouched character (${restored?'restored':'fresh'} ${selector})`}).toEqual([]);
     }

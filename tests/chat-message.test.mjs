@@ -4,19 +4,7 @@ import {readFile} from 'node:fs/promises';
 import vm from 'node:vm';
 import {createChatMessage} from '../public/js/chat-message.js';
 
-class Element {
-  constructor(tagName){
-    this.tagName=tagName.toUpperCase();this.children=[];this.attributes=new Map();this.className='';this.value='';
-  }
-  append(...children){this.children.push(...children);}
-  setAttribute(name,value){this.attributes.set(name,String(value));}
-  getAttribute(name){return this.attributes.get(name)??null;}
-  set textContent(value){this.value=String(value);this.children=[];}
-  get textContent(){return this.value+this.children.map(child=>child.textContent).join('');}
-  get lastChild(){return this.children.at(-1)??null;}
-  get classList(){return {contains:name=>this.className.split(/\s+/).includes(name)};}
-  set innerHTML(value){throw new Error(`Message markup must be assigned with textContent: ${value}`);}
-}
+import {MessageElement as Element,messageDocument,descendants} from './helpers/message-dom.mjs';
 
 // Run the app's integration function without starting the canvas, network, or voice.
 // A minimal DOM is enough for this boundary; it also rejects unsafe HTML writes.
@@ -25,7 +13,7 @@ const addMessageSource=appSource.match(/function addMessage\(speaker, text(?:,tu
 function fixture(){
   assert.ok(addMessageSource,'the app exposes its message insertion boundary');
   const conversation=new Element('div');conversation.scrollHeight=180;conversation.scrollTop=0;
-  const document={createElement:tag=>new Element(tag)};
+  const document=messageDocument();
   const replyFollow={update:change=>{change();conversation.scrollTop=conversation.scrollHeight;}};
   const context=vm.createContext({document,createChatMessage,replyFollow,$:id=>{assert.equal(id,'conversation');return conversation;}});
   const addMessage=vm.runInContext(`(${addMessageSource})`,context);
@@ -73,7 +61,7 @@ test('message markup is displayed literally instead of becoming elements',()=>{
   for(const role of ['nox','user','system']){
     const content=addMessage(role,text).lastChild;
     assert.equal(content.textContent,text);
-    assert.deepEqual(content.children,[]);
+    assert.equal(descendants(content,'img').length,0);assert.equal(descendants(content,'script').length,0);
   }
 });
 
@@ -89,7 +77,7 @@ test('streamed text updates the final paragraph without replacing the logo or sp
   const {addMessage,conversation,document}=fixture();
   const message=addMessage('nox','');
   const content=message.lastChild;
-  assert.equal(content.tagName,'P');
+  assert.equal(content.tagName,'DIV');
   content.textContent='A partial';
   message.lastChild.textContent='A completed thought.';
   assert.equal(message.lastChild,content);
@@ -103,7 +91,7 @@ test('streamed text updates the final paragraph without replacing the logo or sp
 });
 
 test('assistant prose formatting is shared by initial and final rendering without changing user code',()=>{
-  const document={createElement:tag=>new Element(tag)};
-  assert.equal(createChatMessage('nox','**Answer**\\n1. First.\\n2. Second.',document).lastChild.textContent,'Answer\n1. First.\n2. Second.');
+  const document=messageDocument();
+  const answer=createChatMessage('nox','**Answer**\\n1. First.\\n2. Second.',document).lastChild;assert.equal(descendants(answer,'strong')[0].textContent,'Answer');assert.deepEqual(descendants(answer,'li').map(node=>node.textContent),['First.','Second.']);
   assert.equal(createChatMessage('user','**literal**\\n1. text',document).lastChild.textContent,'**literal**\\n1. text');
 });

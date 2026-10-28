@@ -4,6 +4,19 @@
 .workspace #latest-reply{position:absolute;bottom:calc(100% + 8px);left:50%;transform:translateX(-50%);padding:7px 14px;min-height:34px;font-size:13px;color:var(--text);background:var(--surface);border:1px solid var(--line);border-radius:20px;z-index:3;white-space:nowrap}
 .workspace #latest-reply[hidden]{display:none}
 .workspace #latest-reply:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
+.workspace .message.nox .message-content{white-space:normal}
+.workspace .message-content>p{margin:0 0 12px;white-space:pre-wrap}
+.workspace .message-content>:last-child{margin-bottom:0}
+.workspace .message-content :is(h3,h4,h5,h6){font-size:1.06em;line-height:1.4;font-weight:600;margin:20px 0 10px;color:var(--text)}
+.workspace .message-content>:first-child{margin-top:0}
+.workspace .message-content :is(ul,ol){padding-inline-start:24px;margin:12px 0}
+.workspace .message-content li{padding-inline-start:3px;white-space:pre-wrap}
+.workspace .message-content li+li{margin-top:6px}
+.workspace .message-content a{color:var(--accent);text-decoration:underline;text-underline-offset:3px;overflow-wrap:anywhere}
+.workspace .message-content a:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
+.workspace .message-content code{font-family:ui-monospace,monospace;font-size:.88em;white-space:pre-wrap}
+.workspace .message-content pre{max-width:100%;overflow-x:auto;margin:12px 0;padding:12px 14px;background:var(--surface);border-radius:8px;white-space:pre}
+.workspace .message-content pre code{white-space:pre}
 .workspace .reply-status .reply-timing{margin:0;flex:1}
 .workspace .reply-status:has(.reply-timing:empty):has(#show-reply-text[hidden]){display:none}
 .workspace #show-reply-text{flex:none;min-height:30px;padding:4px 8px;border:0;background:transparent;color:var(--accent);font-size:12px;text-decoration:underline;text-underline-offset:3px;box-shadow:none}
