@@ -30,7 +30,7 @@ function MoonDiagram({angle,onChange}){
     </svg>
     <label htmlFor={`${id}-angle`}>Move the Moon around Earth <output>{Math.round(phase.degrees)}°</output></label>
     <input id={`${id}-angle`} type="range" min="0" max="360" step="1" value={angle} onChange={event=>onChange(Number(event.target.value))} aria-valuetext={`${phase.name}, ${Math.round(phase.fraction*100)} percent lit`}/>
-    <div className="eact-phase-stops">{[[0,'New'],[90,'First quarter'],[180,'Full'],[270,'Third quarter']].map(([value,label])=><button type="button" key={value} aria-pressed={Math.abs(angle-value)<2} onClick={()=>onChange(value)}>{label}</button>)}</div>
+    <div className="eact-phase-stops">{[[0,'New'],[90,'First quarter'],[180,'Full'],[270,'Third quarter']].map(([value,label])=><button type="button" key={value} aria-pressed={phase.degrees===value} onClick={()=>onChange(value)}>{label}</button>)}</div>
     <figcaption>Model, not a live sky forecast. Sizes, distance and orbit tilt are simplified. Earth-view orientation is from the northern hemisphere. <a href={MOON_SOURCE} target="_blank" rel="noreferrer">Moon phases · NASA</a></figcaption>
   </figure>;
 }

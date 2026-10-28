@@ -14,8 +14,11 @@ export const MOON_CLUES=Object.freeze([
 export const MOON_EXPLANATION='The Moon reflects sunlight. Apart from eclipses, one half is sunlit. As it orbits Earth, we see different amounts of that lit half. That changing view makes the phases; ordinary phases are not Earth’s shadow.';
 export function moonPhase(angle){
   const degrees=((Number(angle)||0)%360+360)%360,fraction=(1-Math.cos(degrees*Math.PI/180))/2;
-  const names=['New Moon','Waxing crescent','First quarter','Waxing gibbous','Full Moon','Waning gibbous','Third quarter','Waning crescent'];
-  return {degrees,fraction,name:names[Math.round(degrees/45)%8],waxing:degrees<=180};
+  // Reserve exact positions for their model geometry; intermediate angles are
+  // crescent/gibbous, rather than a rounded quarter or full Moon.
+  const exact={0:'New Moon',90:'First quarter',180:'Full Moon',270:'Third quarter'};
+  const name=exact[degrees]??(degrees<90?'Waxing crescent':degrees<180?'Waxing gibbous':degrees<270?'Waning gibbous':'Waning crescent');
+  return {degrees,fraction,name,waxing:degrees<=180};
 }
 export function createExploreState(preferences={}){
   return {version:ACTIVITY_VERSION,kind:'explore',topic:'',example:'moon',angle:45,approach:preferences.learningStyle==='hints'?'hints':'explain',clues:preferences.learningStyle==='hints'?1:0,prediction:'',teachBack:'',selfCheck:[],recap:false};
