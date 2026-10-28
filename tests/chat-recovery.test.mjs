@@ -44,7 +44,7 @@ async function fixture(responses){
     async restoreConversation(){},
   });
   context.setBusy=value=>{context.busy=value;};
-  const send=vm.runInContext(`(${sendSource})`,context);
+  const submit=vm.runInContext(`(${sendSource})`,context),send=text=>submit(text,{source:'composer'});
   return {send,history,messages,requests,nodes,$};
 }
 
