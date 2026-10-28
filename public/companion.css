@@ -138,8 +138,9 @@
 .workspace .preference-confirmation strong{font-size:17px;font-weight:550}
 .workspace .preference-confirmation p{margin:6px 0;font-size:15px;line-height:1.5}
 .workspace .preference-confirmation :is(small,p span){color:var(--muted);font-size:12px}
-.workspace .preference-confirmation>div:nth-child(2){display:flex;gap:10px;align-items:center}
+.workspace .preference-confirmation>div:nth-child(2){display:flex;flex-wrap:wrap;gap:10px;align-items:center}
 .workspace .preference-confirmation button{min-height:38px;padding:9px 12px;font-size:13px}
+.workspace .preference-confirmation a{font-size:13px;text-decoration:underline;text-underline-offset:4px}
 .workspace .usage-detail{margin:24px 0;max-width:70ch}
 .workspace .usage-detail h2{font-size:20px!important}
 .workspace .usage-detail p{font-size:14px;color:var(--muted);line-height:1.65}
