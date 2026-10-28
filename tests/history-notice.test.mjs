@@ -18,3 +18,16 @@ test('near-capacity notices explain limits without implying silent deletion',()=
 test('storage failure does not promise that an in-memory answer was saved',()=>{
   const result=historyNotice(history({persistent:false}));assert.match(result.message,/not being saved/);assert.match(result.message,/Export/);
 });
+
+test('missing origin locks explain read-only ownership and preserve the guest option',()=>{
+  // Resolves error-copy truth at the notice boundary, not browser coordination.
+  const locked=history({persistent:false,crossTabSafe:false,lastError:'coordination-unavailable'}),notice=historyNotice(locked);
+  assert.match(notice.privacy,/read-only/);assert.match(notice.message,/Web Locks/);assert.match(notice.message,/guest/i);assert.match(historyFailure(locked),/unchanged/i);
+  assert.match(historyNotice(locked,{guest:true}).privacy,/This visit only/);
+});
+
+test('an unreadable archive without locks never claims its saved chats can be read',()=>{
+  // Resolves notice honesty for combined recovery/capability failure; no UI/AT claim.
+  const notice=historyNotice(history({persistent:false,crossTabSafe:false,recovery:{reason:'invalid'}}));
+  assert.equal(notice.protected,true);assert.match(notice.message,/original|protected/i);assert.match(notice.message,/recovery|download/i);assert.doesNotMatch(notice.message,/chats stay readable/);
+});

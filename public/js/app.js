@@ -315,6 +315,7 @@ function updateMemory() {
   state.facts.slice(-4).forEach(fact => { const tag = document.createElement('span'); tag.className = 'fact'; tag.textContent = fact; $('memory-facts').append(tag); });
   if(!visit.owner)$('memory-summary').textContent='Recent messages provide context for this visit.';
   else if(memory.status.error==='unreadable-storage')$('memory-summary').textContent += ' The saved notebook cannot be read. Its original data has been left untouched.';
+  else if(memory.status.error==='coordination-unavailable')$('memory-summary').textContent += ' This notebook is read-only because the browser lacks Web Locks. Saved facts are unchanged. Use a browser with Web Locks or a temporary guest visit.';
   else if (!memory.persistent) $('memory-summary').textContent += ' Storage is unavailable; this notebook lasts for this visit.';
 }
 
@@ -359,6 +360,7 @@ async function send(raw,{recorded=false,keepDraft=false,source='programmatic'}={
   const text = raw.trim(); if (!text || busy) return;
   const submittedDraft=$('message').value;
   if(brain==='loading'){replyDiagnostics.setStatus('The AI connection is not ready. Your message is still here.');return;}
+  if(visit.owner&&history.crossTabSafe===false){toast(historyFailure(history));return;}
   if(source==='composer'&&editTarget!==null){const editing=turns.begin(),revised=await history.replaceFrom(editTarget,text);if(!turns.isCurrent(editing))return;if(!revised){toast(historyFailure(history,'That message could not be edited. Your draft is still here.'));return;}editTarget=null;const restored=await restoreConversation({retrying:true});if(!turns.isCurrent(restored))return;recorded=true;}
   // Failed or interrupted replies already keep their user turn. Sending the
   // same unanswered draft retries it without recording it a second time.

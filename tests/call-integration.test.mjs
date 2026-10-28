@@ -167,6 +167,16 @@ test('a navigation start prompt preserves the composer draft through mode restor
   assert.equal(ui.$('message').value,'An independent typed thought');assert.equal(ui.requests[0].message,'A started conversation');
 });
 
+test('a read-only owner cannot bypass saving by resending an already recorded unanswered turn',async()=>{
+  // Uncertainty: can recorded=true bypass the write-capability guard and spend
+  // a request whose answer cannot be saved? Real send/history, synthetic HTTP;
+  // this does not measure deployed spend or all storage-failure conditions.
+  const ui=await fixture();await ui.history.append('user','Saved unanswered question');
+  ui.context.visit.owner=true;ui.context.memory.snapshot=()=>({});ui.context.history=new Proxy(ui.history,{get:(target,key)=>key==='crossTabSafe'?false:key==='append'?async()=>false:Reflect.get(target,key)});
+  ui.$('message').value='Saved unanswered question';await ui.context.send('Saved unanswered question',{source:'composer'});
+  assert.equal(ui.requests.length,0);assert.equal(ui.$('message').value,'Saved unanswered question');assert.equal(ui.history.active().turns.length,1);
+});
+
 test('a rejected edit keeps its target and draft without issuing a model request',async()=>{
   const ui=await fixture();await ui.history.append('user','Original question');await ui.history.append('assistant','Original answer');
   const original=ui.history.active();ui.context.editTarget=ui.history.revisionTarget(1);ui.$('message').value='My corrected question';

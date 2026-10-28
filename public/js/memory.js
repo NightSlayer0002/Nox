@@ -1,4 +1,5 @@
 import { cleanText, MODES, sanitizeContext } from '../../shared/character.js';
+import {createStorageTransaction} from './storage-transaction.js';
 
 const KEY = 'nox.memory.v1';
 const empty = () => ({ version: 1, name: '', facts: [], history: [], mode: 'companion' });
@@ -20,8 +21,10 @@ function parse(raw) {
 export function createMemory(storage) {
   let state = empty(), lastRaw, rawBackup = null, readError = null, writeError = null;
   const listeners = new Set();
-  const persistent = () => !readError && !writeError && typeof storage?.setItem === 'function' && storage?.temporary !== true;
-  const crossTabSafe = () => storage?.temporary === true || !globalThis.window || typeof globalThis.navigator?.locks?.request === 'function';
+  const transaction = () => createStorageTransaction(storage, 'nox.memory.write', {locks:globalThis.navigator?.locks});
+  const crossTabSafe = () => transaction().supported;
+  const persistent = () => crossTabSafe() && !readError && !writeError && typeof storage?.setItem === 'function' && storage?.temporary !== true;
+  const coordinationError = () => crossTabSafe() ? null : 'coordination-unavailable';
   const changeKey = () => JSON.stringify([state, readError, writeError]);
   function notify(before) {
     if (before !== changeKey()) for (const listener of listeners) {
@@ -48,6 +51,13 @@ export function createMemory(storage) {
     return readable;
   }
   function mutate(action) {
+    const current = transaction();
+    if (!current.supported) {
+      const before = changeKey();
+      writeError = 'coordination-unavailable';
+      notify(before);
+      return false;
+    }
     const commit = () => {
       const before = changeKey(), readable = load();
       action();
@@ -64,26 +74,16 @@ export function createMemory(storage) {
       notify(before);
       return committed;
     };
-    const locks = globalThis.navigator?.locks;
-    if (storage?.temporary !== true && typeof locks?.request === 'function') {
-      // The read and write must share the same origin-wide lock. Refreshing
-      // before an unlocked write alone still permits interleaved tab writes.
-      try {
-        return Promise.resolve(locks.request('nox.memory.write', commit)).catch(() => {
-          const before = changeKey();
-          writeError = 'storage-unavailable';
-          notify(before);
-          return false;
-        });
-      } catch {
-        const before = changeKey();
-        writeError = 'storage-unavailable';
-        notify(before);
-        return false;
-      }
-    }
-    // Synchronous injected/visit storage needs no realm-local async queue.
-    return commit();
+    const failed = () => {
+      const before = changeKey();
+      writeError = 'storage-unavailable';
+      notify(before);
+      return false;
+    };
+    try {
+      const result = current.run(commit);
+      return result?.then ? Promise.resolve(result).catch(failed) : result;
+    } catch { return failed(); }
   }
   const onStorage = event => {
     if ((event.key === KEY || event.key === null) && (!event.storageArea || event.storageArea === storage)) refresh();
@@ -94,7 +94,7 @@ export function createMemory(storage) {
   return {
     get persistent() { return persistent(); },
     get crossTabSafe() { return crossTabSafe(); },
-    get status() { return { persistent: persistent(), crossTabSafe: crossTabSafe(), error: readError || writeError, hasStoredData: rawBackup !== null }; },
+    get status() { return { persistent: persistent(), crossTabSafe: crossTabSafe(), error: readError || writeError || coordinationError(), hasStoredData: rawBackup !== null }; },
     snapshot() { refresh(); return structuredClone(state); },
     refresh,
     subscribe(listener) { listeners.add(listener); return () => listeners.delete(listener); },
