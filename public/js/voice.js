@@ -20,7 +20,7 @@ export function createVoice({ onStart, onEnd, onError, onState, onTiming, reques
   function beginNarration(entry,version,options,requestedAt){
     const narrationEngine=engine;
     let playRequestedAt,startedAt,finished=false;
-    function report(status,reason){
+    function report(status,reason,message){
       if(version!==generation)return;
       const readyAt=entry?.readyAt;
       latency=Object.freeze({engine:narrationEngine,status,
@@ -30,6 +30,7 @@ export function createVoice({ onStart, onEnd, onError, onState, onTiming, reques
         totalMs:milliseconds(requestedAt,startedAt??now()),
         playbackMs:finished&&startedAt!==undefined?milliseconds(startedAt,now()):null,
         ...(reason?{reason}:{}),
+        ...(message?{message}:{}),
       });
       onTiming?.(latency);return latency;
     }
@@ -44,9 +45,12 @@ export function createVoice({ onStart, onEnd, onError, onState, onTiming, reques
         if(finished||version!==generation)return;
         finished=true;
         const unavailable=startedAt===undefined;
-        const timing=report(unavailable?'unavailable':error?'error':'ended',unavailable?reason:undefined);
+        const message=error?.message||error?.error;
+        const result=report(unavailable?'unavailable':error?'error':'ended',error||unavailable?reason:undefined,message);
         if(narration===lifecycle)narration=null;
-        if(unavailable)options?.onPlaybackUnavailable?.(timing);
+        if(unavailable)options?.onPlaybackUnavailable?.(result);
+        else if(error)options?.onPlaybackError?.(result);
+        else options?.onPlaybackEnd?.(result);
       },
       cancel(){if(finished)return;finished=true;report('cancelled');},
     };
@@ -175,7 +179,7 @@ export function createVoice({ onStart, onEnd, onError, onState, onTiming, reques
       const requestedAt=now();
       if (!enabled || !this.supported || !text?.trim()) {
         const lifecycle=beginNarration(null,generation,options,requestedAt);
-        lifecycle.finish(null,!this.supported?'unsupported':!enabled?'disabled':'empty');return;
+        lifecycle.finish(null,!this.supported?'unsupported':!enabled?'disabled':'empty');return latency;
       }
       const entry=engine==='natural'?audioFor(text,mode,emotion,cues):null;
       stopPlayback(entry); const version = generation;
@@ -214,7 +218,7 @@ export function createVoice({ onStart, onEnd, onError, onState, onTiming, reques
           }catch(error){finish(error);}
         };
         await playClip(0);
-        return;
+        return latency;
       }
       const voices = synth.getVoices();
       const preferred = voices.find(v=>v.name===browserName)||selectBrowserVoice(voices);
@@ -238,6 +242,7 @@ export function createVoice({ onStart, onEnd, onError, onState, onTiming, reques
         try{lifecycle.requestPlayback();synth.speak(utterance);}catch(error){cleanup();updateState();lifecycle.finish(error);onEnd?.();onError?.('Your browser could not speak that reply. The caption is still here.');}
       };
       if(chunks.length)begin(0);
+      return latency;
     },
   };
 }

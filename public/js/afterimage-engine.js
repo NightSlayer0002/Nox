@@ -34,10 +34,11 @@ function safePerformance(value) {
   return {cues, script:cues.map(cue => cue.speech).join('\n')};
 }
 
-// Owns cue timing only. Stage and voice keep their existing animation/audio clocks.
+// Coordinates cue timing and the owned capture deadline. Stage and voice retain
+// their animation/audio clocks and report the actual playback boundary.
 export function createAfterimageController({onCue, onPrepare, onBegin, onSpeak, onSpeaking, onStop,onVoiceUnavailable, now = () => performance.now(), setTimer = setTimeout, clearTimer = clearTimeout, visibilityTarget} = {}) {
   let version = 0, timer = null, preparationTimer=null, startedAt = 0, disposed = false, run = null, abortCleanup;
-  let state = Object.freeze({status:'idle',cueIndex:-1,elapsedMs:0,durationMs:AFTERIMAGE_DURATION_MS,preparing:false,captionsOnly:false,voiceError:'',reason:'',version});
+  let state = Object.freeze({status:'idle',cueIndex:-1,elapsedMs:0,durationMs:AFTERIMAGE_DURATION_MS,preparing:false,captionsOnly:false,voiceError:'',captureError:'',reason:'',version});
   const listeners = new Set();
   function publish(next) {
     state = Object.freeze({...state,...next,version});
@@ -59,11 +60,12 @@ export function createAfterimageController({onCue, onPrepare, onBegin, onSpeak, 
   function tick(currentVersion) {
     if (!isCurrent(currentVersion) || state.preparing) return;
     timer = null;
-    const elapsedMs = Math.min(MAX_DURATION_MS, Math.max(0, now() - startedAt));
-    if (elapsedMs >= AFTERIMAGE_DURATION_MS) {
+    const maximumMs=run.captureDeadline===undefined?MAX_DURATION_MS:Math.max(0,run.captureDeadline-startedAt);
+    const elapsedMs = Math.min(maximumMs, Math.max(0, now() - startedAt));
+    if (elapsedMs >= AFTERIMAGE_DURATION_MS || elapsedMs >= maximumMs) {
       let speaking = false;
       try { speaking = !state.captionsOnly && onSpeaking?.() === true; } catch {}
-      if (!speaking || elapsedMs >= MAX_DURATION_MS) { finish('complete','complete',elapsedMs); return; }
+      if (!speaking || elapsedMs >= maximumMs) { finish('complete','complete',elapsedMs); return; }
     }
     const cueIndex = Math.min(3,Math.floor(elapsedMs / AFTERIMAGE_CUE_MS));
     const durationMs = Math.max(AFTERIMAGE_DURATION_MS,elapsedMs);
@@ -73,14 +75,14 @@ export function createAfterimageController({onCue, onPrepare, onBegin, onSpeak, 
       try { onCue?.(run.cues[cueIndex],cueIndex); }
       catch { finish('error'); return; }
     } else publish({elapsedMs,durationMs});
-    const deadline = elapsedMs < AFTERIMAGE_DURATION_MS ? AFTERIMAGE_DURATION_MS : MAX_DURATION_MS;
+    const deadline = Math.min(maximumMs,elapsedMs < AFTERIMAGE_DURATION_MS ? AFTERIMAGE_DURATION_MS : MAX_DURATION_MS);
     if (isCurrent(currentVersion)) timer = setTimer(() => tick(currentVersion), Math.min(250, deadline - elapsedMs));
   }
-  function startTimeline(currentVersion, captionsOnly = false,timedOut=false) {
+  function startTimeline(currentVersion, captionsOnly = false,timedOut=false,message='') {
     if (!isCurrent(currentVersion)||!state.preparing) return;
     if(preparationTimer!==null)clearTimer(preparationTimer);preparationTimer=null;
     startedAt = now();
-    publish({preparing:false,captionsOnly,voiceError:captionsOnly?timedOut?'Voice preparation timed out. This cut will continue with captions.':'Voice unavailable. This cut will continue with captions.':'',cueIndex:0,elapsedMs:0});
+    publish({preparing:false,captionsOnly,voiceError:captionsOnly?`${message|| (timedOut?'Voice preparation timed out.':'Voice unavailable.')} This cut will continue with captions.`:'',cueIndex:0,elapsedMs:0});
     if (!isCurrent(currentVersion)) return;
     try { onCue?.(run.cues[0],0); }
     catch { finish('error'); return; }
@@ -90,14 +92,31 @@ export function createAfterimageController({onCue, onPrepare, onBegin, onSpeak, 
     if (!isCurrent(currentVersion)||!state.preparing||run.begun) return;
     run.begun=true;
     // Arm capture after provider preparation, just before the first audio can play.
-    try { onBegin?.(); } catch { finish('error'); return; }
+    let capture;
+    try { capture=onBegin?.(); }
+    catch(error) { publish({captureError:error?.message||'This capture could not start. Try recording again.'});finish('error'); return; }
     if (!isCurrent(currentVersion)) return;
+    if(capture?.capture===true)run.captureDeadline=now()+MAX_DURATION_MS;
     if (prepared === false) { startTimeline(currentVersion,true,timedOut); return; }
     try {
-      const speaking = onSpeak?.(run.script,run.cues[0].emotion,run.cues);
+      const unavailable=value=>{
+        if(!isCurrent(currentVersion))return;
+        const message=value?.message||'';
+        if(state.preparing)startTimeline(currentVersion,true,false,message);
+        else publish({captionsOnly:true,voiceError:`${message||'Voice unavailable.'} This cut will continue with captions.`});
+      };
+      const speaking = onSpeak?.(run.script,run.cues[0].emotion,run.cues,{
+        onPlaybackStart:()=>startTimeline(currentVersion),onPlaybackUnavailable:unavailable,onPlaybackError:unavailable,
+      });
+      const accepted=result=>{
+        // Typed adapters report actual playback through the hooks above. Legacy
+        // adapters retain their existing immediate/promise startup contract.
+        if(result?.status==='unavailable'||result?.status==='error')unavailable(result);
+        else if(!result?.status)startTimeline(currentVersion);
+      };
       if (speaking && typeof speaking.then === 'function') {
-        Promise.resolve(speaking).then(() => startTimeline(currentVersion),() => startTimeline(currentVersion,true));
-      } else startTimeline(currentVersion);
+        Promise.resolve(speaking).then(accepted,error => unavailable(error));
+      } else accepted(speaking);
     } catch { startTimeline(currentVersion,true); }
   }
   const hidden = () => { if (visibilityTarget?.hidden) finish('hidden'); };
@@ -115,7 +134,7 @@ export function createAfterimageController({onCue, onPrepare, onBegin, onSpeak, 
         const abort = () => { if (currentVersion === version) finish('aborted'); };
         signal.addEventListener('abort',abort,{once:true}); abortCleanup = () => signal.removeEventListener('abort',abort);
       }
-      publish({status:'playing',preparing:true,captionsOnly:false,voiceError:'',cueIndex:-1,elapsedMs:0,durationMs:AFTERIMAGE_DURATION_MS,reason:''});
+      publish({status:'playing',preparing:true,captionsOnly:false,voiceError:'',captureError:'',cueIndex:-1,elapsedMs:0,durationMs:AFTERIMAGE_DURATION_MS,reason:''});
       if(currentVersion !== version || state.status !== 'playing')return false;
       preparationTimer=setTimer(()=>{
         preparationTimer=null;if(!isCurrent(currentVersion)||!state.preparing)return;
@@ -150,6 +169,6 @@ export function toMarkdown(reception) {
   if (reception?.seed) lines.push(`Seed: ${markdownText(reception.seed)}`);
   lines.push('',markdownText(packet.anchor),'',`## ${markdownText(performance.signalLabel)} · ${markdownText(performance.endingLabel)}`,'',markdownText(signal.premise),'');
   performance.cues.forEach((cue,index) => lines.push(`### ${timecode(index * AFTERIMAGE_CUE_MS)}–${timecode((index + 1) * AFTERIMAGE_CUE_MS)} · ${index === 3 ? 'Ending' : `Act ${index + 1}`}`,'',`> ${markdownText(cue.speech)}`,'',`Emotion: ${cue.emotion} · Scene: ${cue.action}`,''));
-  lines.push('## Caption','',markdownText(packet.caption),'','28-second cue schedule. Playback waits for enabled natural voice to be ready; the ending can remain until narration finishes, up to 60 seconds. Cue timing is not word-level audio alignment. Capture is a WebM of the local stage, captions and enabled Orpheus audio. Browser speech is not captured.','');
+  lines.push('## Caption','',markdownText(packet.caption),'','28-second cue schedule. Playback waits for enabled natural voice to be ready; the ending can remain until narration finishes, up to 60 seconds. Playback startup counts toward the capture’s 60-second limit. Cue timing is not word-level audio alignment. Capture is a WebM of the local stage, captions and enabled Orpheus audio. Browser speech is not captured.','');
   return lines.join('\n');
 }
