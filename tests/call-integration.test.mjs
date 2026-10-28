@@ -177,6 +177,16 @@ test('a read-only owner cannot bypass saving by resending an already recorded un
   assert.equal(ui.requests.length,0);assert.equal(ui.$('message').value,'Saved unanswered question');assert.equal(ui.history.active().turns.length,1);
 });
 
+test('reply completion preserves the focus the reader chose while the request was pending',async()=>{
+  // Uncertainty: does completion steal focus back to the composer? Controlled
+  // send/fetch fixture; actual keyboard focus is checked in the browser journey.
+  const ui=await fixture();let focus='composer',release,entered;
+  ui.$('message').focus=()=>{focus='composer';};
+  const started=new Promise(resolve=>{entered=resolve;});ui.respondWith(()=>new Promise(resolve=>{release=()=>resolve(Response.json(packet));entered();}));
+  const work=ui.context.send('A submitted thought',{source:'composer'});await started;
+  focus='reading';release();await work;assert.equal(focus,'reading');
+});
+
 test('a rejected edit keeps its target and draft without issuing a model request',async()=>{
   const ui=await fixture();await ui.history.append('user','Original question');await ui.history.append('assistant','Original answer');
   const original=ui.history.active();ui.context.editTarget=ui.history.revisionTarget(1);ui.$('message').value='My corrected question';

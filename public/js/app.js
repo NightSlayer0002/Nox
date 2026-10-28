@@ -374,6 +374,7 @@ async function send(raw,{recorded=false,keepDraft=false,source='programmatic'}={
     openSettings({owner:brain==='locked'});return;
   }
   const version = turns.begin();
+  if(source==='composer')$('message').focus({preventScroll:true});
   activityTurn=activity.beginTurn();
   const timingVersion=replyDiagnostics.begin(brain==='live'?'NOX is thinking…':'Scripted demo · no AI request');
   summaryController?.abort();clearTimeout(summaryTimer);
@@ -412,7 +413,7 @@ async function send(raw,{recorded=false,keepDraft=false,source='programmatic'}={
     if (turns.isCurrent(version)) {activity.transition('reply-ready',activityTurn);if(takeover)packet={...packet,action:'takeover'};const draft=pendingDraft;const completed=await perform(packet,true,draft,version,depth,explicitMemoryRequest(text),brain==='live'?request.context.knowledge:[]);if(turns.isCurrent(version)){pendingDraft=null;scheduleSummary();return completed;}}
   } catch (error) {
     if (turns.isCurrent(version)){setUsage(error.usage);pendingDraft?.remove();pendingDraft=null;if(error.name!=='AbortError'){activity.finishTurn(activityTurn,'error');if(source==='composer'&&!$('message').value){composer.setValue(text);contextPreview();}stage.character.react?.('worried',stage.time,2);if (brain === 'live') $('brain-status').lastChild.textContent = ' AI error'; addMessage('system', error.message); toast(error.message);replyDiagnostics.setStatus('Reply interrupted. Your message is still in this visit.');}}
-  } finally { if (turns.isCurrent(version)) { setBusy(false); $('message').focus(); } }
+  } finally { if (turns.isCurrent(version)) { setBusy(false); } }
 }
 
 const greetings = {
