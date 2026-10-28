@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFile} from 'node:fs/promises';
 import vm from 'node:vm';
-import {createChatMessage} from '../public/js/chat-message.js';
+import {createChatMessage,messageSource} from '../public/js/chat-message.js';
 
 import {MessageElement as Element,messageDocument,descendants} from './helpers/message-dom.mjs';
 
@@ -94,4 +94,11 @@ test('assistant prose formatting is shared by initial and final rendering withou
   const document=messageDocument();
   const answer=createChatMessage('nox','**Answer**\\n1. First.\\n2. Second.',document).lastChild;assert.equal(descendants(answer,'strong')[0].textContent,'Answer');assert.deepEqual(descendants(answer,'li').map(node=>node.textContent),['First.','Second.']);
   assert.equal(createChatMessage('user','**literal**\\n1. text',document).lastChild.textContent,'**literal**\\n1. text');
+});
+
+test('the canonical message retains list numbers, code and both same-label link destinations',()=>{
+  // Resolves source loss in the real renderer; does not test speech, network or visual layout.
+  const source='4. Use [release](https://example.com/one).\n5. Compare [release](https://example.com/two).\n\nUse steps 4 and 5 with `a\\nb`.';
+  const content=createChatMessage('nox',source,messageDocument()).lastChild;
+  assert.equal(messageSource(content),source);
 });

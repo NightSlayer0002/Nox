@@ -1,3 +1,6 @@
+import {messageSource} from './chat-message.js';
+import {proseText,spokenPassage} from './prose-text.js';
+
 const ACTIONS=[['explain','Explain','brain','Make the idea easier to follow'],['read','Read aloud','audio-lines','Hear this message'],['quiz','Quiz me','notebook-pen','Check what you understand']];
 
 // inspect receives viewport coordinates only during a deliberate drag. Dwelling
@@ -12,7 +15,9 @@ export function attachMessageCompanion({documentTarget=globalThis.document,conve
     if(!message||message.isConnected===false||conversation?.isConnected===false||!conversation?.contains(message))return null;
     const classes=message.classList;
     if(!classes?.contains('message')||(!classes.contains('user')&&!classes.contains('nox'))||classes.contains('draft')||classes.contains('system'))return null;
-    const text=message.querySelector('.message-content')?.textContent;
+    const content=message.querySelector('.message-content');
+    if(!content?.textContent?.trim())return null;
+    const text=messageSource(content);
     return typeof text==='string'&&text.trim()?text:null;
   }
   function messageAt(x,y){
@@ -62,7 +67,7 @@ export function attachMessageCompanion({documentTarget=globalThis.document,conve
     const dismiss=documentTarget.createElement('button');dismiss.type='button';dismiss.className='message-companion-close';dismiss.textContent='Close';dismiss.setAttribute('aria-label','Close message actions');
     dismiss.addEventListener('click',()=>{cancelDwell();close();});heading.append(title,dismiss);menu.append(heading);
     const preview=documentTarget.createElement('p');preview.className='message-companion-preview';
-    const excerpt=text.trim().replace(/\s+/g,' ');preview.textContent=excerpt.length>96?`${excerpt.slice(0,95)}…`:excerpt;menu.append(preview);
+    const excerpt=proseText(text).trim().replace(/\s+/g,' ');preview.textContent=excerpt.length>96?`${excerpt.slice(0,95)}…`:excerpt;menu.append(preview);
     for(const [kind,label,icon,detail] of ACTIONS){
       const button=documentTarget.createElement('button');button.type='button';button.className='message-companion-action';button.dataset.action=kind;
       const image=documentTarget.createElement('img');image.src=`/vendor/lucide/${icon}.svg`;image.alt='';image.width=16;image.height=16;image.setAttribute('aria-hidden','true');
@@ -74,7 +79,7 @@ export function attachMessageCompanion({documentTarget=globalThis.document,conve
         if(selected!==message||!menu?.contains(button))return;
         const currentText=textFor(message);
         cancelDwell();close();
-        if(!disposed&&currentText!==null)onAction?.({kind,message,text:currentText});
+        if(!disposed&&currentText!==null)onAction?.({kind,message,text:kind==='read'?spokenPassage(currentText):currentText});
       });
       menu.append(button);
     }

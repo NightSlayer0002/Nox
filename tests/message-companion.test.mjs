@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {attachMessageCompanion} from '../public/js/message-companion.js';
+import {setChatContent} from '../public/js/chat-message.js';
 
 class Element extends EventTarget {
   constructor(tagName,documentTarget){
@@ -113,6 +114,21 @@ test('only explicit actions pass the selected content as literal text',t=>{
     f.button(kind).click();assert.equal(f.menu(),null);
     assert.deepEqual(f.calls.at(-1),{kind,message,text});
   }
+});
+
+test('Explain and Quiz consume canonical source instead of rendered list/link labels',t=>{
+  // Resolves action payload fidelity with a synthetic DOM, not generated-answer correctness.
+  const f=fixture(t),source='4. Use [release](https://example.com/one).\n5. Compare [release](https://example.com/two).',message=f.message(),content=message.querySelector('.message-content');
+  setChatContent(content,source,'user');content.textContent='Use release.\nCompare release.';
+  for(const kind of ['explain','quiz']){f.companion.openFor(message);f.button(kind).click();assert.equal(f.calls.at(-1).text,source);}
+});
+
+test('Read preserves numbered steps and link destinations in spoken prose',t=>{
+  // Resolves the text handed to Read; says nothing about pronunciation or actual audio.
+  const f=fixture(t),source='4. Use **release** [page](https://example.com/one).\n5. Keep `value`.',message=f.message(),content=message.querySelector('.message-content');
+  setChatContent(content,source,'user');content.textContent='Use release page.\nKeep value.';
+  f.companion.openFor(message);f.button('read').click();const text=f.calls.at(-1).text;
+  assert.match(text,/4\. Use release/);assert.match(text,/https:\/\/example.com\/one/);assert.match(text,/5\. Keep value/);
 });
 
 test('removed messages cannot open late or dispatch actions from an old menu',t=>{

@@ -21,5 +21,6 @@ test('structured answers stay safe, readable on mobile and exact when copied',as
   await message.getByRole('button',{name:'Explore this message with NOX',exact:true}).click();
   const explaining=page.waitForRequest(request=>new URL(request.url()).pathname==='/api/chat');
   await page.getByRole('group',{name:'Actions for this message'}).getByRole('button',{name:/Explain/}).click();
-  expect((await explaining).postDataJSON().message).toContain('Read.\nPractice.');
+  expect((await explaining).postDataJSON().message).toContain('1. Read.\n2. Practice.');
+  expect((await explaining).postDataJSON().message).toContain('[reference](https://example.com/docs)');
 });

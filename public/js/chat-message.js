@@ -1,4 +1,8 @@
 import {renderAnswer} from './answer-content.js';
+const sources=new WeakMap();
+
+// List numbering and link URLs belong to the source, not rendered textContent.
+export const messageSource=content=>sources.get(content)??content?.textContent??'';
 
 export function createChatMessage(speaker,text,documentTarget=globalThis.document){
   const role=speaker==='nox'||speaker==='user'?speaker:'system';
@@ -18,5 +22,6 @@ export function createChatMessage(speaker,text,documentTarget=globalThis.documen
   return message;
 }
 export function setChatContent(content,text,speaker='nox'){
+  sources.set(content,String(text??''));
   if(speaker==='nox')renderAnswer(content,text);else content.textContent=text;
 }
