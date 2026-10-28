@@ -52,11 +52,12 @@ export function conversationMessages(input,context){
 export async function requestNox(input, { apiKey, model = 'gpt-4.1-mini', fetchImpl = fetch, signal, productCapabilities } = {}) {
   const context = sanitizeContext(input.context);
   context.depth=answerDepth(context.depth);
-  const deadline=AbortSignal.timeout(20000);
+  const deadline=AbortSignal.timeout(20000),providerSignal=signal?AbortSignal.any([signal,deadline]):deadline;
+  providerSignal.throwIfAborted();
   const response = await fetchImpl('https://api.openai.com/v1/responses', {
     method: 'POST',
     headers: { authorization: `Bearer ${apiKey}`, 'content-type': 'application/json' },
-    signal: signal?AbortSignal.any([signal,deadline]):deadline,
+    signal: providerSignal,
     body: JSON.stringify({
       model,
       store: false,
@@ -66,11 +67,28 @@ export async function requestNox(input, { apiKey, model = 'gpt-4.1-mini', fetchI
       text: { format: { type: 'json_schema', name: 'nox_packet', strict: true, schema: PACKET_SCHEMA } },
     }),
   });
-  if (!response.ok) throw new Error(`AI provider returned HTTP ${response.status}.`);
-  const data = await response.json();
-  if (data.status === 'incomplete' || data.status === 'failed') throw new Error('AI provider did not finish its reply.');
-  const speech = data.output?.filter(item => item.type === 'message')
-    .flatMap(item => item.content || []).filter(item => item.type === 'output_text').map(item => item.text).join('');
-  if (!speech) throw new Error('AI provider returned no usable reply.');
-  return normalizePacket(JSON.parse(speech),context.depth);
+  providerSignal.throwIfAborted();
+  // Match the existing adapter contract without importing providers.mjs, which
+  // already imports this module. Never attach upstream bodies or parser causes.
+  const failure=(error,code,failureStage)=>Object.assign(error,{code,providerStatus:response.status,...(failureStage?{failureStage}:{})});
+  if (!response.ok) throw failure(new Error(`AI provider returned HTTP ${response.status}.`),response.status===429?'quota':[401,403].includes(response.status)?'credentials':'provider_http');
+  let data;
+  try{data=await response.json();}
+  catch(error){
+    providerSignal.throwIfAborted();
+    if(['AbortError','TimeoutError'].includes(error.name))throw error;
+    throw failure(new SyntaxError('AI provider returned a malformed response envelope.'),'invalid_json','response_json');
+  }
+  providerSignal.throwIfAborted();
+  if (data?.status === 'incomplete' || data?.status === 'failed') throw failure(new Error('AI provider did not finish its reply.'),data.incomplete_details?.reason==='max_output_tokens'?'output_limit':'finish_reason');
+  if(!Array.isArray(data?.output))throw failure(new SyntaxError('AI provider returned a malformed response envelope.'),'invalid_json','response_json');
+  const content=data.output.filter(item=>item?.type==='message').flatMap(item=>Array.isArray(item.content)?item.content:[]);
+  if(content.some(item=>item?.type==='refusal'))throw failure(new Error('AI provider refused its reply.'),'finish_reason');
+  const speech=content.filter(item=>item?.type==='output_text'&&typeof item.text==='string').map(item=>item.text).join('');
+  if (!speech) throw failure(new Error('AI provider returned no usable reply.'),'finish_reason');
+  let parsed;
+  try{parsed=JSON.parse(speech);}
+  catch{throw failure(new SyntaxError('AI provider returned malformed structured data.'),'invalid_json','packet_json');}
+  try{return normalizePacket(parsed,context.depth);}
+  catch(error){throw failure(new Error('AI provider returned an invalid character packet.'),error.code==='output_limit'?'output_limit':'invalid_json','packet_schema');}
 }
