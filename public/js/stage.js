@@ -4,6 +4,7 @@ import { ACTIONS } from '../../shared/character.js';
 import {createOrbitEffect} from './orbit-effect.js';
 import {resolveExportProfile} from './export-profile.js';
 import {createFrameBudget} from './source-effects.js';
+import {captionLines} from './text-layout.js';
 
 const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
 const smooth = value => value * value * (3 - 2 * value);
@@ -356,15 +357,7 @@ export class Stage {
     const fontSize = this.recordingProfile?clamp(Math.min(w,h)/28,24,38):clamp(w / 48, 12, 17);
     ctx.font = `400 ${fontSize}px system-ui, sans-serif`; ctx.textAlign = 'center';
     const maxWidth = w * .79;
-    const words = text.split(/\s+/), lines = []; let line = '';
-    for (const word of words) {
-      const next = line ? `${line} ${word}` : word;
-      if (ctx.measureText(next).width > maxWidth && line) { lines.push(line); line = word; }
-      else line = next;
-    }
-    if (line) lines.push(line);
-    const shown = lines.slice(0, 4);
-    if (lines.length > 4) shown[3] += '…';
+    const shown = captionLines(text,value=>ctx.measureText(value).width,maxWidth);
     const baseline = this.captionMode === 'speaking' && !this.recordingLocked
       ? Math.min(h * .81, h - 65 - (shown.length - 1) * fontSize * 1.4)
       : h * .81;
