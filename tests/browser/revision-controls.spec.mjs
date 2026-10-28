@@ -41,7 +41,9 @@ test('confirmed older Retry preserves the composer draft and latest Retry needs 
   const controls=page.getByRole('group',{name:'Message revision'});await expect(controls).toBeVisible();expect(requests).toBe(0);
   expect(await controls.evaluate(node=>node.scrollWidth-node.clientWidth)).toBeLessThan(2);
   await page.screenshot({path:'artifacts/audit-c05-revision-mobile.png'});await controls.getByRole('button',{name:'Replace and retry'}).click();
-  await expect(page.locator('#conversation .message.nox:not(.draft)')).toHaveText(/Retried answer/);await expect(page.locator('#conversation .message.user')).toHaveText(/First question/);
+  const replies=page.locator('#conversation .message.nox:not(.draft)'),questions=page.locator('#conversation .message.user');
+  await expect(replies).toHaveCount(1);await expect(replies).toHaveText(/Retried answer/);
+  await expect(questions).toHaveCount(1);await expect(questions).toHaveText(/First question/);
   await expect(page.locator('#message')).toHaveValue('An independent draft');expect(requests).toBe(1);
   await page.locator('#conversation .message.nox').last().getByRole('button',{name:'Retry NOX’s reply',exact:true}).click();
   await expect.poll(()=>requests).toBe(2);await expect(controls).toBeHidden();await expect(page.locator('#message')).toHaveValue('An independent draft');
