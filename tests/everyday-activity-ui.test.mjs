@@ -9,14 +9,14 @@ import {createExploreState,createGuessingState} from '../shared/everyday-activit
 const root=path.resolve(import.meta.dirname,'..'),nativeRequire=createRequire(import.meta.url);
 const bundle=await build({entryPoints:[path.join(root,'client/everyday-activities.jsx')],bundle:true,write:false,platform:'node',format:'cjs',jsx:'transform',plugins:[{name:'activity-harness',setup(builder){builder.onResolve({filter:/^(react|\/js\/everyday-bridge\.js)$/},args=>({path:args.path,external:true}));}}]});
 function activity(props={}){
-  let slots=[],cursor=0,pendingEffects=[],tree;const changes=[],saved=[],closed=[],spoken=[],stops=[],bridge={stop(){stops.push(true);},save:item=>saved.push(item),speak:(...args)=>spoken.push(args)};
+  let slots=[],cursor=0,pendingEffects=[],tree;const changes=[],saved=[],closed=[],spoken=[],stops=[],proposed=[],bridge={stop(){stops.push(true);},save:item=>saved.push(item),speak:(...args)=>spoken.push(args),proposePreference:value=>proposed.push(value)};
   const react={createElement:(type,props,...children)=>({type,props:{...props,children}}),useId:()=>`id-${cursor++}`,useRef(value){const index=cursor++;return slots[index]??={current:value};},useState(initial){const index=cursor++;if(!slots[index])slots[index]={value:typeof initial==='function'?initial():initial};return [slots[index].value,value=>{slots[index].value=typeof value==='function'?value(slots[index].value):value;}];},useEffect(effect,deps){const index=cursor++,old=slots[index];if(!old||deps.some((value,i)=>value!==old.deps[i]))pendingEffects.push(()=>{old?.cleanup?.();slots[index]={deps,cleanup:effect()};});}};
   const module={exports:{}};vm.runInNewContext(bundle.outputFiles[0].text,{module,exports:module.exports,require:id=>id==='react'?react:id==='/js/everyday-bridge.js'?{everydayBridge:bridge}:nativeRequire(id),crypto:globalThis.crypto,structuredClone,Date,Math,console});
   function render(){cursor=0;tree=module.exports.default({...props,onStateChange:value=>changes.push(value),onClose:value=>closed.push(value)});for(const effect of pendingEffects.splice(0))effect();return tree;}
   function nodes(node){if(!node||typeof node!=='object')return [];return [node,...(node.props?.children??[]).flat(Infinity).flatMap(child=>nodes(child))];}
   function text(node){return (node?.props?.children??[]).flat(Infinity).map(child=>typeof child==='object'?text(child):child??'').join('');}
   const all=()=>nodes(tree),find=predicate=>all().find(predicate);render();
-  return {render,changes,saved,closed,spoken,stops,all,find,button:label=>find(node=>node.type==='button'&&text(node)===label),unmount(){for(const slot of slots)slot?.cleanup?.();slots=[];}};
+  return {render,changes,saved,closed,spoken,stops,proposed,all,find,text,button:label=>find(node=>node.type==='button'&&text(node)===label),unmount(){for(const slot of slots)slot?.cleanup?.();slots=[];}};
 }
 
 test('a legacy paused lesson opens its existing Moon position and notes without another action',()=>{
@@ -56,6 +56,58 @@ test('guessing navigation retains object and progress while a deliberate new rou
   const reopened=activity({kind:'guessing',initialState:{...latest.state,id:latest.id}});assert.deepEqual(reopened.changes.at(-1).state,latest.state);
   reopened.button('Start a new round').props.onClick();reopened.render();const next=reopened.changes.at(-1);
   assert.notEqual(next.id,'same-round');assert.equal(next.state.turns,0);assert.deepEqual(reopened.saved,[]);
+});
+
+for(const [name,first,last] of [['select-all then type 12','1','2'],['clear then type 7','','7']])test(`the next-round turn limit supports ${name} without changing the current round`,()=>{
+  const ui=activity({kind:'guessing',initialState:{...createGuessingState({seed:0}),id:'keep-this-round'}}),input=()=>ui.find(node=>node.type==='input'&&node.props.type==='number');
+  const original=JSON.stringify(ui.changes.at(-1));
+  input().props.onChange({target:{value:first}});ui.render();assert.equal(String(input().props.value),first);
+  input().props.onChange({target:{value:String(input().props.value)+last}});ui.render();
+  const intended=first+last;assert.equal(String(input().props.value),intended);
+  input().props.onBlur?.();ui.render();assert.equal(String(input().props.value),intended);
+  assert.equal(JSON.stringify(ui.changes.at(-1)),original);
+  ui.button('Start a new round').props.onClick();ui.render();assert.equal(ui.changes.at(-1).state.rules.questionLimit,Number(intended));
+});
+
+test('pasted limits and numeric step changes remain editable and apply only to the next round',()=>{
+  const ui=activity({kind:'guessing',initialState:{...createGuessingState({seed:0}),id:'original'}}),input=()=>ui.find(node=>node.type==='input'&&node.props.type==='number');
+  for(const value of ['20','19','20','5']){
+    input().props.onChange({target:{value}});ui.render();input().props.onBlur?.();ui.render();
+    assert.equal(String(input().props.value),value);assert.equal(ui.changes.at(-1).state.rules.questionLimit,10);
+  }
+  ui.button('Start a new round').props.onClick();ui.render();assert.equal(ui.changes.at(-1).state.rules.questionLimit,5);
+});
+
+test('invalid turn-limit drafts remain visible with an associated error after blur',()=>{
+  for(const value of ['','4','21','7.5']){
+    const ui=activity({kind:'guessing',initialState:{...createGuessingState({seed:0}),id:'original'}}),input=()=>ui.find(node=>node.type==='input'&&node.props.type==='number');
+    const original=JSON.stringify(ui.changes.at(-1));input().props.onChange({target:{value}});ui.render();input().props.onBlur?.();ui.render();
+    assert.equal(String(input().props.value),value);assert.equal(JSON.stringify(ui.changes.at(-1)),original);
+    assert.equal(input().props['aria-invalid'],true);
+    assert.ok(input().props['aria-describedby']);const error=ui.find(node=>node.props?.id===input().props['aria-describedby']);assert.equal(error?.props.role,'alert');assert.match(ui.text(error),/whole number.*5.*20/i);
+    input().props.onChange({target:{value:'7'}});ui.render();input().props.onBlur?.();ui.render();
+    assert.notEqual(input().props['aria-invalid'],true);assert.equal(ui.find(node=>node.props?.role==='alert'),undefined);
+  }
+});
+
+for(const finished of [false,true])test(`an invalid limit cannot ${finished?'replace a finished round':'start a new round'} until corrected`,()=>{
+  const initialState={...createGuessingState({seed:0}),id:'keep-original',...(finished?{events:[{type:'guess',id:'apple'}]}:{})};
+  const ui=activity({kind:'guessing',initialState}),input=()=>ui.find(node=>node.type==='input'&&node.props.type==='number'),button=finished?'Play another round':'Start a new round',original=JSON.stringify(ui.changes.at(-1));
+  input().props.onChange({target:{value:'21'}});ui.render();ui.button(button).props.onClick();ui.render();
+  assert.equal(JSON.stringify(ui.changes.at(-1)),original);assert.equal(ui.stops.length,0);assert.equal(String(input().props.value),'21');
+  assert.match(ui.text(ui.find(node=>node.props?.role==='alert')),/whole number.*5.*20/i);
+  input().props.onChange({target:{value:'12'}});ui.render();ui.button(button).props.onClick();ui.render();
+  assert.notEqual(ui.changes.at(-1).id,'keep-original');assert.equal(ui.changes.at(-1).state.rules.questionLimit,12);
+  assert.equal(ui.find(node=>node.props?.role==='alert'),undefined);
+});
+
+test('turn-limit preference proposals validate the draft and submit a number without changing the current round',async()=>{
+  const ui=activity({kind:'guessing',initialState:{...createGuessingState({seed:0}),id:'original'}}),input=()=>ui.find(node=>node.type==='input'&&node.props.type==='number'),original=JSON.stringify(ui.changes.at(-1));
+  input().props.onChange({target:{value:''}});ui.render();await ui.button('Offer turn limit as my preference').props.onClick();ui.render();
+  assert.deepEqual(ui.proposed,[]);assert.equal(String(input().props.value),'');assert.match(ui.text(ui.find(node=>node.props?.role==='alert')),/whole number.*5.*20/i);
+  input().props.onChange({target:{value:'12'}});ui.render();await ui.button('Offer turn limit as my preference').props.onClick();ui.render();
+  assert.equal(ui.proposed.length,1);assert.equal(ui.proposed[0].key,'gameQuestionLimit');assert.equal(ui.proposed[0].value,12);assert.equal(ui.proposed[0].scope,'guessing');
+  assert.equal(JSON.stringify(ui.changes.at(-1)),original);assert.equal(ui.find(node=>node.props?.role==='alert'),undefined);
 });
 
 test('Read aloud identifies the current local activity for scoped speech preferences',()=>{
