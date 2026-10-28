@@ -11,7 +11,7 @@ export function selectBrowserVoice(voices) {
 }
 export function createVoice({ onStart, onEnd, onError, onState, onTiming, requestAudio, requestClips, AudioCtor = globalThis.Audio, AudioContextCtor=globalThis.AudioContext||globalThis.webkitAudioContext, urls = URL, now=()=>performance.now()/1000,preparationTimeoutMs=SPEECH_PREPARATION_MS,setTimer=setTimeout,clearTimer=clearTimeout } = {}) {
   let enabled = false, generation = 0, engine = 'browser', natural = false,speaker='troy',browserName='',pace=1;
-  let mouthPlayback=null,gapTimer,currentUtterance=null;
+  let mouthPlayback=null,gapTimer,currentUtterance=null,playbackTimer=null,playbackWatchVersion=0,releasePlaybackWait;
   let player, objectUrl, currentAudio=null, preparedAudio=null, state='idle',narration=null,latency=null;
   const audioCache=new Map();
   const milliseconds=(start,end)=>Math.max(0,Math.round((end-start)*1000));
@@ -55,6 +55,22 @@ export function createVoice({ onStart, onEnd, onError, onState, onTiming, reques
       cancel(){if(finished)return;finished=true;report('cancelled');},
     };
     narration=lifecycle;report(entry?'preparing':'starting');return lifecycle;
+  }
+  function clearPlaybackWatchdog(){playbackWatchVersion++;if(playbackTimer!==null)clearTimer(playbackTimer);playbackTimer=null;}
+  function watchPlayback(isCurrent,fail,progress,timeoutMs=15000){
+    clearPlaybackWatchdog();
+    const watchVersion=playbackWatchVersion;
+    let previous=progress?.(),checkedAt=now();
+    const check=()=>{
+      if(watchVersion!==playbackWatchVersion||!isCurrent())return;playbackTimer=null;
+      const value=progress?.();
+      if(Number.isFinite(value)&&value>previous){previous=value;checkedAt=now();}
+      const remaining=timeoutMs-(now()-checkedAt)*1000;
+      if(remaining<=0){fail(Error('Voice playback stalled or timed out. The text is still available; try playing it again.'));return;}
+      playbackTimer=setTimer(check,Math.min(1000,remaining));
+      playbackTimer?.unref?.();
+    };
+    playbackTimer=setTimer(check,Math.min(1000,timeoutMs));playbackTimer?.unref?.();
   }
   const setState=value=>{if(state!==value){state=value;onState?.(value);}};
   function updateState(){
@@ -130,7 +146,8 @@ export function createVoice({ onStart, onEnd, onError, onState, onTiming, reques
     }catch{return null;}
   }
   const cleanup = () => {
-    clearTimeout(gapTimer);gapTimer=null;mouthPlayback=null;currentUtterance=null;
+    clearPlaybackWatchdog();releasePlaybackWait?.();releasePlaybackWait=null;
+    if(gapTimer!=null)clearTimer(gapTimer);gapTimer=null;mouthPlayback=null;currentUtterance=null;
     audioSource?.disconnect();audioSource=null;
     if(player) {player.onplaying = player.onended = player.onerror = player.onpause = player.onwaiting = null; player.pause(); player = null;}
     if(objectUrl) {urls.revokeObjectURL(objectUrl); objectUrl = null;}
@@ -202,19 +219,23 @@ export function createVoice({ onStart, onEnd, onError, onState, onTiming, reques
             const {blob,envelope}=audio;
             objectUrl=urls.createObjectURL(blob);player=new AudioCtor(objectUrl);
             const clipPlayer=player,isCurrent=()=>version===generation&&!finished&&player===clipPlayer;
+            const failed=error=>finish(error,'playback-error');
+            const stopped=new Promise(resolve=>{releasePlaybackWait=resolve;});
             if(prepareCapture()){
               audioSource=audioContext.createMediaElementSource(player);
               audioSource.connect(audioContext.destination);audioSource.connect(audioDestination);
             }
             player.onplaying=()=>{if(isCurrent()){
               mouthPlayback={envelope,timeline:speechTimeline(text),start:now()};updateState();
+              watchPlayback(isCurrent,failed,()=>clipPlayer.currentTime||0);
               if(!narrationStarted){narrationStarted=true;lifecycle.start();onStart?.();}
             }};
             player.onwaiting=player.onpause=()=>{if(isCurrent()&&mouthPlayback){mouthPlayback.active=false;setState('preparing');}};
             player.playbackRate=1.04*pace;player.preservesPitch=false;
             player.onended=()=>{if(isCurrent()){cleanup();updateState();void playClip(index+1);}};
             player.onerror=()=>{if(isCurrent())finish(Error('Natural voice could not play. Captions remain available; try Browser voice.'));};
-            lifecycle.requestPlayback();await player.play();
+            lifecycle.requestPlayback();watchPlayback(isCurrent,failed);
+            await Promise.race([player.play(),stopped]);
           }catch(error){finish(error);}
         };
         await playClip(0);
@@ -230,16 +251,28 @@ export function createVoice({ onStart, onEnd, onError, onState, onTiming, reques
         const utterance=new SpeechSynthesisUtterance(chunks[index]);if(preferred)utterance.voice=preferred;
         currentUtterance=utterance;
         utterance.rate=rate;utterance.pitch=mode==='uncanny'?.97:emotion==='happy'?1.16:emotion==='annoyed'?1.04:1.1;
-        utterance.onstart=()=>{if(version===generation&&currentUtterance===utterance){mouthPlayback={timeline:speechTimeline(chunks[index],rate),start:now()};updateState();lifecycle.start();onStart?.();}};
+        const isCurrent=()=>version===generation&&currentUtterance===utterance;
+        let boundary=-1;
+        const fail=error=>{
+          if(!isCurrent())return;
+          cleanup();synth.cancel();updateState();lifecycle.finish(error);onEnd?.();
+          onError?.(error.message||'Your browser could not speak that reply. The caption is still here.');
+        };
+        utterance.onstart=()=>{if(isCurrent()){mouthPlayback={timeline:speechTimeline(chunks[index],rate),start:now()};updateState();lifecycle.start();onStart?.();
+          // Some engines omit word boundaries. Give each bounded utterance a
+          // conservative speech-length allowance, extended by real boundaries.
+          watchPlayback(isCurrent,fail,()=>boundary,Math.max(15000,chunks[index].length*200/rate+15000));
+        }};
         utterance.onboundary=event=>{
           if(version!==generation||currentUtterance!==utterance||!mouthPlayback)return;
+          if(Number.isFinite(event.charIndex))boundary=Math.max(boundary,event.charIndex);
           if(event.name==='sentence'){mouthPlayback.boundary={start:now(),duration:0};return;}
           const word=chunks[index].slice(event.charIndex).match(/^[\p{L}\p{N}'’-]+/u)?.[0];
           mouthPlayback.boundary={start:now(),duration:word?Math.min(.6,.07+word.length*.038)/rate:0};
         };
-        utterance.onend=()=>{if(version!==generation||currentUtterance!==utterance)return;currentUtterance=null;mouthPlayback=null;updateState();if(index+1<chunks.length)gapTimer=setTimeout(()=>begin(index+1),180);else{lifecycle.finish();onEnd?.();}};
+        utterance.onend=()=>{if(version!==generation||currentUtterance!==utterance)return;clearPlaybackWatchdog();currentUtterance=null;mouthPlayback=null;updateState();if(index+1<chunks.length)gapTimer=setTimer(()=>begin(index+1),180);else{lifecycle.finish();onEnd?.();}};
         utterance.onerror=event=>{if(version!==generation||currentUtterance!==utterance)return;cleanup();updateState();lifecycle.finish(event);onEnd?.();if(!['canceled','interrupted'].includes(event.error))onError?.('Your browser could not speak that reply. The caption is still here.');};
-        try{lifecycle.requestPlayback();synth.speak(utterance);}catch(error){cleanup();updateState();lifecycle.finish(error);onEnd?.();onError?.('Your browser could not speak that reply. The caption is still here.');}
+        try{lifecycle.requestPlayback();watchPlayback(isCurrent,fail);synth.speak(utterance);}catch(error){cleanup();updateState();lifecycle.finish(error);onEnd?.();onError?.('Your browser could not speak that reply. The caption is still here.');}
       };
       if(chunks.length)begin(0);
       return latency;
