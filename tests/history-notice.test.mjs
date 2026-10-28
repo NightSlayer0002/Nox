@@ -25,3 +25,9 @@ test('missing origin locks explain read-only ownership and preserve the guest op
   assert.match(notice.privacy,/read-only/);assert.match(notice.message,/Web Locks/);assert.match(notice.message,/guest/i);assert.match(historyFailure(locked),/unchanged/i);
   assert.match(historyNotice(locked,{guest:true}).privacy,/This visit only/);
 });
+
+test('an unreadable archive without locks never claims its saved chats can be read',()=>{
+  // Resolves notice honesty for combined recovery/capability failure; no UI/AT claim.
+  const notice=historyNotice(history({persistent:false,crossTabSafe:false,recovery:{reason:'invalid'}}));
+  assert.equal(notice.protected,true);assert.match(notice.message,/original|protected/i);assert.match(notice.message,/recovery|download/i);assert.doesNotMatch(notice.message,/chats stay readable/);
+});

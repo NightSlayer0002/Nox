@@ -22,3 +22,18 @@ for(const scope of ['app','guest'])test(`${scope} startup without Web Locks pres
   }
   expect(await page.evaluate(()=>localStorage.getItem('nox.chats.v1')===originalArchive)).toBe(true);
 });
+
+test('a read-only owner cannot regenerate a saved unanswered message or start audio work',async({page})=>{
+  // Resolves the recorded-turn retry bypass through the actual form/handler.
+  // Synthetic provider and removed capability do not establish native browser locking.
+  const requests=[];page.on('request',request=>{if(['/api/chat','/api/speech'].includes(new URL(request.url()).pathname))requests.push(request);});
+  await page.addInitScript(archive=>{
+    Object.defineProperty(navigator,'locks',{configurable:true,value:undefined});archive.threads[0].turns=archive.threads[0].turns.slice(0,1);
+    window.originalArchive=JSON.stringify(archive);localStorage.setItem('nox.chats.v1',originalArchive);
+  },archive);
+  await page.goto('/app#conversation');await expect(page.locator('#brain-status')).toContainText('Synthetic CI provider');
+  await page.locator('#message').fill('Saved question');await page.locator('#send-button').click();
+  await expect(page.locator('#toast')).toContainText('Web Locks');await expect(page.locator('#message')).toHaveValue('Saved question');
+  await expect(page.locator('#conversation .message.nox')).toHaveCount(0);expect(requests).toHaveLength(0);
+  expect(await page.evaluate(()=>localStorage.getItem('nox.chats.v1')===originalArchive)).toBe(true);
+});
