@@ -99,8 +99,11 @@ export function createAppServer({
   const statusSnapshots=createStatusCache({now});
   // Warm-process protection for anonymous polling, separate from generation quotas.
   const statusQuota=createPublicQuota({now,perClient:30,total:300});
+  // Burst counters belong to this instance, not to the other API functions.
+  const displayUsage=value=>{if(value==null)return value;const {rate,...usage}=value;return usage;};
   const takeAllowance=async(client,kind)=>{
-    const decision=await guestAllowance.take(client,kind);
+    const result=await guestAllowance.take(client,kind);
+    const decision=result.usage===undefined?result:{...result,usage:displayUsage(result.usage)};
     if(decision.usage!==undefined)statusSnapshots.set(client,decision.usage);else statusSnapshots.invalidate(client);
     return decision;
   };
@@ -167,7 +170,7 @@ export function createAppServer({
     }
     if (pathname === '/api/status' && request.method === 'GET') {
       if(!owner){const wait=statusQuota.take(clientIP);if(wait)return sharedFailure(wait,'Status was refreshed several times. Give NOX a moment before refreshing again.');}
-      const usage=owner?null:await statusSnapshots.get(clientIP,async()=>{try{return await guestAllowance.status(clientIP);}catch{return null;}});
+      const usage=owner?null:await statusSnapshots.get(clientIP,async()=>{try{return displayUsage(await guestAllowance.status(clientIP));}catch{return null;}});
       return sendJson(response, 200, {
         brain: preferred && !locked ? 'live' : 'demo', model: preferred && !locked ? preferred.model : null,
         voice: voiceKey && (!locked||speechProvider==='groq') && naturalVoice ? 'natural' : 'browser', access: locked ? 'locked' : 'open',
