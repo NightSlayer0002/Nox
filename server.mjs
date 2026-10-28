@@ -244,7 +244,7 @@ export function createAppServer({
             let abort;
             const disconnected=new Promise((_,reject)=>{abort=()=>reject(controller.signal.reason);controller.signal.addEventListener('abort',abort,{once:true});});
             try{
-              const {value:audio,hit}=await Promise.race([audioCache.getOrCreate(key,()=>speech(acting,speechOptions)),disconnected]);
+              const {value:audio,hit}=await Promise.race([audioCache.getOrCreate(key,signal=>speech(acting,{...speechOptions,signal}),{signal:controller.signal}),disconnected]);
               if(controller.signal.aborted)return;
               response.writeHead(200,{'content-type':speechProvider==='groq'?'audio/wav':'audio/mpeg','x-nox-audio-cache':hit?'hit':'miss'}); response.end(audio); return;
             }finally{controller.signal.removeEventListener('abort',abort);}

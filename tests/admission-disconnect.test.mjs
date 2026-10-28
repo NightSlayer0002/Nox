@@ -45,6 +45,28 @@ test('a disconnected audio receiver stops waiting without canceling synthesis sh
     await secondExchange.completed;assert.equal(response.statusCode,200);assert.equal(Buffer.concat(chunks).readInt16LE(44),101);assert.equal(calls,1);
   });
 });
+
+test('the final HTTP audio receiver cancels nested synthesis and an identical later request starts fresh',{timeout:2000},async()=>{
+  // Uncertainty: does real handler cancellation reach the nested shared clip job?
+  // Boundary: local sockets plus synthetic fetch. Cannot prove provider-side
+  // termination, billing, actual audio decoding or multi-instance limits.
+  const entered=deferred(),jobs=[];
+  const fetchImpl=(_url,{signal})=>{const job={...deferred(),signal};jobs.push(job);entered.resolve();return job.promise;};
+  await withServer({speech:(input,options)=>requestSpeech(input,{...options,fetchImpl})},async(base,nextRequest)=>{
+    const headers={'x-nox-guest':'0',authorization:'Bearer owner'},body={text:'A final receiver.'};
+    const first=open(base,'speech',body,headers);first.response.catch(()=>{});
+    const exchange=await nextRequest();await entered.promise;
+    try{
+      const closed=once(exchange.response,'close');first.request.destroy();await closed;await exchange.completed;await new Promise(resolve=>setImmediate(resolve));
+      assert.equal(jobs[0].signal.aborted,true);
+      const second=open(base,'speech',body,headers),secondExchange=await nextRequest();
+      if(!secondExchange.request.readableEnded)await once(secondExchange.request,'end');
+      await new Promise(resolve=>setImmediate(resolve));assert.equal(jobs.length,2);
+      jobs[1].resolve(new Response(fixtureWav([202]),{headers:{'content-type':'audio/wav'}}));
+      const response=await second.response;await collect(response);await secondExchange.completed;assert.equal(response.statusCode,200);
+    }finally{for(const job of jobs)job.resolve(new Response(fixtureWav([101]),{headers:{'content-type':'audio/wav'}}));}
+  });
+});
 function open(base,route,body,headers={}){
   const response=deferred();
   const request=http.request(`${base}/api/${route}`,{method:'POST',headers:{host:'nox.example',origin:'https://nox.example','content-type':'application/json','x-nox-guest':'1',...headers}},response.resolve);
