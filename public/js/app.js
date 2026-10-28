@@ -543,8 +543,6 @@ document.addEventListener('keydown', event => {
   if(event.defaultPrevented||event.ctrlKey||event.metaKey||event.altKey||document.querySelector('dialog[open]')||event.target.isContentEditable||['INPUT','TEXTAREA','SELECT'].includes(event.target.tagName))return;
   if ($('inside-dialog').open || $('clip-dialog').open) return;
   if (event.key === 'Escape') { resetScene(); if (document.body.classList.contains('film') && !recorder.active) toggleFilm(); return; }
-  if (event.key.toLowerCase() === 'f') toggleFilm();
-  if (event.key.toLowerCase() === 'r') toggleRecording();
 });
 window.addEventListener('pagehide', event => { if(event.persisted)voiceCall?.session.end();else voiceCall?.dispose();afterimageBridge.stop('pagehide');ownerToken=''; camera.stop(); voice.stop(); microphone.stop();callMicrophone.stop(); });
 window.addEventListener('hashchange',()=>{revisionControls.cancelRetry();if(location.hash==='#afterimage'){cancelConversation();stage.caption='';stage.captionUntil=0;}else afterimageBridge.stop('navigation');requestAnimationFrame(composer.resize);});
