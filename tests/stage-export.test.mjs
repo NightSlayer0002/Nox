@@ -15,6 +15,9 @@ function fixture() {
   return {stage,canvas,draws,handlers,setBox:value=>{box=value;}};
 }
 
+// Each case asks whether caption layout obeys the supplied measurement and
+// preserves these grapheme clusters. A stub metric cannot establish real-font
+// rasterization, encoded-video legibility or GPU/export performance.
 for(const [profile,width,height] of [['landscape',1280,720],['portrait',720,1280],['square',1080,1080]]) {
   test(`${profile} capture renders composition at export dimensions independently of the preview`,()=>{
     const {stage,canvas,draws,setBox}=fixture();
@@ -67,5 +70,37 @@ for(const profile of ['landscape','portrait','square']) {
     assert.ok(fontSize>=24,'export captions need readable text at the encoded resolution');
     assert.ok(backgrounds.at(-1).y+backgrounds.at(-1).height<=stage.height,'all four caption lines must fit in the encoded image');
     stage.lockRecording(false);
+  });
+}
+
+for(const [profile,width,height] of [['landscape',1280,720],['portrait',720,1280],['square',1080,1080]]) {
+  for(const [name,text,cluster] of [
+    ['a valid long edited cue','x'.repeat(90),'x'],
+    ['unspaced CJK','漢'.repeat(90),'漢'],
+    ['a URL','https://example.test/'+ 'path'.repeat(18),null],
+    ['joined emoji','👩🏽‍🚀'.repeat(10),'👩🏽‍🚀'],
+    ['combining marks','e\u0301'.repeat(40),'e\u0301'],
+  ])test(`${profile} canvas captions wrap ${name} inside the text region`,()=>{
+    const draws=[],ctx={globalAlpha:1,save(){},restore(){},beginPath(){},roundRect(){},fill(){},
+      measureText:value=>({width:value.length*20}),fillText:value=>draws.push(value)};
+    const stage=Object.create(Stage.prototype);
+    Object.assign(stage,{ctx,width,height,recordingProfile:{id:profile},recordingLocked:true});
+    stage.drawCaption(text,1);
+    assert.ok(draws.length>1&&draws.length<=4);
+    assert.ok(draws.every(value=>ctx.measureText(value).width<=width*.79),JSON.stringify(draws));
+    assert.equal(draws.join(''),text);
+    if(cluster)assert.ok(draws.every(value=>value.split(cluster).join('')===''),'a grapheme cluster was split');
+    assert.ok(Number(ctx.font.match(/([\d.]+)px/)[1])>=24);
+  });
+
+  test(`${profile} four-line overflow reserves measured room for its ellipsis`,()=>{
+    const draws=[],ctx={globalAlpha:1,save(){},restore(){},beginPath(){},roundRect(){},fill(){},
+      measureText:value=>({width:value.length*20}),fillText:value=>draws.push(value)};
+    const stage=Object.create(Stage.prototype);
+    Object.assign(stage,{ctx,width,height,recordingProfile:{id:profile},recordingLocked:true});
+    stage.drawCaption(Array(5).fill('x'.repeat(28)).join(' '),1);
+    assert.equal(draws.length,4);
+    assert.ok(draws[3].endsWith('…'));
+    assert.ok(draws.every(value=>ctx.measureText(value).width<=width*.79),JSON.stringify(draws));
   });
 }
