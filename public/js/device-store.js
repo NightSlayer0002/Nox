@@ -1,16 +1,9 @@
 // Bounded preference storage. Guest callers supply visit-only storage.
+import {createStorageTransaction} from './storage-transaction.js';
+
 const BAD_KEYS=new Set(['__proto__','prototype','constructor']);
-const queues=new Map();
 const bytes=value=>new TextEncoder().encode(value).byteLength;
 const copy=value=>structuredClone(value);
-async function serialize(key,action){
-  const locks=globalThis.navigator?.locks,name=`nox.device-store.write:${key}`;
-  if(typeof locks?.request==='function')return locks.request(name,action);
-  // This queue protects multiple instances in this realm only. Other tabs need
-  // Web Locks, which is why crossTabSafe remains false for this fallback.
-  const previous=queues.get(name)||Promise.resolve(),next=previous.catch(()=>{}).then(action);queues.set(name,next);
-  try{return await next;}finally{if(queues.get(name)===next)queues.delete(name);}
-}
 export function isDeviceId(value){return typeof value==='string'&&/^[a-zA-Z0-9][a-zA-Z0-9._:-]{0,79}$/.test(value)&&!BAD_KEYS.has(value);}
 // These values remain plain text. Consumers must render with textContent or
 // React escaping, including when the conversation itself discusses HTML/code.
@@ -36,7 +29,9 @@ export function safeDeviceValue(value){
 export function createBoundedDeviceStore(storage,{key,field,validate,limit=100,maxBytes=1500000,identity=record=>record.id}){
   let records=[],readError=null,writeError=null,rawBackup=null;
   const canWrite=()=>typeof storage?.getItem==='function'&&typeof storage?.setItem==='function';
-  const crossTabSafe=()=>typeof globalThis.navigator?.locks?.request==='function';
+  const transaction=()=>createStorageTransaction(storage,`nox.device-store.write:${key}`,{locks:globalThis.navigator?.locks});
+  const crossTabSafe=()=>transaction().supported;
+  const coordinationError=()=>crossTabSafe()?null:'coordination-unavailable';
   const normalize=list=>{
     if(!Array.isArray(list)||list.length>limit)throw Error('limit-reached');
     const seen=new Set(),identities=new Set();return list.map(record=>{const valid=validate(record);if(!valid||seen.has(valid.id)||identities.has(identity(valid)))throw Error('invalid-data');seen.add(valid.id);identities.add(identity(valid));return valid;});
@@ -66,8 +61,10 @@ export function createBoundedDeviceStore(storage,{key,field,validate,limit=100,m
   }
   async function mutate(build,failure=null){
     const failed=()=>typeof failure==='function'?failure():failure;
+    const current=transaction();
+    if(!current.supported){writeError='coordination-unavailable';return failed();}
     try{
-      return await serialize(key,()=>{
+      return await current.run(()=>{
         if(!refresh())return failed();
         const operation=build(copy(records));
         if(!operation)return failed();
@@ -81,9 +78,9 @@ export function createBoundedDeviceStore(storage,{key,field,validate,limit=100,m
   }
   refresh();
   return {
-    get persistent(){return canWrite()&&!readError&&!writeError&&storage?.temporary!==true;},
+    get persistent(){return canWrite()&&crossTabSafe()&&!readError&&!writeError&&storage?.temporary!==true;},
     get crossTabSafe(){return crossTabSafe();},
-    get status(){return {persistent:this.persistent,crossTabSafe:this.crossTabSafe,error:readError||writeError,count:records.length,limit,bytes:readError&&rawBackup!==null?bytes(rawBackup):bytes(pack(records)),maxBytes};},
+    get status(){return {persistent:this.persistent,crossTabSafe:this.crossTabSafe,error:readError||writeError||coordinationError(),count:records.length,limit,bytes:readError&&rawBackup!==null?bytes(rawBackup):bytes(pack(records)),maxBytes};},
     read(){refresh();return copy(records);},
     mutate,
     export(){

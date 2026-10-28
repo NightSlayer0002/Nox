@@ -1,4 +1,5 @@
 export function historyFailure(history,fallback='This conversation changed in another tab. Reopen it and try again.'){
+  if(history.lastError==='coordination-unavailable')return 'Saved data is unchanged. This browser lacks Web Locks, so NOX cannot safely save across tabs. Export your archive and use a browser with Web Locks, or open a temporary guest visit.';
   if(history.lastError==='revision-conflict')return 'This conversation changed in another tab. Your draft is kept. Reopen the conversation before editing or retrying; newer work was not replaced.';
   if(history.lastError==='transcript-not-saved')return 'The conversation was not changed. NOX could not save this revision to browser storage. Your draft is kept; export a copy before refreshing.';
   if(history.lastError==='delete-not-saved')return 'The conversation was not removed. NOX could not save the deletion to browser storage. Export a copy and try again when storage is available.';
@@ -8,6 +9,7 @@ export function historyFailure(history,fallback='This conversation changed in an
 }
 
 export function historyNotice(history,{guest=false}={}){
+  if(!guest&&history.crossTabSafe===false)return {privacy:'Saved archive · read-only in this browser.',protected:Boolean(history.recovery),message:'This browser lacks Web Locks. Saved chats stay readable and exportable; changes are blocked to protect them across tabs. Use a browser with Web Locks, or open a temporary guest visit.'};
   const privacy=guest?'This visit only · clears on refresh.':history.persistent?'Saved in this browser.':'This chat lasts for this visit only.';
   if(history.recovery?.reason==='changed')return {privacy,protected:true,message:'A readable archive arrived from another tab. Its bytes and your temporary chats are both untouched. Download the archive or confirm saving both together.'};
   if(history.recovery)return {privacy,protected:true,message:history.recovery.reason==='unsupported'?'This saved archive uses a newer or unsupported format. Its original data is untouched. These chats are temporary until you recover or replace the archive.':'This saved archive could not be read. Its original data is untouched. Download it for recovery; these chats stay temporary.'};

@@ -315,6 +315,7 @@ function updateMemory() {
   state.facts.slice(-4).forEach(fact => { const tag = document.createElement('span'); tag.className = 'fact'; tag.textContent = fact; $('memory-facts').append(tag); });
   if(!visit.owner)$('memory-summary').textContent='Recent messages provide context for this visit.';
   else if(memory.status.error==='unreadable-storage')$('memory-summary').textContent += ' The saved notebook cannot be read. Its original data has been left untouched.';
+  else if(memory.status.error==='coordination-unavailable')$('memory-summary').textContent += ' This notebook is read-only because the browser lacks Web Locks. Saved facts are unchanged. Use a browser with Web Locks or a temporary guest visit.';
   else if (!memory.persistent) $('memory-summary').textContent += ' Storage is unavailable; this notebook lasts for this visit.';
 }
 
