@@ -22,12 +22,14 @@ for(const width of [430,1440])test(`reading position survives streamed chunks an
   const answer=page.locator('#conversation .message.nox .message-content');await expect(answer).toContainText('Earlier reading.');
   const conversation=page.locator('#conversation');
   await conversation.evaluate(node=>{node.scrollTop=100;});
+  await conversation.focus();await expect(conversation).toBeFocused();
   await expect(page.locator('#latest-reply')).toBeVisible();
   const top=await conversation.evaluate(node=>node.scrollTop);
   await page.evaluate(()=>ciChunk());await expect(answer).toContainText('More reasoning.');
   expect(Math.abs(await conversation.evaluate(node=>node.scrollTop)-top)).toBeLessThan(3);
   await page.evaluate(()=>ciFinish());await expect(page.locator('#cancel-reply')).toBeHidden();
   await expect(answer).toContainText('Final decision.');
+  await expect(conversation).toBeFocused();
   expect(Math.abs(await conversation.evaluate(node=>node.scrollTop)-top)).toBeLessThan(3);
   await page.locator('#latest-reply').focus();await page.keyboard.press('Enter');
   await expect(page.locator('#latest-reply')).toBeHidden();
