@@ -43,13 +43,13 @@ test('progressive speech keeps the original order when a later clip finishes fir
 });
 
 test('progressive speech bounds the total output and handles failures from later concurrent requests',async()=>{
-  const requests=[];
+  const requests=[],largeClip=fixtureWav(new Int16Array((1200000-44)/2));
   const clips=speech.requestSpeechClips({text:'word '.repeat(50).trim()},{provider:'groq',apiKey:'fixture',fetchImpl:()=>new Promise(resolve=>requests.push(resolve))});
   const first=clips.next();
   await new Promise(resolve=>setImmediate(resolve));
-  requests[1](new Response(new Uint8Array(1200000),{headers:{'content-type':'audio/wav'}}));
+  requests[1](new Response(largeClip,{headers:{'content-type':'audio/wav'}}));
   await new Promise(resolve=>setImmediate(resolve));
-  requests[0](new Response(new Uint8Array(1200000),{headers:{'content-type':'audio/wav'}}));
+  requests[0](new Response(largeClip,{headers:{'content-type':'audio/wav'}}));
   await assert.rejects(first,/too large/i);
 });
 
