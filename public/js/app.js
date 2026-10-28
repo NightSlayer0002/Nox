@@ -49,6 +49,7 @@ const history = await createHistory(disk,memory.snapshot().history);
 if(history.persistent)await memory.clearHistory();
 let mode = history.active().mode;
 let navigation,summaryController,summaryTimer,pendingDraft,pendingPresentation,floatingPresence,messageCompanion;
+let viewReady=false;
 let editTarget=null,currentActivity='conversation',publicUsage=initialVisitStatus?.usage;
 let brain = 'loading'; let busy = false;
 let ownerToken = '', selectedProvider = '', connectionVersion = 0, connection = {}, connectionFailed=false;
@@ -278,10 +279,10 @@ function addMessage(speaker, text,turn) {
 }
 function attachMessageActions(message,turn){
   if(!message||message.querySelector('.message-actions')||!turn)return;
-  const actions=document.createElement('div');actions.className='message-actions';
+  const sourceThread=history.active().id,actions=document.createElement('div');actions.className='message-actions';
   message.tabIndex=-1;message.addEventListener('pointerup',event=>{if(event.pointerType==='touch'&&!event.target.closest('button,a,textarea'))message.focus({preventScroll:true});});
   const copy=messageAction('copy',`Copy ${turn.role==='user'?'your message':'NOX’s reply'}`);copy.addEventListener('click',async()=>{try{await navigator.clipboard.writeText(turn.content);toast('Copied.');}catch{toast('Copy is unavailable. Select the text and copy it with your keyboard.');}});actions.append(copy);
-  const revise=messageAction(turn.role==='user'?'pencil':'rotate-ccw',turn.role==='user'?'Edit your message':'Retry NOX’s reply');revise.addEventListener('click',async()=>{if(busy){toast('Stop the current reply before revising this conversation.');return;}cancelConversation();if(turn.role==='user'){editTarget=turn.seq;composer.setValue(turn.content);replyDiagnostics.setStatus('Editing this message. Sending replaces the replies after it.');$('message').focus();}else{const retrying=turns.begin(),result=await history.retryFrom(turn.seq);if(!turns.isCurrent(retrying))return;if(!result){toast(historyFailure(history,'That reply changed. Reopen the conversation and try again.'));return;}editTarget=null;const restored=await restoreConversation({retrying:true});if(!turns.isCurrent(restored))return;await send(result.draft,{recorded:true,keepDraft:true});}});actions.append(revise);
+  const revise=messageAction(turn.role==='user'?'pencil':'rotate-ccw',turn.role==='user'?'Edit your message':'Retry NOX’s reply');revise.addEventListener('click',async()=>{if(busy){toast('Stop the current reply before revising this conversation.');return;}if(!viewReady){toast('This conversation is updating. Reopen it before revising.');return;}const target=history.revisionTarget(turn.seq,{threadId:sourceThread,role:turn.role,content:turn.content});if(!target){toast(historyFailure(history));return;}cancelConversation();if(turn.role==='user'){editTarget=target;composer.setValue(turn.content);replyDiagnostics.setStatus('Editing this message. Sending replaces the replies after it.');$('message').focus();}else{const retrying=turns.begin(),result=await history.retryFrom(target);if(!turns.isCurrent(retrying))return;if(!result){toast(historyFailure(history,'That reply changed. Reopen the conversation and try again.'));return;}editTarget=null;const restored=await restoreConversation({retrying:true});if(!turns.isCurrent(restored))return;await send(result.draft,{recorded:true,keepDraft:true});}});actions.append(revise);
   const companion=messageAction('brain','Explore this message with NOX');companion.addEventListener('click',()=>messageCompanion?.openFor(message));actions.append(companion);message.append(actions);
 }
 function messageAction(icon,label){
@@ -548,7 +549,7 @@ setInterval(() => {
 }, 120);
 
 function cancelConversation(){afterimageBridge.stop('conversation');turns.cancel();pendingPresentation?.cancel();pendingPresentation=null;activity.finishTurn(activityTurn);replyDiagnostics.invalidate();replyDiagnostics.setStatus('');setBusy(false);voice.stop();microphone.stop();summaryController?.abort();clearTimeout(summaryTimer);pendingDraft?.remove();pendingDraft=null;}
-async function restoreConversation({retrying=false}={}){messageCompanion?.clear();cancelConversation();const thread=history.active(),restored=await setMode(thread.mode,false);if(!turns.isCurrent(restored)||history.active().id!==thread.id)return;$('conversation').replaceChildren();$('chat-title').textContent=thread.title;
+async function restoreConversation({retrying=false}={}){viewReady=false;messageCompanion?.clear();cancelConversation();const selected=history.active(),restored=await setMode(selected.mode,false);if(!turns.isCurrent(restored)||history.active().id!==selected.id)return;const thread=history.active();$('conversation').replaceChildren();$('chat-title').textContent=thread.title;
   thread.turns.forEach(turn=>{const message=addMessage(turn.role==='user'?'user':'nox',turn.content,turn);attachMessageActions(message,turn);});
   replyFollow.latest();
   const last=thread.turns.findLast(t=>t.role==='assistant');lastPacket={speech:last?.content||(thread.turns.length?'Your last message is still here. Ready when the AI connection is available.':greetings[mode]),emotion:stage.character.emotion,action:'none',memory:''};
@@ -556,11 +557,11 @@ async function restoreConversation({retrying=false}={}){messageCompanion?.clear(
   else if(thread.turns.length){if(!retrying)addMessage('system','Your last message is still here. Send it again to retry.');stage.caption='';stage.captionUntil=0;}
   else{stage.caption='';stage.captionUntil=0;}
   replyDiagnostics.clear();composer.resize();$('summary-note').textContent=thread.summary?'Older model context is summarized. The transcript remains available in Chats.':'';navigation?.render();updateMemory();companionChanged();
-  return restored;
+  viewReady=true;return restored;
 }
 function scheduleSummary(){clearTimeout(summaryTimer);if(!visit.owner||brain!=='live'||!history.summaryWork()||selectedProvider==='openai')return;summaryTimer=setTimeout(async()=>{
   const work=history.summaryWork();if(!work||busy)return;const controller=new AbortController();summaryController=controller;
-  try{const response=await fetch('/api/summary',{method:'POST',headers:apiHeaders(),body:JSON.stringify({previous:work.previous,turns:work.turns,provider:selectedProvider}),signal:controller.signal});if(!response.ok)throw Error('summary');const result=await response.json();if(!controller.signal.aborted&&await history.applySummary(work.id,work.through,result.summary)&&history.active().id===work.id)$('summary-note').textContent='Older model context is summarized. The transcript remains available in Chats.';}
+  try{const response=await fetch('/api/summary',{method:'POST',headers:apiHeaders(),body:JSON.stringify({previous:work.previous,turns:work.turns,provider:selectedProvider}),signal:controller.signal});if(!response.ok)throw Error('summary');const result=await response.json();if(!controller.signal.aborted&&await history.applySummary(work,result.summary,{signal:controller.signal})&&history.active().id===work.id)$('summary-note').textContent='Older model context is summarized. The transcript remains available in Chats.';}
   catch(error){if(error.name!=='AbortError'&&history.active().id===work.id)$('summary-note').textContent='Summary will retry after a later turn. The transcript remains available in Chats.';}
   finally{if(summaryController===controller)summaryController=null;}
 },3000);}

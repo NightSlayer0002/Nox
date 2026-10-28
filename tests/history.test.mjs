@@ -1,3 +1,4 @@
+import {seedSummary} from './helpers/history-fixture.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createHistory } from '../public/js/history.js';
@@ -20,10 +21,10 @@ test('threads restore independently and search message content',async()=>{
 test('summary context is bounded without discarding the archived transcript',async()=>{
   const history=await createHistory(storage());for(let i=0;i<20;i++)await history.append(i%2?'assistant':'user',`turn ${i}`);
   const work=history.summaryWork();assert.equal(work.turns.length,12);
-  assert.equal(await history.applySummary(work.id,work.through,'We discussed a lighthouse.'),true);
+  assert.equal(await history.applySummary(work,'We discussed a lighthouse.'),true);
   assert.equal(history.context().summary,'We discussed a lighthouse.');assert.equal(history.context().history.length,9);
   assert.equal(history.active().turns.length,20);assert.equal(history.summaryWork(),null);
-  await history.remove(work.id);assert.equal(await history.applySummary(work.id,work.through,'stale'),false);
+  await history.remove(work.id);assert.equal(await history.applySummary(work,'stale'),false);
 });
 test('unavailable storage preserves a bounded usable visit without silently evicting its opening',async()=>{
   const history=await createHistory({getItem(){throw Error('blocked');},setItem(){throw Error('blocked');}});
@@ -52,7 +53,7 @@ test('one long Unicode turn remains whole while the batch stays within its trans
   for(let i=1;i<24;i++)await history.append(i%2?'user':'assistant','Other turn '+i);
   const work=history.summaryWork();assert.equal(work.turns.length,1);assert.equal(work.turns[0].content,answer);
   assert.ok(new TextEncoder().encode(JSON.stringify(work)).byteLength<65536);
-  await history.applySummary(work.id,work.through,'The conclusion was retained.');
+  await history.applySummary(work,'The conclusion was retained.');
   assert.ok(history.summaryWork(),'remaining complete older turns remain eligible after the first batch');
 });
 
@@ -63,7 +64,7 @@ test('successive summary batches cover complete older turns exactly once',async(
   for(let batch=0;batch<30;batch++){
     const work=history.summaryWork();if(!work)break;
     assert.ok(new TextEncoder().encode(JSON.stringify(work)).byteLength<65536);included.push(...work.turns);
-    await history.applySummary(work.id,work.through,'An updated continuity note.');
+    await history.applySummary(work,'An updated continuity note.');
   }
   assert.deepEqual(included,expected);assert.equal(history.summaryWork(),null);
 });
@@ -80,7 +81,7 @@ test('the original user message remains an attributed turn when older dialogue i
   await history.append('user',opening);
   for(let index=1;index<20;index++)await history.append(index%2?'assistant':'user',`Later turn ${index}`);
   assert.deepEqual(history.context().history[0],{role:'user',content:opening});
-  const work=history.summaryWork();await history.applySummary(work.id,work.through,'Older turns summarized.');
+  const work=history.summaryWork();await history.applySummary(work,'Older turns summarized.');
   assert.deepEqual(history.context().history[0],{role:'user',content:opening});
   assert.equal(history.context().history.filter(turn=>turn.content===opening).length,1);
 });
@@ -96,27 +97,27 @@ test('full input and output budgets survive private history reload and editing',
   const disk=storage(),history=await createHistory(disk),user='U'.repeat(6000),reply='A'.repeat(12000);
   await history.append('user',user);await history.append('assistant',reply);
   const restored=await createHistory(disk);assert.equal(restored.active().turns[0].content,user);assert.equal(restored.active().turns[1].content,reply);
-  const edit=await restored.replaceFrom(1,user);assert.equal(edit.draft,user);assert.equal(edit.thread.turns.length,1);
+  const edit=await restored.replaceFrom(restored.revisionTarget(1),user);assert.equal(edit.draft,user);assert.equal(edit.thread.turns.length,1);
 });
 
 test('editing an earlier user turn drops downstream replies and stale summary before the next reply',async()=>{
   const history=await createHistory(storage());for(let index=0;index<20;index++)await history.append(index%2?'assistant':'user',`Turn ${index}`);
-  const work=history.summaryWork();await history.applySummary(work.id,work.through,'A summary referring to old downstream details');
-  const edit=await history.replaceFrom(9,'My corrected question\nwith its context');
+  const work=history.summaryWork();await history.applySummary(work,'A summary referring to old downstream details');
+  const edit=await history.replaceFrom(history.revisionTarget(9),'My corrected question\nwith its context');
   assert.equal(edit.seq,9);assert.equal(edit.draft,'My corrected question\nwith its context');assert.equal(edit.thread.turns.length,9);
   assert.equal(history.active().turns.at(-1).role,'user');assert.equal(history.active().turns.at(-1).content,edit.draft);
   assert.equal(history.active().summary,'');assert.equal(history.active().summaryThrough,0);assert.equal(history.active().next,10);assert.equal(history.context().summary,'');
   await history.append('assistant','A newly grounded reply');assert.equal(history.active().turns.at(-1).seq,10);assert.equal(history.active().turns.length,10);
-  const before=history.active();assert.equal(await history.replaceFrom(10,'Cannot edit an assistant as a user'),null);assert.equal(await history.replaceFrom(9,'U'.repeat(6001)),null);assert.deepEqual(history.active(),before);
+  const before=history.active();assert.equal(await history.replaceFrom(history.revisionTarget(10),'Cannot edit an assistant as a user'),null);assert.equal(await history.replaceFrom(history.revisionTarget(9),'U'.repeat(6001)),null);assert.deepEqual(history.active(),before);
 });
 
 test('retrying an assistant turn keeps exactly its preceding user prompt without duplicating it',async()=>{
-  const history=await createHistory(storage());
+  const disk=storage(),history=await createHistory(disk);
   await history.append('user','First question');await history.append('assistant','First reply');await history.append('user','Retry this question');await history.append('assistant','Old reply');await history.append('user','Downstream question');await history.append('assistant','Downstream reply');
-  await history.applySummary(history.active().id,2,'A summary to invalidate');
-  const retry=await history.retryFrom(4);
+  await seedSummary(disk,history,2,'A summary to invalidate');
+  const retry=await history.retryFrom(history.revisionTarget(4,{role:"assistant"}));
   assert.equal(retry.seq,3);assert.equal(retry.draft,'Retry this question');assert.deepEqual(history.active().turns.map(turn=>turn.content),['First question','First reply','Retry this question']);
   assert.equal(history.active().turns.filter(turn=>turn.content===retry.draft).length,1);assert.equal(history.active().next,4);assert.equal(history.active().summary,'');assert.equal(history.active().summaryThrough,0);
   await history.append('assistant','Replacement reply');assert.deepEqual(history.active().turns.map(turn=>turn.seq),[1,2,3,4]);
-  const before=history.active();assert.equal(await history.retryFrom(999),null);assert.deepEqual(history.active(),before);
+  const before=history.active();assert.equal(await history.retryFrom(history.revisionTarget(999,{role:"assistant"})),null);assert.deepEqual(history.active(),before);
 });
