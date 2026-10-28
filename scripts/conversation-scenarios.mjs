@@ -15,5 +15,5 @@ export function assessScenario(scenario,packet){
   const failures=[];
   if(typeof packet?.speech!=='string'||!packet.speech.trim())failures.push('empty speech');
   if(!scenario.actions.includes(packet?.action))failures.push(`action ${packet?.action}; expected ${scenario.actions.join('/')}`);
-  return {pass:failures.length===0,failures,manualReview:scenario.review};
+  return {structuralPass:failures.length===0,failures,semanticReview:'unreviewed',manualReview:scenario.review};
 }
