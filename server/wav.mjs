@@ -41,6 +41,18 @@ function readWav(buffer) {
   return {format,data,align,encoding};
 }
 
+// Validate one transport clip without rewriting metadata or streaming sentinels.
+// Joining retains its existing format handling; transports also require frames
+// and a complete declared RIFF container before a clip can enter their cache.
+export function validateWav(buffer){
+  const {format,data,align}=readWav(buffer),declared=buffer.readUInt32LE(4);
+  if(declared!==0xffffffff&&declared!==buffer.length-8)throw new Error('Invalid WAV container length.');
+  const channels=format.readUInt16LE(2),rate=format.readUInt32LE(4),bits=format.readUInt16LE(14);
+  if(!channels||!rate||!bits||bits%8||align!==channels*bits/8||format.readUInt32LE(8)!==rate*align)throw new Error('Invalid WAV frame format.');
+  if(!data.some(chunk=>chunk.length))throw new Error('Empty WAV audio.');
+  return buffer;
+}
+
 // Concatenate audio frames, not complete WAV files. Rewrite RIFF/data lengths.
 export function joinWav(buffers, maximum=2*1024*1024) {
   if(!buffers.length)throw new Error('No WAV audio.');

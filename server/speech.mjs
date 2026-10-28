@@ -1,4 +1,4 @@
-import { splitSpeech, startupSpeechChunks, joinWav } from './wav.mjs';
+import { splitSpeech, startupSpeechChunks, joinWav, validateWav } from './wav.mjs';
 import {createHash} from 'node:crypto';
 import {EMOTIONS} from '../shared/character.js';
 
@@ -8,6 +8,21 @@ const directions = {
   uncanny: 'Speak quietly with subtle suspense and unhurried pauses. An intimate fictional performance, no shouting and no exaggerated villain voice.',
 };
 const MAX_AUDIO = 2*1024*1024;
+const WAV_TYPES=['audio/wav','audio/wave','audio/x-wav','audio/vnd.wave'];
+const MPEG_TYPES=['audio/mpeg','audio/mp3','audio/x-mp3','audio/mpeg3','audio/x-mpeg3'];
+function validateMpeg(audio){
+  let offset=0;
+  if(audio.toString('ascii',0,3)==='ID3'){
+    if(audio.length<10||![2,3,4].includes(audio[3])||audio[4]===0xff||audio.subarray(6,10).some(value=>value&0x80))throw new Error('Invalid ID3 header.');
+    const size=audio.subarray(6,10).reduce((value,byte)=>value*128+byte,0),footer=audio[3]===4&&(audio[5]&0x10)?10:0;
+    offset=10+size+footer;
+    if(footer&&audio.toString('ascii',offset-10,offset-7)!=='3DI')throw new Error('Invalid ID3 footer.');
+  }
+  // A recognizable Layer III header after the bounded ID3 tag is a format
+  // guard, not a decoder or proof that every MPEG frame is complete/playable.
+  if(audio.length<offset+5||audio[offset]!==0xff||(audio[offset+1]&0xe0)!==0xe0||((audio[offset+1]>>3)&3)===1||((audio[offset+1]>>1)&3)!==1||(audio[offset+2]>>4)===15||((audio[offset+2]>>2)&3)===3||(audio[offset+3]&3)===2)throw new Error('Invalid MPEG header.');
+  return audio;
+}
 function awaitSpeech(promise,signal){
   if(signal.aborted)return Promise.reject(signal.reason);
   return new Promise((resolve,reject)=>{
@@ -86,8 +101,8 @@ async function requestClip(text,mode,{apiKey,voice,groq,fetchImpl,signal}) {
     // Only constant categories and numeric status survive; never retain upstream messages.
     throw Object.assign(new Error(`Speech provider returned HTTP ${response.status}.`),{providerStatus:response.status,code});
   }
-  const contentType=response.headers.get('content-type')?.split(';')[0];
-  if (!contentType?.startsWith('audio/')) throw Object.assign(new Error('Speech provider did not return audio.'),{code:'invalid_audio_type',audioType:['application/octet-stream','application/json','text/html'].includes(contentType)?contentType:'other'});
+  const contentType=response.headers.get('content-type')?.split(';')[0].trim().toLowerCase();
+  if (!(groq?WAV_TYPES:MPEG_TYPES).includes(contentType)) throw Object.assign(new Error('Speech provider did not return the requested audio format.'),{code:'invalid_audio_type',audioType:['application/octet-stream','application/json','text/html'].includes(contentType)?contentType:'other'});
   if (Number(response.headers.get('content-length')) > MAX_AUDIO) throw new Error('Speech audio is too large.');
   const reader=response.body?.getReader(); if(!reader) throw new Error('Speech provider returned no audio.');
   const chunks=[]; let size=0;
@@ -101,5 +116,7 @@ async function requestClip(text,mode,{apiKey,voice,groq,fetchImpl,signal}) {
   } catch(error) { await reader.cancel().catch(()=>{}); throw error; }
   signal.throwIfAborted();
   if(!size) throw new Error('Speech provider returned empty audio.');
-  return Buffer.concat(chunks);
+  const audio=Buffer.concat(chunks);
+  try{return groq?validateWav(audio):validateMpeg(audio);}
+  catch{throw Object.assign(new Error(`Speech provider returned invalid ${groq?'WAV':'MPEG'} audio.`),{code:'invalid_audio_data'});}
 }
