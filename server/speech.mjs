@@ -37,16 +37,15 @@ export async function* requestSpeechClips({text,mode='companion',emotion,speechC
   if (typeof text !== 'string' || !text.trim() || text.length > 420) throw new Error('Speech needs 1–420 characters.');
   if(!['openai','groq'].includes(provider)) throw new Error('Unknown speech provider.');
   const groq = provider === 'groq';
-  const deadline=AbortSignal.timeout(20000),signal=callerSignal?AbortSignal.any([callerSignal,deadline]):deadline;
+  const deadline=AbortSignal.timeout(20000),controller=new AbortController(),signal=AbortSignal.any([controller.signal,deadline,...(callerSignal?[callerSignal]:[])]);
   if(signal.aborted)throw signal.reason;
   const cues=normalizeSpeechCues(text,speechCues);
   const getClip=async input=>{
-    // Cached work may have multiple callers. One departing caller cannot own
-    // its lifetime; each iterator below still cancels its own wait promptly.
-    const create=()=>requestClip(input,mode,{apiKey,voice,groq,fetchImpl,signal:clipCache?deadline:signal});
+    // Cached synthesis owns its deadline; callers hold independent subscriptions.
+    const create=sharedSignal=>requestClip(input,mode,{apiKey,voice,groq,fetchImpl,signal:sharedSignal?AbortSignal.any([sharedSignal,AbortSignal.timeout(20000)]):signal});
     if(!clipCache)return create();
     const key=createHash('sha256').update(JSON.stringify([cacheScope,apiKey,voice,provider,mode,input])).digest('hex');
-    return (await clipCache.getOrCreate(key,create)).value;
+    return (await clipCache.getOrCreate(key,create,{signal})).value;
   };
   const segments=groq?(cues||[{speech:text.trim(),emotion}]).flatMap(cue=>{const direction=actingDirection(cue.emotion,mode);return (cues?splitSpeech:startupSpeechChunks)(cue.speech,200-direction.length).map(chunk=>direction+chunk);}):[text];
   let size=0;
@@ -56,12 +55,16 @@ export async function* requestSpeechClips({text,mode='companion',emotion,speechC
     size+=audio.byteLength;if(size>MAX_AUDIO)throw new Error('Combined speech audio is too large.');
     return {audio};
   }).catch(error=>({error})));
-  for(const next of pending){
-    const result=await awaitSpeech(next,signal);
-    if(signal.aborted)throw signal.reason;
-    if(result.error)throw result.error;
-    yield result.audio;
-  }
+  let complete=false;
+  try{
+    for(const next of pending){
+      const result=await awaitSpeech(next,signal);
+      if(signal.aborted)throw signal.reason;
+      if(result.error)throw result.error;
+      yield result.audio;
+    }
+    complete=true;
+  }finally{if(!complete)controller.abort();}
 }
 
 async function requestClip(text,mode,{apiKey,voice,groq,fetchImpl,signal}) {
@@ -70,6 +73,7 @@ async function requestClip(text,mode,{apiKey,voice,groq,fetchImpl,signal}) {
     signal,
     body:JSON.stringify(groq ? {model:'canopylabs/orpheus-v1-english',voice:['troy','austin','daniel','hannah'].includes(voice)?voice:'troy',input:text.trim(),response_format:'wav'} : {model:'gpt-4o-mini-tts',voice:['cedar','marin'].includes(voice)?voice:'cedar',input:text.trim(),instructions:directions[mode]||directions.companion,response_format:'mp3'}),
   });
+  signal.throwIfAborted();
   if (!response.ok) {
     let code = response.status === 429 ? 'quota' : response.status === 401 ? 'credentials' : 'provider_http';
     try {
@@ -90,10 +94,12 @@ async function requestClip(text,mode,{apiKey,voice,groq,fetchImpl,signal}) {
   try {
     while(true) {
       const {done,value}=await reader.read(); if(done) break;
+      signal.throwIfAborted();
       size+=value.length; if(size>MAX_AUDIO) throw new Error('Speech audio is too large.');
       chunks.push(Buffer.from(value));
     }
   } catch(error) { await reader.cancel().catch(()=>{}); throw error; }
+  signal.throwIfAborted();
   if(!size) throw new Error('Speech provider returned empty audio.');
   return Buffer.concat(chunks);
 }
