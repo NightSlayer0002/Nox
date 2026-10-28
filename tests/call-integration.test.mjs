@@ -13,6 +13,7 @@ import {createReplyPresentation} from '../public/js/reply-presentation.js';
 import {setChatContent} from '../public/js/chat-message.js';
 import {observeInterface} from '../public/js/interface-observation.js';
 import {attachVoiceCall} from '../public/js/voice-call-controls.js';
+import {createRevisionControls} from '../public/js/revision-controls.js';
 import {messageDocument} from './helpers/message-dom.mjs';
 
 const source=(await readFile(new URL('../public/js/app.js',import.meta.url),'utf8')).replace(/\r\n/g,'\n');
@@ -54,6 +55,7 @@ async function fixture(){
     async fetch(url,options){assert.equal(url,'/api/chat');requests.push(JSON.parse(options.body));return responder();},
   });
   context.setBusy=value=>{context.busy=value;};
+  context.revisionControls=createRevisionControls({getEdit:()=>context.editTarget,setEdit:value=>{context.editTarget=value;},getDraft:()=>$('message').value,setDraft:value=>{$('message').value=value;},getThread:()=>history.active()});
   vm.runInContext(`${modeSource}\n${performSource}\n${cancelSource}\n${restoreSource}\n${newSource}\n${sendSource}\n${adapterSource}\n${navigationSource}`,context);
   return {history,context,$,adapter,requests,spoken,respondWith:fn=>{responder=fn;}};
 }
@@ -193,6 +195,60 @@ test('a rejected edit keeps its target and draft without issuing a model request
   ui.history.replaceFrom=async()=>null;
   await ui.context.send('My corrected question',{source:'composer'});
   assert.deepEqual(ui.context.editTarget,ui.history.revisionTarget(1));assert.equal(ui.$('message').value,'My corrected question');assert.deepEqual(ui.history.active(),original);assert.equal(ui.requests.length,0);
+});
+
+for(const earlier of ['An independent draft','Corrected question'])test(`sending a visible edit restores its ${earlier==='Corrected question'?'identical':'different'} earlier draft`,async()=>{
+  // Question: Does a successful real send clear a restored backup that resembles its input?
+  // Limits: Real send/history/controller with synthetic HTTP/DOM; no browser focus or disk proof.
+  const ui=await fixture();await ui.history.append('user','Original question');await ui.history.append('assistant','Original answer');
+  ui.$('message').value=earlier;ui.context.revisionControls.edit(ui.history.revisionTarget(1),'Original question');ui.$('message').value='Corrected question';
+  await ui.context.send('Corrected question',{source:'composer'});
+  assert.equal(ui.$('message').value,earlier);assert.equal(ui.context.editTarget,null);assert.equal(ui.requests.length,1);
+  assert.deepEqual(ui.history.active().turns.map(turn=>turn.content),['Corrected question',packet.speech]);
+});
+
+for(const newer of [false,true])test(`a whitespace-padded edit preserves the ${newer?'newer draft arriving during commit':'pre-edit backup after commit'}`,async()=>{
+  // Question: Does completion compare the exact submitted composer value while preserving later typing?
+  // Limits: Controlled real revision transaction/transport; no native typing or disk timing guarantee.
+  const ui=await fixture();await ui.history.append('user','Original question');await ui.history.append('assistant','Original answer');
+  ui.$('message').value='Earlier draft';ui.context.revisionControls.edit(ui.history.revisionTarget(1),'Original question');
+  const raw='  Corrected question \n';ui.$('message').value=raw;
+  let entered,release;const waiting=new Promise(resolve=>{entered=resolve;}),gate=new Promise(resolve=>{release=resolve;}),replace=ui.history.replaceFrom;
+  ui.history.replaceFrom=async(...args)=>{entered();await gate;return replace(...args);};
+  const sending=ui.context.send(raw,{source:'composer'});await waiting;if(newer)ui.$('message').value='A newer draft during save';release();await sending;
+  assert.equal(ui.$('message').value,newer?'A newer draft during save':'Earlier draft');assert.equal(ui.context.editTarget,null);
+  assert.equal(ui.requests[0].message,'Corrected question');assert.equal(ui.history.active().turns[0].content,'Corrected question');
+});
+
+test('an edit save rejected at the real send boundary keeps its backup available to Cancel',async()=>{
+  // Question: Does a failed transaction discard the revision target or its earlier composer draft?
+  // Limits: Injected persistence rejection; not native quota or concurrent browser timing.
+  const ui=await fixture();await ui.history.append('user','Original question');await ui.history.append('assistant','Original answer');
+  ui.$('message').value='Earlier draft';ui.context.revisionControls.edit(ui.history.revisionTarget(1),'Original question');ui.$('message').value='Corrected question';
+  ui.history.replaceFrom=async()=>null;await ui.context.send('Corrected question',{source:'composer'});
+  assert.equal(ui.$('message').value,'Corrected question');assert.notEqual(ui.context.editTarget,null);assert.equal(ui.requests.length,0);
+  ui.context.revisionControls.cancel();assert.equal(ui.$('message').value,'Earlier draft');
+});
+
+test('call draft hooks preserve an edit backup while its original revision becomes stale',async()=>{
+  // Question: Do the actual call hooks retain both draft layers without recapturing history intent?
+  // Limits: Synthetic call adapter and transport; no microphone or native modal acceptance.
+  const ui=await fixture();await ui.history.append('user','Original question');await ui.history.append('assistant','Original answer');
+  ui.$('message').value='Earlier draft';ui.context.revisionControls.edit(ui.history.revisionTarget(1),'Original question');ui.$('message').value='Correction in progress';
+  const draft=ui.adapter.getDraft();await ui.adapter.options.submit('A separate spoken question');ui.adapter.restoreDraft(draft);
+  assert.equal(ui.$('message').value,'Correction in progress');assert.equal(ui.context.editTarget.revision,draft.edit.revision);
+  await ui.context.send('Correction in progress',{source:'composer'});assert.equal(ui.requests.length,1,'stale edit cannot launch another request');
+  ui.context.revisionControls.cancel();assert.equal(ui.$('message').value,'Earlier draft');
+});
+
+test('deliberate new/open conversation actions preserve an active edit and its backup',async()=>{
+  // Question: Can navigation silently drop one of the two composer drafts?
+  // Limits: Actual navigation callbacks with synthetic UI; no per-thread draft persistence.
+  const ui=await fixture();await ui.history.append('user','Original question');await ui.history.append('assistant','Original answer');
+  const first=ui.history.active().id;await ui.history.create();await ui.history.append('user','Another thread');const other=ui.history.active().id;await ui.history.select(first);
+  ui.$('message').value='Earlier draft';ui.context.revisionControls.edit(ui.history.revisionTarget(1),'Original question');ui.$('message').value='Unsent correction';
+  assert.equal(await ui.context.newConversation(),false);await ui.context.navigationHooks.onOpen(other);
+  assert.equal(ui.history.active().id,first);assert.equal(ui.$('message').value,'Unsent correction');ui.context.revisionControls.cancel();assert.equal(ui.$('message').value,'Earlier draft');
 });
 
 for(const switchThread of [false,true])test(`a revision canceled during mode restoration cannot send into ${switchThread?'another thread':'the canceled thread'}`,async()=>{

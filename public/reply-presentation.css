@@ -22,3 +22,12 @@
 .workspace #show-reply-text{flex:none;min-height:30px;padding:4px 8px;border:0;background:transparent;color:var(--accent);font-size:12px;text-decoration:underline;text-underline-offset:3px;box-shadow:none}
 .workspace #show-reply-text[hidden]{display:none}
 .workspace #show-reply-text:focus-visible{outline:1px solid var(--accent);outline-offset:2px}
+.workspace .revision-notice{display:flex;align-items:center;flex-wrap:wrap;gap:6px 16px;padding:12px 0;margin-top:10px;border-top:1px solid var(--line);color:var(--text)}
+.workspace .revision-notice[hidden]{display:none}
+.workspace .revision-notice>strong{font-size:13px;font-weight:600}
+.workspace .revision-notice>p{flex:1 1 240px;min-width:0;margin:0;font-size:12px;line-height:1.5;color:var(--muted)}
+.workspace .revision-notice-actions{display:flex;gap:8px;flex-wrap:wrap}
+.workspace .revision-notice-actions button{min-height:34px;padding:6px 10px;font-size:12px;color:var(--text);background:transparent;border:1px solid var(--line);border-radius:8px;box-shadow:none}
+.workspace .revision-notice-actions button:hover{background:var(--glass-hover)}
+.workspace .revision-notice-actions button:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
+.workspace .revision-notice-actions button[hidden]{display:none}

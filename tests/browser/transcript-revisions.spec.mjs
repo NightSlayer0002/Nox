@@ -19,13 +19,14 @@ for(const operation of ['edit','retry'])test(`owner ${operation} retains the tra
     await input.fill('My corrected question');await page.locator('#send-button').click();
   }else{
     await input.fill('Keep this unrelated draft');const first=page.locator('#conversation .message.nox').first();await first.hover();await first.getByRole('button',{name:'Retry NOX’s reply',exact:true}).click();
+    await page.getByRole('button',{name:'Replace and retry',exact:true}).click();
   }
   await expect(page.locator('#toast')).toContainText('conversation was not changed');await expect(messages).toHaveCount(4);
   await expect(input).toHaveValue(operation==='edit'?'My corrected question':'Keep this unrelated draft');
   expect(requests).toHaveLength(0);expect(await page.evaluate(()=>localStorage.getItem('nox.chats.v1'))).toBe(saved);
   await page.evaluate(()=>{window.rejectRevision=false;});
   if(operation==='edit')await page.locator('#send-button').click();
-  else{const first=page.locator('#conversation .message.nox').first();await first.hover();await first.getByRole('button',{name:'Retry NOX’s reply',exact:true}).click();}
+  else{const first=page.locator('#conversation .message.nox').first();await first.hover();await first.getByRole('button',{name:'Retry NOX’s reply',exact:true}).click();await page.getByRole('button',{name:'Replace and retry',exact:true}).click();}
   await expect(page.locator('#conversation .message.nox:not(.draft)')).toHaveCount(1);
   await expect(page.locator('#conversation .message.nox:not(.draft)')).toContainText(operation==='edit'?'My corrected question':'Original question');
   await expect(page.locator('#conversation .message.user')).toHaveCount(1);expect(requests).toHaveLength(1);
