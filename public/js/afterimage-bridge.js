@@ -38,9 +38,9 @@ export function createAfterimageBridge(options = {}) {
     onBegin:() => {
       if (!captureRequested) return;
       if (adapter.getState?.().recording && !ownsRecording) throw new Error('Save the current recording before capturing this rehearsal.');
-      captureRequested=false;ownsRecording=true;adapter.startRecording();refreshState();
+      captureRequested=false;ownsRecording=true;adapter.startRecording();refreshState();return {capture:true};
     },
-    onSpeak:(script,emotion,cues) => adapter?.speak?.(script,emotion,cues),
+    onSpeak:(script,emotion,cues,lifecycle) => adapter?.speak?.(script,emotion,cues,lifecycle),
     onVoiceUnavailable:reason=>adapter?.stop?.(reason),
     onSpeaking:() => adapter?.isSpeaking?.(),onStop:stopBody,
   });
@@ -62,7 +62,11 @@ export function createAfterimageBridge(options = {}) {
     subscribe(listener) { if (disposed) return () => {};listeners.add(listener);return () => listeners.delete(listener); },
     refreshState,
     refresh:refreshState,
-    recordingEnded() { ownsRecording=false;refreshState(); },
+    recordingEnded() {
+      const owned=ownsRecording;ownsRecording=false;
+      if(owned&&controller.snapshot().status==='playing')controller.stop('recording-ended');
+      refreshState();
+    },
     connect(next) {
       if (disposed) throw new Error('The AFTERIMAGE bridge is closed.');
       stop('disconnected');adapter=next;refreshState();
@@ -93,6 +97,7 @@ export function createAfterimageBridge(options = {}) {
       if (adapter.getState?.().recording && !ownsRecording) throw new Error('Save the current recording before capturing this rehearsal.');
       stop('replaced');
       if (!adapter.getState?.().recordSupported || !adapter.startRecording) throw new Error('Canvas recording is unavailable in this browser. Use OBS to capture NOX.');
+      adapter.validateRecording?.();
       try { return playPrepared(performance,true); } catch (error) { stopBody('error');throw error; }
     },
     stop,

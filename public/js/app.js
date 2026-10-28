@@ -239,7 +239,7 @@ afterimageBridge.connect({
   cue(value) {
     const cue=applyAfterimageCue(stage,value);$('mood-label').textContent=cue.emotion;
   },
-  speak: (script,emotion,cues) => voice.speak(script,mode,emotion,cues),
+  speak: (script,emotion,cues,lifecycle) => voice.speak(script,mode,emotion,cues,lifecycle),
   prepare: (script,emotion,cues) => voice.enabled&&voice.engine==='natural'?voice.prepare(script,mode,emotion,cues).then(audio=>Boolean(audio)):undefined,
   isSpeaking:()=>stage.narrating,
   stop() {
@@ -248,6 +248,7 @@ afterimageBridge.connect({
   },
   record:toggleRecording,
   startRecording,
+  validateRecording:()=>recorder.preflight(captureProfile),
   stopRecording:() => recorder.stop(),
   setVoice(value){voice.setEnabled(value);showVoice();try{disk.setItem('nox.voice.v2',voice.enabled?'on':'off');}catch{}},
   setExportProfile,

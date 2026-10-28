@@ -5,9 +5,19 @@ export function createRecorder(canvas, onState, {getAudioStream,onError}={}) {
   let session = null;
   let lastUrl = null;
   const supported = Boolean(canvas.captureStream && globalThis.MediaRecorder);
+  const mimeTypes=audio=>audio?['video/webm;codecs=vp9,opus','video/webm;codecs=vp8,opus','video/webm']:['video/webm;codecs=vp9','video/webm;codecs=vp8','video/webm'];
+  const selectType=audio=>mimeTypes(audio).find(value=>MediaRecorder.isTypeSupported(value));
+  function preflight(profile){
+    if (!supported) throw new Error('Canvas recording is unavailable in this browser. Use OBS to capture NOX.');
+    if (session) throw new Error('Wait for the current clip to finish saving.');
+    const resolved=resolveExportProfile(profile);
+    if(!selectType(true)&&!selectType(false))throw new Error('WebM export is unavailable here. Use Chrome, Edge, or OBS.');
+    return resolved;
+  }
   return {
     supported,
     get active() { return Boolean(session); },
+    preflight,
     start(profile) {
       if (!supported) throw new Error('Canvas recording is unavailable in this browser. Use OBS to capture NOX.');
       if (session) throw new Error('Wait for the current clip to finish saving.');
@@ -35,7 +45,7 @@ export function createRecorder(canvas, onState, {getAudioStream,onError}={}) {
       };
       current.finish=finish;
       try {
-        current.profile=resolveExportProfile(profile);
+        current.profile=preflight(profile);
         // Stage must render at these dimensions before a stream is opened.
         if((canvas.width!==undefined&&canvas.width!==current.profile.width)||(canvas.height!==undefined&&canvas.height!==current.profile.height)) {
           throw new Error('Prepare the selected export resolution before recording.');
@@ -44,7 +54,7 @@ export function createRecorder(canvas, onState, {getAudioStream,onError}={}) {
         const voiceTracks=getAudioStream?.()?.getAudioTracks()||[];
         for(const track of voiceTracks)current.stream.addTrack(track.clone());
         current.audio=voiceTracks.length>0;
-        type=(current.audio?['video/webm;codecs=vp9,opus','video/webm;codecs=vp8,opus','video/webm']:['video/webm;codecs=vp9','video/webm;codecs=vp8','video/webm']).find(value=>MediaRecorder.isTypeSupported(value));
+        type=selectType(current.audio);
         if(!type)throw new Error('WebM export is unavailable here. Use Chrome, Edge, or OBS.');
         current.recorder = new MediaRecorder(current.stream, { mimeType: type, videoBitsPerSecond: current.profile.videoBitsPerSecond });
         current.recorder.ondataavailable = event => { if (event.data.size) current.chunks.push(event.data); };

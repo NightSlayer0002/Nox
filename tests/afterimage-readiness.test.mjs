@@ -22,7 +22,7 @@ function naturalFixture({delayedPlayback=false}={}){
     requestAudio:(text,mode,signal,emotion,speaker,cues)=>new Promise((resolve,reject)=>requests.push({text,mode,signal,emotion,speaker,cues,resolve,reject})),
     AudioCtor:class{
       constructor(){this.paused=true;players.push(this);}
-      play(){events.push({type:'audio',at:timer.now()});this.paused=false;this.onplaying?.();return delayedPlayback?playback.promise:Promise.resolve();}
+      play(){events.push({type:'audio',at:timer.now()});this.paused=false;if(delayedPlayback)return playback.promise.then(()=>this.onplaying?.());this.onplaying?.();return Promise.resolve();}
       pause(){this.paused=true;}
     },
     urls:{createObjectURL:()=>`blob:rehearsal-${players.length}`,revokeObjectURL(){}},onError:message=>errors.push(message),
@@ -31,7 +31,7 @@ function naturalFixture({delayedPlayback=false}={}){
   const bridge=createAfterimageBridge({...timer,visibilityTarget:target});
   const disconnect=bridge.connect({
     prepare:(script,emotion,cues)=>voice.prepare(script,'companion',emotion,cues).then(Boolean),
-    speak:(script,emotion,cues)=>voice.speak(script,'companion',emotion,cues),
+    speak:(script,emotion,cues,options)=>voice.speak(script,'companion',emotion,cues,options),
     cue:cue=>events.push({type:'cue',text:cue.speech,at:timer.now()}),
     stop:()=>voice.stop(),
     startRecording(){recording=true;events.push({type:'capture',at:timer.now()});},
@@ -58,7 +58,7 @@ test('natural preparation within its deadline spends none of the rehearsal or ca
   assert.deepEqual(f.events.at(-1),{type:'saved',at:40000});assert.equal(f.timer.pending,0);
 });
 
-test('the cue clock waits for the first playback promise after prepared audio reaches the player',async t=>{
+test('the cue clock waits for actual playback after prepared audio reaches the player',async t=>{
   const f=naturalFixture({delayedPlayback:true});t.after(()=>f.bridge.dispose());
   f.bridge.recordAndPlay(FIRST_CONTACT);f.requests[0].resolve(new Blob(['prepared narration']));await settle();
   assert.equal(f.bridge.snapshot().recording,true);assert.equal(f.players.length,1);
