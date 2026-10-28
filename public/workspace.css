@@ -3,6 +3,9 @@
   min-height: 100svh;
   isolation: isolate;
 }
+.workspace .javascript-required{position:fixed;inset:16px 16px auto;z-index:100;max-width:880px;margin-inline:auto;padding:18px;background:var(--surface);color:var(--text);border:1px solid var(--line);border-radius:8px;line-height:1.6}
+.workspace .javascript-required a{color:inherit;text-decoration:underline}
+.workspace:has(>noscript>.javascript-required)>:not(noscript){display:none!important}
 .workspace-background {
   position: fixed;
   inset: 0;
