@@ -45,7 +45,7 @@ function Access(){
       <p>Text and natural voice have separate allowances. People on the same network may share limits. Browser voice and local activities remain available when natural voice runs out.</p>
     </section>
     <section className="access-capabilities"><h2>Included now</h2><ul><li>Complete written answers and context from pasted notes</li><li>Learning, mysteries and guessing games</li><li>Expressive NOX, Scene studio and local clip capture</li><li>Voice, captions, and conversation and story exports</li></ul>
-      <p>Guest chats, notes and preferences clear on refresh. Export anything you want to keep.</p><a className="cream-button" href="#conversation">Talk with NOX</a>
+      <p>Guest chats, notes and preferences clear on refresh. Conversation and story exports save readable copies; they cannot be imported to restore a visit. Copy activity writing you want to keep.</p><a className="cream-button" href="#conversation">Talk with NOX</a>
     </section><a className="quiet-link" href="#memory">Preferences</a></div>;
 }
 
