@@ -58,6 +58,40 @@ test('repeated example playback and branch edits never fill the story archive',(
   assert.equal(ui.storage.getItem('nox.afterimage.v1'),null);
 });
 
+for(const source of ['authored sample','unsaved generated story','saved story'])for(const [choice,group,field] of [['branch','signal-choices','signalIndex'],['ending','ending-choices','endingIndex']])test(`reselecting the current ${choice} preserves applied lines and open drafts for ${source}`,async()=>{
+  const initialRaw=source==='saved story'?JSON.stringify({version:1,receptions:[{id:'saved',revision:0,createdAt:'2026-10-24T00:00:00.000Z',packet:FIRST_CONTACT,seed:'Only copy',tone:'uncanny',source:'live',signalIndex:0,endingIndex:0}]}):undefined;
+  const ui=receiver({owner:source!=='authored sample',initialRaw,receive:async()=>({packet:FIRST_CONTACT})});
+  if(source==='unsaved generated story'){
+    ui.find(node=>node.props?.id==='afterimage-seed').props.onChange({target:{value:'Keep this unsaved cut'}});ui.render();
+    const setItem=ui.storage.setItem;ui.storage.setItem=()=>{throw Error('Full');};
+    await ui.find(node=>node.type==='form').props.onSubmit({preventDefault(){}});ui.storage.setItem=setItem;ui.render();
+  }
+  const lines=['My first applied beat.','My second applied beat.','My third applied beat.','My applied ending.'];
+  ui.button('Edit this cut').props.onClick();ui.render();
+  ui.nodes().filter(node=>node.type==='textarea'&&node.props.maxLength===90).forEach((node,index)=>node.props.onChange({target:{value:lines[index]}}));ui.render();
+  await ui.button('Apply edits').props.onClick();ui.render();
+  const buttons=()=>ui.find(node=>node.props?.className===group).props.children.flat().filter(node=>node?.type==='button');
+  const exportCut=()=>{ui.button('Export story data').props.onClick();return JSON.parse(ui.downloads.at(-1)[0]);};
+  const applied=exportCut(),stored=ui.storage.getItem('nox.afterimage.v1'),notice=ui.text(ui.find(node=>node.props?.role==='status'));
+  assert.deepEqual(applied.editedLines,lines);
+  await buttons().find(node=>node.props['aria-pressed']).props.onClick();ui.render();
+  assert.deepEqual(exportCut(),applied);assert.equal(ui.storage.getItem('nox.afterimage.v1'),stored);
+  const displayed=ui.text(ui.find(node=>node.props?.className==='cue-tape'));for(const line of lines)assert.ok(displayed.includes(line));
+  assert.equal(ui.text(ui.find(node=>node.props?.role==='status')),notice);
+  ui.button('Edit this cut').props.onClick();ui.render();
+  const firstLine=()=>ui.find(node=>node.type==='textarea'&&node.props.maxLength===90);
+  firstLine().props.onChange({target:{value:'Keep this newer open draft.'}});ui.render();
+  await buttons().find(node=>node.props['aria-pressed']).props.onClick();ui.render();
+  assert.equal(firstLine()?.props.value,'Keep this newer open draft.');
+  assert.deepEqual(exportCut(),applied);assert.equal(ui.storage.getItem('nox.afterimage.v1'),stored);
+  ui.button('Play this cut').props.onClick();ui.render();
+  assert.deepEqual(Array.from(ui.plays.at(-1)[3]),lines);
+  ui.bridge.stop();ui.render();
+  await buttons()[1].props.onClick();ui.render();
+  const changed=exportCut();assert.equal(changed[field],1);assert.equal(changed.editedLines,undefined);
+  assert.equal(firstLine(),undefined);
+});
+
 test('protected story archives offer the exact recovery download and explicit replacement',async()=>{
   const raw=' {"version":99,"valuable":"Original story"} ',ui=receiver({owner:true,initialRaw:raw});
   const original=ui.button('Download original stories');assert.ok(original);original.props.onClick();
