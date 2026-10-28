@@ -18,7 +18,9 @@ test('Explore restores only bounded authored fields and preserves a real teach-b
   assert.equal(exploreRecap(saved).teachBack,saved.teachBack);assert.match(exploreRecap(saved).understood,/You marked/);
   assert.equal(restoreExploreState({version:9,kind:'explore',angle:90}).angle,45);
 });
-test('game chooses one fixed curated object and answers every supported property honestly',()=>{
+test('game keeps one fixed target and derives supported answers from its authored tags',()=>{
+  // Resolves tag-to-answer wiring, not whether the tags match ordinary-language
+  // facts. The separately reviewed content matrix tests the offered semantics.
   for(let i=0;i<GUESS_OBJECTS.length;i++){
     for(const question of GUESS_QUESTIONS){
       const start=createGuessingState({seed:i});const next=updateGuessingState(start,{type:'question',id:question.id});
