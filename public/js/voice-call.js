@@ -98,7 +98,11 @@ export function createVoiceCall({supported=false,startListening,stopListening,su
     if(turn!==work||!current(token))return false;
     void (async()=>{
       try{
-        const result=await submit(text);
+        const result=await submit(text,{onReply:reply=>{
+          // Written completion belongs to this call turn, independently of
+          // whether optional playback can start or later finishes successfully.
+          if(turn===work&&current(token)&&typeof reply==='string')publish({reply});
+        }});
         if(turn!==work||!current(token))return;
         if(!result||typeof result.reply!=='string')throw Error('NOX could not finish this reply. Try connecting again.');
         work.settled=true;work.voicePending=Boolean(result.voicePending);

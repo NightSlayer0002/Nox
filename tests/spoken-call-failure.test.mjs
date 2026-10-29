@@ -17,6 +17,8 @@ const cancelSource=source.slice(source.indexOf('function cancelConversation()'),
 const noop=()=>{},packet={speech:'The complete valid written answer remains readable when audio fails.',emotion:'curious',action:'none',memory:''};
 
 for(const failure of ['provider','autoplay'])test(`a call ${failure} failure preserves the completed written reply`,async()=>{
+  // Question: Can early speech failure hide a valid committed answer from the still-open call's reading context?
+  // Limits: Real voice/call/presentation modules with synthetic transport/player; browser checks cover the modal, not real audio quality or microphone hardware.
   const saved=[],nodes=new Map(),text=messageDocument().createElement('div'),turns=createTurnGate();
   const draft={removed:false,classList:{remove:noop},querySelector:()=>text,remove(){this.removed=true;}};
   let call,context;
@@ -40,9 +42,9 @@ for(const failure of ['provider','autoplay'])test(`a call ${failure} failure pre
   vm.runInContext(`${performSource}\n${cancelSource}`,context);
   call=createVoiceCall({supported:true,startListening:()=>call.onListening(true),stopListening:noop,
     stopReply:()=>context.cancelConversation(),
-    async submit(){
+    async submit(_text,{onReply}={}){
       const version=turns.begin();context.pendingDraft=draft;
-      const completed=await context.perform(packet,true,draft,version,'balanced');
+      const completed=await context.perform(packet,true,draft,version,'balanced',false,[],{onCommitted:onReply});
       if(!turns.isCurrent(version))return;
       context.pendingDraft=null;
       return {reply:completed.speech,voicePending:voice.enabled&&voice.supported};
@@ -52,6 +54,7 @@ for(const failure of ['provider','autoplay'])test(`a call ${failure} failure pre
     call.open();call.connect();call.onTranscript('A question with a valid answer.');
     await new Promise(resolve=>setImmediate(resolve));
     assert.equal(call.snapshot().status,'error');
+    assert.equal(call.snapshot().reply,packet.speech,'the failed call must retain its own complete readable answer');
     assert.equal(saved[0]?.content,packet.speech,'audio failure must retain the complete written answer');
     assert.equal(text.textContent,packet.speech,'audio failure must release the text presentation gate');
     assert.equal(draft.removed,false,'voice call cleanup must not remove a completed written reply');

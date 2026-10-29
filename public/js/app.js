@@ -218,10 +218,10 @@ voiceCall=attachVoiceCall({options:{
   supported:()=>callMicrophone.supported&&voice.supported,
   startListening:()=>{if(brain==='loading')throw Error('The AI connection is not ready. Your typed draft is kept; try again when NOX is connected.');if(!['live','demo'].includes(brain))throw Error('The AI connection is not ready. Close this view and check Settings.');microphone.stop();voice.setEnabled(true);showVoice();callMicrophone.start();},
   stopListening:()=>callMicrophone.stop(),stopReply:()=>cancelConversation(),
-  async submit(text){
+  async submit(text,{onReply}={}){
     if(busy)throw Error('NOX is finishing another reply. Try again in a moment.');
     if(brain==='loading')throw Error('The AI connection is not ready. Your typed message is still here.');
-    const packet=await send(text);
+    const packet=await send(text,{onCommitted:onReply});
     if(!packet)throw Error(historyFailure(history,'NOX could not start or finish this reply. Check the conversation limit or connection, then try again.'));
     return {reply:packet.speech,voicePending:voice.enabled&&voice.supported};
   }
@@ -352,6 +352,7 @@ async function perform(value, save = true, draft, version, depth='quick',remembe
   if (save && !await history.append('assistant', packet.speech,{sources,...completion})) {voice.stop();return;}
   if(version!==undefined&&!turns.isCurrent(version))return;
   const replyTurn=save?history.active().turns.at(-1):null;
+  if(save)try{completion.onCommitted?.(packet.speech);}catch{/* A failed view must not discard a committed answer. */}
   const presentation=createReplyPresentation({voiceEnabled:voice.enabled&&voice.supported,isCurrent:()=>version===undefined||turns.isCurrent(version),
     onWaiting:waiting=>{$('show-reply-text').hidden=!waiting;if(waiting)replyDiagnostics.setStatus('Preparing NOX’s voice…');else if($('reply-timing').textContent==='Preparing NOX’s voice…')replyDiagnostics.setStatus('');},
     onReveal:()=>{
@@ -379,7 +380,7 @@ function setBusy(value) {
   companionChanged();
 }
 
-async function send(raw,{recorded=false,keepDraft=false,source='programmatic'}={}) {
+async function send(raw,{recorded=false,keepDraft=false,source='programmatic',onCommitted}={}) {
   composerOptions.close();
   const text = raw.trim(); if (!text || busy) return;
   const submittedDraft=$('message').value;
@@ -449,7 +450,7 @@ async function send(raw,{recorded=false,keepDraft=false,source='programmatic'}={
       packet = demoReply(text, context);
       if(turns.isCurrent(version))replyDiagnostics.complete(timingVersion);
     }
-    if (turns.isCurrent(version)) {activity.transition('reply-ready',activityTurn);if(takeover)packet={...packet,action:'takeover'};const draft=pendingDraft;const completed=await perform(packet,true,draft,version,depth,explicitMemoryRequest(text),brain==='live'?request.context.knowledge:[],{replyTo,signal:requestController.signal});if(turns.isCurrent(version)){pendingDraft=null;scheduleSummary();return completed;}}
+    if (turns.isCurrent(version)) {activity.transition('reply-ready',activityTurn);if(takeover)packet={...packet,action:'takeover'};const draft=pendingDraft;const completed=await perform(packet,true,draft,version,depth,explicitMemoryRequest(text),brain==='live'?request.context.knowledge:[],{replyTo,signal:requestController.signal,onCommitted});if(turns.isCurrent(version)){pendingDraft=null;scheduleSummary();return completed;}}
   } catch (error) {
     if (turns.isCurrent(version)){setUsage(error.usage);pendingDraft?.remove();pendingDraft=null;if(error.name!=='AbortError'){activity.finishTurn(activityTurn,'error');if(source==='composer'&&!$('message').value){composer.setValue(text);contextPreview();}stage.character.react?.('worried',stage.time,2);if (brain === 'live') $('brain-status').lastChild.textContent = ' AI error'; addMessage('system', error.message); toast(error.message);replyDiagnostics.setStatus('Reply interrupted. Your message is still in this visit.');}}
   } finally { if (turns.isCurrent(version)) { setBusy(false); } }
