@@ -609,7 +609,19 @@ async function newConversation(){
   const starting=turns.begin(),thread=await history.create();if(!turns.isCurrent(starting))return false;if(!thread){toast(historyFailure(history));return false;}
   editTarget=null;currentActivity='conversation';const restored=await restoreConversation();return turns.isCurrent(restored);
 }
-navigation=createNavigation({history,onOpen:async id=>{if(!revisionControls.canLeave())return;cancelConversation();const opening=turns.begin();editTarget=null;currentActivity='conversation';const selected=await history.select(id);if(!turns.isCurrent(opening))return;await restoreConversation();if(!selected)toast('That conversation was removed in another tab.');},onNew:newConversation,onStart:async(text,persona)=>{if(!revisionControls.canLeave())return;const started=await setMode(persona,false);if(turns.isCurrent(started))await send(text);}});
+async function removeConversation(id){
+  // Resolve edit intent before deletion, rather than asking an ordinary leave
+  // guard to veto the mandatory refresh after the archive has already changed.
+  if(editTarget?.threadId===id)throw Error('Finish or cancel the open edit before deleting this conversation. Your edit and earlier draft are kept.');
+  const selected=history.active().id;let deleting;
+  if(id===selected){cancelConversation();deleting=turns.begin();setBusy(true);}
+  try{
+    const removed=await history.remove(id);if(!removed)return false;
+    if(id===selected&&turns.isCurrent(deleting))await restoreConversation();
+    return true;
+  }finally{if(deleting!==undefined&&turns.isCurrent(deleting))setBusy(false);}
+}
+navigation=createNavigation({history,onOpen:async id=>{if(!revisionControls.canLeave())return false;cancelConversation();const opening=turns.begin();editTarget=null;currentActivity='conversation';const selected=await history.select(id);if(!turns.isCurrent(opening))return false;const restored=await restoreConversation();if(!selected)toast('That conversation was removed in another tab.');return selected&&turns.isCurrent(restored);},onRemove:removeConversation,onNew:newConversation,onStart:async(text,persona)=>{if(!revisionControls.canLeave())return;const started=await setMode(persona,false);if(turns.isCurrent(started))await send(text);}});
 messageCompanion=attachMessageCompanion({conversation:$('conversation'),onAction:exploreWithNox});
 floatingPresence=attachFloatingPresence({stage,onInspect:value=>messageCompanion.inspect(value),onRelease:value=>messageCompanion.release(value),onClear:()=>messageCompanion.clear()});
 window.addEventListener('pagehide',event=>{if(!event.persisted){floatingPresence.dispose();messageCompanion.dispose();}},{once:true});

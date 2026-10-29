@@ -350,3 +350,24 @@ test('a canceled old edit cannot finish or consume a newer edit',async()=>{
   release();await sending;assert.deepEqual(ui.history.active(),before);assert.equal(ui.context.editTarget.seq,3);assert.equal(ui.$('message').value,'New correction');assert.equal(ui.requests.length,0);
   ui.context.revisionControls.cancel();assert.equal(ui.$('message').value,'Earlier draft');
 });
+
+test('deleting an actively edited conversation is refused before storage changes',async()=>{
+  // Question: Can deletion bypass edit intent and leave the displayed conversation bound to another request context?
+  // Limits: Actual app callbacks/controller/store, synthetic DOM; browser checks cover rendered title/transcript and request body, not cross-user access.
+  const ui=await fixture();await ui.history.append('user','Alpha question');await ui.history.append('assistant','Alpha answer');const alpha=ui.history.active().id;
+  await ui.history.create();await ui.history.append('user','Beta private context');await ui.history.select(alpha);
+  ui.$('message').value='Earlier draft';ui.context.revisionControls.edit(ui.history.revisionTarget(1),'Alpha question');ui.$('message').value='Alpha correction';
+  await assert.rejects(ui.context.navigationHooks.onRemove(alpha),/finish|cancel/i);
+  assert.equal(ui.history.active().id,alpha);assert.equal(ui.history.list().length,2);assert.equal(ui.$('message').value,'Alpha correction');
+  ui.context.revisionControls.cancel();assert.equal(ui.$('message').value,'Earlier draft');
+});
+
+test('deleting another conversation preserves the active edit and both drafts',async()=>{
+  // Question: Does removing unrelated history unnecessarily destroy an active edit or navigate away from it?
+  // Limits: App/store integration only; not physical navigation controls or all asynchronous external deletions.
+  const ui=await fixture();await ui.history.append('user','Alpha question');const alpha=ui.history.active().id;
+  await ui.history.create();await ui.history.append('user','Beta question');const beta=ui.history.active().id;await ui.history.select(alpha);
+  ui.$('message').value='Earlier draft';ui.context.revisionControls.edit(ui.history.revisionTarget(1),'Alpha question');ui.$('message').value='Alpha correction';
+  assert.equal(await ui.context.navigationHooks.onRemove(beta),true);assert.equal(ui.history.active().id,alpha);assert.equal(ui.context.editTarget.threadId,alpha);
+  assert.equal(ui.$('message').value,'Alpha correction');ui.context.revisionControls.cancel();assert.equal(ui.$('message').value,'Earlier draft');
+});
