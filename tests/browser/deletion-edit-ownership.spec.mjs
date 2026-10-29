@@ -36,3 +36,15 @@ test('deleting inactive history preserves the visible edit and its earlier draft
   await page.evaluate(()=>location.hash='#conversation');await expect(page.locator('#message')).toHaveValue('Unsent Alpha correction');await expect(page.getByRole('group',{name:'Message revision'})).toBeVisible();
   await page.getByRole('button',{name:'Cancel edit',exact:true}).click();await expect(page.locator('#message')).toHaveValue('Earlier independent draft');
 });
+
+test('a deletion reload that discovers a missed external write restores the committed fallback',async({page})=>{
+  // Question: Does the actual storage notification/restoration pipeline wait for deletion's authoritative fallback rather than restore the removed chat?
+  // Limits: Chromium Web Locks and a same-page second store to control missing storage delivery; not every browser's native multi-tab event ordering.
+  await page.addInitScript(archive=>localStorage.setItem('nox.chats.v1',JSON.stringify(archive)),archive);
+  const requests=[];page.on('request',r=>{if(new URL(r.url()).pathname==='/api/chat')requests.push(r.postDataJSON());});
+  await page.goto('/app#conversation');await expect(page.locator('#brain-status')).toContainText('Synthetic CI provider');await expect(page.locator('#conversation .message')).toHaveCount(2);
+  await page.evaluate(async()=>{const {createHistory}=await import('/js/history.js');const other=await createHistory(localStorage);await other.append('user','External Alpha addition before storage delivery');});
+  await page.evaluate(()=>location.hash='#library');const alpha=page.locator('.history-item').filter({hasText:'Alpha question'});await alpha.getByRole('button',{name:'Delete Alpha question',exact:true}).click();await alpha.getByRole('button',{name:'Delete conversation',exact:true}).click();
+  await expect(page.locator('#history-list .history-item')).toHaveCount(1);await page.evaluate(()=>location.hash='#conversation');await expect(page.locator('#chat-title')).toHaveText('Beta question');await expect(page.locator('#conversation .message.user .message-content')).toHaveText('Beta private context');
+  await page.locator('#message').fill('Continue visible Beta');await page.locator('#send-button').click();await expect.poll(()=>requests.length).toBe(1);expect(requests[0].context.history).toEqual([{role:'user',content:'Beta private context'},{role:'assistant',content:'Beta answer'}]);
+});

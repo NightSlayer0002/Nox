@@ -142,8 +142,10 @@ export async function createHistory(storage,legacy=[]){
       if(t.turns.length>=HISTORY_LIMITS.turns-(role==='user'?1:0)){lastError='turn-limit';return false;}t.turns.push({id:crypto.randomUUID(),role,content:text,seq:t.next++,...metadata});t.updated=Date.now();if(role==='user'&&t.title==='New conversation')t.title=cleanText(text,60);return true;
     });},
     remove(id){return serialize(storage,()=>{
+      const before=visible();
+      try{
       if(!crossTabSafe()){lastError='coordination-unavailable';return false;}
-      lastError='';if(persistent)load();choose();
+      lastError='';if(persistent)load({notify:false});choose();
       const failed=()=>{lastError='delete-not-saved';return false;};
       if(!persistent||recovery)return failed();
       if(!state.threads.some(thread=>thread.id===id))return false;
@@ -154,6 +156,12 @@ export async function createHistory(storage,legacy=[]){
       if(!candidate.threads.length)candidate.threads.push(newThread());
       candidate.active=candidate.threads.some(thread=>thread.id===currentId)?currentId:candidate.threads[0].id;
       return commitCandidate(candidate,'delete-not-saved');
+      }finally{
+        // Restoration must observe the committed fallback, never an external
+        // revision of the thread this transaction is about to remove. Failed
+        // writes still publish any authoritative external change we loaded.
+        if(before!==visible())for(const listener of listeners){try{listener({currentChanged:true});}catch{}}
+      }
     });},
     context(){const t=active(),pending=t.turns.filter(v=>v.seq>t.summaryThrough),opening=t.turns.find(v=>v.seq===1&&v.role==='user');
       const dialogue=turns=>(opening&&!turns.includes(opening)?[opening,...turns]:turns).map(({role,content})=>({role,content}));
