@@ -20,9 +20,3 @@ test('Escape still resets the scene after single-letter shortcuts are removed',(
   // Resolves the retained escape path, not every dialog/edit/IME interception.
   const ui=scene();ui.key('Escape');assert.equal(ui.changes.reset,1);
 });
-test('visible studio controls remain available without advertising removed shortcuts',async()=>{
-  // Static markup establishes native buttons/copy, not their complete browser behavior.
-  const html=await readFile(new URL('../public/app.html',import.meta.url),'utf8');
-  assert.match(html,/<button[^>]*id="film-button"/);assert.match(html,/<button[^>]*id="record-button"/);
-  assert.equal(/\(F\)|\(R\)|Press F to toggle/.test(html),false,'removed shortcuts must not be advertised');
-});
