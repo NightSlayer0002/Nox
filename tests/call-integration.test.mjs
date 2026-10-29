@@ -57,7 +57,7 @@ async function fixture(){
   context.setBusy=value=>{context.busy=value;};
   context.revisionControls=createRevisionControls({getEdit:()=>context.editTarget,setEdit:value=>{context.editTarget=value;},getDraft:()=>$('message').value,setDraft:value=>{$('message').value=value;},getThread:()=>history.active()});
   vm.runInContext(`${modeSource}\n${performSource}\n${cancelSource}\n${restoreSource}\n${newSource}\n${sendSource}\n${adapterSource}\n${navigationSource}`,context);
-  return {history,context,$,adapter,requests,spoken,respondWith:fn=>{responder=fn;}};
+  return {stored,history,context,$,adapter,requests,spoken,respondWith:fn=>{responder=fn;}};
 }
 
 test('call turns preserve downstream history while a pending edited draft is suspended and restored',async()=>{
@@ -370,4 +370,17 @@ test('deleting another conversation preserves the active edit and both drafts',a
   ui.$('message').value='Earlier draft';ui.context.revisionControls.edit(ui.history.revisionTarget(1),'Alpha question');ui.$('message').value='Alpha correction';
   assert.equal(await ui.context.navigationHooks.onRemove(beta),true);assert.equal(ui.history.active().id,alpha);assert.equal(ui.context.editTarget.threadId,alpha);
   assert.equal(ui.$('message').value,'Alpha correction');ui.context.revisionControls.cancel();assert.equal(ui.$('message').value,'Earlier draft');
+});
+
+test('deletion publishes the final fallback when its load discovers another tab before the storage event',async()=>{
+  // Question: Can a pre-commit reload notification restore a soon-to-be-deleted chat and strand the view on a different request context?
+  // Limits: Real app restoration/subscription and two history stores with synthetic DOM/HTTP; browser lock/event behavior is checked separately, not cross-user authorization.
+  const ui=await fixture();await ui.history.append('user','Alpha question');await ui.history.append('assistant','Alpha answer');const alpha=ui.history.active().id;
+  await ui.history.create();await ui.history.append('user','Beta private context');await ui.history.append('assistant','Beta answer');await ui.history.select(alpha);await ui.context.restoreConversation();
+  const restorations=[];ui.history.subscribe(({currentChanged})=>{if(currentChanged)restorations.push(ui.context.restoreConversation());});
+  const other=await createHistory({getItem:key=>ui.stored.get(key)??null,setItem:(key,value)=>ui.stored.set(key,String(value))});await other.append('user','External addition not yet delivered as a storage event');
+  assert.equal(await ui.context.navigationHooks.onRemove(alpha),true);await Promise.all(restorations);await new Promise(resolve=>setImmediate(resolve));
+  assert.equal(ui.$('chat-title').textContent,'Beta private context');assert.equal(ui.context.viewReady,true);assert.equal(ui.context.busy,false);
+  ui.$('message').value='Continue the visible Beta';await ui.context.send('Continue the visible Beta',{source:'composer'});
+  assert.deepEqual(ui.requests[0].context.history,[{role:'user',content:'Beta private context'},{role:'assistant',content:'Beta answer'}]);
 });
