@@ -1,9 +1,9 @@
 // One active edit keeps one composer backup. Captured revision targets are never
 // refreshed here: history validates the user's original intent when it commits.
 export function createRevisionControls({getEdit,setEdit,getDraft,setDraft,getThread,onNotice=()=>{},onFocus=()=>{}}){
-  let retry=null;const listeners=new Set();
+  let retry=null,pending=null;const listeners=new Set();
   const following=target=>{const thread=getThread(),index=thread.id===target.threadId?thread.turns.findIndex(turn=>turn.id===target.turnId):-1;return index<0?null:thread.turns.length-index-1;};
-  const snapshot=()=>{const edit=getEdit();return edit?{kind:'edit',following:edit.followingMessages??following(edit)??0}:retry?{kind:'retry',following:retry.following}:null;};
+  const snapshot=()=>{const edit=getEdit();return edit?{kind:'edit',committing:Boolean(pending),following:edit.followingMessages??following(edit)??0}:retry?{kind:'retry',following:retry.following}:null;};
   const sync=()=>{const state=snapshot();for(const listener of listeners)listener(state);};
   const blocked=()=>{onNotice('Finish or cancel your current edit before revising or switching conversations.');onFocus();return false;};
   return {
@@ -15,13 +15,19 @@ export function createRevisionControls({getEdit,setEdit,getDraft,setDraft,getThr
       const count=following(target);if(count===null)return false;
       setEdit({...target,draftBeforeEdit:getDraft(),followingMessages:count});setDraft(text);sync();onFocus();return true;
     },
-    finish(submitted){
-      const edit=getEdit();if(!edit)return false;setEdit(null);
+    beginCommit(){
+      const target=getEdit();if(!target||pending)return null;
+      const controller=new AbortController();pending={target,controller,signal:controller.signal};sync();return pending;
+    },
+    releaseCommit(operation){if(pending===operation){pending=null;sync();}},
+    finish(submitted,operation){
+      const edit=getEdit();if(!edit||operation&&(pending!==operation||edit!==operation.target))return false;pending=null;setEdit(null);
       const restore=getDraft()===submitted&&typeof edit.draftBeforeEdit==='string';
       if(restore)setDraft(edit.draftBeforeEdit);sync();return restore;
     },
     cancel(){
       const edit=getEdit();if(!edit&&!retry)return false;
+      const operation=pending;pending=null;operation?.controller.abort();
       if(edit){setEdit(null);setDraft(edit.draftBeforeEdit??'');}
       retry=null;sync();onFocus();return true;
     },
@@ -50,7 +56,7 @@ export function attachRevisionControls({controls,form,input,documentTarget=globa
     panel.hidden=!state;confirm.hidden=state?.kind!=='retry';
     if(!state){if(describedBy)input.setAttribute('aria-describedby',describedBy);else input.removeAttribute('aria-describedby');previous=null;return;}
     const count=state.following,after=`the ${count} ${count===1?'message':'messages'} after it`;
-    title.textContent=state.kind==='edit'?'Editing a message':'Retry an earlier reply?';
+    title.textContent=state.kind==='edit'?(state.committing?'Saving edit…':'Editing a message'):'Retry an earlier reply?';
     scope.textContent=state.kind==='edit'?`Sending replaces this message${count?` and ${after}`:''}.`:`This replaces this reply and ${after}.`;
     cancel.textContent=state.kind==='edit'?'Cancel edit':'Keep conversation';input.setAttribute('aria-describedby',`${describedBy} revision-scope`.trim());
     if(state.kind==='retry'&&previous!=='retry')cancel.focus();previous=state.kind;
