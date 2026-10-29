@@ -15,14 +15,15 @@ export function applyAfterimageCue(stage,value) {
 
 const abortError = () => new DOMException('Reception stopped.','AbortError');
 export function createAfterimageBridge(options = {}) {
-  let adapter=null,disposed=false,request=null,requestVersion=0,ownsRecording=false,captureRequested=false;
+  let adapter=null,disposed=false,request=null,requestVersion=0,ownsRecording=false,captureRequested=false,captureRun=null,captureOutcome=null;
   const listeners=new Set();
   let state;
   function refreshState() {
     const current=adapter?.getState?.() ?? {};
     if(current.recording===false)ownsRecording=false;
     const connection=current.connection ?? {kind:'loading'};
-    state=Object.freeze({...controller.snapshot(),connected:Boolean(adapter),voiceEnabled:current.voiceEnabled === true,recording:current.recording === true,recordSupported:current.recordSupported === true,exportProfile:resolveExportProfile(current.exportProfile||DEFAULT_EXPORT_PROFILE).id,connection:Object.freeze({kind:connection.kind ?? 'loading',...(connection.provider ? {provider:Object.freeze({id:connection.provider.id,name:connection.provider.name,model:connection.provider.model})} : {})})});
+    const performance=controller.snapshot();
+    state=Object.freeze({...performance,captureError:performance.captureError||captureOutcome?.error||'',captureOutcome:captureOutcome?.status||'',connected:Boolean(adapter),voiceEnabled:current.voiceEnabled === true,recording:current.recording === true,recordSupported:current.recordSupported === true,exportProfile:resolveExportProfile(current.exportProfile||DEFAULT_EXPORT_PROFILE).id,connection:Object.freeze({kind:connection.kind ?? 'loading',...(connection.provider ? {provider:Object.freeze({id:connection.provider.id,name:connection.provider.name,model:connection.provider.model})} : {})})});
     for (const listener of listeners) { try { listener(state); } catch {} }
     return state;
   }
@@ -30,7 +31,7 @@ export function createAfterimageBridge(options = {}) {
   function stopBody(reason) {
     captureRequested=false;
     try { adapter?.stop?.(reason); }
-    finally { if (ownsRecording) { ownsRecording=false;adapter?.stopRecording?.(); }refreshState(); }
+    finally { if (ownsRecording) { ownsRecording=false;adapter?.stopRecording?.(reason); }refreshState(); }
   }
   const controller=createAfterimageController({...options,
     onCue:(cue,index) => adapter?.cue?.(cue,index),
@@ -38,7 +39,7 @@ export function createAfterimageBridge(options = {}) {
     onBegin:() => {
       if (!captureRequested) return;
       if (adapter.getState?.().recording && !ownsRecording) throw new Error('Save the current recording before capturing this rehearsal.');
-      captureRequested=false;ownsRecording=true;adapter.startRecording();refreshState();return {capture:true};
+      captureRequested=false;ownsRecording=true;captureRun=controller.snapshot().version;adapter.startRecording();refreshState();return {capture:true};
     },
     onSpeak:(script,emotion,cues,lifecycle) => adapter?.speak?.(script,emotion,cues,lifecycle),
     onVoiceUnavailable:reason=>adapter?.stop?.(reason),
@@ -62,9 +63,10 @@ export function createAfterimageBridge(options = {}) {
     subscribe(listener) { if (disposed) return () => {};listeners.add(listener);return () => listeners.delete(listener); },
     refreshState,
     refresh:refreshState,
-    recordingEnded() {
-      const owned=ownsRecording;ownsRecording=false;
-      if(owned&&controller.snapshot().status==='playing')controller.stop('recording-ended');
+    recordingEnded(outcome) {
+      const owned=ownsRecording||captureRun!==null,version=captureRun;ownsRecording=false;captureRun=null;
+      if(owned&&outcome)captureOutcome=Object.freeze({...outcome});
+      if(owned&&version===controller.snapshot().version&&controller.snapshot().status==='playing')controller.stop('recording-ended');
       refreshState();
     },
     connect(next) {
@@ -98,6 +100,7 @@ export function createAfterimageBridge(options = {}) {
       stop('replaced');
       if (!adapter.getState?.().recordSupported || !adapter.startRecording) throw new Error('Canvas recording is unavailable in this browser. Use OBS to capture NOX.');
       adapter.validateRecording?.();
+      captureOutcome=null;
       try { return playPrepared(performance,true); } catch (error) { stopBody('error');throw error; }
     },
     stop,

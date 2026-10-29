@@ -39,7 +39,8 @@ export function createRecorder(canvas, onState, {getAudioStream,onError}={}) {
           clip = { blob, url: lastUrl, audio:current.audio, profile:id,width,height,aspectRatio,frameRate, filename: `nox-${new Date().toISOString().replace(/[:.]/g, '-')}.webm` };
         }
         if (session === current) {
-          session = null; onState(false, clip);
+          const outcome={status:clip?'saved':current.failed?'encoder-failed':'empty',reason:current.stopReason||'native',error:clip?'':'This recording could not be saved. Try recording again, or choose another video format.'};
+          session = null; onState(false, clip, outcome);
           if(!clip&&(!current.failed||current.encodingError))onError?.('This recording could not be saved. Try recording again, or choose another video format.');
         }
       };
@@ -62,7 +63,7 @@ export function createRecorder(canvas, onState, {getAudioStream,onError}={}) {
         current.recorder.onerror = () => { current.failed = true;current.encodingError=true;finish(); };
         session = current;
         current.recorder.start(250);
-        current.timer = setTimeout(() => this.stop(), 60000);
+        current.timer = setTimeout(() => this.stop('deadline'), 60000);
         onState(true, false);
       } catch (error) {
         current.failed=true;current.finalized=true;
@@ -70,9 +71,9 @@ export function createRecorder(canvas, onState, {getAudioStream,onError}={}) {
         release();session=null;onState(false,null);throw error;
       }
     },
-    stop() {
+    stop(reason='user') {
       if(session&&!session.stopping&&session.recorder.state==='recording') {
-        const current=session;current.stopping=true;
+        const current=session;current.stopping=true;current.stopReason=reason;
         try{current.recorder.stop();}
         catch(error){current.failed=true;current.finish();throw error;}
       }

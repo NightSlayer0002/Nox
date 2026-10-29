@@ -180,7 +180,7 @@ stage.onBeforeFrame=()=>{
   stage.captionMode=document.body.dataset.callOpen==='true'?'speaking':chatting&&compactPresence.matches&&document.body.dataset.presenceExpanded!=='true'&&!document.body.classList.contains('film')?'hidden':chatting?'speaking':'linger';
 };
 const camera = createCamera();
-const recorder = createRecorder($('stage'), (active, clip) => {
+const recorder = createRecorder($('stage'), (active, clip, outcome) => {
   if(!active)stage.lockRecording(false);
   $('export-profile').disabled=active;
   stage.character.react?.(active?'excited':'content',stage.time,2);
@@ -188,7 +188,7 @@ const recorder = createRecorder($('stage'), (active, clip) => {
   $('record-button').querySelector('span').textContent = active ? 'Stop & save' : 'Record clip';
   $('film-record').textContent = active ? 'Stop & save' : 'Record clip';
   document.body.classList.toggle('recording', active);
-  if(active)afterimageBridge.refreshState();else afterimageBridge.recordingEnded();
+  if(active)afterimageBridge.refreshState();else afterimageBridge.recordingEnded(outcome);
   if (clip) {
     $('clip-video').src = clip.url;
     $('save-clip').href = clip.url; $('save-clip').download = clip.filename;
@@ -254,7 +254,7 @@ afterimageBridge.connect({
   record:toggleRecording,
   startRecording,
   validateRecording:()=>recorder.preflight(captureProfile),
-  stopRecording:() => recorder.stop(),
+  stopRecording:reason => recorder.stop(reason),
   setVoice(value){voice.setEnabled(value);showVoice();try{disk.setItem('nox.voice.v2',voice.enabled?'on':'off');}catch{}},
   setExportProfile,
   getState:() => ({voiceEnabled:voice.enabled,recording:recorder.active,recordSupported:recorder.supported,exportProfile:captureProfile.id,connection:connectionState(connection,selectedProvider)}),
