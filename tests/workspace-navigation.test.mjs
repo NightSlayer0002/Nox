@@ -15,7 +15,7 @@ class Element extends EventTarget {
   close(){this.open=false;}
 }
 function fixture(hash='#conversation') {
-  const ids=['view-label','workspace-heading','workspace-note','workspace-main','workspace-shell','recent-chats','resume-chats','history-search','history-count','history-list','history-storage-note','new-chat','export-history','today-label','menu-button','close-navigation','workspace-nav','presence-toggle','message','stage-time','stage-heading','stage-playback','replay-voice','stage-wrap','presence-toolbar','presence-menu','presence-menu-panel','conversation-privacy','archive-notice','archive-notice-text','archive-download','archive-reset','archive-reset-dialog','archive-reset-cancel','archive-reset-confirm'];
+  const ids=['view-label','workspace-heading','workspace-note','workspace-main','workspace-shell','recent-chats','resume-chats','history-search','history-count','history-list','library-new-chat','history-storage-note','new-chat','export-history','today-label','menu-button','close-navigation','workspace-nav','presence-toggle','message','stage-time','stage-heading','stage-playback','replay-voice','stage-wrap','presence-toolbar','presence-menu','presence-menu-panel','conversation-privacy','archive-notice','archive-notice-text','archive-download','archive-reset','archive-reset-dialog','archive-reset-cancel','archive-reset-confirm'];
   const nodes=Object.fromEntries(ids.map(id=>[id,new Element()]));
   const panels=['conversation','explore','library','scenes','afterimage'].map(view=>new Element({panel:view}));
   const links=panels.map(panel=>new Element({view:panel.dataset.panel}));
@@ -29,7 +29,7 @@ function fixture(hash='#conversation') {
 
 test('Chats empty state offers a working start action and explains temporary guest privacy',async()=>{
   const {nodes,calls}=fixture('#library');
-  const empty=nodes['history-list'].children[0],button=empty.children.find(child=>child.textContent==='Start conversation');
+  const button=nodes['library-new-chat'];assert.equal(button.textContent,'Start conversation');
   assert.ok(button);button.click();await new Promise(resolve=>setImmediate(resolve));
   assert.deepEqual(calls,[['new']]);assert.equal(document.body.dataset.view,'conversation');assert.equal(nodes.message.focused,true);
   assert.match(nodes['conversation-privacy'].textContent,/This visit only.*refresh/);

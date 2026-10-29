@@ -35,6 +35,7 @@ export function createNavigation({history,onOpen,onNew,onStart,onRemove}) {
   function render(){
     document.body.dataset.conversationStarted=String(history.active().turns.some(turn=>turn.role==='user'));
     const all=history.list().filter(t=>t.turns.length),active=history.active().id;
+    $('library-new-chat').textContent=all.length?'New conversation':'Start conversation';
     $('recent-chats').replaceChildren();
     all.slice(0,6).forEach(t=>{
       const b=document.createElement('button');b.textContent=t.title;b.setAttribute('title',t.title);
@@ -66,7 +67,6 @@ export function createNavigation({history,onOpen,onNew,onStart,onRemove}) {
     }
     if(!matches.length){
       const empty=document.createElement('div'),p=document.createElement('p');empty.className='history-empty';p.textContent=$('history-search').value?'No conversations match that search.':'A fresh thought. A little company.';empty.append(p);
-      if(!$('history-search').value){const button=document.createElement('button');button.type='button';button.className='history-start';button.textContent='Start conversation';button.addEventListener('click',start);empty.append(button);}
       $('history-list').append(empty);
     }
     const guest=document.body.dataset.visit==='guest',notice=historyNotice(history,{guest});
@@ -78,6 +78,7 @@ export function createNavigation({history,onOpen,onNew,onStart,onRemove}) {
     $('archive-download').hidden=$('archive-reset').hidden=!notice.protected;
   }
   $('new-chat').addEventListener('click',start);
+  $('library-new-chat').addEventListener('click',start);
   document.querySelectorAll('[data-start]').forEach(b=>b.addEventListener('click',async()=>{if(await onNew()===false)return;setView('conversation');await onStart(b.dataset.start,b.dataset.persona||'companion');}));
   $('history-search').addEventListener('input',render);
   $('export-history').addEventListener('click',()=>download(history.export(),`nox-conversations-${new Date().toISOString().slice(0,10)}.json`));
