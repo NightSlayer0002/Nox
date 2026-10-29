@@ -50,6 +50,28 @@ test('model Afterimage guidance names controls provided by the actual receiver',
   const ui=receiver();for(const label of capabilitiesForModel().controls.afterimage)assert.ok(ui.button(label),`Missing receiver button: ${label}`);
 });
 
+test('generating another story requires resolving an unapplied cut instead of silently reattaching its lines',async()=>{
+  // Question: Can an old cut's draft be mistaken for editable text belonging to a newly generated story?
+  // Limits: Actual JSX handlers, visit draft state and synthetic generation; not model quality or native rendering.
+  const ui=receiver({owner:true,receive:async()=>({packet:{...FIRST_CONTACT,title:'A separately generated story'}})});
+  ui.find(node=>node.props?.id==='afterimage-seed').props.onChange({target:{value:'Generate a different story'}});ui.render();
+  ui.button('Edit this cut').props.onClick();ui.render();const line=()=>ui.find(node=>node.type==='textarea'&&node.props.maxLength===90);
+  line().props.onChange({target:{value:'Draft written for the previous example.'}});ui.render();
+  await ui.find(node=>node.type==='form').props.onSubmit({preventDefault(){}});ui.render();assert.equal(ui.requests.length,0);assert.equal(line().props.value,'Draft written for the previous example.');assert.match(ui.text(ui.find(node=>node.props?.role==='alert')),/apply|discard/i);
+  ui.button('Discard open edits').props.onClick();ui.render();await ui.find(node=>node.type==='form').props.onSubmit({preventDefault(){}});ui.render();assert.equal(ui.requests.length,1);
+  ui.button('Edit this cut').props.onClick();ui.render();assert.equal(line().props.value,FIRST_CONTACT.signals[0].beats[0].speech);
+});
+
+for(const failSave of [false,true])test(`an untouched editor is seeded from the new ${failSave?'unsaved':'saved'} story`,async()=>{
+  // Question: Can even unchanged old editor buffers cross the generation/save-fallback boundary into the next cut?
+  // Limits: Real receiver/store with synthetic provider and injected write failure; not native quota or cross-device persistence.
+  const next=structuredClone(FIRST_CONTACT);next.title='A different cut';next.signals[0].beats[0].speech='A new first beat belongs here.';
+  const ui=receiver({owner:true,receive:async()=>({packet:next})});ui.find(node=>node.props?.id==='afterimage-seed').props.onChange({target:{value:'Another story'}});ui.render();
+  ui.button('Edit this cut').props.onClick();ui.render();if(failSave)ui.storage.setItem=()=>{throw Error('Full');};
+  await ui.find(node=>node.type==='form').props.onSubmit({preventDefault(){}});ui.render();ui.button('Edit this cut').props.onClick();ui.render();
+  assert.equal(ui.find(node=>node.type==='textarea'&&node.props.maxLength===90).props.value,'A new first beat belongs here.');
+});
+
 test('a connected owner retains custom generation and the empty archive controls',()=>{
   const ui=receiver({owner:true});
   assert.ok(ui.find(node=>node.props?.id==='afterimage-seed'));

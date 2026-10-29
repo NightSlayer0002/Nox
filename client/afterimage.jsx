@@ -46,6 +46,7 @@ export default function Afterimage(){
   };
   async function receive(event,newTake=false){
     event?.preventDefault();if(!canGenerate||!seed.trim()||busy||playing)return;
+    if(draftLines.some((line,index)=>line!==selected.cues[index]?.speech)){setError('Apply your open edits, or export and discard them, before generating another story.');setEditor(true);return;}
     if(full){setError('Your archive has 12 stories. Export a copy and delete a story before generating another.');return;}
     const ownVersion=++version.current,controller=new AbortController();request.current=controller;setBusy(true);setError('');setNotice('NOX is writing three story branches.');
     if(newTake)variation.current=(variation.current+1)%1025;
@@ -55,9 +56,9 @@ export default function Afterimage(){
       const generatedCut={packet:result.packet,seed:seed.trim(),tone,source:'live',metrics:result.metrics,signalIndex:0,endingIndex:0,createdAt:new Date().toISOString()};let next;
       try{next=await store.add(generatedCut);}catch(saveError){
         if(controller.signal.aborted||version.current!==ownVersion)return;
-        setCurrent(generatedCut);setConflict(false);setEditor(false);setError(`Your story was generated but could not be saved. ${saveError.message}`);setNotice('This cut is available for this visit. Export it before refreshing; your saved archive is unchanged.');return;
+        setCurrent(generatedCut);setConflict(false);setEditor(false);setDraftLines([]);setError(`Your story was generated but could not be saved. ${saveError.message}`);setNotice('This cut is available for this visit. Export it before refreshing; your saved archive is unchanged.');return;
       }
-      if(controller.signal.aborted||version.current!==ownVersion)return;setCurrent(next);setConflict(false);setEditor(false);setNotice('Story ready. Choose from six possible cuts.');
+      if(controller.signal.aborted||version.current!==ownVersion)return;setCurrent(next);setConflict(false);setEditor(false);setDraftLines([]);setNotice('Story ready. Choose from six possible cuts.');
     }catch(e){if(version.current===ownVersion&&e.name!=='AbortError'){setError(e.message||'The story could not be generated. Your seed is still here.');setNotice('Your previous cut and seed are kept.');}}
     finally{if(version.current===ownVersion){request.current=null;setBusy(false);}}
   }
@@ -73,6 +74,7 @@ export default function Afterimage(){
     if(!editor&&!draftLines.length)setDraftLines(selected.cues.map(cue=>cue.speech));
     setEditor(!editor);
   }
+  function discardEdits(){draftRevision.current++;setDraftLines([]);setEditor(false);setError('');setNotice('Unapplied lines discarded. Your applied cut is kept.');}
   async function saveEdits(){
     if(disabled||conflict||editPending.current)return;
     editPending.current=true;const editedLines=[...draftLines],revision=draftRevision.current;
@@ -135,7 +137,7 @@ export default function Afterimage(){
       <div className="performance-actions"><button className="receive-button" type="button" onClick={()=>play()} disabled={disabled||!view.connected}>Play this cut</button><button type="button" onClick={()=>play(true)} disabled={disabled||!view.connected||!view.recordSupported||view.recording}>Capture performance</button>{playing&&<button type="button" onClick={stopPerformance}>Stop</button>}</div>
       <p className="capture-note" id="afterimage-capture-note">{exportProfile.width} × {exportProfile.height} · {exportProfile.frameRate} fps · Cues span 28 seconds; slower narration can extend the final beat, up to 60 seconds. Playback startup counts toward the capture’s 60-second limit. Captioned WebM saves locally with enabled Orpheus audio. Browser voice cannot be captured.</p>
       <div className="receiver-export"><button type="button" disabled={!view.connected} onClick={()=>afterimageBridge.setVoice(!view.voiceEnabled)} aria-pressed={view.voiceEnabled}>{view.voiceEnabled?'Voice on':'Voice off'}</button><button type="button" onClick={toggleEditor} disabled={disabled} aria-expanded={editor}>Edit this cut</button><button type="button" onClick={()=>downloadText(toMarkdown(reception),`nox-afterimage-script.md`)}>Export script</button><button type="button" onClick={()=>downloadText(JSON.stringify(reception,null,2),'nox-afterimage-reception.json')}>Export story data</button>{draftLines.length===4&&<button type="button" onClick={()=>downloadText(draftLines.join('\n'),'nox-unsaved-story-lines.txt')}>Export open edits</button>}{generated&&canGenerate&&<button type="button" disabled={disabled||!seed.trim()} onClick={event=>receive(event,true)}>New take</button>}</div>
-      {editor&&<div className="cut-editor"><p>{current?.id&&store.persistent?'Your edits stay in this browser.':'Your edits last for this visit; export before refreshing.'} Unapplied lines stay in this visit when you hide the editor or leave this page. Export open edits to keep them before refreshing. Changing branch starts a fresh cut and clears open edits.</p>{draftLines.map((line,index)=><label key={index}>{index===3?'Ending':`Beat ${index+1}`}<textarea value={line} maxLength={90} onChange={e=>{draftRevision.current++;const value=e.target.value;setDraftLines(lines=>lines.map((old,i)=>i===index?value:old));}} rows={2}/></label>)}<button type="button" className="receive-button" onClick={saveEdits} disabled={disabled||conflict||draftLines.length!==4||draftLines.some(line=>!line.trim())}>Apply edits</button></div>}
+      {editor&&<div className="cut-editor"><p>{current?.id&&store.persistent?'Your edits stay in this browser.':'Your edits last for this visit; export before refreshing.'} Unapplied lines stay in this visit when you hide the editor or leave this page. Export open edits to keep them before refreshing. Changing branch starts a fresh cut and clears open edits.</p>{draftLines.map((line,index)=><label key={index}>{index===3?'Ending':`Beat ${index+1}`}<textarea value={line} maxLength={90} disabled={busy} onChange={e=>{if(busy)return;draftRevision.current++;const value=e.target.value;setDraftLines(lines=>lines.map((old,i)=>i===index?value:old));}} rows={2}/></label>)}<button type="button" className="receive-button" onClick={saveEdits} disabled={disabled||conflict||draftLines.length!==4||draftLines.some(line=>!line.trim())}>Apply edits</button><button type="button" onClick={discardEdits} disabled={disabled}>Discard open edits</button></div>}
       <div className="reception-caption"><span>Caption</span><p>{packet.caption}</p></div>
       {metrics&&<p className="reception-metrics">{metrics.provider} · {metrics.model} · received in {(metrics.totalMs/1000).toFixed(1)}s{metrics.cacheHit?' · warm cache':''}{metrics.attempts===2?' · written in 2 attempts':''}</p>}
     </motion.div></AnimatePresence>
