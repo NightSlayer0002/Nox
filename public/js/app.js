@@ -342,14 +342,14 @@ function updateMemory() {
   else if (!memory.persistent) $('memory-summary').textContent += ' Storage is unavailable; this notebook lasts for this visit.';
 }
 
-async function perform(value, save = true, draft, version, depth='quick',rememberAllowed=false,sources=[]) {
+async function perform(value, save = true, draft, version, depth='quick',rememberAllowed=false,sources=[],completion={}) {
   if(version!==undefined&&!turns.isCurrent(version))return;
   const packet = normalizePacket(value,depth); lastPacket = packet;
   const spoken=spokenPreview(packet.speech);
   voice.prepare(spoken,mode,packet.emotion);
   if (packet.memory&&rememberAllowed) await memory.remember(packet.memory);
   if(version!==undefined&&!turns.isCurrent(version))return;
-  if (save && !await history.append('assistant', packet.speech,{sources})) {voice.stop();return;}
+  if (save && !await history.append('assistant', packet.speech,{sources,...completion})) {voice.stop();return;}
   if(version!==undefined&&!turns.isCurrent(version))return;
   const replyTurn=save?history.active().turns.at(-1):null;
   const presentation=createReplyPresentation({voiceEnabled:voice.enabled&&voice.supported,isCurrent:()=>version===undefined||turns.isCurrent(version),
@@ -398,6 +398,7 @@ async function send(raw,{recorded=false,keepDraft=false,source='programmatic'}={
     openSettings({owner:brain==='locked'});return;
   }
   const version = turns.begin();
+  const requestController = new AbortController();turns.attach(version,requestController);
   if(source==='composer')$('message').focus({preventScroll:true});
   activityTurn=activity.beginTurn();
   const timingVersion=replyDiagnostics.begin(brain==='live'?'NOX is thinking…':'Scripted demo · no AI request');
@@ -415,13 +416,13 @@ async function send(raw,{recorded=false,keepDraft=false,source='programmatic'}={
   setBusy(true);
   if(!recorded&&!await history.append('user',text)){const message=historyFailure(history);cancelConversation();await restoreConversation();toast(message);return;}
   if(!turns.isCurrent(version))return;
+  const replyTo=history.revisionTarget(history.active().turns.at(-1)?.seq,{role:'user'});
+  if(!replyTo){cancelConversation();await restoreConversation();return;}
   if(!recorded){const userTurn=history.active().turns.at(-1),message=addMessage('user', text,userTurn);attachMessageActions(message,userTurn);}if(source==='composer'&&!keepDraft&&$('message').value===submittedDraft)composer.setValue(''); contextPreview();updateMemory();navigation?.render();companionChanged();
   setBusy(true); voice.stop(); microphone.stop(); stage.character.emotion = 'curious';
   try {
     let packet;
     if (brain === 'live') {
-      const requestController = new AbortController();
-      turns.attach(version, requestController);
       const draft=addMessage('nox','');draft.classList.add('draft');pendingDraft=draft;
       const response = await fetch('/api/chat', { method: 'POST', headers: apiHeaders(), body: JSON.stringify(request), signal: requestController.signal });
       if(!response.ok){const error=await response.json();setUsage(error.usage);if(response.status===401){await refreshConnection();}throw new Error(error.error||'The AI connection did not respond.');}
@@ -434,7 +435,7 @@ async function send(raw,{recorded=false,keepDraft=false,source='programmatic'}={
       packet = demoReply(text, context);
       if(turns.isCurrent(version))replyDiagnostics.complete(timingVersion);
     }
-    if (turns.isCurrent(version)) {activity.transition('reply-ready',activityTurn);if(takeover)packet={...packet,action:'takeover'};const draft=pendingDraft;const completed=await perform(packet,true,draft,version,depth,explicitMemoryRequest(text),brain==='live'?request.context.knowledge:[]);if(turns.isCurrent(version)){pendingDraft=null;scheduleSummary();return completed;}}
+    if (turns.isCurrent(version)) {activity.transition('reply-ready',activityTurn);if(takeover)packet={...packet,action:'takeover'};const draft=pendingDraft;const completed=await perform(packet,true,draft,version,depth,explicitMemoryRequest(text),brain==='live'?request.context.knowledge:[],{replyTo,signal:requestController.signal});if(turns.isCurrent(version)){pendingDraft=null;scheduleSummary();return completed;}}
   } catch (error) {
     if (turns.isCurrent(version)){setUsage(error.usage);pendingDraft?.remove();pendingDraft=null;if(error.name!=='AbortError'){activity.finishTurn(activityTurn,'error');if(source==='composer'&&!$('message').value){composer.setValue(text);contextPreview();}stage.character.react?.('worried',stage.time,2);if (brain === 'live') $('brain-status').lastChild.textContent = ' AI error'; addMessage('system', error.message); toast(error.message);replyDiagnostics.setStatus('Reply interrupted. Your message is still in this visit.');}}
   } finally { if (turns.isCurrent(version)) { setBusy(false); } }
