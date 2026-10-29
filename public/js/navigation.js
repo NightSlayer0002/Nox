@@ -2,7 +2,7 @@ import {historyNotice,historyFailure} from './history-notice.js';
 const $=id=>document.getElementById(id);
 const views={explore:['Explore','','A place to begin.'],conversation:['Conversation','','Think something through with NOX.'],scenes:['Scene studio','','Shape a performance and capture it.'],library:['Chats','','Return to a conversation.'],afterimage:['Afterimage','','A fictional transmission you can change.']};
 Object.assign(views,{discover:['Discover','','Follow your curiosity.'],memory:['Preferences','','Only what you approve.'],access:['Your access','','Current capabilities and limits.'],learn:['Explore together','','Bring an idea or try an example.'],guessing:['Play together','','Ask questions. Follow the clues.']});
-export function createNavigation({history,onOpen,onNew,onStart}) {
+export function createNavigation({history,onOpen,onNew,onStart,onRemove}) {
   let currentView;
   function setMenu(open,restoreFocus=false){document.body.dataset.menuOpen=String(open);$('menu-button').setAttribute('aria-expanded',String(open));$('workspace-shell').inert=open;if(restoreFocus)$('menu-button').focus();}
   setMenu(false);
@@ -29,7 +29,7 @@ export function createNavigation({history,onOpen,onNew,onStart}) {
     currentView=current;
   }
   function setView(view){setMenu(false);if(location.hash!==`#${view}`)location.hash=view;applyView();}
-  async function open(id){await onOpen(id);setView('conversation');}
+  async function open(id){if(await onOpen(id)===false)return false;setView('conversation');return true;}
   async function start(){if(await onNew()===false)return;setView('conversation');render();$('message').focus();}
   function download(text,name){const url=URL.createObjectURL(new Blob([text],{type:'application/json'})),link=document.createElement('a');link.href=url;link.download=name;document.body.append(link);link.click();link.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);}
   function render(){
@@ -55,9 +55,9 @@ export function createNavigation({history,onOpen,onNew,onStart}) {
         confirm.addEventListener('click',async()=>{
           if(confirm.disabled)return;confirm.disabled=keep.disabled=true;
           try{
-            let removed=false;try{removed=await history.remove(t.id);}catch{/* Keep the confirmation recoverable when storage or its lock fails. */}
-            if(!removed){note.textContent=historyFailure(history,'The conversation was not removed. Reopen Chats and try again.');note.setAttribute('role','alert');return;}
-            await onOpen(history.active().id);render();
+            let removed=false,failure;try{removed=await (onRemove?onRemove(t.id):history.remove(t.id));}catch(error){failure=error.message;}
+            if(!removed){note.textContent=failure||historyFailure(history,'The conversation was not removed. Reopen Chats and try again.');note.setAttribute('role','alert');return;}
+            if(!onRemove)await onOpen(history.active().id);render();
           }finally{confirm.disabled=keep.disabled=false;}
         });
         confirmation.append(note,confirm,keep);row.append(confirmation);keep.focus();
