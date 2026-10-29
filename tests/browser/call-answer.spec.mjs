@@ -28,3 +28,23 @@ test('the call dialog exposes the full answer while speaking only the bounded pr
   await page.getByRole('button',{name:'Close voice conversation',exact:true}).click();
   await expect(page.locator('#conversation .message.nox .message-content')).toHaveText(speech);
 });
+
+test('early speech failure keeps the complete answer inside the open call with deliberate recovery',async({page})=>{
+  // Question: Can the person read the committed answer in the actual modal after speech fails before playback?
+  // Limits: Chromium with synthetic recognition and an intentionally throwing speech adapter; not physical microphone, pronunciation or live TTS latency.
+  await page.addInitScript(()=>{
+    window.ciListens=0;window.ciSpeaks=0;
+    Object.defineProperty(window,'speechSynthesis',{value:{getVoices:()=>[],cancel(){},speak(){ciSpeaks++;throw Error('Synthetic early speech failure');},addEventListener(){}}});
+    window.SpeechSynthesisUtterance=class{constructor(text){this.text=text;}};
+    window.SpeechRecognition=class{start(){ciListens++;window.ciRecognition=this;this.onstart?.();}abort(){this.onend?.();}stop(){this.onend?.();}};
+  });
+  const speech='This complete written answer survived audio failure. Final conclusion: keep the violet lighthouse.';
+  await page.route('**/api/chat',route=>route.fulfill({json:{speech,emotion:'curious',action:'none',memory:''}}));
+  await page.goto('/guest#conversation');await expect(page.locator('#brain-status')).toContainText('Guest visit');
+  await page.locator('#call-button').click();await page.getByRole('button',{name:'Connect microphone',exact:true}).click();await expect(page.locator('#voice-call-status')).toHaveText('Listening to you');
+  await page.evaluate(()=>ciRecognition.onresult({results:[[{transcript:'Explain this with a complete answer.'}]]}));
+  await expect(page.locator('#voice-call-dialog')).toHaveAttribute('data-status','error');await expect(page.locator('#voice-call-answer')).toBeVisible();await expect(page.locator('#voice-call-reply')).toHaveText(speech);
+  await expect(page.getByRole('button',{name:'Resume listening',exact:true})).toBeVisible();await expect(page.getByRole('button',{name:'Type a message instead',exact:true})).toBeVisible();
+  expect(await page.evaluate(()=>({listens:ciListens,speaks:ciSpeaks}))).toEqual({listens:1,speaks:1});
+  await page.getByRole('button',{name:'Close voice conversation',exact:true}).click();await expect(page.locator('#conversation .message.nox .message-content')).toHaveText(speech);
+});

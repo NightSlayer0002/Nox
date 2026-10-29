@@ -16,6 +16,21 @@ function setup(options={}){
 function listening(ui){ui.call.open();ui.call.connect();ui.call.onListening(true);}
 function spoken(ui){ui.call.onVoiceState('preparing');ui.call.onVoiceState('speaking');ui.call.onVoiceEnd();}
 
+test('a committed call answer survives an immediate audio failure without rearming recognition',async()=>{
+  // Question: Is text already committed by the active call turn retained when audio fails before submit resolves?
+  // Limits: Controller ownership and timer assertions, not actual storage, rendered modal or microphone hardware.
+  let publishReply;const ui=setup({submit:(_text,{onReply})=>{publishReply=onReply;return new Promise(()=>{});}});listening(ui);ui.call.onTranscript('Current question');
+  publishReply('A valid complete answer');ui.call.fail('Speech unavailable');await flush();
+  assert.equal(ui.call.snapshot().reply,'A valid complete answer');assert.equal(ui.call.snapshot().status,'error');assert.equal(ui.timers.size,0);assert.equal(ui.listens(),1);
+});
+
+test('a stopped call turn cannot publish its answer into a reopened call',()=>{
+  // Question: Does the committed-text callback retain the same ownership guard as the call operation?
+  // Limits: Controlled stale callback, not all provider or native dialog event orderings.
+  let publishReply;const ui=setup({submit:(_text,{onReply})=>{publishReply=onReply;return new Promise(()=>{});}});listening(ui);ui.call.onTranscript('Old question');ui.call.end();ui.call.open();
+  publishReply('Obsolete answer');assert.equal(ui.call.snapshot().reply,'');assert.equal(ui.call.snapshot().active,false);
+});
+
 test('opening previews the call without asking for the microphone and snapshots are immutable',()=>{
   const ui=setup(),changes=[],unsubscribe=ui.call.subscribe(state=>changes.push(state));
   ui.call.open();
