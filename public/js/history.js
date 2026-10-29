@@ -132,7 +132,14 @@ export async function createHistory(storage,legacy=[]){
     create(){return write(()=>{if(active()&&!active().turns.length)return structuredClone(active());if(state.threads.length>=HISTORY_LIMITS.conversations){lastError='conversation-limit';return null;}const t=newThread();state.threads.push(t);currentId=t.id;return structuredClone(t);},null);},
     select(id){const select=()=>{if(!state.threads.some(t=>t.id===id))return false;currentId=id;return true;};return crossTabSafe()?write(select):serialize(storage,()=>{load();return select();});},
     setMode(mode){const id=currentId,next=MODES.includes(mode)?mode:'companion';if(!crossTabSafe()&&active()?.mode===next)return Promise.resolve(true);return write(()=>{const t=state.threads.find(t=>t.id===id);if(!t)return false;t.mode=next;return true;});},
-    append(role,content,{sources}={}){const id=currentId,text=turnText(content,role),metadata=sourceMetadata(role,sources);return write(()=>{if(!['user','assistant'].includes(role)||!text)return false;const t=state.threads.find(t=>t.id===id);if(!t)return false;if(t.turns.length>=HISTORY_LIMITS.turns-(role==='user'?1:0)){lastError='turn-limit';return false;}t.turns.push({id:crypto.randomUUID(),role,content:text,seq:t.next++,...metadata});t.updated=Date.now();if(role==='user'&&t.title==='New conversation')t.title=cleanText(text,60);return true;});},
+    append(role,content,{sources,replyTo,signal}={}){const id=currentId,text=turnText(content,role),metadata=sourceMetadata(role,sources);return write(()=>{
+      if(signal?.aborted)return false;
+      if(!['user','assistant'].includes(role)||!text)return false;const t=state.threads.find(t=>t.id===id);if(!t)return false;
+      // A ready answer can wait behind another tab's edit. Its saved question
+      // and transcript frontier must still match when this lock is acquired.
+      if(replyTo&&(role!=='assistant'||t.id!==replyTo.threadId||revision(t)!==replyTo.revision||t.turns.at(-1)?.id!==replyTo.turnId||t.turns.at(-1)?.role!=='user')){lastError='revision-conflict';return false;}
+      if(t.turns.length>=HISTORY_LIMITS.turns-(role==='user'?1:0)){lastError='turn-limit';return false;}t.turns.push({id:crypto.randomUUID(),role,content:text,seq:t.next++,...metadata});t.updated=Date.now();if(role==='user'&&t.title==='New conversation')t.title=cleanText(text,60);return true;
+    });},
     remove(id){return serialize(storage,()=>{
       if(!crossTabSafe()){lastError='coordination-unavailable';return false;}
       lastError='';if(persistent)load();choose();

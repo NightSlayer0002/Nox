@@ -92,7 +92,7 @@ test('a response that loses its reserved archive slot cannot be mistaken for a c
   const ui=await fixture();
   for(let index=0;index<99;index++){await ui.history.append('user',`Question ${index}`);await ui.history.append('assistant',`Answer ${index}`);}
   ui.respondWith(async()=>{await ui.history.append('assistant','Another writer used the remaining slot');return Response.json(packet);});
-  await assert.rejects(ui.adapter.options.submit('A spoken question'),/limit|could not/i);
+  await assert.rejects(ui.adapter.options.submit('A spoken question'),/limit|could not|changed/i);
   assert.equal(ui.history.active().turns.length,200);assert.equal(ui.history.active().turns.at(-1).content,'Another writer used the remaining slot');
   assert.equal(ui.spoken.length,0);
 });
