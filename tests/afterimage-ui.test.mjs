@@ -156,6 +156,19 @@ test('unsubmitted seed and tone survive an internal route unmount and authored e
   assert.equal(ui.button('Wonder').props['aria-pressed'],true);
 });
 
+for(const owner of [false,true])for(const boundary of ['disclosure','route'])test(`${owner?'owner':'guest'} unapplied cut lines survive ${boundary} and remain exportable`,()=>{
+  // Question: Does hiding or unmounting the real receiver erase text that has not yet been applied to its cut?
+  // Limits: Actual JSX handlers and hook lifecycle with visit-scoped storage; not durable guest retention, a real browser paint or imported backups.
+  const ui=receiver({owner});ui.button('Edit this cut').props.onClick();ui.render();
+  const first=()=>ui.find(node=>node.type==='textarea'&&node.props.maxLength===90);
+  first().props.onChange({target:{value:'Keep this unapplied line across the boundary.'}});ui.render();
+  if(boundary==='disclosure'){ui.button('Edit this cut').props.onClick();ui.render();ui.button('Edit this cut').props.onClick();ui.render();}
+  else{ui.unmount();ui.render();}
+  assert.equal(first()?.props.value,'Keep this unapplied line across the boundary.');
+  const exportDraft=ui.button('Export open edits');assert.ok(exportDraft);exportDraft.props.onClick();assert.match(ui.downloads.at(-1)[0],/Keep this unapplied line/);
+  ui.button('Export story data').props.onClick();assert.equal(JSON.parse(ui.downloads.at(-1)[0]).editedLines,undefined,'unapplied edits do not masquerade as saved/performed text');
+});
+
 test('cancelled and failed generation preserve the existing story and seed',async()=>{
   let pending;
   const ui=receiver({owner:true,receive:()=>new Promise((resolve,reject)=>{pending={resolve,reject};})});
