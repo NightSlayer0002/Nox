@@ -5,6 +5,7 @@ import {createRequire} from 'node:module';
 import vm from 'node:vm';
 import path from 'node:path';
 import {FIRST_CONTACT} from '../client/afterimage-example.js';
+import {capabilitiesForModel} from '../shared/product-capabilities.js';
 
 // Exercise the receiver's real event handlers without a stage, browser or model request.
 const root=path.resolve(import.meta.dirname,'..');
@@ -41,6 +42,12 @@ test('guest entry plays the authored example directly and offers no unavailable 
   assert.equal(ui.plays.length,1);assert.equal(ui.requests.length,0);
   assert.equal(ui.plays[0][0].title,FIRST_CONTACT.title);
   assert.ok(ui.button('Edit this cut'));assert.ok(ui.button('Export script'));assert.ok(ui.button('Capture performance'));
+});
+
+test('model Afterimage guidance names controls provided by the actual receiver',()=>{
+  // Question: Do server-owned control labels send people to buttons that the real JSX receiver actually offers?
+  // Limits: Authored capability/UI contract only; not a semantic model evaluation or proof the model follows guidance.
+  const ui=receiver();for(const label of capabilitiesForModel().controls.afterimage)assert.ok(ui.button(label),`Missing receiver button: ${label}`);
 });
 
 test('a connected owner retains custom generation and the empty archive controls',()=>{

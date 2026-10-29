@@ -72,7 +72,6 @@ export function createNavigation({history,onOpen,onNew,onStart,onRemove}) {
     const guest=document.body.dataset.visit==='guest',notice=historyNotice(history,{guest});
     $('history-storage-note').hidden=false;
     $('history-storage-note').textContent=notice.privacy+' '+(guest?'Export a copy if you want to keep these conversations.':history.persistent?'Export before clearing browser data or changing devices.':'Export a copy before refreshing.');
-    if(!guest&&history.crossTabSafe===false)$('history-storage-note').textContent+=' Use one workspace tab; this browser cannot coordinate archive writes.';
     $('conversation-privacy').textContent=notice.privacy;
     $('archive-notice').hidden=!notice.message;$('archive-notice-text').textContent=notice.message;
     $('archive-download').hidden=$('archive-reset').hidden=!notice.protected;
