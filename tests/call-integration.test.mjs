@@ -314,3 +314,39 @@ test('native dialog closure restores the same stage and stops the call after the
     if(oldLocation===undefined)delete globalThis.location;else globalThis.location=oldLocation;
   }
 });
+
+for(const cancelBy of ['cancel','stop'])test(`${cancelBy} during a queued edit prevents transcript replacement and inference`,async()=>{
+  // Question: Does a cancel/Stop decision still own a destructive edit while its actual transaction is waiting?
+  // Limits: Real send/controller/store with an injected lock delay and synthetic HTTP; native clicks are covered separately, not provider billing.
+  const ui=await fixture();for(const [role,text] of [['user','Original question'],['assistant','Original answer'],['user','Later question'],['assistant','Later answer']])await ui.history.append(role,text);
+  const before=ui.history.active();ui.$('message').value='Earlier draft';ui.context.revisionControls.edit(ui.history.revisionTarget(1),'Original question');ui.$('message').value='Queued correction';
+  let release,entered;const waiting=new Promise(resolve=>{entered=resolve;}),gate=new Promise(resolve=>{release=resolve;}),replace=ui.history.replaceFrom;
+  ui.history.replaceFrom=async(...args)=>{entered();await gate;return replace(...args);};
+  const sending=ui.context.send('Queued correction',{source:'composer'});await waiting;
+  if(cancelBy==='cancel')ui.context.revisionControls.cancel();else ui.context.cancelConversation();
+  release();await sending;assert.deepEqual(ui.history.active(),before);assert.equal(ui.requests.length,0);
+  assert.equal(ui.$('message').value,cancelBy==='cancel'?'Earlier draft':'Queued correction');assert.equal(ui.context.busy,false);
+});
+
+test('a second submit cannot queue a second destructive edit',async()=>{
+  // Question: Is the pending edit reserved before the first await, rather than only when inference starts?
+  // Limits: Reentrant calls on the real send boundary; no claim about all browser event dispatch or OS input methods.
+  const ui=await fixture();await ui.history.append('user','Original question');await ui.history.append('assistant','Original answer');
+  ui.context.revisionControls.edit(ui.history.revisionTarget(1),'Original question');ui.$('message').value='Correction';
+  let release,entered,commits=0;const waiting=new Promise(resolve=>{entered=resolve;}),gate=new Promise(resolve=>{release=resolve;}),replace=ui.history.replaceFrom;
+  ui.history.replaceFrom=async(...args)=>{commits++;entered();await gate;return replace(...args);};
+  const first=ui.context.send('Correction',{source:'composer'});await waiting;const second=ui.context.send('Correction',{source:'composer'});
+  assert.equal(commits,1);release();await Promise.all([first,second]);assert.equal(ui.requests.length,1);
+});
+
+test('a canceled old edit cannot finish or consume a newer edit',async()=>{
+  // Question: Can delayed completion from a canceled operation clear a different edit or its draft backup?
+  // Limits: One controlled interleaving of real controllers/store/send; not an exhaustive state-space proof.
+  const ui=await fixture();for(const [role,text] of [['user','First question'],['assistant','First answer'],['user','Later question'],['assistant','Later answer']])await ui.history.append(role,text);
+  const before=ui.history.active();ui.$('message').value='Earlier draft';ui.context.revisionControls.edit(ui.history.revisionTarget(1),'First question');ui.$('message').value='Old correction';
+  let release,entered;const waiting=new Promise(resolve=>{entered=resolve;}),gate=new Promise(resolve=>{release=resolve;}),replace=ui.history.replaceFrom;
+  ui.history.replaceFrom=async(...args)=>{entered();await gate;return replace(...args);};const sending=ui.context.send('Old correction',{source:'composer'});await waiting;
+  ui.context.revisionControls.cancel();ui.context.revisionControls.edit(ui.history.revisionTarget(3),'Later question');ui.$('message').value='New correction';
+  release();await sending;assert.deepEqual(ui.history.active(),before);assert.equal(ui.context.editTarget.seq,3);assert.equal(ui.$('message').value,'New correction');assert.equal(ui.requests.length,0);
+  ui.context.revisionControls.cancel();assert.equal(ui.$('message').value,'Earlier draft');
+});

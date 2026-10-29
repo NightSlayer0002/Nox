@@ -71,12 +71,13 @@ export async function createHistory(storage,legacy=[]){
     if(thread?.id!==threadId||!turn||content!==undefined&&turn.content!==content){lastError='revision-conflict';return null;}
     return {threadId,turnId:turn.id,seq:turn.seq,role:turn.role,revision:revision(thread)};
   }
-  function revise(target,content,retry=false){
+  function revise(target,content,retry=false,{signal}={}){
     const text=retry?'':turnText(content,'user');
     if(!target||typeof target!=='object'||typeof target.revision!=='string'||!retry&&(!text||typeof content!=='string'||content.length>CHAT_INPUT_CHARACTERS))return Promise.resolve(null);
     return serialize(storage,()=>{
       if(!crossTabSafe()){lastError='coordination-unavailable';return null;}
       lastError='';if(persistent)load();choose();
+      if(signal?.aborted)return null;
       if(!persistent||recovery){lastError='transcript-not-saved';return null;}
       const original=state.threads.find(thread=>thread.id===target.threadId);
       if(currentId!==target.threadId||!original||revision(original)!==target.revision){lastError='revision-conflict';return null;}
@@ -125,7 +126,7 @@ export async function createHistory(storage,legacy=[]){
     subscribe(fn){listeners.add(fn);return ()=>listeners.delete(fn);},
     refresh,
     revisionTarget,
-    replaceFrom:(target,content)=>revise(target,content),
+    replaceFrom:(target,content,options)=>revise(target,content,false,options),
     retryFrom:target=>revise(target,'',true),
     active:()=>structuredClone(active()),
     list(query=''){const q=query.toLowerCase().trim();return structuredClone(state.threads.filter(t=>!q||`${t.title} ${t.turns.map(v=>v.content).join(' ')}`.toLowerCase().includes(q)).sort((a,b)=>b.updated-a.updated));},

@@ -385,7 +385,21 @@ async function send(raw,{recorded=false,keepDraft=false,source='programmatic'}={
   const submittedDraft=$('message').value;
   if(brain==='loading'){replyDiagnostics.setStatus('The AI connection is not ready. Your message is still here.');return;}
   if(visit.owner&&history.crossTabSafe===false){toast(historyFailure(history));return;}
-  if(source==='composer'&&editTarget!==null){const editing=turns.begin(),revised=await history.replaceFrom(editTarget,text);if(!turns.isCurrent(editing))return;if(!revised){toast(historyFailure(history,'That message could not be edited. Your draft is still here.'));return;}if(revisionControls.finish(submittedDraft))keepDraft=true;const restored=await restoreConversation({retrying:true});if(!turns.isCurrent(restored))return;recorded=true;}
+  if(source==='composer'&&editTarget!==null){
+    const operation=revisionControls.beginCommit();if(!operation)return;
+    const editing=turns.begin();turns.attach(editing,operation.controller);setBusy(true);
+    const canceled=()=>{if(turns.isCurrent(editing))cancelConversation();};operation.signal.addEventListener('abort',canceled,{once:true});
+    try{
+      const revised=await history.replaceFrom(operation.target,text,{signal:operation.signal});
+      if(!turns.isCurrent(editing)||operation.signal.aborted)return;
+      if(!revised){toast(historyFailure(history,'That message could not be edited. Your draft is still here.'));return;}
+      if(revisionControls.finish(submittedDraft,operation))keepDraft=true;
+      const restored=await restoreConversation({retrying:true});if(!turns.isCurrent(restored))return;recorded=true;
+    }finally{
+      operation.signal.removeEventListener('abort',canceled);revisionControls.releaseCommit(operation);
+      if(turns.isCurrent(editing))setBusy(false);
+    }
+  }
   // Failed or interrupted replies already keep their user turn. Sending the
   // same unanswered draft retries it without recording it a second time.
   const unanswered=history.active().turns.at(-1);
