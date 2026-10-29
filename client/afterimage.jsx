@@ -34,7 +34,7 @@ export default function Afterimage(){
   const packet=current?.packet||example,signalIndex=current?.signalIndex||0,endingIndex=current?.endingIndex||0,signal=packet.signals[signalIndex];
   const selected=buildSelectedPerformance(packet,signalIndex,endingIndex,current?.editedLines),playing=view.status==='playing',preparing=view.preparing===true,disabled=busy||saving||playing||preparing;
   const recovery=store.recovery,full=items.length>=12;
-  const playbackNotice=preparing?'Preparing voice…':view.captionsOnly?`Playing with captions only. ${view.voiceError||'Voice is unavailable for this performance.'}`:'';
+  const playbackNotice=view.captureError?'Capture failed. Your story is kept; try another format or capture again.':view.captureOutcome==='saved'?'Clip ready. Save it from the clip preview.':preparing?'Preparing voice…':view.captionsOnly?`Playing with captions only. ${view.voiceError||'Voice is unavailable for this performance.'}`:'';
   const exportProfile=resolveExportProfile(view.exportProfile);
   const canGenerate=visit.owner&&view.connected&&view.connection?.kind==='live';
   const reception=current||{packet:example,seed:'A door in a window with no wall.',tone:'uncanny',source:'authored',signalIndex:0,endingIndex:0,createdAt:new Date().toISOString()};
