@@ -256,3 +256,8 @@ body.landing{background:var(--bg);font-family:var(--font-ui)}
 .source-scene:not([data-render-ready=true]) .source-scene-spring{opacity:0}
 .source-scene[data-render-ready=true] .source-scene-spring{opacity:1;transition:opacity 450ms ease-out}
 @media(prefers-reduced-motion:reduce){.source-scene[data-render-ready=true] .source-scene-spring{transition:none}}
+
+.nox-network-status{position:absolute;left:50%;bottom:0;transform:translateX(-50%);white-space:nowrap;padding:5px 9px;border-radius:10px;background:#101c20;color:#bdd4cd;font:12px/1.3 system-ui,sans-serif;pointer-events:none;animation:nox-offline-beacon 3s ease-in-out infinite}
+.nox-network-status[hidden]{display:none}
+@keyframes nox-offline-beacon{50%{color:#ecf4e7}}
+@media(prefers-reduced-motion:reduce){.nox-network-status{animation:none}}

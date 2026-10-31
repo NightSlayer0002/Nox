@@ -1,3 +1,4 @@
+import {attachNetworkPresence} from './network-presence.js';
 import { normalizePacket, prepareChatRequest,explicitMemoryRequest } from '../../shared/character.js';
 import { demoReply } from './brain.js';
 import { createMemory } from './memory.js';
@@ -624,8 +625,9 @@ async function removeConversation(id){
 }
 navigation=createNavigation({history,onOpen:async id=>{if(!revisionControls.canLeave())return false;cancelConversation();const opening=turns.begin();editTarget=null;currentActivity='conversation';const selected=await history.select(id);if(!turns.isCurrent(opening))return false;const restored=await restoreConversation();if(!selected)toast('That conversation was removed in another tab.');return selected&&turns.isCurrent(restored);},onRemove:removeConversation,onNew:newConversation,onStart:async(text,persona)=>{if(!revisionControls.canLeave())return;const started=await setMode(persona,false);if(turns.isCurrent(started))await send(text);}});
 messageCompanion=attachMessageCompanion({conversation:$('conversation'),onAction:exploreWithNox});
+const releaseNetwork=attachNetworkPresence({stage,host:$('world')});
 floatingPresence=attachFloatingPresence({stage,onInspect:value=>messageCompanion.inspect(value),onRelease:value=>messageCompanion.release(value),onClear:()=>messageCompanion.clear()});
-window.addEventListener('pagehide',event=>{if(!event.persisted){floatingPresence.dispose();messageCompanion.dispose();}},{once:true});
+window.addEventListener('pagehide',event=>{if(!event.persisted){releaseNetwork();floatingPresence.dispose();messageCompanion.dispose();}},{once:true});
 history.subscribe(({currentChanged})=>{if(currentChanged)void restoreConversation();else navigation.render();});
 const releaseMemory=memory.subscribe(()=>{updateMemory();});
 window.addEventListener('pagehide',event=>{if(!event.persisted){releaseMemory();memory.dispose();history.dispose();}},{once:true});
