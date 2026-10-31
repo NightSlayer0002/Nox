@@ -128,3 +128,5 @@
 .capture-note{font-size:12px;line-height:1.6;max-width:65ch}
 .receiver-onair{border-radius:14px;box-shadow:0 8px 28px #0004}
 @media(max-width:700px){.signal-choices{grid-template-columns:repeat(3,minmax(0,1fr))}.signal-choices button{font-size:13px;min-height:56px;padding:10px 6px}.performance-actions{display:flex}.receiver-example{gap:12px}.receiver-example>button{width:auto}.receiver-example>p{flex-basis:100%}}
+
+.capture-result:empty{display:none}.capture-result{color:var(--secondary-accent);font-size:13px}
