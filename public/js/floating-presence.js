@@ -1,6 +1,7 @@
 import {createFloatingDynamics} from './floating-dynamics.js';
 import {createFloatingFollower,floatingBotTarget} from './floating-follower.js';
 import {floatingAllowed,floatingLayout,createKeyboardTracker} from './floating-layout.js';
+import {attachPresencePreview} from './presence-preview.js';
 import {attachPresenceClearance} from './presence-clearance.js';
 
 // The existing Stage is moved, never copied. Only the small character handle
@@ -29,6 +30,7 @@ export function attachFloatingPresence({stage,documentTarget=document,windowTarg
   let bot={x:0,y:0},previousAction='none',takeoverHome=null,restorePlacement=null;
   let userPlaced=false,clearancePose='';
   const clearance=attachPresenceClearance({conversation:$('conversation'),windowTarget:win,getPlacement:()=>({enabled:active&&!userPlaced&&!previousGravity&&previousAction!=='takeover',character:{left:motion.state.x,top:motion.state.y,right:motion.state.x+motion.state.size,bottom:motion.state.y+motion.state.size}})});
+  const releasePreview=attachPresencePreview(menu,$('presence-signal-preview'));
   const beforeFrame=stage.onBeforeFrame;
   const point=event=>({x:event.clientX,y:event.clientY});
   function isEditable(element){return Boolean(element?.isContentEditable||['TEXTAREA','INPUT'].includes(element?.tagName));}
@@ -182,7 +184,7 @@ export function attachFloatingPresence({stage,documentTarget=document,windowTarg
     if(disposed)return;
     // Leave the shared Stage in its original DOM home before removing helpers.
     if(active){doc.body.dataset.presence='hidden';sync();}
-    disposed=true;clearance.dispose();events.abort();observer.disconnect();resize.disconnect();stage.onBeforeFrame=beforeFrame;stage.externalPlacement=false;
+    disposed=true;releasePreview();clearance.dispose();events.abort();observer.disconnect();resize.disconnect();stage.onBeforeFrame=beforeFrame;stage.externalPlacement=false;
     if(measureFrame!==null)win.cancelAnimationFrame(measureFrame);
     utilities.remove();handle.remove();layer.remove();marker.remove();toolbarMarker.remove();delete doc.body.dataset.floating;
   }};
