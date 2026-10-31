@@ -7,7 +7,7 @@ import {readMotionPreference} from '../public/js/preferences.js';
 
 // Three small dimensional heads, rendered in the emblem's existing context.
 // Trails record their actual flight; they are soft ribbons, not fixed orbits.
-export function EmblemFollowers({pose}){
+export function EmblemFollowers({pose,matter}){
   const heads=useRef([]),eyes=useRef([]),reduceMotion=useRef(!readMotionPreference()),flight=useMemo(()=>createEmblemFollowers(),[]);
   const {viewport,size,gl,camera}=useThree();
   const assets=useMemo(()=>{
@@ -55,6 +55,7 @@ export function EmblemFollowers({pose}){
       }
       vertices.needsUpdate=true;assets.trails[i].setDrawRange(0,Math.max(0,a.trailCount-1)*6);
     }
+    assets.hull.metalness=matter?.metal?.88:.7;assets.hull.roughness=matter?.metal?.22:.32;
     assets.hull.opacity=assets.face.opacity=state.opacity*.92;assets.light.opacity=state.opacity;assets.trailMaterial.uniforms.uOpacity.value=state.opacity;
     gl.domElement.dataset.followers='3';gl.domElement.dataset.followerMotion=reduceMotion.current?'direct':'emblem-orbit';
     gl.domElement.dataset.followerX=state.agents.map(a=>Math.round(a.x)).join(',');
