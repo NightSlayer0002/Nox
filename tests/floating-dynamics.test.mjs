@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import {createFloatingDynamics} from '../public/js/floating-dynamics.js';
 
 const room={left:10,top:20,right:410,bottom:620,floor:540};
-const tick=(motion,count=120)=>{for(let i=0;i<count;i++)motion.step(1/120);};
+const tick=(motion,count=180)=>{for(let i=0;i<count;i++)motion.step(1/120);};
 
 test('gravity off preserves manual placement and clamps only when the viewport shrinks',()=>{
   const motion=createFloatingDynamics({x:220,y:400,size:60});
@@ -312,7 +312,7 @@ test('resizing at a viewport edge adjusts the drag grip after unavoidable clampi
   assert.equal(motion.state.y,510);
 });
 
-test('a gravity landing rebounds once by at most 8px and then rests without drifting',()=>{
+test('a gravity landing rebounds once by at most 24px and then rests without drifting',()=>{
   const motion=createFloatingDynamics({x:120,y:100,size:60});
   motion.setBounds(room);motion.setGravity(true);
   assert.equal(motion.state.y,100,'enabling gravity starts at the actual placement');
@@ -324,8 +324,19 @@ test('a gravity landing rebounds once by at most 8px and then rests without drif
     wasFalling=motion.state.vy>0;
   }
   assert.equal(contact,true);assert.equal(rebound,true,'a visible small bounce follows the first fall');
-  assert.ok(apex>=472&&apex<=473);
+  assert.ok(apex>=456&&apex<=457);
   assert.equal(arrivals,2,'one first contact and one final settling contact');
   assert.equal(motion.state.y,480);assert.equal(motion.state.x,120);
   assert.equal(motion.state.grounded,true);assert.equal(motion.state.vy,0);
+});
+
+// Question: does layout measurement at the exact contact frame erase a bounce?
+// Limits: pure CSS-pixel dynamics; no GPU, compositor, or physical phone claim.
+test('a measured contact frame preserves rebound velocity until the next step',()=>{
+  const motion=createFloatingDynamics({x:120,y:100,size:60});motion.setBounds(room);motion.setGravity(true);
+  for(let i=0;i<240;i++){motion.step(1/120);if(motion.state.y===480&&motion.state.vy<0)break;}
+  assert.ok(motion.state.vy<0);const speed=motion.state.vy;
+  motion.resize(60);motion.setBounds(room);
+  assert.equal(motion.state.vy,speed);motion.step(1/120);
+  assert.ok(motion.state.y<480,'the rebound survives the stage ResizeObserver');
 });
