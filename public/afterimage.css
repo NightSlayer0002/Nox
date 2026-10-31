@@ -1,8 +1,8 @@
 /*! Afterimage story choices, performance cues and local editing. */
 .rail-new{font-size:14px;color:var(--muted);margin-left:6px}
-.studio>.afterimage-column{background:var(--surface);border-color:var(--line);padding:24px;border-radius:4px;min-width:0}
+.studio>.afterimage-column{background:transparent;border-color:transparent;padding:24px;border-radius:0;min-width:0}
 .afterimage-receiver{font-size:16px;line-height:1.6;color:var(--text)}
-.afterimage-receiver button,.receiver-onair button{font:inherit;font-size:14px;line-height:1.4;min-height:42px;padding:10px 14px;background:var(--surface);color:var(--text);border:1px solid var(--line);border-radius:3px;box-shadow:none;letter-spacing:normal;text-transform:none;transition:background-color .15s,border-color .15s,color .15s}
+.afterimage-receiver button,.receiver-onair button{font:inherit;font-size:14px;line-height:1.4;min-height:42px;padding:10px 14px;background:var(--surface);color:var(--text);border:1px solid var(--line);border-radius:10px;box-shadow:none;letter-spacing:normal;text-transform:none;transition:background-color .15s,border-color .15s,color .15s}
 .afterimage-receiver button:hover:not(:disabled),.receiver-onair button:hover:not(:disabled){background:color-mix(in srgb,var(--text) 7%,var(--surface));border-color:var(--muted)}
 .afterimage-receiver button:disabled{opacity:.45;cursor:not-allowed}
 .afterimage-receiver button:focus-visible,.receiver-onair button:focus-visible,.afterimage-receiver summary:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
@@ -23,7 +23,7 @@
 .afterimage-receiver summary::-webkit-details-marker{display:none}
 .receiver-create[open]>summary{margin-bottom:18px}
 .receiver-form label{font-size:14px;display:block;margin-bottom:8px}
-.receiver-form textarea,.cut-editor textarea{width:100%;min-height:88px;resize:vertical;font:inherit;font-size:16px;line-height:1.6;background:var(--bg);color:var(--text);border:1px solid var(--line);border-radius:3px;padding:12px}
+.receiver-form textarea,.cut-editor textarea{width:100%;min-height:88px;resize:vertical;font:inherit;font-size:16px;line-height:1.6;background:var(--bg);color:var(--text);border:1px solid var(--line);border-radius:10px;padding:12px}
 .receiver-form textarea:focus-visible,.cut-editor textarea:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
 .receiver-generation-note,.receiver-access p{font-size:14px;line-height:1.6;color:var(--muted);margin:0 0 16px}
 .receiver-input-note{display:flex;justify-content:space-between;gap:14px;font-size:14px;line-height:1.5;color:var(--muted);margin:8px 0 16px}
@@ -33,7 +33,7 @@
 .receiver-tones button[aria-pressed=true],.signal-choices button[aria-pressed=true],.ending-choices button[aria-pressed=true]{border-color:var(--accent);color:var(--accent);background:color-mix(in srgb,var(--accent) 10%,var(--surface))}
 .receiver-form-actions{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:16px}
 .receiver-notice{font-size:14px;line-height:1.6;color:var(--muted);margin:18px 0 20px}
-.receiver-error{padding:12px 14px;border:1px solid var(--muted);border-radius:3px;background:var(--surface);color:var(--text);font-size:16px;line-height:1.6}
+.receiver-error{padding:12px 14px;border:1px solid var(--muted);border-radius:10px;background:var(--surface);color:var(--text);font-size:16px;line-height:1.6}
 .reception-header{display:flex;flex-wrap:wrap;justify-content:space-between;gap:8px;font-size:14px;color:var(--muted);padding-top:20px;border-top:1px solid var(--line)}
 .source-tag{color:var(--accent)}
 .reception-title{font-size:26px;letter-spacing:-.02em;font-weight:600;margin:12px 0 8px;line-height:1.3}
@@ -52,7 +52,7 @@
 .cue-tape li>span{font-size:14px;font-variant-numeric:tabular-nums;color:var(--muted);min-width:44px}
 .cue-tape small{color:var(--muted);font-size:14px;letter-spacing:normal;text-transform:none}
 .cue-tape p{font-size:16px;line-height:1.6;margin:6px 0 0;color:var(--text)}
-.cue-tape li.cue-active{background:color-mix(in srgb,var(--accent) 7%,var(--surface));border-left:2px solid var(--accent);padding-left:12px}
+.cue-tape li.cue-active{background:color-mix(in srgb,var(--accent) 7%,var(--surface));border-left:0;padding-left:12px}
 .performance-actions{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:18px}
 .capture-note{font-size:14px;line-height:1.6;color:var(--muted);margin:12px 0 20px}
 .receiver-export{display:flex;flex-wrap:wrap;gap:8px}
@@ -78,7 +78,7 @@
 .receiver-archive>p,.archive-note{font-size:14px;line-height:1.6;color:var(--muted)}
 .receiver-onair{display:none}
 @media(max-width:1200px){
-  .receiver-onair{position:fixed;z-index:25;bottom:max(16px,env(safe-area-inset-bottom));left:16px;right:16px;margin-inline:auto;display:flex;align-items:center;justify-content:space-between;gap:12px;width:min(480px,calc(100% - 32px));padding:12px;border:1px solid var(--line);border-radius:3px;background:var(--surface);color:var(--text)}
+  .receiver-onair{position:fixed;z-index:25;bottom:max(16px,env(safe-area-inset-bottom));left:16px;right:16px;margin-inline:auto;display:flex;align-items:center;justify-content:space-between;gap:12px;width:min(480px,calc(100% - 32px));padding:12px;border:1px solid var(--line);border-radius:10px;background:var(--surface);color:var(--text)}
   .receiver-onair>span{font-size:14px;line-height:1.4;color:var(--muted)}
   .receiver-onair b{display:block;font-size:16px;font-variant-numeric:tabular-nums;font-weight:400;color:var(--text)}
   .receiver-onair i{display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--accent);margin-right:7px}
@@ -99,3 +99,32 @@
 @media(prefers-reduced-motion:reduce){
   .afterimage-receiver button,.receiver-onair button,.cue-tape li{transition:none}
 }
+
+/* The story is the surface; choices and tools form a hierarchy, not nested cards. */
+.afterimage-receiver{max-width:740px;margin-inline:auto}
+.receiver-top .eyebrow{display:none}
+.receiver-top{justify-content:flex-end}
+.studio>.afterimage-column h2{font-size:clamp(30px,3vw,42px);font-weight:500;line-height:1.12;margin-top:4px;text-wrap:balance}
+.receiver-example{padding-block:12px 24px;gap:20px}
+.receiver-example>p{font-size:13px;max-width:40ch}
+.signal-choices,.ending-choices{gap:0;border-bottom:1px solid var(--line)}
+.signal-choices button,.ending-choices button{border:0;border-radius:0;background:transparent;padding:12px 10px;border-bottom:2px solid transparent}
+.signal-choices button[aria-pressed=true],.ending-choices button[aria-pressed=true]{background:transparent;border-color:var(--secondary-accent);color:var(--text)}
+.signal-choices button:hover:not(:disabled),.ending-choices button:hover:not(:disabled){border-color:var(--muted);background:color-mix(in srgb,var(--secondary-accent) 5%,transparent)}
+.reception-title{font-size:clamp(27px,2.5vw,34px);font-weight:500}
+.receiver-choice-label{margin-top:24px}
+.performance-actions{margin-block:24px 18px;gap:10px}
+.performance-actions .receive-button{padding-inline:24px;border-radius:24px}
+.cue-tape{border-top:0}
+.cue-tape li{border-bottom:0;padding:14px 0}
+.cue-tape li>span{padding-top:2px;font-size:12px;color:var(--secondary-accent)}
+.cue-tape small{font-size:12px}.cue-tape p{margin-top:3px;max-width:58ch}
+.cue-tape li.cue-active{border-radius:10px}
+.receiver-export{gap:4px 14px;padding-block:12px;border-block:1px solid var(--line)}
+.receiver-export button{border:0;border-radius:6px;padding:8px 2px;background:transparent;color:var(--muted);font-size:13px}
+.receiver-export button:hover:not(:disabled){color:var(--text);background:transparent;text-decoration:underline;text-underline-offset:5px;border:0}
+.capture-profile{display:flex;flex-wrap:wrap;align-items:center;gap:10px;font-size:13px;color:var(--muted);margin-top:18px}
+.capture-profile select{max-width:100%;min-height:40px;background:transparent;color:var(--text);border:1px solid var(--line);border-radius:8px;padding:8px}
+.capture-note{font-size:12px;line-height:1.6;max-width:65ch}
+.receiver-onair{border-radius:14px;box-shadow:0 8px 28px #0004}
+@media(max-width:700px){.signal-choices{grid-template-columns:repeat(3,minmax(0,1fr))}.signal-choices button{font-size:13px;min-height:56px;padding:10px 6px}.performance-actions{display:flex}.receiver-example{gap:12px}.receiver-example>button{width:auto}.receiver-example>p{flex-basis:100%}}
