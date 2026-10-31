@@ -146,7 +146,7 @@ export function attachFloatingPresence({stage,documentTarget=document,windowTarg
       previousAction=action;scheduleMeasure();
     }
     const character=stage.character;
-    character.x=character.targetX=.5;character.y=character.targetY=.51;character.scale=stage.form==='core'?.9:1.85;character.rotation=0;
+    character.x=character.targetX=.5;character.y=character.targetY=.51;character.scale=stage.form==='core'?1.06:1.85;character.rotation=0;
     stage.captionMode='hidden';stage.captionTargetEnabled=false;
     draw(dt,time);
   };
