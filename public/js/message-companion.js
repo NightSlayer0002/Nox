@@ -64,7 +64,7 @@ export function attachMessageCompanion({documentTarget=globalThis.document,conve
     Object.assign(menu.style,{position:'fixed',boxSizing:'border-box',overflowY:'auto'});
     const heading=documentTarget.createElement('div');heading.className='message-companion-heading';
     const title=documentTarget.createElement('span');title.textContent='Explore this message';
-    const dismiss=documentTarget.createElement('button');dismiss.type='button';dismiss.className='message-companion-close';dismiss.innerHTML='<svg viewBox="0 0 20 20" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="m5 5 10 10M15 5 5 15"/></svg>';dismiss.setAttribute('aria-label','Close message actions');
+    const dismiss=documentTarget.createElement('button');dismiss.type='button';dismiss.className='message-companion-close';const cross=documentTarget.createElement('img');cross.src='/assets/nox/close.svg';cross.alt='';cross.width=cross.height=16;cross.setAttribute('aria-hidden','true');dismiss.append(cross);dismiss.setAttribute('aria-label','Close message actions');
     dismiss.addEventListener('click',()=>{cancelDwell();close();});heading.append(title,dismiss);menu.append(heading);
     const preview=documentTarget.createElement('p');preview.className='message-companion-preview';
     const excerpt=proseText(text).trim().replace(/\s+/g,' ');preview.textContent=excerpt.length>96?`${excerpt.slice(0,95)}…`:excerpt;menu.append(preview);
