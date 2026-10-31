@@ -304,7 +304,7 @@
 .workspace .presence-menu-panel button[aria-pressed=true]{border-color:color-mix(in srgb,var(--secondary-accent) 55%,transparent);background:color-mix(in srgb,var(--surface) 88%,var(--secondary-accent));color:var(--text);box-shadow:none}
 .workspace .presence-menu-panel .presence-appearance{grid-template-columns:repeat(3,minmax(0,1fr))}
 .workspace .presence-appearance button{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;min-width:0;min-height:82px;padding:12px 4px;white-space:nowrap}
-.workspace .presence-effects img{filter:invert(.8)}
+.workspace .presence-effects img{filter:none;width:26px;height:26px}
 .workspace .presence-metal-swatch{display:block;width:24px;height:24px;border-radius:45% 45% 18% 18%;background:linear-gradient(135deg,#1a3935 12%,#bfd3c8 35%,#2c4f48 50%,#809c90 72%,#19352f 85%)}
 .workspace .presence-menu-panel .presence-effects{grid-template-columns:repeat(2,minmax(0,1fr))}
 .workspace .presence-effects button{display:flex;align-items:center;justify-content:flex-start;gap:9px;min-height:58px;padding:10px}

@@ -23,7 +23,7 @@ export function attachFloatingPresence({stage,documentTarget=document,windowTarg
   world.before(marker);toolbar.before(toolbarMarker);world.append(handle);layer.append(svg,hint);doc.body.append(layer);
   const utilities=doc.createElement('div');utilities.className='floating-utilities';
   function utility(label,icon,action){const button=doc.createElement('button');button.type='button';const image=doc.createElement('img');image.src=icon;image.alt='';image.width=image.height=16;button.append(image,doc.createTextNode(label));listen(button,'click',()=>{menu.open=false;action();});utilities.append(button);return button;}
-  utility('Park NOX','/vendor/lucide/arrow-down-to-line.svg',()=>park());
+  utility('Park NOX','/assets/nox/park.svg',()=>park());
   utility('Hide NOX','/icon.svg',()=>$('presence-toggle').click());
   panel.append(utilities);
   let active=false,disposed=false,layout=null,placed=false,held=null,pressed=null,moved=false,previousGravity=false,saved=null,measureFrame=null,lastImpact=0,lastKeyboard=false;
