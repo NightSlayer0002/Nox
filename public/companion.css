@@ -364,3 +364,5 @@
 
 .workspace .rail-feature-icon[src^="/assets/nox/"]{filter:none}
 :root[data-theme=light] .workspace :is(.rail-feature-icon[src^="/assets/nox/"],.presence-effects img,.floating-utilities img,#presence-signal-preview){filter:brightness(.38)}
+
+.workspace .presence-appearance img{filter:none}
