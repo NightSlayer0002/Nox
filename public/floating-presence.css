@@ -26,7 +26,7 @@
 .workspace .floating-utilities{display:none}
 .workspace .floating-ui .floating-utilities{display:flex;gap:8px;padding-top:14px;border-top:1px solid var(--line)}
 .workspace .floating-utilities button{display:flex;gap:7px;align-items:center;justify-content:center;flex:1;min-height:40px}
-.workspace .floating-utilities img{filter:invert(.8)}
+.workspace .floating-utilities img{filter:none;width:24px;height:24px}
 .workspace .message-companion-menu{z-index:58;display:grid;gap:4px;width:220px;padding:8px;background:var(--bg);border:1px solid var(--line);border-radius:14px;box-shadow:0 12px 36px #0005;overscroll-behavior:contain}
 .workspace .message-companion-menu button{display:flex;align-items:center;gap:10px;width:100%;min-height:42px;padding:9px 12px;border:0;border-radius:8px;background:transparent;color:var(--text);font-size:14px;text-align:left;box-shadow:none}
 .workspace .message-companion-menu button:is(:hover,:focus-visible){background:var(--surface)}
@@ -53,3 +53,8 @@
 .workspace .floating-ui[data-motion=reduced] .floating-bot-trail{display:none}
 /* Reserve the occupied lines, not a whole empty row or a narrow full reply. */
 .workspace .message[data-presence-clearance] .message-content::before{content:"";float:right;width:var(--presence-clearance-width);height:var(--presence-clearance-height);pointer-events:none}
+
+.nox-network-status{position:absolute;left:50%;bottom:0;transform:translateX(-50%);white-space:nowrap;padding:5px 9px;border-radius:10px;background:#101c20;color:#bdd4cd;font:12px/1.3 system-ui,sans-serif;pointer-events:none;animation:nox-offline-beacon 3s ease-in-out infinite}
+.nox-network-status[hidden]{display:none}
+@keyframes nox-offline-beacon{50%{color:#ecf4e7}}
+@media(prefers-reduced-motion:reduce){.nox-network-status{animation:none}}

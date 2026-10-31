@@ -28,6 +28,10 @@ export class Stage {
     }, {signal:this.events.signal});
     this.resizeObserver = new ResizeObserver(() => this.resize());
     this.resizeObserver.observe(canvas);
+    if(typeof IntersectionObserver==='function'){
+      this.visibilityObserver=new IntersectionObserver(entries=>{this.inViewport=entries[0].isIntersecting;});
+      this.visibilityObserver.observe(canvas);
+    }
     this.bindPointer(); this.resize();
     this.frameId=requestAnimationFrame(timestamp => this.frame(timestamp));
   }
@@ -58,7 +62,7 @@ export class Stage {
     if(this.disposed)return;
     this.disposed=true;
     cancelAnimationFrame(this.frameId);
-    this.resizeObserver?.disconnect();
+    this.resizeObserver?.disconnect();this.visibilityObserver?.disconnect();
     this.events?.abort();
     this.liquidRenderer?.dispose();
     this.forms.core?.dispose();
@@ -244,8 +248,8 @@ export class Stage {
     this.animateScene(dt);
     this.character.update(this.time, dt, this.pointer, this.dragging || this.scene?.action === 'gravity', this.reduceMotion);
     const elsewhere=this.recordingLocked||['peeking','cinematic'].includes(this.canvas.dataset.presence);
-    const box=this.canvas.getBoundingClientRect?.();
-    const inView=elsewhere||(this.renderEnabled!==false&&(!box||box.bottom>0&&box.top<(globalThis.innerHeight??Infinity)));
+    const box=this.inViewport===undefined?this.canvas.getBoundingClientRect?.():null;
+    const inView=elsewhere||(this.renderEnabled!==false&&(this.inViewport??(!box||box.bottom>0&&box.top<(globalThis.innerHeight??Infinity))));
     const visibleBody=this.form!=='core'&&this.width>0&&this.height>0&&!document.hidden&&inView;
     if(visibleBody&&!this.liquidRenderer)this.prepareLiquid();
     // Retain display-tick overshoot so a 30fps body does not slip to 20fps.
@@ -256,7 +260,7 @@ export class Stage {
       this.canvas.dataset.liquidFrameDelta=body.bodyFrameDelta||'0';
       this.canvas.dataset.bodySource=body.bodySource||'procedural';this.canvas.dataset.appearance=body.appearance||this.form;
     }
-    if(this.renderEnabled!==false)this.render();
+    if(this.renderEnabled!==false&&!document.hidden&&inView)this.render();
     this.onAfterFrame?.();
     this.frameId=requestAnimationFrame(next => this.frame(next));
   }

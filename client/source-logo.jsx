@@ -16,7 +16,7 @@ import {createFrameBudget,logoSurfaceSize,SOURCE_MATERIAL_FPS} from '/js/source-
 const fallback=<div className="logo-static"><img src="/icon.svg" alt=""/></div>;
 
 function LogoModel({pose,matter,pointer,rotation,spring,onStatus,gesture,target}){
-  const outer=useRef(),inner=useRef(),meshes=useRef([]),resources=useRef({}),readiness=useRef(),due=useRef(createFrameBudget(60)),textureDue=useRef(createFrameBudget(SOURCE_MATERIAL_FPS)),lastPointer=useRef({x:0,y:0}),targetLayout=useRef({}),pressureState=useRef(0),frames=useRef(0);
+  const outer=useRef(),inner=useRef(),meshes=useRef([]),resources=useRef({}),readiness=useRef(),due=useRef(createFrameBudget(60)),textureDue=useRef(createFrameBudget(SOURCE_MATERIAL_FPS)),lastPointer=useRef({x:0,y:0}),targetLayout=useRef({}),pressureState=useRef(0),finishState=useRef(0),frames=useRef(0);
   const {gl,viewport,setFrameloop,invalidate}=useThree(),[parts,setParts]=useState([]);
   const wave=useMemo(()=>({time:{value:0},pressure:{value:0}}),[]);
   const front=useMemo(()=>new THREE.MeshPhysicalMaterial({color:'#b5cfca',metalness:.72,roughness:.24,clearcoat:1,clearcoatRoughness:.16,transparent:true}),[]);
@@ -60,6 +60,9 @@ function LogoModel({pose,matter,pointer,rotation,spring,onStatus,gesture,target}
   useFrame(({gl,scene,camera,size:canvasSize})=>{
     const now=performance.now();if(!due.current(now)||!parts.length)return;
     pressureState.current+=(matter.hold-pressureState.current)*.28;
+    finishState.current+=((matter.metal?1:0)-finishState.current)*.12;
+    const finish=finishState.current;
+    front.color.setRGB(.42+finish*.35,.65+finish*.15,.60+finish*.22);front.metalness=.55+finish*.4;front.roughness=.34-finish*.2;side.roughness=.3-finish*.16;
     const pressure=pressureState.current,turn=gesture.current.angles,attention=gesture.current.active||turn.y!==0?turn:emblemPointer(pointer.current,pose);
     if(Math.abs(attention.x-lastPointer.current.x)+Math.abs(attention.y-lastPointer.current.y)>.002){lastPointer.current=attention;spring.start(attention);}
     outer.current.rotation.set(pose.x,pose.y,pose.z);outer.current.position.set((pose.screenX-.5)*viewport.width,(.5-pose.screenY)*viewport.height,0);outer.current.scale.setScalar(pose.size*viewport.width/3.2);
@@ -82,7 +85,7 @@ function LogoModel({pose,matter,pointer,rotation,spring,onStatus,gesture,target}
       if(active.previous!==null)active.time+=Math.min(.05,(now-active.previous)/1000);active.previous=now;
       if(textureDue.current(now)){
         const featurePixels=pose.size*canvasSize.width*.6;
-        const available=active.surface.render(active.mask,active.time,{pressure,size:logoSurfaceSize(featurePixels,gl.getPixelRatio())});
+        const available=active.surface.render(active.mask,active.time,{pressure:Math.max(pressure,finish*.75),size:logoSurfaceSize(featurePixels,gl.getPixelRatio())});
         if(available){
           const texture=active.surface.texture;
           if(front.map!==texture){front.map=texture;front.needsUpdate=true;}
@@ -90,9 +93,9 @@ function LogoModel({pose,matter,pointer,rotation,spring,onStatus,gesture,target}
         }else if(front.map){front.map=null;front.needsUpdate=true;readiness.current?.setPhase('solid');}
       }
     }
-    gl.render(scene,camera);gl.domElement.dataset.source='r3f-liquid-logo';gl.domElement.dataset.geometry='nox-icon-extrusion';gl.domElement.dataset.screenX=pose.screenX.toFixed(3);gl.domElement.dataset.screenY=pose.screenY.toFixed(3);gl.domElement.dataset.tiltY=inner.current.rotation.y.toFixed(3);gl.domElement.dataset.scrollY=outer.current.rotation.y.toFixed(3);gl.domElement.dataset.pressure=pressure.toFixed(3);gl.domElement.dataset.frame=String(++frames.current);
+    gl.render(scene,camera);gl.domElement.dataset.material=matter.metal?'liquid':'soft';gl.domElement.dataset.source='r3f-liquid-logo';gl.domElement.dataset.geometry='nox-icon-extrusion';gl.domElement.dataset.screenX=pose.screenX.toFixed(3);gl.domElement.dataset.screenY=pose.screenY.toFixed(3);gl.domElement.dataset.tiltY=inner.current.rotation.y.toFixed(3);gl.domElement.dataset.scrollY=outer.current.rotation.y.toFixed(3);gl.domElement.dataset.pressure=pressure.toFixed(3);gl.domElement.dataset.frame=String(++frames.current);
   },1);
-  return <><group ref={outer}><group ref={inner}><group scale={[.08,-.08,.08]} position={[-2.56,2.65,0]} dispose={null}>{parts.map((geometry,index)=><mesh ref={mesh=>{meshes.current[index]=mesh;}} key={index} geometry={geometry} material={index<2?[front,side]:front}/>)}</group></group></group>{parts.length>0&&<EmblemFollowers pose={pose}/>}</>;
+  return <><group ref={outer}><group ref={inner}><group scale={[.08,-.08,.08]} position={[-2.56,2.65,0]} dispose={null}>{parts.map((geometry,index)=><mesh ref={mesh=>{meshes.current[index]=mesh;}} key={index} geometry={geometry} material={index<2?[front,side]:front}/>)}</group></group></group>{parts.length>0&&<EmblemFollowers pose={pose} matter={matter}/>}</>;
 }
 
 export default function SourceLogo({pose,matter,onPoke}){

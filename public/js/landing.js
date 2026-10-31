@@ -1,3 +1,4 @@
+import {attachNetworkPresence} from './network-presence.js';
 import { Stage } from './stage.js';
 import {attachPeek} from './peek.js';
 import {attachCinematicHandoff} from './cinematic-presence.js';
@@ -6,6 +7,7 @@ import {attachCinematicHandoff} from './cinematic-presence.js';
 export function createLanding(canvas,{onDiscover,onExpression,onScene,peekHost,peekCanvas}={}){
   const stage=new Stage(canvas,onScene,{landing:true,transparent:true,movable:false});
   stage.setMotion(true);
+  const releaseNetwork=attachNetworkPresence({stage});
   const pose={x:.5,y:.5,size:.65};
   let manual=false,expression='';
   stage.character.x=stage.character.targetX=pose.x;
@@ -38,6 +40,6 @@ export function createLanding(canvas,{onDiscover,onExpression,onScene,peekHost,p
     material(metal){stage.setForm(metal?'liquid':'face');if(metal)onDiscover?.('liquid');},
     run(action){manual=false;if(stage.scene?.action===action){stage.stopScene(action);return;}stage.run(action);onDiscover?.(action);},
     home(){manual=false;stage.reset();},
-    dispose(){cinematic.dispose();stage.dispose();}
+    dispose(){releaseNetwork();cinematic.dispose();stage.dispose();}
   };
 }

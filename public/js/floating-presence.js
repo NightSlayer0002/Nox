@@ -1,6 +1,7 @@
 import {createFloatingDynamics} from './floating-dynamics.js';
 import {createFloatingFollower,floatingBotTarget} from './floating-follower.js';
 import {floatingAllowed,floatingLayout,createKeyboardTracker} from './floating-layout.js';
+import {attachPresencePreview} from './presence-preview.js';
 import {attachPresenceClearance} from './presence-clearance.js';
 
 // The existing Stage is moved, never copied. Only the small character handle
@@ -22,13 +23,14 @@ export function attachFloatingPresence({stage,documentTarget=document,windowTarg
   world.before(marker);toolbar.before(toolbarMarker);world.append(handle);layer.append(svg,hint);doc.body.append(layer);
   const utilities=doc.createElement('div');utilities.className='floating-utilities';
   function utility(label,icon,action){const button=doc.createElement('button');button.type='button';const image=doc.createElement('img');image.src=icon;image.alt='';image.width=image.height=16;button.append(image,doc.createTextNode(label));listen(button,'click',()=>{menu.open=false;action();});utilities.append(button);return button;}
-  utility('Park NOX','/vendor/lucide/arrow-down-to-line.svg',()=>park());
-  utility('Hide NOX','/icon.svg',()=>$('presence-toggle').click());
+  utility('Park NOX','/assets/nox/park.svg',()=>park());
+  utility('Hide NOX','/assets/nox/hide.svg',()=>$('presence-toggle').click());
   panel.append(utilities);
   let active=false,disposed=false,layout=null,placed=false,held=null,pressed=null,moved=false,previousGravity=false,saved=null,measureFrame=null,lastImpact=0,lastKeyboard=false;
   let bot={x:0,y:0},previousAction='none',takeoverHome=null,restorePlacement=null;
   let userPlaced=false,clearancePose='';
   const clearance=attachPresenceClearance({conversation:$('conversation'),windowTarget:win,getPlacement:()=>({enabled:active&&!userPlaced&&!previousGravity&&previousAction!=='takeover',character:{left:motion.state.x,top:motion.state.y,right:motion.state.x+motion.state.size,bottom:motion.state.y+motion.state.size}})});
+  const releasePreview=attachPresencePreview(menu,$('presence-signal-preview'));
   const beforeFrame=stage.onBeforeFrame;
   const point=event=>({x:event.clientX,y:event.clientY});
   function isEditable(element){return Boolean(element?.isContentEditable||['TEXTAREA','INPUT'].includes(element?.tagName));}
@@ -144,7 +146,7 @@ export function attachFloatingPresence({stage,documentTarget=document,windowTarg
       previousAction=action;scheduleMeasure();
     }
     const character=stage.character;
-    character.x=character.targetX=.5;character.y=character.targetY=.51;character.scale=stage.form==='core'?.9:1.85;character.rotation=0;
+    character.x=character.targetX=.5;character.y=character.targetY=.51;character.scale=stage.form==='core'?1.06:1.85;character.rotation=0;
     stage.captionMode='hidden';stage.captionTargetEnabled=false;
     draw(dt,time);
   };
@@ -182,7 +184,7 @@ export function attachFloatingPresence({stage,documentTarget=document,windowTarg
     if(disposed)return;
     // Leave the shared Stage in its original DOM home before removing helpers.
     if(active){doc.body.dataset.presence='hidden';sync();}
-    disposed=true;clearance.dispose();events.abort();observer.disconnect();resize.disconnect();stage.onBeforeFrame=beforeFrame;stage.externalPlacement=false;
+    disposed=true;releasePreview();clearance.dispose();events.abort();observer.disconnect();resize.disconnect();stage.onBeforeFrame=beforeFrame;stage.externalPlacement=false;
     if(measureFrame!==null)win.cancelAnimationFrame(measureFrame);
     utilities.remove();handle.remove();layer.remove();marker.remove();toolbarMarker.remove();delete doc.body.dataset.floating;
   }};

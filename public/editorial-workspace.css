@@ -63,21 +63,6 @@
 .workspace :is(.lab-toolbar button,.quiet-button){border-color:transparent;background:transparent}
 .workspace :is(dialog,.lab-dialog){border-radius:10px;box-shadow:0 20px 90px #0006;backdrop-filter:none}
 .workspace .capability-grid{gap:0 28px}.workspace .capability-grid article{background:transparent;border:0;border-top:1px solid var(--line);border-radius:0;padding:22px 0}
-.workspace .studio>.afterimage-column{background:transparent;border-left:1px solid var(--line);padding:0 0 0 36px;border-radius:0}
-.workspace .receiver-form textarea{background:transparent;border:0;border-bottom:1px solid var(--line);border-radius:0;padding:10px 0;min-height:84px}
-.workspace .receiver-tones{gap:18px}.workspace .receiver-tones button{flex:0 1 auto;border:0;border-bottom:1px solid transparent;border-radius:0;padding:10px 0;background:transparent}
-.workspace .receiver-tones button[aria-pressed=true]{border-bottom-color:var(--accent);color:var(--accent)}
-.workspace .signal-choices{gap:20px}.workspace .signal-choices button{border:0;border-bottom:1px solid var(--line);border-radius:0;background:transparent;padding:12px 0;min-height:56px}
-.workspace .signal-choices button[aria-pressed=true]{border-bottom-color:var(--accent);background:transparent}
-.workspace .ending-choices button{border:0;border-bottom:1px solid var(--line);border-radius:0;background:transparent;padding:12px 0}
-.workspace .ending-choices button[aria-pressed=true]{border-bottom-color:var(--accent);background:transparent}
-.workspace .cue-tape{border:0;border-top:1px solid var(--line);border-radius:0}
-.workspace .cue-tape li{padding:18px 0;background:transparent;border-bottom-color:var(--line)}
-.workspace .cue-tape li.cue-active{border-left:0;padding-left:0;background:transparent}.workspace .cue-active>span{color:var(--accent)}
-.workspace .cue-active p{color:var(--text)}
-.workspace .performance-actions button,.workspace .receiver-export button{border-radius:4px}
-.workspace .cut-editor{border:0;border-top:1px solid var(--line);border-bottom:1px solid var(--line);border-radius:0;background:transparent;padding:18px 0}
-.workspace .cut-editor textarea{background:transparent;border-radius:4px}
 .workspace footer{padding-top:35px;font-size:8px}
 @media(max-width:1200px){body.workspace[data-view=afterimage] .studio{grid-template-columns:1fr}.workspace .studio>.afterimage-column{border-left:0;border-top:1px solid var(--line);padding:30px 0 0}}
 @media(max-width:1000px){.workspace .studio{grid-template-columns:1fr;gap:28px}.workspace .studio>aside{border-left:0;border-top:1px solid var(--line);padding:28px 0 0}.workspace .stage-wrap{aspect-ratio:1.5}}

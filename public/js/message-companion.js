@@ -64,7 +64,7 @@ export function attachMessageCompanion({documentTarget=globalThis.document,conve
     Object.assign(menu.style,{position:'fixed',boxSizing:'border-box',overflowY:'auto'});
     const heading=documentTarget.createElement('div');heading.className='message-companion-heading';
     const title=documentTarget.createElement('span');title.textContent='Explore this message';
-    const dismiss=documentTarget.createElement('button');dismiss.type='button';dismiss.className='message-companion-close';dismiss.textContent='Close';dismiss.setAttribute('aria-label','Close message actions');
+    const dismiss=documentTarget.createElement('button');dismiss.type='button';dismiss.className='message-companion-close';const cross=documentTarget.createElement('span');cross.className='message-dismiss-cross';cross.setAttribute('aria-hidden','true');dismiss.append(cross);dismiss.setAttribute('aria-label','Close message actions');
     dismiss.addEventListener('click',()=>{cancelDwell();close();});heading.append(title,dismiss);menu.append(heading);
     const preview=documentTarget.createElement('p');preview.className='message-companion-preview';
     const excerpt=proseText(text).trim().replace(/\s+/g,' ');preview.textContent=excerpt.length>96?`${excerpt.slice(0,95)}…`:excerpt;menu.append(preview);

@@ -447,3 +447,8 @@
     font-size: 27px;
   }
 }
+
+/* Reveal the authored terrain after warm-up; the dark surface stays underneath. */
+.source-scene:not([data-render-ready=true]) .source-scene-spring{opacity:0}
+.source-scene[data-render-ready=true] .source-scene-spring{opacity:1;transition:opacity 450ms ease-out}
+@media(prefers-reduced-motion:reduce){.source-scene[data-render-ready=true] .source-scene-spring{transition:none}}

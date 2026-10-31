@@ -12,7 +12,7 @@ export function createNavigation({history,onOpen,onNew,onStart,onRemove}) {
   window.addEventListener('keydown',event=>{if(event.key==='Escape'&&document.body.dataset.menuOpen==='true'){event.preventDefault();setMenu(false,true);}},{capture:true});
   window.matchMedia?.('(max-width:700px)').addEventListener('change',event=>{if(!event.matches)setMenu(false);});
   document.body.dataset.presence='visible';
-  $('presence-toggle').addEventListener('click',()=>{const visible=document.body.dataset.presence==='hidden';document.body.dataset.presence=visible?'visible':'hidden';$('presence-toggle').setAttribute('aria-expanded',String(visible));$('presence-toggle').textContent=visible?'Hide NOX':'Show NOX';});
+  $('presence-toggle').addEventListener('click',()=>{const visible=document.body.dataset.presence==='hidden';document.body.dataset.presence=visible?'visible':'hidden';$('presence-toggle').setAttribute('aria-expanded',String(visible));$('presence-toggle').textContent=visible?'Hide NOX':'Show NOX';if(!visible)$('presence-toggle').focus({preventScroll:true});});
   function applyView(){
     const view=location.hash.slice(1),current=Object.hasOwn(views,view)?view:'conversation';
     document.body.dataset.view=current;$('view-label').textContent=views[current][0];

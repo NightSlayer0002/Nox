@@ -87,9 +87,9 @@ export function createFloatingDynamics({x=0,y=0,size=76,gravity=false}={}){
     if(state.y<bounds.top){state.y=bounds.top;state.vy=Math.max(0,state.vy);}
     if(state.y>=floorY()){
       state.y=floorY();state.impact=Math.max(state.impact,clamp(state.vy/650,.12,1));
-      // Keep the original landing squash and a single small rebound. Keyboard
+      // Keep the original landing squash and a single visible rebound. Keyboard
       // hops already have their own 8px arc and do not start a second bounce.
-      if(!rebounded&&!hopActive&&state.vy>300){state.vy=-Math.sqrt(2*acceleration*8);state.grounded=false;rebounded=true;}
+      if(!rebounded&&!hopActive&&state.vy>300){state.vy=-Math.sqrt(2*acceleration*24);state.grounded=false;rebounded=true;}
       else{state.vy=0;state.grounded=true;}
       hopActive=false;
     }

@@ -7,13 +7,15 @@ import {readMotionPreference} from '../public/js/preferences.js';
 
 // Three small dimensional heads, rendered in the emblem's existing context.
 // Trails record their actual flight; they are soft ribbons, not fixed orbits.
-export function EmblemFollowers({pose}){
-  const heads=useRef([]),eyes=useRef([]),reduceMotion=useRef(!readMotionPreference()),flight=useMemo(()=>createEmblemFollowers(),[]);
+export function EmblemFollowers({pose,matter}){
+  const heads=useRef([]),eyes=useRef([]),halos=useRef([]),reduceMotion=useRef(!readMotionPreference()),flight=useMemo(()=>createEmblemFollowers(),[]);
   const {viewport,size,gl,camera}=useThree();
   const assets=useMemo(()=>{
     const body=new RoundedBoxGeometry(1.28,.96,.4,3,.16);
     const plate=new RoundedBoxGeometry(1.04,.72,.1,3,.13);
     const eye=new THREE.CapsuleGeometry(.058,.19,3,8);
+    const halo=new THREE.PlaneGeometry(.3,.45);
+    const glow=new THREE.ShaderMaterial({transparent:true,depthWrite:false,uniforms:{uOpacity:{value:1}},vertexShader:`varying vec2 vUv;void main(){vUv=uv;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}`,fragmentShader:`varying vec2 vUv;uniform float uOpacity;void main(){float d=length((vUv-.5)*2.);gl_FragColor=vec4(.67,.95,.88,pow(max(0.,1.-d),2.)*.35*uOpacity);}`});
     const fin=new THREE.BoxGeometry(.14,.28,.22);
     const mouth=new THREE.TubeGeometry(new THREE.CatmullRomCurve3([new THREE.Vector3(-.1,-.19,.3),new THREE.Vector3(0,-.24,.3),new THREE.Vector3(.1,-.19,.3)]),8,.018,5,false);
     const hull=new THREE.MeshStandardMaterial({color:'#48776f',metalness:.7,roughness:.32,transparent:true});
@@ -30,7 +32,7 @@ export function EmblemFollowers({pose}){
       g.setAttribute('position',new THREE.BufferAttribute(new Float32Array(trailPoints*6),3).setUsage(THREE.DynamicDrawUsage));
       g.setAttribute('aAcross',new THREE.Float32BufferAttribute(across,1));g.setAttribute('aAge',new THREE.Float32BufferAttribute(ages,1));g.setIndex(index);return g;
     });
-    return {body,plate,eye,fin,mouth,hull,face,light,trailMaterial,trails};
+    return {body,plate,eye,halo,glow,fin,mouth,hull,face,light,trailMaterial,trails};
   },[]);
   useEffect(()=>{
     return()=>{for(const value of Object.values(assets))if(Array.isArray(value))value.forEach(g=>g.dispose());else value.dispose();};
@@ -46,6 +48,7 @@ export function EmblemFollowers({pose}){
       head.rotation.set(.06,-a.angle*.7,-a.angle);head.scale.setScalar(unit*perspective*(1+i*.06));
       const blink=reduceMotion.current?1:((time+i*1.7)%5.8<.13?.12:1);
       for(const eye of eyes.current[i]||[])eye.scale.y=blink;
+      for(const halo of halos.current[i]||[])halo.scale.y=blink;
       for(let j=0;j<trailPoints;j++){
         const p=j*3,next=Math.min(trailPoints-1,j+1)*3,previous=Math.max(0,j-1)*3;
         const dx=a.trail[next]-a.trail[previous],dy=a.trail[next+1]-a.trail[previous+1],length=Math.hypot(dx,dy)||1;
@@ -55,7 +58,8 @@ export function EmblemFollowers({pose}){
       }
       vertices.needsUpdate=true;assets.trails[i].setDrawRange(0,Math.max(0,a.trailCount-1)*6);
     }
-    assets.hull.opacity=assets.face.opacity=state.opacity*.92;assets.light.opacity=state.opacity;assets.trailMaterial.uniforms.uOpacity.value=state.opacity;
+    assets.hull.metalness=matter?.metal?.88:.7;assets.hull.roughness=matter?.metal?.22:.32;
+    assets.hull.opacity=assets.face.opacity=state.opacity*.92;assets.light.opacity=state.opacity;assets.glow.uniforms.uOpacity.value=state.opacity;assets.trailMaterial.uniforms.uOpacity.value=state.opacity;
     gl.domElement.dataset.followers='3';gl.domElement.dataset.followerMotion=reduceMotion.current?'direct':'emblem-orbit';
     gl.domElement.dataset.followerX=state.agents.map(a=>Math.round(a.x)).join(',');
   });
@@ -65,6 +69,7 @@ export function EmblemFollowers({pose}){
       <mesh geometry={assets.body} material={assets.hull}/><mesh position={[0,0,.22]} geometry={assets.plate} material={assets.face}/>
       <mesh position={[-.71,0,0]} geometry={assets.fin} material={assets.hull}/><mesh position={[.71,0,0]} geometry={assets.fin} material={assets.hull}/>
       {[-.23,.23].map((x,n)=><mesh key={x} ref={node=>{(eyes.current[i]||=[])[n]=node;}} position={[x,.07,.3]} geometry={assets.eye} material={assets.light}/>)}
+      {[-.23,.23].map((x,n)=><mesh key={`halo-${n}`} ref={node=>{(halos.current[i]||=[])[n]=node;}} position={[x,.07,.305]} geometry={assets.halo} material={assets.glow}/>)}
       <mesh geometry={assets.mouth} material={assets.light}/>
     </group>
   </React.Fragment>)}</group>;
