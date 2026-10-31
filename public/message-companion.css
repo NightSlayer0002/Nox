@@ -36,3 +36,5 @@
  .workspace .message-companion-menu .message-companion-action:active{transform:none}
 }
 @keyframes message-actions-enter{from{opacity:0;transform:translateY(4px) scale(.985)}to{opacity:1;transform:translateY(0) scale(1)}}
+
+.workspace .message-dismiss-cross{display:block;width:16px;height:16px;background:currentColor;mask:url(/assets/nox/close.svg) center/contain no-repeat}
