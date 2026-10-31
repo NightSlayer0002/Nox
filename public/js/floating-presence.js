@@ -24,7 +24,7 @@ export function attachFloatingPresence({stage,documentTarget=document,windowTarg
   const utilities=doc.createElement('div');utilities.className='floating-utilities';
   function utility(label,icon,action){const button=doc.createElement('button');button.type='button';const image=doc.createElement('img');image.src=icon;image.alt='';image.width=image.height=16;button.append(image,doc.createTextNode(label));listen(button,'click',()=>{menu.open=false;action();});utilities.append(button);return button;}
   utility('Park NOX','/assets/nox/park.svg',()=>park());
-  utility('Hide NOX','/icon.svg',()=>$('presence-toggle').click());
+  utility('Hide NOX','/assets/nox/hide.svg',()=>$('presence-toggle').click());
   panel.append(utilities);
   let active=false,disposed=false,layout=null,placed=false,held=null,pressed=null,moved=false,previousGravity=false,saved=null,measureFrame=null,lastImpact=0,lastKeyboard=false;
   let bot={x:0,y:0},previousAction='none',takeoverHome=null,restorePlacement=null;
