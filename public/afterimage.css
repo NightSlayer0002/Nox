@@ -101,10 +101,10 @@
 }
 
 /* The story is the surface; choices and tools form a hierarchy, not nested cards. */
-.afterimage-receiver{max-width:740px;margin-inline:auto}
+.workspace .afterimage-receiver{max-width:740px;margin-inline:auto}
 .receiver-top .eyebrow{display:none}
 .receiver-top{justify-content:flex-end}
-.studio>.afterimage-column h2{font-size:clamp(30px,3vw,42px);font-weight:500;line-height:1.12;margin-top:4px;text-wrap:balance}
+.workspace .studio>.afterimage-column h2{font-size:clamp(30px,3vw,42px);font-weight:500;line-height:1.12;margin-top:4px;text-wrap:balance}
 .receiver-example{padding-block:12px 24px;gap:20px}
 .receiver-example>p{font-size:13px;max-width:40ch}
 .signal-choices,.ending-choices{gap:0;border-bottom:1px solid var(--line)}
@@ -130,3 +130,9 @@
 @media(max-width:700px){.signal-choices{grid-template-columns:repeat(3,minmax(0,1fr))}.signal-choices button{font-size:13px;min-height:56px;padding:10px 6px}.performance-actions{display:flex}.receiver-example{gap:12px}.receiver-example>button{width:auto}.receiver-example>p{flex-basis:100%}}
 
 .capture-result:empty{display:none}.capture-result{color:var(--secondary-accent);font-size:13px}
+
+.workspace .afterimage-receiver :is(.signal-choices,.ending-choices) button{border:0;border-bottom:2px solid transparent;border-radius:0;padding:12px 8px;background:transparent;box-shadow:none}
+.workspace .afterimage-receiver :is(.signal-choices,.ending-choices) button[aria-pressed=true]{border-bottom-color:var(--secondary-accent);color:var(--text)}
+.workspace .afterimage-receiver .performance-actions .receive-button{border-radius:24px}
+.workspace .afterimage-receiver .receiver-export button{border:0;background:transparent;color:var(--muted)}
+.workspace .afterimage-receiver .receiver-notice:empty{display:none}
