@@ -251,3 +251,8 @@ body.landing{background:var(--bg);font-family:var(--font-ui)}
  .cinematic-foot{left:6vw;right:6vw;bottom:22px;gap:16px;font-size:12px;align-items:flex-end}
  .cinematic-foot p{max-width:170px}.cinematic-foot>span{font-size:8px}
 }
+
+/* Reveal the authored terrain after warm-up; the dark surface stays underneath. */
+.source-scene:not([data-render-ready=true]) .source-scene-spring{opacity:0}
+.source-scene[data-render-ready=true] .source-scene-spring{opacity:1;transition:opacity 450ms ease-out}
+@media(prefers-reduced-motion:reduce){.source-scene[data-render-ready=true] .source-scene-spring{transition:none}}

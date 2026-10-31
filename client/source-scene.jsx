@@ -75,7 +75,7 @@ function Budget({onCanvas,pose}){
     };
   },[]);
   useEffect(()=>{
-    onCanvas?.(gl.domElement);
+    // Publish only after the authored terrain has rendered, never its startup frame.
     let visible=true;const visibility=()=>{lastFrame.current=null;setFrameloop(document.hidden||!visible?'never':'always');if(!document.hidden&&visible)invalidate();};
     const observer=new IntersectionObserver(entries=>{visible=entries[0].isIntersecting;visibility();});observer.observe(gl.domElement);
     document.addEventListener('visibilitychange',visibility);visibility();
@@ -104,7 +104,10 @@ function Budget({onCanvas,pose}){
       gl.domElement.dataset.terrainEnergy=water.energy.toFixed(3);
       gl.domElement.dataset.terrainDrift=water.x.toFixed(3);
     }
-    gl.render(scene,camera);gl.domElement.dataset.source='shadergradient';
+    if(!mesh)return;
+    gl.render(scene,camera);
+    if(frames.current===1){gl.domElement.closest?.('.source-scene')?.setAttribute('data-render-ready','true');onCanvas?.(gl.domElement);}
+    gl.domElement.dataset.source='shadergradient';
     gl.domElement.dataset.geometry='water-plane';
     gl.domElement.dataset.frame=String(++frames.current);
   },1);

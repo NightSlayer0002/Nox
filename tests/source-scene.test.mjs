@@ -48,10 +48,18 @@ test('the live world retains its authored water surface and responds to pointer 
 });
 
 test('the water render lifecycle stops offscreen and releases its published canvas',()=>{
-  const room=world();assert.equal(room.published[0],room.gl.domElement);assert.equal(room.loops.at(-1),'always');
+  const room=world();assert.equal(room.published.length,0);room.frame(0);room.frame(34);assert.equal(room.published[0],room.gl.domElement);assert.equal(room.loops.at(-1),'always');
   room.observers[0].callback([{isIntersecting:false}]);assert.equal(room.loops.at(-1),'never');
   room.observers[0].callback([{isIntersecting:true}]);assert.equal(room.loops.at(-1),'always');
   room.document.hidden=true;room.event('visibilitychange');assert.equal(room.loops.at(-1),'never');
   room.dispose();assert.equal(room.observers[0].disconnected,true);assert.equal(room.published.at(-1),null);
   const previous=room.loops.length;room.document.hidden=false;room.event('visibilitychange');assert.equal(room.loops.length,previous);
+});
+
+// Question: can an unpatched startup frame become the shared background source?
+// Limits: renderer calls are substituted; no GPU luminance or physical FPS claim.
+test('terrain publishes only after two authored render passes',()=>{
+  const room=world();assert.equal(room.published.length,0);room.frame(0);
+  assert.equal(room.published.length,0);room.frame(34);
+  assert.equal(room.published[0],room.gl.domElement);assert.equal(room.gl.renders,2);room.dispose();
 });
