@@ -1,4 +1,4 @@
-import React,{useEffect,useRef,useState} from 'react';
+import React,{useEffect,useRef,useState,useSyncExternalStore} from 'react';
 import {createPortal} from 'react-dom';
 import {AnimatePresence,motion,useReducedMotion} from 'motion/react';
 import {normalizeAfterimage} from '../shared/afterimage.js';
@@ -19,14 +19,14 @@ let receiverDraft=null;
 
 export default function Afterimage(){
   const [items,setItems]=useState(()=>store.list()),[current,setCurrent]=useState(()=>receiverDraft?.current??store.list()[0]??null),[seed,setSeed]=useState(()=>receiverDraft?.seed??store.list()[0]?.seed??''),[tone,setTone]=useState(()=>receiverDraft?.tone??store.list()[0]?.tone??'uncanny');
-  const [view,setView]=useState(()=>afterimageBridge.snapshot()),[busy,setBusy]=useState(false),[error,setError]=useState(''),[notice,setNotice]=useState(''),[editor,setEditor]=useState(()=>receiverDraft?.editor??false),[draftLines,setDraftLines]=useState(()=>receiverDraft?.draftLines??[]);
+  const view=useSyncExternalStore(afterimageBridge.subscribe,afterimageBridge.snapshot);
+  const [busy,setBusy]=useState(false),[error,setError]=useState(''),[notice,setNotice]=useState(''),[editor,setEditor]=useState(()=>receiverDraft?.editor??false),[draftLines,setDraftLines]=useState(()=>receiverDraft?.draftLines??[]);
   const [replacement,setReplacement]=useState(undefined),[pendingDelete,setPendingDelete]=useState(null),[saving,setSaving]=useState(false);
   const [conflict,setConflict]=useState(()=>receiverDraft?.conflict??false);
   const request=useRef(null),version=useRef(0),variation=useRef(0);
   const editPending=useRef(false),draftRevision=useRef(0);
   const reduceMotion=useReducedMotion();
   useEffect(()=>{receiverDraft={seed,tone,current,editor,draftLines,conflict};},[seed,tone,current,editor,draftLines,conflict]);
-  useEffect(()=>afterimageBridge.subscribe(()=>setView(afterimageBridge.snapshot())),[]);
   useEffect(()=>store.subscribe(()=>setItems(store.list())),[]);
   useEffect(()=>{const sync=event=>{if(event.key==='nox.afterimage.v1'||event.key===null)setItems(store.list());};window.addEventListener('storage',sync);return()=>window.removeEventListener('storage',sync);},[]);
   useEffect(()=>{if(view.status==='complete')setNotice('Cut complete. Try another ending, or capture this one.');},[view.status]);
