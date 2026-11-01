@@ -127,7 +127,7 @@ export async function createHistory(storage,legacy=[]){
     refresh,
     revisionTarget,
     replaceFrom:(target,content,options)=>revise(target,content,false,options),
-    retryFrom:target=>revise(target,'',true),
+    retryFrom:(target,options)=>revise(target,'',true,options),
     active:()=>structuredClone(active()),
     list(query=''){const q=query.toLowerCase().trim();return structuredClone(state.threads.filter(t=>!q||`${t.title} ${t.turns.map(v=>v.content).join(' ')}`.toLowerCase().includes(q)).sort((a,b)=>b.updated-a.updated));},
     create(){return write(()=>{if(active()&&!active().turns.length)return structuredClone(active());if(state.threads.length>=HISTORY_LIMITS.conversations){lastError='conversation-limit';return null;}const t=newThread();state.threads.push(t);currentId=t.id;return structuredClone(t);},null);},

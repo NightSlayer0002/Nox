@@ -8,6 +8,23 @@ async function openExample(page){
   await expect(page.locator('#rehearsal-range')).toHaveText('Lines 1–8 of 15');
 }
 
+for(const operation of ['send','retry'])test(`a source change cancels ${operation} while its history write is queued`,async({page})=>{
+  // Question: does source ownership still hold when a user action happens inside a storage-lock wait?
+  // Limits: one controlled Chromium lock ordering, not a proof of every cross-tab interleaving.
+  await page.goto('/app?prepare=code#conversation');await expect(page.locator('#brain-status')).toContainText('Synthetic CI provider');await page.locator('#rehearsal-example').click();
+  if(operation==='retry'){await page.locator('#rehearsal-explain').click();await expect(page.locator('#conversation .message.nox:not(.draft)')).toHaveCount(1);}
+  const before=await page.evaluate(()=>localStorage.getItem('nox.chats.v1')),requests=[];
+  page.on('request',r=>{if(r.url().endsWith('/api/chat'))requests.push(r);});
+  await page.evaluate(()=>new Promise(resolve=>{window.heldWrite=navigator.locks.request('nox.chat-history.write',()=>new Promise(release=>{window.releaseWrite=release;resolve();}));}));
+  if(operation==='send')await page.locator('#rehearsal-explain').click();
+  else{const reply=page.locator('#conversation .message.nox');await reply.hover();await reply.getByRole('button',{name:'Retry NOX’s reply',exact:true}).click();}
+  await expect.poll(()=>page.evaluate(async()=>(await navigator.locks.query()).pending.some(lock=>lock.name==='nox.chat-history.write'))).toBe(true);
+  await page.locator('#rehearsal-next').click();await page.evaluate(async()=>{releaseWrite();await heldWrite;});
+  await expect(page.locator('#rehearsal-range')).toHaveText('Lines 9–15 of 15');
+  await expect.poll(()=>page.evaluate(async()=>(await navigator.locks.query()).pending.length)).toBe(0);
+  expect(await page.evaluate(()=>localStorage.getItem('nox.chats.v1'))).toBe(before);expect(requests).toHaveLength(0);
+});
+
 for(const choice of ['close','example','range'])test(`successful late file import cannot override ${choice}`,async({page})=>{
   // Question: does a successful old import lose ownership after a newer user choice?
   // Limits: delayed File API fixture; not disk reliability or GitHub transport testing.
@@ -47,7 +64,7 @@ test('a complete user-selected function reaches the request unchanged',async({pa
   const source=(await request).postDataJSON().context.rehearsal;expect(source.endLine).toBe(11);expect(source.code.endsWith('\n}')).toBe(true);
 });
 
-for(const width of [390,1440])test(`source stays visible and conversation keeps its draft at ${width}px`,async({page})=>{
+for(const width of [320,390,768,1440])test(`source stays visible and conversation keeps its draft at ${width}px`,async({page})=>{
   // Question: can a real browser keep source, committed coverage and an unrelated draft aligned?
   // Limits: synthetic replies; does not establish explanation accuracy, microphone quality or learning.
   await page.setViewportSize({width,height:900});await openExample(page);
@@ -152,3 +169,4 @@ test('failed explanation preserves source and export reports no completed covera
   const download=page.waitForEvent('download');await page.locator('#rehearsal-export').click();
   expect((await download).suggestedFilename()).toBe('nox-code-preparation.txt');
 });
+

@@ -308,7 +308,10 @@ async function retryRevision(target){
   if(busy||!viewReady){toast('This conversation is updating. Try Retry again when it is ready.');return false;}
   if(editTarget!==null){toast('Finish or cancel your current edit before retrying a reply.');return false;}
   let rehearsalWork;try{rehearsalWork=rehearsal?.replay(history.active().turns.findLast(turn=>turn.role==='user'&&turn.seq<=target.seq));}catch(error){toast(error.message);return false;}
-  cancelConversation();const retrying=turns.begin(),result=await history.retryFrom(target);
+  cancelConversation();const retrying=turns.begin(),controller=new AbortController();turns.attach(retrying,controller);setBusy(true);
+  const result=await history.retryFrom(target,{signal:controller.signal});
+  if(!turns.isCurrent(retrying))return false;
+  setBusy(false);
   if(!result){if(turns.isCurrent(retrying)||history.active().id===target.threadId&&history.lastError==='revision-conflict')toast(historyFailure(history,'That reply changed. Reopen the conversation and try again.'));return false;}
   if(!turns.isCurrent(retrying))return false;
   const restored=await restoreConversation({retrying:true});if(!turns.isCurrent(restored))return false;
@@ -435,7 +438,7 @@ async function send(raw,{recorded=false,keepDraft=false,source='programmatic',on
   let request;try{request=prepareChatRequest(text,context,selectedProvider,true);}catch(error){cancelConversation();toast(error.message);return;}
   const notifyCommitted=answer=>{rehearsal?.committed(rehearsalWork,answer);onCommitted?.(answer);};
   setBusy(true);
-  if(!recorded&&!await history.append('user',text,{requiresSource:Boolean(rehearsalWork)})){const message=historyFailure(history);cancelConversation();await restoreConversation();toast(message);return;}
+  if(!recorded){const saved=await history.append('user',text,{requiresSource:Boolean(rehearsalWork),signal:requestController.signal});if(!turns.isCurrent(version))return;if(!saved){const message=historyFailure(history);cancelConversation();await restoreConversation();toast(message);return;}}
   if(!turns.isCurrent(version))return;
   const replyTo=history.revisionTarget(history.active().turns.at(-1)?.seq,{role:'user'});
   if(!replyTo){cancelConversation();await restoreConversation();return;}
@@ -635,7 +638,7 @@ const releaseNetwork=attachNetworkPresence({stage,host:$('world')});
 floatingPresence=attachFloatingPresence({stage,onInspect:value=>messageCompanion.inspect(value),onRelease:value=>messageCompanion.release(value),onClear:()=>messageCompanion.clear()});
 window.addEventListener('pagehide',event=>{if(!event.persisted){releaseNetwork();floatingPresence.dispose();messageCompanion.dispose();}},{once:true});
 rehearsal=attachCodeRehearsal({getThread:()=>history.active().id,canAct:()=>!busy&&editTarget===null,
-  send:(text,rehearsalWork)=>send(text,{rehearsalWork}),onContextChange:()=>{if(busy)cancelConversation();else voice.stop();}});
+  send:(text,rehearsalWork)=>send(text,{rehearsalWork}),onContextChange:()=>cancelConversation()});
 window.addEventListener('pagehide',event=>{if(!event.persisted)rehearsal.dispose();},{once:true});
 history.subscribe(({currentChanged})=>{if(currentChanged)void restoreConversation();else navigation.render();});
 const releaseMemory=memory.subscribe(()=>{updateMemory();});
