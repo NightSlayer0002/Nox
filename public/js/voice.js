@@ -52,7 +52,7 @@ export function createVoice({ onStart, onEnd, onError, onState, onTiming, reques
         else if(error)options?.onPlaybackError?.(result);
         else options?.onPlaybackEnd?.(result);
       },
-      cancel(){if(finished)return;finished=true;report('cancelled');},
+      cancel(){if(finished)return;finished=true;report('cancelled');options?.onPlaybackCancel?.();},
     };
     narration=lifecycle;report(entry?'preparing':'starting');return lifecycle;
   }

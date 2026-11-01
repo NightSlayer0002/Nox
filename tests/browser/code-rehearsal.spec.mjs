@@ -8,6 +8,32 @@ async function openExample(page){
   await expect(page.locator('#rehearsal-range')).toHaveText('Lines 1–8 of 15');
 }
 
+test('spoken walkthrough follows actual playback events and Stop prevents another line',async({page})=>{
+  // Question: are the highlighted source line and speech lifecycle synchronized without duplicate default narration?
+  // Limits: synthetic speech events, not physical audio, microphone input or Orpheus quality.
+  await page.addInitScript(()=>{window.ciUtterances=[];window.SpeechSynthesisUtterance=class{constructor(text){this.text=text;}};Object.defineProperty(window,'speechSynthesis',{value:{getVoices:()=>[],cancel(){},speak(utterance){ciUtterances.push(utterance);},addEventListener(){}}});});
+  await page.route('**/api/chat',route=>route.fulfill({json:{speech:'[L1] Declare a total function receiving items.\n[L2] Map each item to its price.\n[L3] Add the prices, starting at zero, and return the result.\n[L4] Close the function body.',emotion:'curious',action:'none',memory:''}}));
+  await page.goto('/guest?prepare=code#conversation');await expect(page.locator('#brain-status')).toContainText('Guest visit');await page.locator('#rehearsal-spoken-example').click();
+  await page.locator('#rehearsal-narrate').click();await expect.poll(()=>page.evaluate(()=>ciUtterances.length)).toBe(1);
+  await expect(page.locator('.code-line.speaking')).toHaveCount(0);await page.evaluate(()=>ciUtterances[0].onstart());
+  await expect(page.locator('.code-line.speaking')).toHaveAttribute('data-line','1');
+  await page.evaluate(()=>ciUtterances[0].onend());await expect.poll(()=>page.evaluate(()=>ciUtterances.length)).toBe(2);
+  await page.evaluate(()=>ciUtterances[1].onstart());await expect(page.locator('.code-line.speaking')).toHaveAttribute('data-line','2');
+  await page.locator('#rehearsal-stop').click();await expect(page.locator('.code-line.speaking')).toHaveCount(0);
+  await page.evaluate(()=>ciUtterances[1].onend());expect(await page.evaluate(()=>ciUtterances.length)).toBe(2);
+  await expect(page.locator('#conversation .message.nox:not(.draft)')).toHaveCount(1);await expect(page.locator('#rehearsal-range')).toHaveText('Lines 1–4 of 4');
+});
+
+test('a malformed spoken plan keeps the answer and spends no speech requests',async({page})=>{
+  // Question: does missing line alignment stop speech instead of highlighting fabricated positions?
+  // Limits: one malformed fixture; factually wrong but well-aligned explanations still need review.
+  const requests=[];page.on('request',r=>{if(r.url().endsWith('/api/speech'))requests.push(r);});
+  await page.route('**/api/chat',route=>route.fulfill({json:{speech:'[L1] Just one line.',emotion:'curious',action:'none',memory:''}}));
+  await page.goto('/guest?prepare=code#conversation');await expect(page.locator('#brain-status')).toContainText('Guest visit');await page.locator('#rehearsal-spoken-example').click();
+  await page.locator('#rehearsal-narrate').click();await expect(page.locator('#rehearsal-notice')).toContainText('every selected line');
+  await expect(page.locator('#conversation .message.nox:not(.draft)')).toContainText('Just one line.');expect(requests).toHaveLength(0);
+});
+
 for(const operation of ['send','retry'])test(`a source change cancels ${operation} while its history write is queued`,async({page})=>{
   // Question: does source ownership still hold when a user action happens inside a storage-lock wait?
   // Limits: one controlled Chromium lock ordering, not a proof of every cross-tab interleaving.

@@ -72,7 +72,7 @@ export function createRehearsalSession(){
     for(const record of records){const c=record.context;out.push(`${c.path} · lines ${c.startLine}–${c.endLine} · ${c.intent}`,c.code,'','Your message:',record.input,'','NOX (AI-generated; verify against your code):',record.answer,'');}
     return out.join('\n');
   }
-  return {open,switchFile,select,selectRange,next,previous,context,capture,recall,complete,markReady,setGoal,setCorrections,snapshot,export:exportSheet};
+  return {open,switchFile,select,selectRange,next,previous,context,capture,recall,complete,markReady,setGoal,setCorrections,snapshot,export:exportSheet,isCurrent:ticket=>ticket?.file===active&&ticket.epoch===epoch};
 }
 
 export const REHEARSAL_EXAMPLE=Object.freeze({path:'retry.js',source:'example',revision:'example-v1',text:`export async function retry(task, attempts = 3) {

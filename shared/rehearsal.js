@@ -9,8 +9,9 @@ const note=(value,limit)=>typeof value==='string'?value.replace(/[\u0000-\u001f\
 export function sanitizeRehearsal(value) {
   if(!value||typeof value!=='object'||Array.isArray(value))return null;
   if(value.version!==1||!metadata(value.path,REHEARSAL_LIMITS.path)||!metadata(value.revision,REHEARSAL_LIMITS.revision))return null;
-  if(!['github','local','pasted','example'].includes(value.source)||!['explain','question','discuss'].includes(value.intent))return null;
+  if(!['github','local','pasted','example'].includes(value.source)||!['explain','question','discuss','narrate'].includes(value.intent))return null;
   const {startLine,endLine,totalLines}=value;
+  if(value.intent==='narrate'&&endLine-startLine>=4)return null;
   if(![startLine,endLine,totalLines].every(Number.isInteger)||startLine<1||endLine<startLine||endLine>totalLines||totalLines>REHEARSAL_LIMITS.fileLines||endLine-startLine+1>REHEARSAL_LIMITS.lines)return null;
   if(typeof value.code!=='string')return null;
   const code=value.code.replace(/\r\n?/g,'\n');

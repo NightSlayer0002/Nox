@@ -27,6 +27,7 @@
 .workspace .rehearsal-panel .rehearsal-code{position:relative;max-height:290px;overflow:auto;border-block:1px solid var(--line);padding:8px 0;tab-size:2;scrollbar-width:thin;scrollbar-color:var(--line) transparent}
 .code-line{display:flex;min-width:max-content;min-height:24px;padding-right:12px;align-items:baseline}
 .code-line.selected{background:color-mix(in srgb,var(--secondary-accent) 12%,transparent)}
+.code-line.speaking{background:color-mix(in srgb,var(--accent) 23%,transparent);box-shadow:inset 3px 0 var(--accent)}
 .workspace .rehearsal-panel .code-line-number{border:0;border-radius:0;background:none;padding:3px 8px;min-height:24px;min-width:44px;color:var(--muted);text-align:right;font-size:11px;font-variant-numeric:tabular-nums}
 .code-line code{font:12px/1.8 ui-monospace,SFMono-Regular,Consolas,monospace;white-space:pre;color:var(--text)}
 .workspace .rehearsal-panel .rehearsal-self-check{display:flex;align-items:center;gap:8px;margin:14px 0;color:var(--text)}

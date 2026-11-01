@@ -352,25 +352,25 @@ async function perform(value, save = true, draft, version, depth='quick',remembe
   if(version!==undefined&&!turns.isCurrent(version))return;
   const packet = normalizePacket(value,depth); lastPacket = packet;
   const spoken=spokenPreview(packet.speech);
-  voice.prepare(spoken,mode,packet.emotion);
+  if(!completion.silent)voice.prepare(spoken,mode,packet.emotion);
   if (packet.memory&&rememberAllowed) await memory.remember(packet.memory);
   if(version!==undefined&&!turns.isCurrent(version))return;
   if (save && !await history.append('assistant', packet.speech,{sources,...completion})) {voice.stop();return;}
   if(version!==undefined&&!turns.isCurrent(version))return;
   const replyTurn=save?history.active().turns.at(-1):null;
   if(save)try{completion.onCommitted?.(packet.speech);}catch{/* A failed view must not discard a committed answer. */}
-  const presentation=createReplyPresentation({voiceEnabled:voice.enabled&&voice.supported,isCurrent:()=>version===undefined||turns.isCurrent(version),
+  const presentation=createReplyPresentation({voiceEnabled:!completion.silent&&voice.enabled&&voice.supported,isCurrent:()=>version===undefined||turns.isCurrent(version),
     onWaiting:waiting=>{$('show-reply-text').hidden=!waiting;if(waiting)replyDiagnostics.setStatus('Preparing NOX’s voice…');else if($('reply-timing').textContent==='Preparing NOX’s voice…')replyDiagnostics.setStatus('');},
     onReveal:()=>{
       replyFollow.update(()=>{
         if(draft){draft.classList.remove('draft');setChatContent(draft.querySelector('.message-content'),packet.speech);attachMessageActions(draft,replyTurn);if(pendingDraft===draft)pendingDraft=null;}else{const message=addMessage('nox', packet.speech,replyTurn);attachMessageActions(message,replyTurn);}
         if(draft&&sources.length)attachMessageSources(draft,sources);
       });
-      stage.speak({...packet,speech:spoken});
+      stage.speak({...packet,speech:completion.silent?'':spoken});
       if(packet.action==='takeover'&&!floatingPresence?.active)stage.canvas.scrollIntoView({behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'instant':'smooth',block:'center'});
     }});
   pendingPresentation=presentation;
-  Promise.resolve(voice.speak(spoken,mode,packet.emotion,undefined,{onPlaybackStart:()=>presentation.reveal('playback'),onPlaybackUnavailable:()=>presentation.reveal('unavailable')})).catch(()=>presentation.reveal('unavailable'));
+  if(!completion.silent)Promise.resolve(voice.speak(spoken,mode,packet.emotion,undefined,{onPlaybackStart:()=>presentation.reveal('playback'),onPlaybackUnavailable:()=>presentation.reveal('unavailable')})).catch(()=>presentation.reveal('unavailable'));
   const revealed=await presentation.ready;if(pendingPresentation===presentation)pendingPresentation=null;
   if(!revealed)return;
   $('mood-label').textContent = packet.emotion;
@@ -389,10 +389,10 @@ function setBusy(value) {
 async function send(raw,{recorded=false,keepDraft=false,source='programmatic',onCommitted,rehearsalWork}={}) {
   composerOptions.close();
   const text = raw.trim(); if (!text || busy) return;
-  try{if(rehearsalWork===undefined){const thread=history.active(),editing=source==='composer'&&editTarget?thread.turns.find(turn=>turn.id===editTarget.turnId):null,last=thread.turns.at(-1),retry=recorded||last?.role==='user'&&last.content===text;rehearsalWork=editing||retry?rehearsal?.replay(editing||last):rehearsal?.capture();}}catch(error){toast(error.message);return;}
   const submittedDraft=$('message').value;
   if(brain==='loading'){replyDiagnostics.setStatus('The AI connection is not ready. Your message is still here.');return;}
   if(visit.owner&&history.crossTabSafe===false){toast(historyFailure(history));return;}
+  try{if(rehearsalWork===undefined){const thread=history.active(),editing=source==='composer'&&editTarget?thread.turns.find(turn=>turn.id===editTarget.turnId):null,last=thread.turns.at(-1),retry=recorded||last?.role==='user'&&last.content===text;rehearsalWork=editing||retry?rehearsal?.replay(editing||last):rehearsal?.capture();}}catch(error){toast(error.message);return;}
   if(source==='composer'&&editTarget!==null){
     const operation=revisionControls.beginCommit();if(!operation)return;
     const editing=turns.begin();turns.attach(editing,operation.controller);setBusy(true);
@@ -460,7 +460,7 @@ async function send(raw,{recorded=false,keepDraft=false,source='programmatic',on
       packet = demoReply(text, context);
       if(turns.isCurrent(version))replyDiagnostics.complete(timingVersion);
     }
-    if (turns.isCurrent(version)) {activity.transition('reply-ready',activityTurn);if(takeover)packet={...packet,action:'takeover'};const draft=pendingDraft;const completed=await perform(packet,true,draft,version,depth,explicitMemoryRequest(text),brain==='live'?request.context.knowledge:[],{replyTo,signal:requestController.signal,onCommitted:notifyCommitted});if(turns.isCurrent(version)){pendingDraft=null;scheduleSummary();return completed;}}
+    if (turns.isCurrent(version)) {activity.transition('reply-ready',activityTurn);if(takeover)packet={...packet,action:'takeover'};const draft=pendingDraft;const completed=await perform(packet,true,draft,version,depth,explicitMemoryRequest(text),brain==='live'?request.context.knowledge:[],{replyTo,signal:requestController.signal,onCommitted:notifyCommitted,silent:rehearsalWork?.ticket.context.intent==='narrate'});if(turns.isCurrent(version)){pendingDraft=null;scheduleSummary();return completed;}}
   } catch (error) {
     if (turns.isCurrent(version)){setUsage(error.usage);pendingDraft?.remove();pendingDraft=null;if(error.name!=='AbortError'){activity.finishTurn(activityTurn,'error');if(source==='composer'&&!$('message').value){composer.setValue(text);contextPreview();}stage.character.react?.('worried',stage.time,2);if (brain === 'live') $('brain-status').lastChild.textContent = ' AI error'; addMessage('system', error.message); toast(error.message);replyDiagnostics.setStatus('Reply interrupted. Your message is still in this visit.');}}
   } finally { if (turns.isCurrent(version)) { setBusy(false); } }
@@ -597,7 +597,7 @@ setInterval(() => {
   $('stage').dataset.held=String(Boolean(stage.character.held));$('stage').dataset.mouth=voice.mouthLevel.toFixed(2);$('stage').dataset.mouthTiming=voice.mouthTiming;
 }, 120);
 
-function cancelConversation(){afterimageBridge.stop('conversation');turns.cancel();pendingPresentation?.cancel();pendingPresentation=null;activity.finishTurn(activityTurn);replyDiagnostics.invalidate();replyDiagnostics.setStatus('');setBusy(false);voice.stop();microphone.stop();summaryController?.abort();clearTimeout(summaryTimer);pendingDraft?.remove();pendingDraft=null;}
+function cancelConversation(){rehearsal?.stopNarration();afterimageBridge.stop('conversation');turns.cancel();pendingPresentation?.cancel();pendingPresentation=null;activity.finishTurn(activityTurn);replyDiagnostics.invalidate();replyDiagnostics.setStatus('');setBusy(false);voice.stop();microphone.stop();summaryController?.abort();clearTimeout(summaryTimer);pendingDraft?.remove();pendingDraft=null;}
 async function restoreConversation({retrying=false}={}){viewReady=false;messageCompanion?.clear();cancelConversation();const selected=history.active(),restored=await setMode(selected.mode,false);if(!turns.isCurrent(restored)||history.active().id!==selected.id)return;const thread=history.active();rehearsal?.sync();$('conversation').replaceChildren();$('chat-title').textContent=thread.title;
   thread.turns.forEach(turn=>{const message=addMessage(turn.role==='user'?'user':'nox',turn.content,turn);attachMessageActions(message,turn);});
   replyFollow.latest();
@@ -638,6 +638,7 @@ const releaseNetwork=attachNetworkPresence({stage,host:$('world')});
 floatingPresence=attachFloatingPresence({stage,onInspect:value=>messageCompanion.inspect(value),onRelease:value=>messageCompanion.release(value),onClear:()=>messageCompanion.clear()});
 window.addEventListener('pagehide',event=>{if(!event.persisted){releaseNetwork();floatingPresence.dispose();messageCompanion.dispose();}},{once:true});
 rehearsal=attachCodeRehearsal({getThread:()=>history.active().id,canAct:()=>!busy&&editTarget===null,
+  voice:{stop:()=>voice.stop(),speak:(text,options)=>{voice.setEnabled(true);showVoice();return voice.speak(text,mode,'neutral',undefined,{...options,onPlaybackStart:()=>{stage.speak({speech:text,emotion:'curious',action:'none',memory:''});options.onPlaybackStart();}});}},
   send:(text,rehearsalWork)=>send(text,{rehearsalWork}),onContextChange:()=>cancelConversation()});
 window.addEventListener('pagehide',event=>{if(!event.persisted)rehearsal.dispose();},{once:true});
 history.subscribe(({currentChanged})=>{if(currentChanged)void restoreConversation();else navigation.render();});
