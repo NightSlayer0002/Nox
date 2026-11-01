@@ -3,6 +3,16 @@ import assert from 'node:assert/strict';
 import {floatingLayout,createKeyboardTracker,floatingAllowed} from '../public/js/floating-layout.js';
 import {floatingBotTarget} from '../public/js/floating-follower.js';
 
+// Question: can code and its answer share a screen without NOX covering their first controls?
+// Limits: geometry only; browser checks verify actual CSS and no hardware rendering is inferred.
+test('source reading parks a smaller companion inside its reserved header strip',()=>{
+  for(const compact of [true,false]){
+    const layout=floatingLayout({viewport:{width:compact?390:1440,height:900},shell:{left:0,right:compact?390:1440},header:{bottom:70},composer:{top:780,right:compact?372:1380},compact,reading:true});
+    assert.ok(layout.size<=88);assert.equal(layout.initial.y,layout.bounds.top);
+    assert.ok(layout.initial.y+layout.size<=174);
+  }
+});
+
 test('phone first placement uses the clear area above the welcome copy',()=>{
   const layout=floatingLayout({viewport:{width:390,height:844},header:{bottom:64},welcome:{top:238,height:300,right:372},composer:{top:692,right:372},nav:{height:60},compact:true});
   assert.ok(layout.initial.y+layout.size<=238);

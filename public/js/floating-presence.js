@@ -28,8 +28,8 @@ export function attachFloatingPresence({stage,documentTarget=document,windowTarg
   panel.append(utilities);
   let active=false,disposed=false,layout=null,placed=false,held=null,pressed=null,moved=false,previousGravity=false,saved=null,measureFrame=null,lastImpact=0,lastKeyboard=false;
   let bot={x:0,y:0},previousAction='none',takeoverHome=null,restorePlacement=null;
-  let userPlaced=false,clearancePose='';
-  const clearance=attachPresenceClearance({conversation:$('conversation'),windowTarget:win,getPlacement:()=>({enabled:active&&!userPlaced&&!previousGravity&&previousAction!=='takeover',character:{left:motion.state.x,top:motion.state.y,right:motion.state.x+motion.state.size,bottom:motion.state.y+motion.state.size}})});
+  let userPlaced=false,clearancePose='',readingMode=false,readingHome=null;
+  const clearance=attachPresenceClearance({conversation:$('conversation'),windowTarget:win,getPlacement:()=>({enabled:active&&doc.body.dataset.rehearsal!=='open'&&!userPlaced&&!previousGravity&&previousAction!=='takeover',character:{left:motion.state.x,top:motion.state.y,right:motion.state.x+motion.state.size,bottom:motion.state.y+motion.state.size}})});
   const releasePreview=attachPresencePreview(menu,$('presence-signal-preview'));
   const beforeFrame=stage.onBeforeFrame;
   const point=event=>({x:event.clientX,y:event.clientY});
@@ -46,14 +46,18 @@ export function attachFloatingPresence({stage,documentTarget=document,windowTarg
     // its floor. Suggestion-bar resizes keep the same keyboard state.
     motion.keyboard(keyboardState.open,{reduceMotion:reduceMotion()});lastKeyboard=keyboardState.open;
     const nav=$('mobile-bottom-nav')??doc.querySelector('.mobile-bottom-nav');
-    return floatingLayout({viewport:{width,height,offsetLeft:viewport?.offsetLeft??0,offsetTop:viewport?.offsetTop??0},shell:$('workspace-shell').getBoundingClientRect(),header:doc.querySelector('.header').getBoundingClientRect(),welcome:doc.querySelector('.companion-welcome')?.getBoundingClientRect(),composer:$('chat-form').getBoundingClientRect(),nav:{height:nav&&win.getComputedStyle(nav).display!=='none'?nav.getBoundingClientRect().height:0},compact:compact.matches,takeover:stage.scene?.action==='takeover'});
+    return floatingLayout({viewport:{width,height,offsetLeft:viewport?.offsetLeft??0,offsetTop:viewport?.offsetTop??0},shell:$('workspace-shell').getBoundingClientRect(),header:doc.querySelector('.header').getBoundingClientRect(),welcome:doc.querySelector('.companion-welcome')?.getBoundingClientRect(),composer:$('chat-form').getBoundingClientRect(),nav:{height:nav&&win.getComputedStyle(nav).display!=='none'?nav.getBoundingClientRect().height:0},compact:compact.matches,takeover:stage.scene?.action==='takeover',reading:doc.body.dataset.rehearsal==='open'});
   }
   function measure(){
     measureFrame=null;if(!active||disposed)return;
+    const reading=doc.body.dataset.rehearsal==='open',changedReading=reading!==readingMode;
+    if(changedReading&&reading)readingHome={x:motion.state.x,y:motion.state.y};
+    readingMode=reading;
     const previousSize=motion.state.size;layout=bounds();motion.resize(layout.size);
     world.style.setProperty('--floating-size',`${layout.size}px`);
     motion.setBounds(layout.bounds);
-    if(!placed){motion.place(layout.initial);placed=true;}
+    if(!placed||changedReading&&reading){motion.place(layout.initial);placed=true;}
+    if(changedReading&&!reading&&readingHome){motion.place(readingHome);readingHome=null;}
     if(restorePlacement){motion.place(restorePlacement);restorePlacement=null;}
     if(previousSize!==layout.size)stage.resize();
     if(menu.open)positionMenu();
@@ -177,7 +181,7 @@ export function attachFloatingPresence({stage,documentTarget=document,windowTarg
   listen(win,'resize',scheduleMeasure);listen(win.visualViewport,'resize',scheduleMeasure);listen(win.visualViewport,'scroll',scheduleMeasure);
   listen(doc,'focusin',scheduleMeasure);listen(doc,'focusout',scheduleMeasure);listen(reduced,'change',scheduleMeasure);listen(compact,'change',scheduleMeasure);
   listen(win,'blur',()=>finish(true));listen(doc,'visibilitychange',()=>{if(doc.hidden)finish(true);});
-  const observer=new win.MutationObserver(sync);observer.observe(doc.body,{attributes:true,attributeFilter:['data-view','data-presence','data-call-open','class']});
+  const observer=new win.MutationObserver(sync);observer.observe(doc.body,{attributes:true,attributeFilter:['data-view','data-presence','data-call-open','data-rehearsal','class']});
   const resize=new win.ResizeObserver(scheduleMeasure);resize.observe($('chat-form'));resize.observe($('workspace-shell'));
   listen(win,'hashchange',()=>{onClear();sync();});sync();
   return {park,measure:scheduleMeasure,get active(){return active;},get state(){return {...motion.state,keyboardOpen:lastKeyboard};},dispose(){

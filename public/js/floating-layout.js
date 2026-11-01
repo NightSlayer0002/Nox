@@ -5,9 +5,9 @@ export function floatingAllowed({view,presence,callOpen,film=false,recording=fal
   return view==='conversation'&&presence!=='hidden'&&callOpen!=='true'&&!film&&!recording;
 }
 
-export function floatingLayout({viewport={},shell={},header={},welcome={},composer={},nav={},compact=false,takeover=false}={}){
+export function floatingLayout({viewport={},shell={},header={},welcome={},composer={},nav={},compact=false,takeover=false,reading=false}={}){
   const width=Math.max(1,finite(viewport.width,390)),height=Math.max(1,finite(viewport.height,844));
-  const offsetLeft=finite(viewport.offsetLeft),offsetTop=finite(viewport.offsetTop),preferredSize=(compact?144:208)*(takeover?1.5:1);
+  const offsetLeft=finite(viewport.offsetLeft),offsetTop=finite(viewport.offsetTop),preferredSize=(reading?(compact?72:88):compact?144:208)*(takeover?1.5:1);
   const left=clamp(Math.max(offsetLeft,finite(shell.left))+8,offsetLeft,offsetLeft+width-1);
   const right=clamp(Math.min(offsetLeft+width,finite(shell.right,offsetLeft+width))-8,left+1,offsetLeft+width);
   const bottom=clamp(offsetTop+height-Math.max(0,finite(nav.height))-8,offsetTop+1,offsetTop+height);
@@ -23,7 +23,7 @@ export function floatingLayout({viewport={},shell={},header={},welcome={},compos
   const contentRight=finite(composer.right,finite(visibleWelcome.right,right));
   const initialX=clamp(contentRight-size-48,left,right-size);
   const centerY=finite(visibleWelcome.height)>0?finite(visibleWelcome.top,top)+visibleWelcome.height*.5:(top+finite(composer.top,bottom))*.5;
-  const initialY=compact?top:clamp(centerY-size*.5,top,Math.max(top,floor-size));
+  const initialY=compact||reading?top:clamp(centerY-size*.5,top,Math.max(top,floor-size));
   return {size,bounds:{left,top,right,bottom,floor},initial:{x:initialX,y:initialY},park:{x:parkX,y:floor-size}};
 }
 
