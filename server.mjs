@@ -8,6 +8,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import { normalizePacket, sanitizeContext, sanitizeRehearsal, answerDepth, EMOTIONS, CHAT_INPUT_CHARACTERS, CHAT_REQUEST_BYTES, MAX_PACKET_CHARACTERS } from './shared/character.js';
 import {capabilitiesForModel} from './shared/product-capabilities.js';
 import { requestNox, explicitMemoryRequest } from './server/ai.mjs';
+import {CONVERSATION_POLICY_VERSION,CONVERSATION_POLICY_SHA256} from './server/conversation-policy.mjs';
 import { getProviders, providerKey, requestProvider, requestSummary, modelForDepth } from './server/providers.mjs';
 import {FREE_CHAT_MODEL,requestFreeChat} from './server/free-model-policy.mjs';
 import {createChatBudget,CHAT_BUDGET_MS} from './server/chat-budget.mjs';
@@ -306,7 +307,7 @@ export function createAppServer({
             if(guestChat||!explicitMemoryRequest(prompt.message))result.memory='';
             return result;
           };
-          const metrics=firstTextMs=>({firstTextMs,totalMs:Math.round(performance.now()-started),provider:selected.name,model:actualModel,...(fallbackReason?{fallbackReason}:{}),depth:prompt.context.depth});
+          const metrics=firstTextMs=>({firstTextMs,totalMs:Math.round(performance.now()-started),provider:selected.name,model:actualModel,conversationPolicyVersion:CONVERSATION_POLICY_VERSION,conversationPolicyHash:CONVERSATION_POLICY_SHA256,...(fallbackReason?{fallbackReason}:{}),depth:prompt.context.depth});
           if(input.stream===true) {
             let firstTextMs=null,previousSpeech='';
             response.writeHead(200,{'content-type':'text/event-stream; charset=utf-8','x-accel-buffering':'no'});response.flushHeaders();
