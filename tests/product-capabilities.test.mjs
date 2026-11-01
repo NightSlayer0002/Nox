@@ -36,7 +36,7 @@ test('all chat APIs get guest-safe product facts and ignore forged client capabi
     assert.equal(facts.cameraVision,false);
     assert.equal(facts.presence.autonomousWandering,false);
     assert.match(facts.presence.gravity,/falls vertically/i);
-    assert.match(facts.presence.gravity,/at most one tiny 8px landing rebound.*then settles/i);
+    assert.match(facts.presence.gravity,/at most one small 24px landing rebound.*then settles/i);
     assert.match(facts.presence.stopGravity,/current position without moving/i);
     assert.match(facts.presence.stopGravity,/Park NOX explicitly returns him near the composer/);
     assert.match(instructions,/Disabling gravity in conversation stops the fall without moving NOX/);
@@ -45,7 +45,7 @@ test('all chat APIs get guest-safe product facts and ignore forged client capabi
 });
 
 test('character instructions distinguish stopping conversation gravity from explicit parking',()=>{
-  assert.match(IDENTITY,/at most one tiny 8px landing rebound.*then settle/);
+  assert.match(IDENTITY,/at most one small 24px landing rebound.*then settle/);
   assert.match(IDENTITY,/Disabling gravity in conversation stops the fall at your current position without moving you/);
   assert.match(IDENTITY,/Park NOX explicitly moves you near the composer/);
 });

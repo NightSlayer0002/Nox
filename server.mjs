@@ -5,7 +5,7 @@ import { readFile } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-import { normalizePacket, sanitizeContext, answerDepth, EMOTIONS, CHAT_INPUT_CHARACTERS, CHAT_REQUEST_BYTES, MAX_PACKET_CHARACTERS } from './shared/character.js';
+import { normalizePacket, sanitizeContext, sanitizeRehearsal, answerDepth, EMOTIONS, CHAT_INPUT_CHARACTERS, CHAT_REQUEST_BYTES, MAX_PACKET_CHARACTERS } from './shared/character.js';
 import {capabilitiesForModel} from './shared/product-capabilities.js';
 import { requestNox, explicitMemoryRequest } from './server/ai.mjs';
 import { getProviders, providerKey, requestProvider, requestSummary, modelForDepth } from './server/providers.mjs';
@@ -134,7 +134,7 @@ export function createAppServer({
     response.setHeader('x-content-type-options', 'nosniff');
     response.setHeader('cache-control', 'no-store');
     response.setHeader('referrer-policy', 'no-referrer');
-    response.setHeader('content-security-policy', "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; media-src 'self' blob:; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; object-src 'none'; form-action 'self'");
+    response.setHeader('content-security-policy', "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; media-src 'self' blob:; connect-src 'self' https://api.github.com; frame-ancestors 'none'; base-uri 'none'; object-src 'none'; form-action 'self'");
     const host = request.headers.host || '';
     if (hosted ? !publicHosts.includes(host) : !/^(127\.0\.0\.1|localhost)(:\d+)?$/.test(host)) return sendJson(response, 403, { error: 'Use NOX from its configured address.' });
     let pathname;
@@ -283,6 +283,7 @@ export function createAppServer({
         if (!input || typeof input.message !== 'string' || !input.message.trim() || input.message.length > messageLimit) {
           return sendJson(response, 400, { error: `Message must contain 1–${messageLimit} characters.` });
         }
+        if(input.context?.rehearsal!=null&&!sanitizeRehearsal(input.context.rehearsal))return sendJson(response,400,{error:'Select a valid bounded code section before sending. No AI request was made.'});
         if (!preferred) return sendJson(response, 503, { error: 'Add a Groq, Gemini, or NVIDIA API key to server environment settings and restart or redeploy NOX.' });
         if(guestChat&&input.provider&&input.provider!=='groq')return sendJson(response,400,{error:'NOX Free uses its configured public connection.'});
         const selected = guestChat?guestProvider:input.provider ? available.find(p=>p.id===input.provider) : preferred;
@@ -341,7 +342,7 @@ export function createAppServer({
 
     // Only public assets and these exact shared modules are readable over HTTP.
     let file;
-    if (['/shared/character.js','/shared/afterimage.js','/shared/interface-state.js'].includes(pathname)) file = path.join(root, 'shared', path.basename(pathname));
+    if (['/shared/character.js','/shared/afterimage.js','/shared/interface-state.js','/shared/rehearsal.js'].includes(pathname)) file = path.join(root, 'shared', path.basename(pathname));
     else {
       file = path.resolve(publicRoot, pathname === '/' ? 'index.html' : ['/app','/app/','/guest','/guest/','/owner','/owner/'].includes(pathname)?'app.html':`.${pathname}`);
       if (!file.startsWith(publicRoot + path.sep) || pathname.includes('\\') || pathname.split('/').some(part => part.startsWith('.'))) return sendJson(response, 404, { error: 'Not found.' });

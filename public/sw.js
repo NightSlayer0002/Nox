@@ -11,7 +11,7 @@ function publicAsset(url){
   const path=url.pathname;
   return CORE.includes(path)||/^\/[a-z0-9-]+\.css$/i.test(path)||
     /^\/(?:js|dist|assets|vendor|fonts)\/[^?]+\.(?:js|css|svg|png|jpg|woff2?|ttf|glb|bin|glsl|vert|frag)$/i.test(path)||
-    ['/shared/character.js','/shared/afterimage.js','/shared/interface-state.js'].includes(path);
+    ['/shared/character.js','/shared/afterimage.js','/shared/interface-state.js','/shared/rehearsal.js'].includes(path);
 }
 function publicResponse(response){
   return response.ok&&response.type==='basic'&&!response.redirected&&
