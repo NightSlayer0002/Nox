@@ -310,10 +310,9 @@ async function retryRevision(target){
   let rehearsalWork;try{rehearsalWork=rehearsal?.replay(history.active().turns.findLast(turn=>turn.role==='user'&&turn.seq<=target.seq));}catch(error){toast(error.message);return false;}
   cancelConversation();const retrying=turns.begin(),controller=new AbortController();turns.attach(retrying,controller);setBusy(true);
   const result=await history.retryFrom(target,{signal:controller.signal});
+  if(!result){if(turns.isCurrent(retrying))setBusy(false);if(turns.isCurrent(retrying)||history.active().id===target.threadId&&history.lastError==='revision-conflict')toast(historyFailure(history,'That reply changed. Reopen the conversation and try again.'));return false;}
   if(!turns.isCurrent(retrying))return false;
   setBusy(false);
-  if(!result){if(turns.isCurrent(retrying)||history.active().id===target.threadId&&history.lastError==='revision-conflict')toast(historyFailure(history,'That reply changed. Reopen the conversation and try again.'));return false;}
-  if(!turns.isCurrent(retrying))return false;
   const restored=await restoreConversation({retrying:true});if(!turns.isCurrent(restored))return false;
   await send(result.draft,{recorded:true,keepDraft:true,rehearsalWork});return true;
 }

@@ -77,10 +77,12 @@ export async function createHistory(storage,legacy=[]){
     return serialize(storage,()=>{
       if(!crossTabSafe()){lastError='coordination-unavailable';return null;}
       lastError='';if(persistent)load();choose();
-      if(signal?.aborted)return null;
       if(!persistent||recovery){lastError='transcript-not-saved';return null;}
       const original=state.threads.find(thread=>thread.id===target.threadId);
       if(currentId!==target.threadId||!original||revision(original)!==target.revision){lastError='revision-conflict';return null;}
+      // Reload subscribers may cancel the request because they discovered this
+      // conflict. Preserve its reason, then gate every mutation on cancellation.
+      if(signal?.aborted)return null;
       const selected=original.turns.findIndex(turn=>turn.id===target.turnId&&turn.seq===target.seq&&turn.role===target.role);
       const index=retry?original.turns.findLastIndex((turn,i)=>i<=selected&&turn.role==='user'):selected;
       if(selected<0||index<0||original.turns[index].role!=='user'){lastError='revision-conflict';return null;}
