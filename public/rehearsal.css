@@ -1,0 +1,62 @@
+/* A reading surface inside the existing conversation. Code is the only mono type. */
+.workspace .rehearsal-tools{display:flex;align-items:center;justify-content:flex-start;flex:none;margin:0 0 8px}
+.workspace .rehearsal-tools button{padding:5px 0;min-height:32px;background:none;border:0;color:var(--muted);font-size:14px;text-decoration:underline;text-underline-offset:5px}
+.workspace .rehearsal-panel{min-width:0;min-height:0;overflow:auto;overscroll-behavior:contain;background:var(--bg);padding:20px;border:1px solid var(--line);border-radius:14px;scrollbar-width:thin;scrollbar-color:var(--line) transparent}
+.workspace .rehearsal-panel[hidden],.workspace .rehearsal-panel [hidden]{display:none!important}
+.workspace .rehearsal-panel header{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:18px}
+.workspace .rehearsal-panel h2{font-size:22px;font-weight:550;margin:0 0 6px;letter-spacing:-.02em}
+.workspace .rehearsal-panel p{font-size:14px;line-height:1.5;color:var(--muted);margin:4px 0 12px}
+.workspace .rehearsal-panel button,.workspace .rehearsal-panel input,.workspace .rehearsal-panel select,.workspace .rehearsal-panel textarea{font:inherit;color:var(--text);max-width:100%;box-sizing:border-box}
+.workspace .rehearsal-panel button{min-height:40px;padding:8px 12px;border:1px solid var(--line);border-radius:7px;background:transparent;font-size:14px}
+.workspace .rehearsal-panel button:hover{background:var(--surface)}
+.workspace .rehearsal-panel button:disabled{opacity:.45;cursor:default}
+.workspace .rehearsal-panel :is(button,input,textarea,select,summary):focus-visible{outline:2px solid var(--secondary-accent);outline-offset:3px}
+.workspace .rehearsal-panel .rehearsal-primary{background:var(--accent);color:var(--bg);border-color:transparent}
+.workspace .rehearsal-panel #rehearsal-close{width:36px;min-height:36px;display:grid;place-items:center;padding:8px;border:0}
+#rehearsal-close svg{width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:1.6}
+.workspace .rehearsal-panel details{margin:12px 0}
+.workspace .rehearsal-panel summary{cursor:pointer;font-size:14px;padding:8px 0;color:var(--text)}
+.workspace .rehearsal-panel label{display:block;font-size:13px;color:var(--muted);margin:12px 0 6px}
+.workspace .rehearsal-panel :is(input:not([type=checkbox]),textarea,select){width:100%;padding:9px 10px;border:1px solid var(--line);border-radius:6px;background:var(--surface);font-size:14px}
+.workspace .rehearsal-panel textarea{resize:vertical;min-height:88px}
+.workspace .rehearsal-panel #rehearsal-paste{font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-size:12px;line-height:1.6}
+.workspace .rehearsal-panel .rehearsal-actions{display:flex;align-items:center;flex-wrap:wrap;gap:8px;margin:10px 0}
+.workspace .rehearsal-panel .rehearsal-file-input{width:auto;font-size:12px;margin-bottom:8px}
+.rehearsal-meta{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:12px 0 6px;font-size:12px;color:var(--muted);flex-wrap:wrap}
+.rehearsal-meta a{text-decoration:underline;text-underline-offset:3px;overflow-wrap:anywhere}
+.workspace .rehearsal-panel .rehearsal-code{position:relative;max-height:290px;overflow:auto;border-block:1px solid var(--line);padding:8px 0;tab-size:2;scrollbar-width:thin;scrollbar-color:var(--line) transparent}
+.code-line{display:flex;min-width:max-content;min-height:24px;padding-right:12px;align-items:baseline}
+.code-line.selected{background:color-mix(in srgb,var(--secondary-accent) 12%,transparent)}
+.workspace .rehearsal-panel .code-line-number{border:0;border-radius:0;background:none;padding:3px 8px;min-height:24px;min-width:44px;color:var(--muted);text-align:right;font-size:11px;font-variant-numeric:tabular-nums}
+.code-line code{font:12px/1.8 ui-monospace,SFMono-Regular,Consolas,monospace;white-space:pre;color:var(--text)}
+.workspace .rehearsal-panel .rehearsal-self-check{display:flex;align-items:center;gap:8px;margin:14px 0;color:var(--text)}
+.rehearsal-self-check input{accent-color:var(--secondary-accent)}
+.workspace .rehearsal-panel #rehearsal-export{border:0;padding-left:0;text-decoration:underline;text-underline-offset:4px}
+.workspace .rehearsal-panel #rehearsal-notice{font-size:12px;margin-top:12px;min-height:18px}
+.workspace[data-rehearsal=open][data-view=conversation] #chat{display:grid;max-width:none;width:100%;grid-template-columns:minmax(300px,.95fr) minmax(300px,1.05fr);grid-template-rows:auto minmax(0,1fr);gap:0 24px;padding-top:8px!important}
+.workspace[data-rehearsal=open] .rehearsal-tools{grid-column:1/-1;min-height:96px;align-items:center}
+.workspace[data-rehearsal=open] #rehearsal-panel{grid-column:1;grid-row:2}
+.workspace[data-rehearsal=open] #conversation-welcome{display:none!important}
+.workspace[data-rehearsal=open] #conversation{grid-column:2;grid-row:2;padding:8px 4px!important;min-height:0}
+.workspace[data-rehearsal=open] #conversation .message{padding-right:0!important}
+.workspace[data-rehearsal=open] #conversation:empty::before{content:'Pick a section. Ask NOX to explain it, then try it in your own words.';display:block;padding:24px 12px;color:var(--muted);font-size:17px;line-height:1.6}
+.rehearsal-call-source{margin:12px 0;border-block:1px solid var(--line);padding:12px 0}
+.rehearsal-call-source[hidden]{display:none}
+.rehearsal-call-source h3{font-size:14px;font-weight:500;color:var(--muted);margin:0 0 8px;overflow-wrap:anywhere}
+.rehearsal-call-source pre{font:12px/1.7 ui-monospace,SFMono-Regular,Consolas,monospace;white-space:pre;overflow:auto;max-height:170px;margin:0;color:var(--text)}
+.workspace .voice-call-dialog:has(.rehearsal-call-source:not([hidden])) .voice-call-presence{min-height:100px}
+.workspace .voice-call-dialog:has(.rehearsal-call-source:not([hidden])) .stage-wrap{height:130px!important;min-height:100px!important}
+@media(max-width:1000px){
+ .workspace[data-rehearsal=open][data-view=conversation] #chat{grid-template-columns:minmax(0,1fr);grid-template-rows:auto minmax(170px,.85fr) minmax(100px,1fr);gap:8px;padding-top:0!important}
+ .workspace[data-rehearsal=open] #conversation{grid-column:1;grid-row:3}
+ .workspace[data-rehearsal=open] .rehearsal-tools{min-height:80px}
+ .workspace .rehearsal-panel{padding:12px}
+ .workspace .rehearsal-panel header{margin-bottom:8px}
+ .workspace .rehearsal-panel h2{font-size:19px}
+ .workspace .rehearsal-panel button{min-height:44px}
+ .workspace .rehearsal-panel .rehearsal-code{max-height:190px}
+ .workspace .rehearsal-panel .code-line-number{min-height:28px}
+}
+
+.rehearsal-range-inputs{display:flex;align-items:end;gap:8px;flex-wrap:wrap}
+.workspace .rehearsal-range-inputs label{flex:1;min-width:70px;margin:0}

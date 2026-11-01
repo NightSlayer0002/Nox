@@ -38,6 +38,7 @@ import {attachComposerSubmission} from './composer-submission.js';
 import {createActivitySignal} from './activity-signal.js';
 import {approvedPreferences,companionBridge,companionChanged,rememberActivity} from './companion-context.js';
 import {EverydayBridge} from './everyday-bridge.js';
+import {attachCodeRehearsal} from './rehearsal-ui.js';
 
 const $ = id => document.getElementById(id);
 const releaseViewport=attachWorkspaceViewport();
@@ -50,7 +51,7 @@ const memory = createMemory(disk);
 const history = await createHistory(disk,memory.snapshot().history);
 if(history.persistent)await memory.clearHistory();
 let mode = history.active().mode;
-let navigation,summaryController,summaryTimer,pendingDraft,pendingPresentation,floatingPresence,messageCompanion;
+let navigation,summaryController,summaryTimer,pendingDraft,pendingPresentation,floatingPresence,messageCompanion,rehearsal;
 let viewReady=false;
 let editTarget=null,currentActivity='conversation',publicUsage=initialVisitStatus?.usage;
 let brain = 'loading'; let busy = false;
@@ -306,11 +307,12 @@ function messageAction(icon,label){
 async function retryRevision(target){
   if(busy||!viewReady){toast('This conversation is updating. Try Retry again when it is ready.');return false;}
   if(editTarget!==null){toast('Finish or cancel your current edit before retrying a reply.');return false;}
+  let rehearsalWork;try{rehearsalWork=rehearsal?.replay(history.active().turns.findLast(turn=>turn.role==='user'&&turn.seq<=target.seq));}catch(error){toast(error.message);return false;}
   cancelConversation();const retrying=turns.begin(),result=await history.retryFrom(target);
   if(!result){if(turns.isCurrent(retrying)||history.active().id===target.threadId&&history.lastError==='revision-conflict')toast(historyFailure(history,'That reply changed. Reopen the conversation and try again.'));return false;}
   if(!turns.isCurrent(retrying))return false;
   const restored=await restoreConversation({retrying:true});if(!turns.isCurrent(restored))return false;
-  await send(result.draft,{recorded:true,keepDraft:true});return true;
+  await send(result.draft,{recorded:true,keepDraft:true,rehearsalWork});return true;
 }
 
 async function exploreWithNox({kind,text}){
@@ -381,9 +383,10 @@ function setBusy(value) {
   companionChanged();
 }
 
-async function send(raw,{recorded=false,keepDraft=false,source='programmatic',onCommitted}={}) {
+async function send(raw,{recorded=false,keepDraft=false,source='programmatic',onCommitted,rehearsalWork}={}) {
   composerOptions.close();
   const text = raw.trim(); if (!text || busy) return;
+  try{if(rehearsalWork===undefined){const thread=history.active(),editing=source==='composer'&&editTarget?thread.turns.find(turn=>turn.id===editTarget.turnId):null,last=thread.turns.at(-1),retry=recorded||last?.role==='user'&&last.content===text;rehearsalWork=editing||retry?rehearsal?.replay(editing||last):rehearsal?.capture();}}catch(error){toast(error.message);return;}
   const submittedDraft=$('message').value;
   if(brain==='loading'){replyDiagnostics.setStatus('The AI connection is not ready. Your message is still here.');return;}
   if(visit.owner&&history.crossTabSafe===false){toast(historyFailure(history));return;}
@@ -422,18 +425,21 @@ async function send(raw,{recorded=false,keepDraft=false,source='programmatic',on
   const name=selfDeclaredName(text);
   if (name) await memory.setName(name);
   if(!turns.isCurrent(version))return;
-  const depth=$('reply-depth').value==='deep'&&!visit.owner?'balanced':$('reply-depth').value;
+  const depth=rehearsalWork?'balanced':$('reply-depth').value==='deep'&&!visit.owner?'balanced':$('reply-depth').value;
   const recent=history.context();if(recorded&&recent.history.at(-1)?.role==='user')recent.history=recent.history.slice(0,-1);
   const preferences=approvedPreferences.context(currentActivity);
   const context = {...(visit.owner?memory.snapshot():{}),...recent,mode,depth,activity:currentActivity,preferences,knowledge:knowledge.context(text),interfaceState:observeInterface({stage,floating:floatingPresence,view:document.body.dataset.view,presence:document.body.dataset.presence})};
   companionBridge.propose(text,currentActivity);
   applyApprovedPreferences();
-  const request=prepareChatRequest(text,context,selectedProvider,true);
+  if(rehearsalWork)context.rehearsal=rehearsal.context(rehearsalWork);
+  let request;try{request=prepareChatRequest(text,context,selectedProvider,true);}catch(error){cancelConversation();toast(error.message);return;}
+  const notifyCommitted=answer=>{rehearsal?.committed(rehearsalWork,answer);onCommitted?.(answer);};
   setBusy(true);
-  if(!recorded&&!await history.append('user',text)){const message=historyFailure(history);cancelConversation();await restoreConversation();toast(message);return;}
+  if(!recorded&&!await history.append('user',text,{requiresSource:Boolean(rehearsalWork)})){const message=historyFailure(history);cancelConversation();await restoreConversation();toast(message);return;}
   if(!turns.isCurrent(version))return;
   const replyTo=history.revisionTarget(history.active().turns.at(-1)?.seq,{role:'user'});
   if(!replyTo){cancelConversation();await restoreConversation();return;}
+  rehearsal?.bind(rehearsalWork,history.active().turns.at(-1),text);
   if(!recorded){const userTurn=history.active().turns.at(-1),message=addMessage('user', text,userTurn);attachMessageActions(message,userTurn);}if(source==='composer'&&!keepDraft&&$('message').value===submittedDraft)composer.setValue(''); contextPreview();updateMemory();navigation?.render();companionChanged();
   setBusy(true); voice.stop(); microphone.stop(); stage.character.emotion = 'curious';
   try {
@@ -451,7 +457,7 @@ async function send(raw,{recorded=false,keepDraft=false,source='programmatic',on
       packet = demoReply(text, context);
       if(turns.isCurrent(version))replyDiagnostics.complete(timingVersion);
     }
-    if (turns.isCurrent(version)) {activity.transition('reply-ready',activityTurn);if(takeover)packet={...packet,action:'takeover'};const draft=pendingDraft;const completed=await perform(packet,true,draft,version,depth,explicitMemoryRequest(text),brain==='live'?request.context.knowledge:[],{replyTo,signal:requestController.signal,onCommitted});if(turns.isCurrent(version)){pendingDraft=null;scheduleSummary();return completed;}}
+    if (turns.isCurrent(version)) {activity.transition('reply-ready',activityTurn);if(takeover)packet={...packet,action:'takeover'};const draft=pendingDraft;const completed=await perform(packet,true,draft,version,depth,explicitMemoryRequest(text),brain==='live'?request.context.knowledge:[],{replyTo,signal:requestController.signal,onCommitted:notifyCommitted});if(turns.isCurrent(version)){pendingDraft=null;scheduleSummary();return completed;}}
   } catch (error) {
     if (turns.isCurrent(version)){setUsage(error.usage);pendingDraft?.remove();pendingDraft=null;if(error.name!=='AbortError'){activity.finishTurn(activityTurn,'error');if(source==='composer'&&!$('message').value){composer.setValue(text);contextPreview();}stage.character.react?.('worried',stage.time,2);if (brain === 'live') $('brain-status').lastChild.textContent = ' AI error'; addMessage('system', error.message); toast(error.message);replyDiagnostics.setStatus('Reply interrupted. Your message is still in this visit.');}}
   } finally { if (turns.isCurrent(version)) { setBusy(false); } }
@@ -589,7 +595,7 @@ setInterval(() => {
 }, 120);
 
 function cancelConversation(){afterimageBridge.stop('conversation');turns.cancel();pendingPresentation?.cancel();pendingPresentation=null;activity.finishTurn(activityTurn);replyDiagnostics.invalidate();replyDiagnostics.setStatus('');setBusy(false);voice.stop();microphone.stop();summaryController?.abort();clearTimeout(summaryTimer);pendingDraft?.remove();pendingDraft=null;}
-async function restoreConversation({retrying=false}={}){viewReady=false;messageCompanion?.clear();cancelConversation();const selected=history.active(),restored=await setMode(selected.mode,false);if(!turns.isCurrent(restored)||history.active().id!==selected.id)return;const thread=history.active();$('conversation').replaceChildren();$('chat-title').textContent=thread.title;
+async function restoreConversation({retrying=false}={}){viewReady=false;messageCompanion?.clear();cancelConversation();const selected=history.active(),restored=await setMode(selected.mode,false);if(!turns.isCurrent(restored)||history.active().id!==selected.id)return;const thread=history.active();rehearsal?.sync();$('conversation').replaceChildren();$('chat-title').textContent=thread.title;
   thread.turns.forEach(turn=>{const message=addMessage(turn.role==='user'?'user':'nox',turn.content,turn);attachMessageActions(message,turn);});
   replyFollow.latest();
   const last=thread.turns.findLast(t=>t.role==='assistant');lastPacket={speech:last?.content||(thread.turns.length?'Your last message is still here. Ready when the AI connection is available.':greetings[mode]),emotion:stage.character.emotion,action:'none',memory:''};
@@ -628,6 +634,9 @@ messageCompanion=attachMessageCompanion({conversation:$('conversation'),onAction
 const releaseNetwork=attachNetworkPresence({stage,host:$('world')});
 floatingPresence=attachFloatingPresence({stage,onInspect:value=>messageCompanion.inspect(value),onRelease:value=>messageCompanion.release(value),onClear:()=>messageCompanion.clear()});
 window.addEventListener('pagehide',event=>{if(!event.persisted){releaseNetwork();floatingPresence.dispose();messageCompanion.dispose();}},{once:true});
+rehearsal=attachCodeRehearsal({getThread:()=>history.active().id,canAct:()=>!busy&&editTarget===null,
+  send:(text,rehearsalWork)=>send(text,{rehearsalWork}),onContextChange:()=>{if(busy)cancelConversation();else voice.stop();}});
+window.addEventListener('pagehide',event=>{if(!event.persisted)rehearsal.dispose();},{once:true});
 history.subscribe(({currentChanged})=>{if(currentChanged)void restoreConversation();else navigation.render();});
 const releaseMemory=memory.subscribe(()=>{updateMemory();});
 window.addEventListener('pagehide',event=>{if(!event.persisted){releaseMemory();memory.dispose();history.dispose();}},{once:true});
