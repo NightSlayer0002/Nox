@@ -1,6 +1,39 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createRehearsalSession} from '../public/js/rehearsal-session.js';
+import {createHistory} from '../public/js/history.js';
+
+// Question: does a persisted conversation remember that retry needs visit-only evidence?
+// Limits: this marker does not persist private source or restore it after refresh.
+test('history preserves source-required ownership through reload and revision',async()=>{
+  const map=new Map(),storage={getItem:key=>map.get(key)||null,setItem:(key,value)=>map.set(key,value)};
+  let history=await createHistory(storage);await history.append('user','Explain it',{requiresSource:true});await history.append('assistant','Answer');
+  history=await createHistory(storage);assert.equal(history.active().turns[0].requiresSource,true);
+  const target=history.revisionTarget(1,{role:'user'});await history.replaceFrom(target,'Explain another aspect');
+  assert.equal(history.active().turns[0].requiresSource,true);assert.equal(history.active().turns[0].content,'Explain another aspect');
+});
+
+// Question: can a retry recover its original source and include a newer explicit correction?
+// Limits: the UI must still validate this ticket before removing any saved reply.
+test('recall binds retry to the original file, range and intent',()=>{
+  const session=createRehearsalSession();session.open({path:'a.js',text:'original',revision:'1',source:'pasted'});
+  const original=session.capture('explain');session.open({path:'b.js',text:'different',revision:'2',source:'pasted'});
+  session.setCorrections('This is client code.');const retry=session.recall(original);
+  assert.equal(retry.context.path,'a.js');assert.equal(retry.context.code,'original');assert.equal(retry.context.intent,'explain');
+  assert.deepEqual(retry.context.corrections,['This is client code.']);assert.equal(session.complete(original,'stale'),false);
+  assert.equal(session.complete(retry,'new answer','My own explanation'),true);
+  assert.match(session.export(),/Your message:\nMy own explanation/);
+});
+
+// Question: can a user select an intact logical unit without losing exact source boundaries?
+// Limits: NOX does not parse every language or infer whether a chosen range has all dependencies.
+test('explicit ranges keep complete units intact and reject oversize changes before mutation',()=>{
+  const session=createRehearsalSession();session.open({path:'long.js',text:Array.from({length:100},(_,i)=>`line ${i+1}`).join('\n'),revision:'1',source:'pasted'});
+  session.selectRange(3,30);const ticket=session.capture('explain');
+  assert.equal(ticket.context.code.split('\n').length,28);assert.equal(ticket.context.startLine,3);assert.equal(ticket.context.endLine,30);
+  assert.throws(()=>session.selectRange(1,90),/80 lines/);assert.equal(session.context().startLine,3);
+  session.next();session.recall(ticket);assert.equal(session.context().endLine,30);
+});
 
 // Question: can sequential sections account for every original line, including blanks?
 // Limits: range coverage does not establish that a model explained those lines correctly.

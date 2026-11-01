@@ -40,7 +40,7 @@ test('invalid rehearsal identity, source controls, and inconsistent or oversized
     {version:2},{version:'1'},{path:''},{path:'   '},{path:'p'.repeat(241)},{path:'src/\nattack.js'},{path:'src/\u0085attack.js'},
     {revision:''},{revision:'r'.repeat(81)},{revision:'r\u0000'},{source:'private'},{intent:'execute'},
     {startLine:0},{startLine:-1},{startLine:1.5},{startLine:'7'},{endLine:6},{endLine:25},{totalLines:9},{totalLines:2001},{totalLines:undefined},
-    {code:'one line'},{code:'\n'.repeat(12),startLine:1,endLine:13},{code:'x'.repeat(6001),startLine:1,endLine:1},
+    {code:'one line'},{code:'\n'.repeat(80),startLine:1,endLine:81,totalLines:81},{code:'x'.repeat(6001),startLine:1,endLine:1},
     {code:null},{code:'\u0000\n\n\n'},{code:'\u007f\n\n\n'},{code:'\u009f\n\n\n'},
   ].map(overrides=>excerpt(overrides))];
   for(const input of invalid){

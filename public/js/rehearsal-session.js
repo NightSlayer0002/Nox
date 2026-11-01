@@ -1,3 +1,4 @@
+import {REHEARSAL_LIMITS} from '../../shared/rehearsal.js';
 // Visit-only source ownership. A model answer never advances the cursor or
 // certifies understanding. Only the user can mark a section self-checked.
 export function createRehearsalSession(){
@@ -18,11 +19,16 @@ export function createRehearsalSession(){
   function switchFile(id){if(!files.has(id))return false;active=id;epoch++;return true;}
   function range(){
     const file=current();if(!file)return null;
-    let end=Math.min(file.start+7,file.lines.length),code=file.lines.slice(file.start-1,end).join('\n');
+    let end=file.end??Math.min(file.start+7,file.lines.length),code=file.lines.slice(file.start-1,end).join('\n');
     while(code.length>6000&&end>file.start){end--;code=file.lines.slice(file.start-1,end).join('\n');}
     return {startLine:file.start,endLine:end,code,totalLines:file.lines.length};
   }
-  function select(line){const file=current();if(!file||!Number.isInteger(line)||line<1||line>file.lines.length)return false;file.start=line;epoch++;return true;}
+  function select(line){const file=current();if(!file||!Number.isInteger(line)||line<1||line>file.lines.length)return false;file.start=line;file.end=null;epoch++;return true;}
+  function selectRange(start,end){
+    const file=current();if(!file||![start,end].every(Number.isInteger)||start<1||end<start||end>file.lines.length)throw Error('Choose valid start and end line numbers.');
+    if(end-start+1>REHEARSAL_LIMITS.lines||file.lines.slice(start-1,end).join('\n').length>REHEARSAL_LIMITS.characters)throw Error('Choose a complete section within 80 lines and 6,000 characters. Add dependencies as another section when needed.');
+    file.start=start;file.end=end;epoch++;return true;
+  }
   function next(){const file=current(),section=range();return Boolean(file&&section.endLine<file.lines.length&&select(section.endLine+1));}
   function previous(){const file=current();return Boolean(file&&file.start>1&&select(Math.max(1,file.start-8)));}
   function context(intent='discuss'){
@@ -34,14 +40,17 @@ export function createRehearsalSession(){
     if(records.length>=80)throw Error('This preparation sheet has 80 replies. Export it before starting a new conversation.');
     const data=context(intent);return data?Object.freeze({file:active,epoch,context:data}):null;
   }
-  function complete(ticket,answer){
-    if(!ticket||ticket.file!==active||ticket.epoch!==epoch||typeof answer!=='string'||!answer.trim()||records.includes(ticket))return false;
-    if(ticket.used)return false;
+  function recall(ticket){
+    if(!ticket||!files.has(ticket.file))throw Error('Reopen the original source before retrying this explanation.');
+    switchFile(ticket.file);selectRange(ticket.context.startLine,ticket.context.endLine);return capture(ticket.context.intent);
+  }
+  function complete(ticket,answer,input=''){
+    if(!ticket||ticket.file!==active||ticket.epoch!==epoch||typeof answer!=='string'||!answer.trim())return false;
     // Tickets are immutable; keep consumption separate from caller-owned data.
     if(consumed.has(ticket))return false;consumed.add(ticket);
     const file=current(),{startLine,endLine,intent}=ticket.context;
     if(intent==='explain')for(let line=startLine;line<=endLine;line++)file.discussed.add(line);
-    records.push({file:file.id,context:structuredClone(ticket.context),answer});return true;
+    records.push({file:file.id,context:structuredClone(ticket.context),input,answer});return true;
   }
   const consumed=new WeakSet();
   function markReady(value){const file=current(),section=range();if(!file)return;for(let n=section.startLine;n<=section.endLine;n++)value?file.ready.add(n):file.ready.delete(n);}
@@ -60,10 +69,10 @@ export function createRehearsalSession(){
   function exportSheet(){
     const out=['NOX — code interview preparation','This is a preparation record, not a certification of correctness or understanding.',`Goal: ${goal}`,'','Corrections to preserve:',...corrections.map(c=>`- ${c}`),''];
     for(const file of files.values())out.push(`File: ${file.path}`,`Source: ${file.source} · revision ${file.revision||'pasted'}`,file.url||'',`Discussed: ${file.discussed.size}/${file.lines.length} lines. Self-check: ${file.ready.size}/${file.lines.length} lines.`,'');
-    for(const record of records){const c=record.context;out.push(`${c.path} · lines ${c.startLine}–${c.endLine} · ${c.intent}`,c.code,'','NOX (AI-generated; verify against your code):',record.answer,'');}
+    for(const record of records){const c=record.context;out.push(`${c.path} · lines ${c.startLine}–${c.endLine} · ${c.intent}`,c.code,'','Your message:',record.input,'','NOX (AI-generated; verify against your code):',record.answer,'');}
     return out.join('\n');
   }
-  return {open,switchFile,select,next,previous,context,capture,complete,markReady,setGoal,setCorrections,snapshot,export:exportSheet};
+  return {open,switchFile,select,selectRange,next,previous,context,capture,recall,complete,markReady,setGoal,setCorrections,snapshot,export:exportSheet};
 }
 
 export const REHEARSAL_EXAMPLE=Object.freeze({path:'retry.js',source:'example',revision:'example-v1',text:`export async function retry(task, attempts = 3) {
