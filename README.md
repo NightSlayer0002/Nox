@@ -1,8 +1,24 @@
 # NOX
 
-An expressive AI companion for conversation, learning, interactive stories, and local creative tools.
+An expressive thinking companion. Talk through an idea, change your mind, play a little, or bring something you want to understand.
 
 [Live preview](https://nox-iota-lemon.vercel.app/)
+
+## Source-linked conversations
+
+Code preparation is an optional conversation surface, alongside chat, stories and play. Open **Prepare with code** in a conversation or find it in Discover. Start with the built-in example, a pasted/local file, or a public GitHub repository. GitHub files are pinned to a commit; importing never executes code or silently reads an entire repository into the model.
+
+The file remains visible with numbered, highlighted lines. Choose a complete function or section within 80 lines and 6,000 characters, then ask for an explanation, a question, or discuss it in your own words. Missing dependencies must be requested explicitly. Only a committed explanation marks a section discussed; understanding is a separate user self-check. Export keeps the submitted explanation, source/range and NOX's feedback together.
+
+Retry retains the original source/range/intent. If that visit-only source is unavailable, the existing answer is preserved instead of replacing it with a source-free guess. New selections invalidate pending imports, and invalid correction drafts remain visible and block the affected request.
+
+Calls show the selected excerpt; ordinary long answers still use a bounded spoken opening. **Hear line by line** adds a deliberately smaller mode: up to four code lines, one explanation per line, with highlighting driven by actual playback events. Invalid or missing line labels prevent speech; Stop, source changes and playback failures prevent later requests. This is not a whole-repository spoken walkthrough. Reading code accurately and being enjoyable to think with require evaluation beyond transport and UI tests.
+
+## Conversation evaluation
+
+NOX uses a versioned companion policy with hosted models, not a trained proprietary model. It emphasizes following intent, incorporating corrections, reasoned disagreement, playful exploration and respecting a request to stop. The server returns the loaded policy version/hash for reproducible probes.
+
+[Evaluation instructions](scripts/conversation-evaluation.md) cover six ordinary multi-turn cases, seven source-grounding cases, explicit request budgets, saved rollout evidence and an offline blinded comparison pack. Structural checks cannot establish conversation quality or user preference. Reports remain semantically unreviewed until a person records a judgment. A model or policy change is not evidence of learning outcomes or market demand.
 
 ## Development
 
@@ -38,9 +54,11 @@ GitHub Actions runs **Tests and production build** and **Browser journeys** on p
 - `tests/`, `scripts/`: regression coverage, browser fixtures, and build tooling.
 - `assets-source/`: editable character assets and export instructions.
 
+The code flow separates import (`public/js/rehearsal-source.js`), visit-only source ownership (`rehearsal-session.js`), interface coordination (`rehearsal-ui.js`) and the server-validated excerpt (`shared/rehearsal.js`). It uses the existing chat and voice paths rather than a parallel conversation engine.
+
 ## Data and access
 
-Guest chats, notes, activities, and preferences are temporary and clear on refresh. Owner data is stored locally in the browser; there is no public account system or cloud synchronization. Relevant dialogue and selected note excerpts are sent to the configured AI provider. Natural voice uses a speech provider when enabled. Camera previews and recordings stay local.
+Guest chats, notes, activities, preferences and imported code are temporary and clear on refresh. Owner conversations are stored locally in the browser; imported code still lasts only for the visit. There is no public account system or cloud synchronization. Relevant dialogue, selected notes, and the active code excerpt with its goal/corrections are sent to the configured AI provider when you send a message. Earlier replies may quote source in subsequent conversation context. Provider data terms apply; do not import credentials or confidential material. Natural voice uses a speech provider when enabled. Camera previews and recordings stay local.
 
 Text and voice have separate allowances. Process-local throttles are not deployment-wide spending caps. Provider quotas and hosting terms apply. NOX is a public preview and AI answers can be incorrect.
 

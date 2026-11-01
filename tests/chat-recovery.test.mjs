@@ -26,7 +26,7 @@ async function fixture(responses){
   const nodes=new Map(),messages=[],requests=[];
   function $(id){if(!nodes.has(id))nodes.set(id,{value:id==='reply-depth'?'balanced':'',lastChild:{textContent:''},focus:noop,scrollHeight:100});return nodes.get(id);}
   function addMessage(role,text){const content={textContent:text},node={role,content,removed:false,classList:{add:noop},querySelector:()=>content,append:noop,remove(){this.removed=true;}};messages.push(node);return node;}
-  const context=vm.createContext({
+  const context=vm.createContext({rehearsal:null,
     $,history,prepareChatRequest,explicitMemoryRequest,readChatStream,selfDeclaredName,historyFailure,observeInterface,AbortController,TextEncoder,clearTimeout,setTimeout,
     composerOptions:{close:noop},composer:{setValue:value=>{$('message').value=value;}},
     editTarget:null,currentActivity:'conversation',brain:'live',busy:false,mode:'companion',selectedProvider:'',

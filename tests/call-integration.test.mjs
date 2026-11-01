@@ -37,7 +37,7 @@ async function fixture(){
     $,history,normalizePacket,prepareChatRequest,explicitMemoryRequest,readChatStream,selfDeclaredName,historyFailure,spokenPreview,createReplyPresentation,setChatContent,observeInterface,AbortController,clearTimeout,setTimeout,
     replyFollow:{update:change=>change(),latest:()=>{}},
     composerOptions:{close:noop},composer:{setValue:value=>{$('message').value=value;},resize:noop},
-    editTarget:null,currentActivity:'conversation',brain:'live',busy:false,mode:'companion',selectedProvider:'',
+    editTarget:null,currentActivity:'conversation',brain:'live',busy:false,mode:'companion',selectedProvider:'',rehearsal:null,
     summaryController:null,summaryTimer:null,pendingDraft:null,pendingPresentation:null,floatingPresence:null,document:{body:{dataset:{view:'conversation',presence:'visible'}},querySelectorAll:()=>[]},activityTurn:null,lastPacket:{speech:'Before the call'},
     turns:createTurnGate(),activity:{beginTurn:()=>1,transition:noop,finishTurn:noop},
     replyDiagnostics:{begin:()=>1,complete:noop,setStatus:noop,invalidate:noop,clear:noop},

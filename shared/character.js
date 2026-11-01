@@ -1,5 +1,7 @@
 import {SCENE_ACTIONS,sanitizeInterfaceState} from './interface-state.js';
+import {sanitizeRehearsal} from './rehearsal.js';
 export {sanitizeInterfaceState} from './interface-state.js';
+export {sanitizeRehearsal} from './rehearsal.js';
 
 // The contract between a brain and NOX's body. Neither brain can invent powers.
 export const MODES = Object.freeze(['companion', 'director', 'uncanny']);
@@ -80,6 +82,7 @@ export function sanitizeContext(value = {}) {
     return [{id,title,text}];
   });
   const preferences=sanitizePreferences(value.preferences);
+  const rehearsal=sanitizeRehearsal(value.rehearsal);
   const history=[],turns=Array.isArray(value.history)?value.history:[];
   // Admit complete recent turns at the same limits as chat input and replies.
   // Oversized untrusted turns are omitted instead of inventing a shorter ending.
@@ -96,6 +99,7 @@ export function sanitizeContext(value = {}) {
     ...(['conversation','explore','guessing','mystery'].includes(value.activity)?{activity:value.activity}:{}),
     ...(Object.keys(preferences).length?{preferences}:{}),
     ...(Object.hasOwn(value,'interfaceState')?{interfaceState:sanitizeInterfaceState(value.interfaceState)}:{}),
+    ...(rehearsal?{rehearsal}:{}),
     name: cleanText(value.name, 40),
     facts: Array.isArray(value.facts) ? value.facts.map(fact => cleanText(fact, 120)).filter(Boolean).slice(-12) : [],
     ...(cleanText(value.summary,1200) ? {summary:cleanText(value.summary,1200)} : {}),
@@ -107,17 +111,19 @@ export function sanitizeContext(value = {}) {
 
 export function prepareChatRequest(message, context, provider, stream=false) {
   const body = { message, context: sanitizeContext(context) };
+  if(context?.rehearsal!=null&&!body.context.rehearsal)throw Object.assign(new TypeError('Select a valid bounded code section before sending.'),{code:'invalid_rehearsal'});
   if(typeof provider === 'string') body.provider = cleanText(provider,20);
   if(stream)body.stream=true;
   const encoder = new TextEncoder();
-  // Keep the latest message. Drop oldest context if multibyte text fills the budget.
+  // Keep the latest message and exact source. Drop whole older context when
+  // multibyte text fills the budget; never silently send a different excerpt.
   while (encoder.encode(JSON.stringify(body)).byteLength > CHAT_REQUEST_BYTES) {
     if (body.context.history.length) body.context.history.shift();
     else if (body.context.knowledge?.length) body.context.knowledge.pop();
     else if (body.context.bridge) delete body.context.bridge;
     else if (body.context.facts.length) body.context.facts.shift();
     else if (body.context.summary) delete body.context.summary;
-    else break;
+    else throw Object.assign(new RangeError('Chat request exceeded its transport limit.'),{code:'request_limit'});
   }
   return body;
 }

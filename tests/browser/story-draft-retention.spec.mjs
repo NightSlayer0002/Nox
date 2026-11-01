@@ -2,6 +2,21 @@ import {test,expect} from '@playwright/test';
 import {readFile} from 'node:fs/promises';
 import {FIRST_CONTACT} from '../../client/afterimage-example.js';
 
+test('Afterimage observes a connection change between render and subscription',async({page})=>{
+  // Question: can a ready provider remain hidden if its snapshot changes during React's mount gap?
+  // Limits: deliberately controlled store timing in Chromium, not live provider availability.
+  await page.goto('/app#conversation');await expect(page.locator('#brain-status')).toContainText('Synthetic CI provider');
+  await page.evaluate(async()=>{
+    const {afterimageBridge:bridge}=await import('/js/afterimage-bridge.js');
+    const read=bridge.snapshot,subscribe=bridge.subscribe;let beforeSubscription=Object.freeze({...read(),connection:{kind:'loading'}});
+    bridge.snapshot=()=>beforeSubscription||read();
+    bridge.subscribe=listener=>{beforeSubscription=null;return subscribe(listener);};
+    location.hash='#afterimage';
+  });
+  await page.getByText('Create a new story',{exact:true}).click();
+  await expect(page.getByLabel('Start with a thought',{exact:true})).toBeVisible();
+});
+
 for(const owner of [false,true])test(`${owner?'owner':'guest'} unapplied story draft survives disclosure and route changes`,async({page})=>{
   // Question: Does actual React route unmount/remount retain unapplied text and export it without changing the performed cut?
   // Limits: Chromium with synthetic media and one current cut; not refresh persistence, physical devices, or restoration from exported files.

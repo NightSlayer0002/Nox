@@ -29,7 +29,7 @@ for(const failure of ['provider','autoplay'])test(`a call ${failure} failure pre
     onState:state=>call?.onVoiceState(state),onEnd:()=>call?.onVoiceEnd(),onError:message=>call?.fail(message),
   });
   voice.configureNatural(true);voice.setEngine('natural');voice.setEnabled(true);
-  context=vm.createContext({normalizePacket,spokenPreview,createReplyPresentation,setChatContent,turns,voice,setTimeout,clearTimeout,
+  context=vm.createContext({rehearsal:null,normalizePacket,spokenPreview,createReplyPresentation,setChatContent,turns,voice,setTimeout,clearTimeout,
     replyFollow:{update:change=>change()},
     pendingPresentation:null,pendingDraft:null,summaryController:null,summaryTimer:null,activityTurn:null,lastPacket:null,mode:'companion',
     replyDiagnostics:{setStatus:noop,invalidate:noop},afterimageBridge:{stop:noop},activity:{finishTurn:noop},setBusy:noop,microphone:{stop:noop},

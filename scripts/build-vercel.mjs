@@ -9,7 +9,7 @@ const securityHeaders = {
   'X-Content-Type-Options': 'nosniff',
   'Referrer-Policy': 'no-referrer',
   'Cache-Control': 'no-store',
-  'Content-Security-Policy': "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; media-src 'self' blob:; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; object-src 'none'; form-action 'self'",
+  'Content-Security-Policy': "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; media-src 'self' blob:; connect-src 'self' https://api.github.com; frame-ancestors 'none'; base-uri 'none'; object-src 'none'; form-action 'self'",
 };
 
 export async function buildVercel(destination = path.join(root,'.vercel/output')) {
@@ -23,7 +23,7 @@ export async function buildVercel(destination = path.join(root,'.vercel/output')
   await mkdir(output,{recursive:true});
   await cp(path.join(root,'public'),path.join(output,'static'),{recursive:true});
   await mkdir(path.join(output,'static/shared'),{recursive:true});
-  for(const module of ['character.js','afterimage.js','interface-state.js'])await cp(path.join(root,'shared',module),path.join(output,'static/shared',module));
+  for(const module of ['character.js','afterimage.js','interface-state.js','rehearsal.js'])await cp(path.join(root,'shared',module),path.join(output,'static/shared',module));
   for (const endpoint of ['status','chat','speech','summary','session','afterimage']) {
     const folder = path.join(output,`functions/api/${endpoint}.func`);
     await mkdir(folder,{recursive:true});

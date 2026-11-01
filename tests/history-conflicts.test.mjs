@@ -25,6 +25,16 @@ test('Retry rejects a stale view after another tab appends new work',async()=>{
   const b=await createHistory(storage);await b.append('user','A newer question');await b.append('assistant','A newer answer');
   const saved=storage.getItem('nox.chats.v1');assert.equal(await a.retryFrom(retry),null);assert.equal(storage.getItem('nox.chats.v1'),saved);
 });
+
+test('a conflict remains explainable when refreshing the transcript cancels Retry',async()=>{
+  // Question: can the UI learn why Retry was rejected when loading newer work also cancels its request?
+  // Limits: one synchronous subscriber ordering; not every native cross-tab event schedule.
+  const storage=disk(),a=await createHistory(storage);await dialogue(a);const retry=target(a,2,'assistant'),controller=new AbortController();
+  a.subscribe(({currentChanged})=>{if(currentChanged)controller.abort();});
+  const b=await createHistory(storage);await b.replaceFrom(target(b,1),'A newer correction');const saved=storage.getItem('nox.chats.v1');
+  assert.equal(await a.retryFrom(retry,{signal:controller.signal}),null);assert.equal(controller.signal.aborted,true);
+  assert.equal(storage.getItem('nox.chats.v1'),saved);assert.equal(a.lastError,'revision-conflict');
+});
 test('an old summary cannot enter a replacement branch with reused sequence numbers',async()=>{
   const storage=disk(),a=await createHistory(storage);for(let i=0;i<20;i++)await a.append(i%2?'assistant':'user',`Old turn ${i}`);
   const work=a.summaryWork(),b=await createHistory(storage);await b.replaceFrom(target(b,9),'A different direction');
