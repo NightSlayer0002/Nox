@@ -28,10 +28,16 @@ test('a phone uses a small character and composer floor without reserving a chat
 // Question: can a small automatic placement leave the minimum reading width
 // and its 12px clearance, instead of clamping the gutter into the artwork?
 // Limits: source geometry only; the navigation browser case checks real text.
-test('a 320px phone leaves at least 100px of reading width before the untouched character',()=>{
-  const layout=floatingLayout({viewport:{width:320,height:800},shell:{left:0,right:320},header:{bottom:66},composer:{left:18,right:302,top:700},compact:true});
-  assert.ok(layout.initial.x>=130,'100px column plus 12px gap after its 18px inset');
-  assert.ok(layout.initial.x+layout.size<=312,'character stays inside its viewport bounds');
+test('compact placement leaves a useful prose measure after avatar, padding and clearance',()=>{
+  for(const [width,minimum,size] of [[390,160,144],[320,144,92]]){
+    const layout=floatingLayout({viewport:{width,height:800},shell:{left:0,right:width},header:{bottom:66},composer:{left:18,right:width-18,top:700},compact:true});
+    assert.equal(layout.size,size);
+    assert.ok(layout.initial.x-18-32-12-4>=minimum,'prose retains its measure after the message avatar, gap and transcript padding');
+    assert.ok(layout.initial.x+layout.size<=width-8,'character stays inside its viewport bounds');
+    const bot=floatingBotTarget({...layout.initial,size:layout.size},layout.bounds);
+    assert.ok(bot.x>layout.initial.x+layout.size*.75,'the smaller controls bot remains to the right');
+    assert.ok(bot.x+22<=layout.bounds.right,'the controls remain in view');
+  }
 });
 
 test('a reduced viewport only clamps offscreen placement, and has room for the composer',()=>{
@@ -46,7 +52,7 @@ test('short landscape and narrow Takeover layouts keep the character above navig
       assert.ok(layout.bounds.top>=108,'the available rectangle starts below the header');
       assert.ok(layout.bounds.bottom<=viewport.height-68,'controls and character must remain above bottom navigation');
       assert.ok(layout.bounds.right<=viewport.width-8,'Takeover must not widen the available rectangle');
-      assert.ok(layout.size>=Math.min(96,viewport.height-176),'retain a useful size when the viewport has room');
+      assert.ok(layout.size>=Math.min(viewport.width<=600?72:96,viewport.height-176),'retain a useful size when the viewport has room');
       for(const point of [layout.initial,layout.park]){
         assert.ok(point.x>=layout.bounds.left&&point.x+layout.size<=layout.bounds.right);
         assert.ok(point.y>=layout.bounds.top&&point.y+layout.size<=layout.bounds.bottom);
@@ -108,7 +114,7 @@ test('native DOMRect-style inherited geometry still centers NOX beside the visib
 test('phone placement leaves a much smaller controls bot beside a readable character',()=>{
   const layout=floatingLayout({viewport:{width:390,height:844},shell:{left:18,right:372},header:{bottom:64},welcome:{top:110,height:300,right:372},composer:{top:700,right:372},nav:{height:60},compact:true});
   assert.equal(layout.size,144);
-  assert.deepEqual(layout.initial,{x:180,y:72});
+  assert.deepEqual(layout.initial,{x:220,y:72});
   assert.ok(layout.park.y>500);
   assert.ok(layout.park.y+layout.size<=layout.bounds.bottom);
 });

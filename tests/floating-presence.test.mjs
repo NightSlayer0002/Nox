@@ -28,24 +28,41 @@ class Element extends EventTarget{
   releasePointerCapture(){this.capture=null;}
 }
 
-function fixture({reduced=true,override=true,compact=false}={}){
+function fixture({reduced=true,override=true,width=1440,height=900,compact=width<=600}={}){
   const body=new Element(),doc=Object.assign(new EventTarget(),{body,documentElement:new Element(),activeElement:null});
   body.dataset={view:'conversation',presence:'visible',callOpen:'false'};
-  const elements={world:new Element(),'presence-toolbar':new Element(),'presence-menu':new Element(),'presence-menu-panel':new Element(),'presence-toggle':new Element(),'workspace-shell':new Element({left:184,right:1440}),'chat-form':new Element({top:780,right:1272}),'mobile-bottom-nav':new Element({height:0})};
+  const elements={world:new Element(),'presence-toolbar':new Element(),'presence-menu':new Element(),'presence-menu-panel':new Element(),'presence-toggle':new Element(),'workspace-shell':new Element({left:width<=600?0:184,right:width}),'chat-form':new Element({left:width<=600?18:undefined,top:height-120,right:width<=600?width-18:1272}),'mobile-bottom-nav':new Element({height:0})};
   for(const element of Object.values(elements))body.append(element);
   const header=new Element({bottom:64}),welcome=new Element({top:150,height:360,right:1272});
   doc.getElementById=id=>elements[id];doc.querySelector=selector=>({'.header':header,'.companion-welcome':welcome}[selector]??null);
   doc.createElement=doc.createElementNS=()=>new Element();doc.createComment=doc.createTextNode=()=>new Element();
   const media={reduced:Object.assign(new EventTarget(),{matches:reduced}),compact:Object.assign(new EventTarget(),{matches:compact})};
   const frames=new Map();let nextFrame=0;
-  const win=Object.assign(new EventTarget(),{innerWidth:1440,innerHeight:900,matchMedia:query=>query.includes('max-width')?media.compact:media.reduced,getComputedStyle:()=>({display:'none'}),requestAnimationFrame:callback=>{frames.set(++nextFrame,callback);return nextFrame;},cancelAnimationFrame:id=>frames.delete(id),MutationObserver:class{observe(){}disconnect(){}},ResizeObserver:class{observe(){}disconnect(){}}});
+  const win=Object.assign(new EventTarget(),{innerWidth:width,innerHeight:height,matchMedia:query=>query.includes('max-width')?media.compact:media.reduced,getComputedStyle:()=>({display:'none'}),requestAnimationFrame:callback=>{frames.set(++nextFrame,callback);return nextFrame;},cancelAnimationFrame:id=>frames.delete(id),MutationObserver:class{observe(){}disconnect(){}},ResizeObserver:class{observe(){}disconnect(){}}});
   const stage={canvas:new Element(),character:new Face(),form:'face',scene:null,time:0,motionOverride:override,reduceMotion:override===null?reduced:!override,resize(){}};
   const presence=attachFloatingPresence({stage,documentTarget:doc,windowTarget:win});
   const layer=body.children.find(child=>child.className==='floating-ui'),handle=elements.world.children.find(child=>child.className==='floating-nox-handle');
   function tick(count=1){for(let i=0;i<count;i++){stage.time+=1/60;stage.onBeforeFrame(stage.time,1/60);}}
   function fire(type,point){const event=Object.assign(new Event(type,{cancelable:true}),{button:0,pointerId:1,clientX:point.x,clientY:point.y});handle.dispatchEvent(event);}
-  return {stage,presence,layer,elements,doc,media,tick,fire,measure(){for(const callback of frames.values())callback();frames.clear();}};
+  return {stage,presence,layer,elements,doc,win,media,tick,fire,measure(){for(const callback of frames.values())callback();frames.clear();}};
 }
+
+// Question: can typing or gravity enlarge a narrow companion after a deliberate
+// drag, moving it away from the coordinates the user chose?
+// Limits: synthetic DOM/viewport boundary; the production drag, sizing, keyboard
+// tracking and gravity implementations run together.
+test('a narrow dragged companion retains its size and placement while typing and its size under gravity',()=>{
+  const f=fixture({width:320,height:800});try{
+    assert.equal(f.presence.state.size,92);
+    f.fire('pointerdown',{x:230,y:100});f.fire('pointermove',{x:180,y:220});f.fire('pointerup',{x:180,y:220});f.tick();
+    const placement={x:f.presence.state.x,y:f.presence.state.y};
+    f.doc.activeElement={tagName:'TEXTAREA'};f.win.innerHeight=500;f.elements['chat-form'].rect.top=450;
+    f.doc.dispatchEvent(new Event('focusin'));f.measure();f.tick(120);
+    assert.equal(f.presence.state.size,92);assert.equal(f.presence.state.x,placement.x);assert.equal(f.presence.state.y,placement.y);
+    f.stage.scene={action:'gravity'};f.tick();f.measure();f.tick(180);
+    assert.equal(f.presence.state.size,92);assert.equal(f.presence.state.x,placement.x);assert.equal(f.presence.state.grounded,true);
+  }finally{f.presence.dispose();}
+});
 
 test('an explicit motion preference keeps dragging follower and gravity animated on a reduced-motion platform',()=>{
   const f=fixture();try{
