@@ -1,4 +1,5 @@
 import {REHEARSAL_LIMITS} from '../../shared/rehearsal.js';
+import {parseNarration} from './rehearsal-narration.js';
 // Visit-only source ownership. A model answer never advances the cursor or
 // certifies understanding. Only the user can mark a section self-checked.
 export function createRehearsalSession(){
@@ -49,7 +50,12 @@ export function createRehearsalSession(){
     // Tickets are immutable; keep consumption separate from caller-owned data.
     if(consumed.has(ticket))return false;consumed.add(ticket);
     const file=current(),{startLine,endLine,intent}=ticket.context;
-    if(intent==='explain')for(let line=startLine;line<=endLine;line++)file.discussed.add(line);
+    let explained=intent==='explain';
+    if(intent==='narrate'){
+      // Reuse playback's alignment gate; preserve malformed written answers without claiming coverage.
+      try{parseNarration(answer,ticket.context);explained=true;}catch{}
+    }
+    if(explained)for(let line=startLine;line<=endLine;line++)file.discussed.add(line);
     records.push({file:file.id,context:structuredClone(ticket.context),input,answer});return true;
   }
   const consumed=new WeakSet();
