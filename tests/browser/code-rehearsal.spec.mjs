@@ -25,6 +25,19 @@ test('source tabs keep files accessible by keyboard and import choices preserve 
   await expect(page.locator('#rehearsal-code')).toHaveText('1const second = 2;');
 });
 
+test('coloured source keeps exact text and markup remains inert',async({page})=>{
+  // Question: can syntax-coloured source preserve the original text and keep markup inside code inert?
+  // Limits: this covers DOM construction and submitted evidence, not every possible injection or language grammar.
+  await openExample(page);await page.locator('#rehearsal-import').evaluate(node=>node.open=true);
+  await page.getByRole('tab',{name:'Paste code',exact:true}).click();
+  const source='const template = "<img src=x onerror=window.codeExecuted=true>";\n// नमस्ते 👋';
+  await page.locator('#rehearsal-filename').fill('template.js');await page.locator('#rehearsal-paste').fill(source);await page.locator('#rehearsal-use-paste').click();
+  expect((await page.locator('#rehearsal-code code').allTextContents()).join('\n')).toBe(source);
+  await expect(page.locator('#rehearsal-code .token-keyword')).toContainText('const');await expect(page.locator('#rehearsal-code .token-string')).toContainText('<img');
+  await expect(page.locator('#rehearsal-code img, #rehearsal-code script')).toHaveCount(0);expect(await page.evaluate(()=>window.codeExecuted)).toBeUndefined();
+  const request=page.waitForRequest('**/api/chat');await page.locator('#rehearsal-explain').click();expect((await request).postDataJSON().context.rehearsal.code).toBe(source);
+});
+
 test('spoken walkthrough follows actual playback events and Stop prevents another line',async({page})=>{
   // Question: are the highlighted source line and speech lifecycle synchronized without duplicate default narration?
   // Limits: synthetic speech events, not physical audio, microphone input or Orpheus quality.

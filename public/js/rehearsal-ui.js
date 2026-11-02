@@ -1,6 +1,7 @@
 import {createRehearsalSession,REHEARSAL_EXAMPLE} from './rehearsal-session.js';
 import {loadRepository,loadRepositoryFile,readCodeFile,validateCodeSource} from './rehearsal-source.js';
 import {parseNarration,createLineNarration} from './rehearsal-narration.js';
+import {tokenizeSource} from './code-tokens.js';
 
 // The source stays a companion to the existing chat, not a second conversation.
 export function attachCodeRehearsal({getThread,send,voice,canAct=()=>true,onContextChange=()=>{},documentTarget=globalThis.document}){
@@ -40,10 +41,15 @@ export function attachCodeRehearsal({getThread,send,voice,canAct=()=>true,onCont
       $('rehearsal-progress').textContent=`${state.discussed}/${section.totalLines} lines discussed · ${state.ready} self-checked`;
       const link=$('rehearsal-original');link.hidden=!file.url;link.href=file.url||'#';link.textContent=file.source==='github'?`View source · ${file.revision.slice(0,7)}`:'Source';
       if(renderedFile!==file.id){
+        const coloured=tokenizeSource(file.text,file.path);
         $('rehearsal-code').replaceChildren(...file.lines.map((text,index)=>{
           const row=doc.createElement('div'),number=doc.createElement('button'),code=doc.createElement('code');
           row.className='code-line';row.dataset.line=String(index+1);number.type='button';number.className='code-line-number';number.textContent=String(index+1);number.setAttribute('aria-label',`Discuss from line ${index+1}`);
-          code.textContent=text||' ';row.append(number,code);return row;
+          for(const token of coloured[index]){
+            if(token.kind==='plain')code.append(doc.createTextNode(token.text));
+            else{const span=doc.createElement('span');span.className=`code-token token-${token.kind}`;span.textContent=token.text;code.append(span);}
+          }
+          row.append(number,code);return row;
         }));renderedFile=file.id;
       }
       for(const row of $('rehearsal-code').children){const selected=Number(row.dataset.line)>=section.startLine&&Number(row.dataset.line)<=section.endLine;row.classList.toggle('selected',selected);row.firstChild.setAttribute('aria-pressed',String(selected));}

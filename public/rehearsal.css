@@ -72,6 +72,16 @@
 .workspace .rehearsal-panel .code-line-number:focus-visible{outline:1px solid var(--secondary-accent);outline-offset:-3px;border-radius:4px}
 .code-line code{padding-left:14px;font:13px/28px ui-monospace,SFMono-Regular,Consolas,monospace;white-space:pre;color:var(--text);user-select:text}
 .code-line code::selection,.code-line code *::selection{background:color-mix(in srgb,var(--secondary-accent) 28%,var(--bg));color:var(--text)}
+.code-token.token-keyword{color:#c5b5ed}
+.code-token.token-string{color:#9bcab4}
+.code-token.token-number{color:#d9b990}
+.code-token.token-call{color:#e4d9b4}
+.code-token.token-comment{color:#9cafa7;font-style:italic}
+:root[data-theme=light] .code-token.token-keyword{color:#69529b}
+:root[data-theme=light] .code-token.token-string{color:#246953}
+:root[data-theme=light] .code-token.token-number{color:#93502f}
+:root[data-theme=light] .code-token.token-call{color:#76531d}
+:root[data-theme=light] .code-token.token-comment{color:#4d665e}
 .study-commandbar{display:flex;align-items:center;gap:6px;flex-wrap:wrap;padding:8px 22px 12px}
 .workspace .study-commandbar #rehearsal-narrate{color:var(--secondary-accent)}
 .study-audiobar{display:flex;align-items:center;gap:4px;padding:4px 22px;flex-wrap:wrap}
