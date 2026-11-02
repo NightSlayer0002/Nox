@@ -3,6 +3,8 @@
 .workspace .rehearsal-tools button{display:inline-flex;align-items:center;gap:9px;padding:6px 0;min-height:36px;background:none;border:0;box-shadow:none;color:var(--muted);font-size:14px}
 .rehearsal-tools svg{width:19px;height:19px;fill:none;stroke:var(--secondary-accent);stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round}
 .workspace .rehearsal-panel{--study-bg:color-mix(in srgb,var(--bg) 97%,var(--secondary-accent));position:relative;min-width:0;min-height:0;overflow:auto;overscroll-behavior:contain;background:var(--study-bg);padding:22px 0 12px;border:0;border-radius:14px;scrollbar-width:thin;scrollbar-color:var(--line) transparent}
+:root[data-theme=light] .workspace .rehearsal-panel{--secondary-accent:var(--accent)}
+:root[data-theme=light] .rehearsal-tools svg{stroke:var(--accent)}
 .workspace .rehearsal-panel[hidden],.workspace .rehearsal-panel [hidden]{display:none!important}
 .rehearsal-panel .study-symbols{position:absolute;width:0;height:0;overflow:hidden}
 .rehearsal-panel svg:not(.study-symbols){width:18px;height:18px;flex:none;fill:none;stroke:currentColor;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round}

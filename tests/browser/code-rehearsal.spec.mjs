@@ -39,6 +39,20 @@ test('coloured source keeps exact text and markup remains inert',async({page})=>
   const request=page.waitForRequest('**/api/chat');await page.locator('#rehearsal-explain').click();expect((await request).postDataJSON().context.rehearsal.code).toBe(source);
 });
 
+for(const theme of ['dark','light'])test(`selected code navigation remains legible in ${theme} mode`,async({page})=>{
+  // Question: do small selected line numbers retain readable contrast after the study palette changes?
+  // Limits: computed solid/composited colours in Chromium, not physical displays or a complete accessibility audit.
+  await page.emulateMedia({reducedMotion:'reduce'});await openExample(page);await page.evaluate(theme=>document.documentElement.dataset.theme=theme,theme);
+  const contrast=await page.locator('.code-line.selected').first().evaluate(row=>{
+    const canvas=document.createElement('canvas');canvas.width=canvas.height=1;const ctx=canvas.getContext('2d');
+    const rgb=colour=>{ctx.clearRect(0,0,1,1);ctx.fillStyle=colour;ctx.fillRect(0,0,1,1);return [...ctx.getImageData(0,0,1,1).data];};
+    const base=rgb(getComputedStyle(document.getElementById('rehearsal-panel')).backgroundColor),overlay=rgb(getComputedStyle(row).backgroundColor);
+    const alpha=overlay[3]/255,bg=base.slice(0,3).map((v,i)=>v*(1-alpha)+overlay[i]*alpha),fg=rgb(getComputedStyle(row.firstChild).color);
+    const lum=values=>values.slice(0,3).map(v=>{v/=255;return v<=.04045?v/12.92:((v+.055)/1.055)**2.4;}).reduce((sum,v,i)=>sum+v*[.2126,.7152,.0722][i],0);
+    const a=lum(fg),b=lum(bg);return (Math.max(a,b)+.05)/(Math.min(a,b)+.05);
+  });expect(contrast).toBeGreaterThanOrEqual(4.5);
+});
+
 test('spoken walkthrough follows actual playback events and Stop prevents another line',async({page})=>{
   // Question: are the highlighted source line and speech lifecycle synchronized without duplicate default narration?
   // Limits: synthetic speech events, not physical audio, microphone input or Orpheus quality.
