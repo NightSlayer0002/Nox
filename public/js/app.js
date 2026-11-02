@@ -5,6 +5,7 @@ import { createMemory } from './memory.js';
 import { Stage } from './stage.js';
 import {connectStageControls} from './stage-controls.js';
 import { createVoice, createMicrophone } from './voice.js';
+import {createDictationDraft} from './dictation-draft.js';
 import { createCamera } from './camera.js';
 import { createRecorder } from './recorder.js';
 import {DEFAULT_EXPORT_PROFILE,resolveExportProfile} from './export-profile.js';
@@ -199,16 +200,20 @@ const recorder = createRecorder($('stage'), (active, clip, outcome) => {
   }
 },{getAudioStream:()=>voice.prepareCapture(),onError:toast});
 let dictating=false,callListening=false;
+const dictation=createDictationDraft({input:$('message'),
+  getThread:()=>{const thread=history.active();return JSON.stringify([thread.id,thread.branch,editTarget]);},
+  canInsert:()=>!busy&&brain!=='loading',onNotice:toast});
 const microphone = createMicrophone({
-  onText: text => {composer.setValue(text);contextPreview();send(text,{source:'composer'});},
-  onState: active => {
+  onText: (text,ticket) => dictation.accept(text,ticket),
+  onState: (active,ticket) => {
+    if(!active)dictation.cancel(ticket);
     dictating=active;
     activity.transition(busy?'thinking':active?'listening':'idle');
     $('mic-button').classList.toggle('listening', active); $('mic-button').querySelector('span').textContent = active ? 'Listening…' : 'Talk';
     $('mic-button').setAttribute('aria-pressed',active);$('mic-button').setAttribute('aria-label',active?'Stop dictation':'Dictate a message');$('mic-button').title=active?'Stop dictation':'Dictate a message';
     stage.character.activity = busy ? 'thinking' : active ? 'listening' : 'idle';
   },
-  onError: toast,
+  onError: (message,ticket)=>{dictation.cancel(ticket);toast(message);},
 });
 if(!microphone.supported){$('mic-button').disabled=true;$('mic-button').title='Dictation is unavailable in this browser. Type a message instead.';}
 const callMicrophone=createMicrophone({
@@ -505,7 +510,12 @@ for(const voiceControl of [$('voice-button'),$('composer-voice')])voiceControl.a
   if (enabled && !busy && afterimageBridge.snapshot().status!=='playing') playReplyPreview(lastPacket,{stage,voice,mode});
   else if (!voice.supported) toast('Speech synthesis is unavailable in this browser. You can read NOX’s captions.');
 });
-$('mic-button').addEventListener('click', () => { if (busy) { toast('Let NOX finish this thought first.'); return; } afterimageBridge.stop('conversation');voice.stop(); microphone.start(); });
+$('mic-button').addEventListener('click', () => {
+  if(dictation.pending){dictation.cancel();microphone.stop();return;}
+  if (busy) { toast('Let NOX finish this thought first.'); return; }
+  afterimageBridge.stop('conversation');voice.stop();
+  const ticket=dictation.begin();if(ticket&&!microphone.start(ticket))dictation.cancel(ticket);
+});
 $('camera-button').addEventListener('click', async () => {
   const button = $('camera-button'); button.disabled = true;
   try {
@@ -571,7 +581,7 @@ document.addEventListener('keydown', event => {
   if ($('inside-dialog').open || $('clip-dialog').open) return;
   if (event.key === 'Escape') { resetScene(); if (document.body.classList.contains('film') && !recorder.active) toggleFilm(); return; }
 });
-window.addEventListener('pagehide', event => { if(event.persisted)voiceCall?.session.end();else voiceCall?.dispose();afterimageBridge.stop('pagehide');ownerToken=''; camera.stop(); voice.stop(); microphone.stop();callMicrophone.stop(); });
+window.addEventListener('pagehide', event => { if(event.persisted)voiceCall?.session.end();else{voiceCall?.dispose();dictation.dispose();}afterimageBridge.stop('pagehide');ownerToken=''; camera.stop(); voice.stop(); microphone.stop();callMicrophone.stop(); });
 window.addEventListener('hashchange',()=>{revisionControls.cancelRetry();if(location.hash==='#afterimage'){cancelConversation();stage.caption='';stage.captionUntil=0;}else afterimageBridge.stop('navigation');requestAnimationFrame(composer.resize);});
 setInterval(() => { const seconds = Math.floor(stage.time); $('stage-time').textContent = `${String(Math.floor(seconds / 60)).padStart(2, '0')}:${String(seconds % 60).padStart(2, '0')}`; }, 1000);
 setInterval(() => {

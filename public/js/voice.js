@@ -282,17 +282,43 @@ export function createVoice({ onStart, onEnd, onError, onState, onTiming, reques
 
 export function createMicrophone({ onText, onState, onError }) {
   const Recognition = globalThis.SpeechRecognition || globalThis.webkitSpeechRecognition;
-  if (!Recognition) return { supported: false, start() { onError('Speech recognition is unavailable in this browser. You can type to NOX.'); }, stop() {} };
-  const recognition = new Recognition();
-  recognition.lang = 'en-US'; recognition.continuous = false; recognition.interimResults = false;
-  let listening = false;
-  recognition.onstart = () => { listening = true; onState(true); };
-  recognition.onend = () => { listening = false; onState(false); };
-  recognition.onerror = event => { if (event.error !== 'aborted') onError(`Microphone: ${event.error.replaceAll('-', ' ')}. Text chat still works.`); };
-  recognition.onresult = event => { const text = event.results[0]?.[0]?.transcript; if (text) onText(text); };
+  if (!Recognition) return { supported: false, start(ticket) { onError?.('Speech recognition is unavailable in this browser. You can type to NOX.',ticket);return false; }, stop() {} };
+  let current=null;
+  function finish(run,abort=false){
+    if(current!==run)return;
+    // Invalidate before abort: native error/end callbacks may run synchronously.
+    current=null;if(abort)try{run.recognition?.abort();}catch{}
+    onState?.(false,run.ticket);
+  }
   return {
     supported: true,
-    start() { if (listening) { recognition.stop(); return; } try { recognition.start(); } catch { onError('Microphone is already starting. Give it a moment.'); } },
-    stop() { recognition.abort(); },
+    start(ticket) {
+      if(current){finish(current,true);return false;}
+      const run={ticket,recognition:null,started:false,delivered:false};current=run;
+      try{
+        // Each attempt owns an instance; queued events cannot target a later run.
+        const recognition=run.recognition=new Recognition();
+        recognition.lang='en-US';recognition.continuous=false;recognition.interimResults=false;
+        recognition.onstart=()=>{if(current===run&&!run.started){run.started=true;onState?.(true,ticket);}};
+        recognition.onend=()=>finish(run);
+        recognition.onerror=event=>{
+          if(current!==run)return;finish(run,true);
+          if(event.error!=='aborted')onError?.(`Microphone: ${typeof event.error==='string'?event.error.replaceAll('-', ' '):'unavailable'}. Text chat still works.`,ticket);
+        };
+        recognition.onresult=event=>{
+          if(current!==run||run.delivered)return;
+          const result=event.results?.[event.resultIndex??0],text=result?.[0]?.transcript;
+          if(result?.isFinal===false||typeof text!=='string'||!text.trim())return;
+          run.delivered=true;
+          // Call deliberately submits here while it is still listening. Cleanup
+          // follows that callback and cannot stop a reentrant newer attempt.
+          try{onText?.(text,ticket);}finally{finish(run,true);}
+        };
+        recognition.start();return true;
+      }catch{
+        if(current===run){finish(run,true);onError?.('The microphone could not start. Give it a moment and try again.',ticket);}return false;
+      }
+    },
+    stop() { if(current)finish(current,true); },
   };
 }
