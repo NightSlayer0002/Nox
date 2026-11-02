@@ -16,8 +16,9 @@ function exactObject(value,required,optional=[]){
     throw new TypeError('AFTERIMAGE contains an incomplete or unexpected structure.');
 }
 function text(value,limit){
-  const result=cleanText(value,limit);
+  const result=cleanText(value);
   if(!result)throw new TypeError('AFTERIMAGE text must be a non-empty string.');
+  if(result.length>limit)throw Object.assign(new RangeError(`AFTERIMAGE text exceeds its ${limit}-character limit.`),{code:'output_limit'});
   return result;
 }
 function fixedArray(value,count){
