@@ -7,23 +7,29 @@ export function floatingAllowed({view,presence,callOpen,film=false,recording=fal
 
 export function floatingLayout({viewport={},shell={},header={},welcome={},composer={},nav={},compact=false,takeover=false,reading=false}={}){
   const width=Math.max(1,finite(viewport.width,390)),height=Math.max(1,finite(viewport.height,844));
-  const offsetLeft=finite(viewport.offsetLeft),offsetTop=finite(viewport.offsetTop),preferredSize=(reading?(compact?72:88):compact?144:208)*(takeover?1.5:1);
+  const offsetLeft=finite(viewport.offsetLeft),offsetTop=finite(viewport.offsetTop);
   const left=clamp(Math.max(offsetLeft,finite(shell.left))+8,offsetLeft,offsetLeft+width-1);
   const right=clamp(Math.min(offsetLeft+width,finite(shell.right,offsetLeft+width))-8,left+1,offsetLeft+width);
   const bottom=clamp(offsetTop+height-Math.max(0,finite(nav.height))-8,offsetTop+1,offsetTop+height);
   const top=clamp(Math.max(offsetTop+8,finite(header.bottom)+8),offsetTop,bottom-1);
+  const visibleWelcome=finite(welcome.height)>0?welcome:{};
+  const contentRight=finite(composer.right,finite(visibleWelcome.right,right));
+  // Keep 144px of prose after the message avatar (32px), transcript padding
+  // (4px), and clearance (12px). At ordinary phone widths the artwork stays 144px.
+  const compactReadingSpan=144+32+4+12;
+  const compactSize=clamp(contentRight-finite(composer.left,left)-compactReadingSpan,72,144);
+  const preferredSize=(reading?(compact?72:88):compact?compactSize:208)*(takeover?1.5:1);
   // Short landscapes and Takeover shrink the artwork, never its usable bounds.
   const size=Math.min(preferredSize,right-left,bottom-top);
   // Face artwork has a small transparent lower margin inside its canvas.
   const floor=clamp(finite(composer.top,bottom)+size*.12,top+size,bottom);
   const parkX=clamp(finite(composer.right,right)-size,left,right-size);
-  const visibleWelcome=finite(welcome.height)>0?welcome:{};
   // The composer is measurable before the welcome mounts. Keep the pair in
   // that centered content span, with room for the bot on NOX's right.
-  const contentRight=finite(composer.right,finite(visibleWelcome.right,right));
-  // Automatic placement must leave the gutter's minimum 100px reading measure
-  // plus its 12px gap. Small phones may use the spare space beside the bot.
-  const initialX=clamp(Math.max(contentRight-size-48,finite(composer.left,left)+112),left,right-size);
+  // Compact placement uses the right shoulder's existing lifted bot position
+  // instead of spending another 48px of the transcript on the desktop bot gap.
+  const botGap=compact&&!reading?0:48;
+  const initialX=clamp(Math.max(contentRight-size-botGap,finite(composer.left,left)+112),left,right-size);
   const centerY=finite(visibleWelcome.height)>0?finite(visibleWelcome.top,top)+visibleWelcome.height*.5:(top+finite(composer.top,bottom))*.5;
   const initialY=compact||reading?top:clamp(centerY-size*.5,top,Math.max(top,floor-size));
   return {size,bounds:{left,top,right,bottom,floor},initial:{x:initialX,y:initialY},park:{x:parkX,y:floor-size}};

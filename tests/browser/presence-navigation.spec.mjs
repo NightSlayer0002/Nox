@@ -67,6 +67,17 @@ async function navigate(page,route){
   await expect(page.locator('body')).toHaveAttribute('data-view',route);
 }
 
+async function readingGeometry(page){
+  return page.evaluate(()=>{
+    const rect=node=>{const {left,right,top,bottom,width,height}=node.getBoundingClientRect();return {left,right,top,bottom,width,height};};
+    return {character:rect(document.querySelector('.floating-nox-handle')),composer:rect(document.getElementById('chat-form')),column:rect(document.getElementById('conversation')),
+      messages:[...document.querySelectorAll('#conversation .message')].map(message=>{
+        const content=message.querySelector('.message-content'),style=getComputedStyle(content);
+        return {role:message.classList.contains('user')?'user':'nox',bodyWidth:content.getBoundingClientRect().width-parseFloat(style.paddingLeft)-parseFloat(style.paddingRight),gutter:message.style.marginInlineEnd};
+      })};
+  });
+}
+
 for(const width of [562,390,320])test(`long prose and code keep a stable gutter through route and panel returns at ${width}px`,async({page})=>{
   await page.setViewportSize({width,height:800});
   await page.route('**/api/chat',route=>route.fulfill({json:{speech:`${'A longer paragraph stays readable as the conversation scrolls. '.repeat(16)}\n\n\`\`\`js\nfunction total(items) {\n  return items.reduce((sum, item) => sum + item.price, 0);\n}\n\`\`\``,emotion:'curious',action:'none',memory:''}}));
@@ -97,6 +108,18 @@ for(const width of [562,390,320])test(`long prose and code keep a stable gutter 
   await expect.poll(()=>intersections(page)).toEqual([]);
   // No float may create a growing blank region while following the transcript.
   await expect.poll(()=>page.locator('#conversation').evaluate(node=>node.scrollHeight)).toBe(height);
+  // Question: after the same route/source returns, does clearance still leave
+  // a useful prose measure instead of a technically unobscured word column?
+  // Limits: CSS content-box width, not comprehension or physical-device type rendering.
+  const geometry=await readingGeometry(page);
+  for(const message of geometry.messages)expect(message.bodyWidth,JSON.stringify({...geometry,measured:message})).toBeGreaterThanOrEqual(width===320?144:160);
+  await test.info().attach('reading-geometry',{body:JSON.stringify(geometry,null,2),contentType:'application/json'});
+  if(width<=390){
+    await page.screenshot({path:`artifacts/nov02-mobile-reading-${width}.png`});
+    await page.locator('#conversation .message.nox').last().evaluate(message=>{const conversation=document.getElementById('conversation');conversation.scrollTop+=message.getBoundingClientRect().top-conversation.getBoundingClientRect().top;});
+    await expect.poll(()=>intersections(page)).toEqual([]);
+    await page.screenshot({path:`artifacts/nov02-mobile-reading-${width}-nox.png`});
+  }
 });
 
 test('deliberate placement and Park retain free overlay after code preparation closes',async({page})=>{
