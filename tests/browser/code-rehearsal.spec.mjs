@@ -8,6 +8,51 @@ async function openExample(page){
   await expect(page.locator('#rehearsal-range')).toHaveText('Lines 1–8 of 15');
 }
 
+test('source tabs keep files accessible by keyboard and import choices preserve drafts',async({page})=>{
+  // Question: can the refined file/import controls keep exact sources and drafts while navigating by keyboard?
+  // Limits: Chromium accessibility semantics and source ownership, not screen-reader hardware or visual taste.
+  await openExample(page);await page.locator('#rehearsal-import').evaluate(node=>node.open=true);
+  await page.getByRole('tab',{name:'Paste code',exact:true}).click();
+  await page.locator('#rehearsal-filename').fill('second.js');await page.locator('#rehearsal-paste').fill('const second = 2;');
+  await page.getByRole('tab',{name:'GitHub',exact:true}).click();
+  await expect(page.locator('#rehearsal-paste')).toBeHidden();
+  await page.getByRole('tab',{name:'Paste code',exact:true}).click();await expect(page.locator('#rehearsal-paste')).toHaveValue('const second = 2;');
+  await page.locator('#rehearsal-use-paste').click();
+  const second=page.getByRole('tab',{name:'second.js',exact:true});await expect(second).toHaveAttribute('aria-selected','true');
+  await second.focus();await second.press('ArrowLeft');
+  await expect(page.getByRole('tab',{name:'retry.js',exact:true})).toBeFocused();await expect(page.locator('#rehearsal-code')).toContainText('return await task();');
+  await expect(page.getByRole('tabpanel',{name:/retry\.js/})).toBeVisible();
+  await page.getByRole('tab',{name:'retry.js',exact:true}).press('End');await expect(second).toBeFocused();
+  await expect(page.locator('#rehearsal-code')).toHaveText('1const second = 2;');
+});
+
+test('coloured source keeps exact text and markup remains inert',async({page})=>{
+  // Question: can syntax-coloured source preserve the original text and keep markup inside code inert?
+  // Limits: this covers DOM construction and submitted evidence, not every possible injection or language grammar.
+  await openExample(page);await page.locator('#rehearsal-import').evaluate(node=>node.open=true);
+  await page.getByRole('tab',{name:'Paste code',exact:true}).click();
+  const source='const template = "<img src=x onerror=window.codeExecuted=true>";\n// नमस्ते 👋';
+  await page.locator('#rehearsal-filename').fill('template.js');await page.locator('#rehearsal-paste').fill(source);await page.locator('#rehearsal-use-paste').click();
+  expect((await page.locator('#rehearsal-code code').allTextContents()).join('\n')).toBe(source);
+  await expect(page.locator('#rehearsal-code .token-keyword')).toContainText('const');await expect(page.locator('#rehearsal-code .token-string')).toContainText('<img');
+  await expect(page.locator('#rehearsal-code img, #rehearsal-code script')).toHaveCount(0);expect(await page.evaluate(()=>window.codeExecuted)).toBeUndefined();
+  const request=page.waitForRequest('**/api/chat');await page.locator('#rehearsal-explain').click();expect((await request).postDataJSON().context.rehearsal.code).toBe(source);
+});
+
+for(const theme of ['dark','light'])test(`selected code navigation remains legible in ${theme} mode`,async({page})=>{
+  // Question: do small selected line numbers retain readable contrast after the study palette changes?
+  // Limits: computed solid/composited colours in Chromium, not physical displays or a complete accessibility audit.
+  await page.emulateMedia({reducedMotion:'reduce'});await openExample(page);await page.evaluate(theme=>document.documentElement.dataset.theme=theme,theme);
+  const contrast=await page.locator('.code-line.selected').first().evaluate(row=>{
+    const canvas=document.createElement('canvas');canvas.width=canvas.height=1;const ctx=canvas.getContext('2d');
+    const rgb=colour=>{ctx.clearRect(0,0,1,1);ctx.fillStyle=colour;ctx.fillRect(0,0,1,1);return [...ctx.getImageData(0,0,1,1).data];};
+    const base=rgb(getComputedStyle(document.getElementById('rehearsal-panel')).backgroundColor),overlay=rgb(getComputedStyle(row).backgroundColor);
+    const alpha=overlay[3]/255,bg=base.slice(0,3).map((v,i)=>v*(1-alpha)+overlay[i]*alpha),fg=rgb(getComputedStyle(row.firstChild).color);
+    const lum=values=>values.slice(0,3).map(v=>{v/=255;return v<=.04045?v/12.92:((v+.055)/1.055)**2.4;}).reduce((sum,v,i)=>sum+v*[.2126,.7152,.0722][i],0);
+    const a=lum(fg),b=lum(bg);return (Math.max(a,b)+.05)/(Math.min(a,b)+.05);
+  });expect(contrast).toBeGreaterThanOrEqual(4.5);
+});
+
 test('spoken walkthrough follows actual playback events and Stop prevents another line',async({page})=>{
   // Question: are the highlighted source line and speech lifecycle synchronized without duplicate default narration?
   // Limits: synthetic speech events, not physical audio, microphone input or Orpheus quality.
@@ -66,7 +111,7 @@ for(const choice of ['close','example','range'])test(`successful late file impor
   await page.evaluate(()=>window.releaseFile());
   await expect(page.locator('#rehearsal-range')).toHaveText(choice==='range'?'Lines 9–15 of 15':'Lines 1–8 of 15');
   if(choice==='close')await expect(page.locator('#rehearsal-panel')).toBeHidden();
-  else await expect(page.locator('#rehearsal-loaded option:checked')).toHaveText('retry.js');
+  else await expect(page.locator('#rehearsal-loaded [aria-selected=true]')).toHaveText('retry.js');
 });
 
 test('missing original code after owner reload leaves the saved answer intact',async({page})=>{
@@ -119,6 +164,7 @@ test('retry restores the original code before replacing a reply',async({page})=>
   await openExample(page);await page.locator('#rehearsal-explain').click();
   const reply=page.locator('#conversation .message.nox:not(.draft)');await expect(reply).toHaveCount(1);
   await page.locator('#rehearsal-import').evaluate(node=>node.open=true);
+  await page.getByRole('tab',{name:'Paste code',exact:true}).click();
   await page.locator('#rehearsal-filename').fill('other.js');await page.locator('#rehearsal-paste').fill('x'.repeat(6001));
   await page.locator('#rehearsal-use-paste').click();await page.locator('#rehearsal-close').click();
   const request=page.waitForRequest('**/api/chat');await reply.hover();await reply.getByRole('button',{name:'Retry NOX’s reply',exact:true}).click();
@@ -133,6 +179,7 @@ test('invalid corrections survive rerender and prevent an AI request until fixed
   const draft=Array.from({length:7},(_,i)=>`Correction ${i}`).join('\n');await page.locator('#rehearsal-corrections').fill(draft);
   const requests=[];page.on('request',r=>{if(r.url().endsWith('/api/chat'))requests.push(r);});
   await page.locator('#rehearsal-explain').click();await expect(page.locator('#rehearsal-notice')).toContainText('six corrections');
+  await expect(page.locator('#rehearsal-notice')).toBeInViewport();
   await page.locator('#rehearsal-ready').check();await expect(page.locator('#rehearsal-corrections')).toHaveValue(draft);expect(requests).toHaveLength(0);
   await page.locator('#rehearsal-corrections').fill('I wrote this function.');await page.locator('#message').fill('It retries because an operation might fail temporarily.');await page.locator('#message').press('Enter');
   await expect(page.locator('#conversation .message.nox:not(.draft)')).toHaveCount(1);
@@ -156,6 +203,7 @@ test('code is literal text, corrections reach the model, and the call shows the 
   // Question: does displayed untrusted code remain inert and present in the existing voice call?
   // Limits: no semantic prompt-injection guarantee or live speech alignment is inferred.
   await openExample(page);await page.locator('#rehearsal-import').evaluate(node=>node.open=true);
+  await page.getByRole('tab',{name:'Paste code',exact:true}).click();
   await page.locator('#rehearsal-paste').fill('<script>window.codeExecuted=true</script>\nconst x = 7;');
   await page.locator('#rehearsal-filename').fill('example.html');await page.locator('#rehearsal-use-paste').click();
   await expect(page.locator('#rehearsal-code')).toContainText('<script>window.codeExecuted=true</script>');
