@@ -25,11 +25,18 @@
 .rehearsal-meta{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:12px 0 6px;font-size:12px;color:var(--muted);flex-wrap:wrap}
 .rehearsal-meta a{text-decoration:underline;text-underline-offset:3px;overflow-wrap:anywhere}
 .workspace .rehearsal-panel .rehearsal-code{position:relative;max-height:290px;overflow:auto;border-block:1px solid var(--line);padding:8px 0;tab-size:2;scrollbar-width:thin;scrollbar-color:var(--line) transparent}
-.code-line{display:flex;min-width:max-content;min-height:24px;padding-right:12px;align-items:baseline}
-.code-line.selected{background:color-mix(in srgb,var(--secondary-accent) 12%,transparent)}
-.code-line.speaking{background:color-mix(in srgb,var(--accent) 23%,transparent);box-shadow:inset 3px 0 var(--accent)}
-.workspace .rehearsal-panel .code-line-number{border:0;border-radius:0;background:none;padding:3px 8px;min-height:24px;min-width:44px;color:var(--muted);text-align:right;font-size:11px;font-variant-numeric:tabular-nums}
-.code-line code{font:12px/1.8 ui-monospace,SFMono-Regular,Consolas,monospace;white-space:pre;color:var(--text)}
+.code-line{position:relative;display:flex;min-width:max-content;min-height:28px;padding-right:24px;align-items:baseline}
+.code-line.selected{background:color-mix(in srgb,var(--secondary-accent) 5%,transparent)}
+.code-line.selected::before{content:'';position:absolute;inset:0 auto 0 45px;width:1px;background:color-mix(in srgb,var(--secondary-accent) 55%,transparent)}
+.code-line.speaking{background:color-mix(in srgb,var(--secondary-accent) 14%,transparent);box-shadow:none}
+.code-line.speaking::before{background:var(--secondary-accent)}
+.code-line.speaking::after{content:'';position:absolute;left:8px;top:12px;width:4px;height:4px;border-radius:50%;background:var(--secondary-accent)}
+/* Line numbers are navigation, not boxed toggle buttons. Keep shared button lights out. */
+.workspace .rehearsal-panel .code-line-number{border:0;border-radius:0;background:transparent;padding:4px 12px 4px 8px;min-height:28px;min-width:46px;color:var(--muted);text-align:right;font:11px/20px ui-monospace,SFMono-Regular,Consolas,monospace;font-variant-numeric:tabular-nums;box-shadow:none;transition:color .14s}
+.workspace .rehearsal-panel .code-line-number:is([aria-pressed=true],:hover,:active,:focus-visible){background:transparent;border:0;box-shadow:none;color:var(--secondary-accent)}
+.workspace .rehearsal-panel .code-line-number:focus-visible{outline:1px solid var(--secondary-accent);outline-offset:-3px;border-radius:4px}
+.code-line code{padding-left:14px;font:13px/28px ui-monospace,SFMono-Regular,Consolas,monospace;white-space:pre;color:var(--text);user-select:text}
+.code-line code::selection,.code-line code *::selection{background:color-mix(in srgb,var(--secondary-accent) 28%,var(--bg));color:var(--text)}
 .workspace .rehearsal-panel .rehearsal-self-check{display:flex;align-items:center;gap:8px;margin:14px 0;color:var(--text)}
 .rehearsal-self-check input{accent-color:var(--secondary-accent)}
 .workspace .rehearsal-panel #rehearsal-export{border:0;padding-left:0;text-decoration:underline;text-underline-offset:4px}
