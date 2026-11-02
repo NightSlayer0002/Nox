@@ -352,7 +352,8 @@ async function perform(value, save = true, draft, version, depth='quick',remembe
   const packet = normalizePacket(value,depth); lastPacket = packet;
   const spoken=spokenPreview(packet.speech);
   if(!completion.silent)voice.prepare(spoken,mode,packet.emotion);
-  if (packet.memory&&rememberAllowed) await memory.remember(packet.memory);
+  if (packet.memory&&rememberAllowed&&completion.replyTo) await memory.remember(packet.memory,{signal:completion.signal,
+    commitIfCurrent:commit=>version!==undefined&&!turns.isCurrent(version)?false:history.commitReplyEffect(completion.replyTo,commit,{signal:completion.signal})});
   if(version!==undefined&&!turns.isCurrent(version))return;
   if (save && !await history.append('assistant', packet.speech,{sources,...completion})) {voice.stop();return;}
   if(version!==undefined&&!turns.isCurrent(version))return;
@@ -425,7 +426,6 @@ async function send(raw,{recorded=false,keepDraft=false,source='programmatic',on
   const timingVersion=replyDiagnostics.begin(brain==='live'?'NOX is thinking…':'Scripted demo · no AI request');
   summaryController?.abort();clearTimeout(summaryTimer);
   const name=selfDeclaredName(text);
-  if (name) await memory.setName(name);
   if(!turns.isCurrent(version))return;
   const depth=rehearsalWork?'balanced':$('reply-depth').value==='deep'&&!visit.owner?'balanced':$('reply-depth').value;
   const recent=history.context();if(recorded&&recent.history.at(-1)?.role==='user')recent.history=recent.history.slice(0,-1);
@@ -441,6 +441,8 @@ async function send(raw,{recorded=false,keepDraft=false,source='programmatic',on
   if(!turns.isCurrent(version))return;
   const replyTo=history.revisionTarget(history.active().turns.at(-1)?.seq,{role:'user'});
   if(!replyTo){cancelConversation();await restoreConversation();return;}
+  if(name)await memory.setName(name,{signal:requestController.signal,commitIfCurrent:commit=>history.commitReplyEffect(replyTo,commit,{signal:requestController.signal})});
+  if(!turns.isCurrent(version))return;
   rehearsal?.bind(rehearsalWork,history.active().turns.at(-1),text);
   if(!recorded){const userTurn=history.active().turns.at(-1),message=addMessage('user', text,userTurn);attachMessageActions(message,userTurn);}if(source==='composer'&&!keepDraft&&$('message').value===submittedDraft)composer.setValue(''); contextPreview();updateMemory();navigation?.render();companionChanged();
   setBusy(true); voice.stop(); microphone.stop(); stage.character.emotion = 'curious';
