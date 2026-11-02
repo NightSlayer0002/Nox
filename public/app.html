@@ -93,32 +93,48 @@
 <aside class="release-column activity-column" data-panel="learn" hidden><div id="everyday-root"></div></aside>
 <aside class="companion-column" id="chat" data-panel="conversation">
 <h2 id="chat-title" class="sr-only">New conversation</h2>
-<div class="rehearsal-tools"><button id="rehearsal-toggle" type="button" aria-expanded="false" aria-controls="rehearsal-panel">Prepare with code</button></div>
+<div class="rehearsal-tools"><button id="rehearsal-toggle" type="button" aria-expanded="false" aria-controls="rehearsal-panel"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m8 7-5 5 5 5m8-10 5 5-5 5m-3-13-2 16"/></svg><span id="rehearsal-toggle-label">Prepare with code</span></button></div>
 <section id="rehearsal-panel" class="rehearsal-panel" hidden aria-label="Code preparation">
-  <header><div><h2>Know what you built.</h2><p>Read it together. Explain it in your own words.</p></div><button id="rehearsal-close" type="button" aria-label="Close code preparation"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18"/></svg></button></header>
-  <details id="rehearsal-import" open><summary>Open code</summary>
-    <button id="rehearsal-example" type="button">Try a small example</button> <button id="rehearsal-spoken-example" type="button">Try a four-line spoken example</button>
-    <label for="rehearsal-url">Public GitHub repository</label><input id="rehearsal-url" type="url" placeholder="https://github.com/owner/repository" maxlength="400" autocomplete="off" spellcheck="false">
-    <div class="rehearsal-actions"><button id="rehearsal-github" type="button">Browse repository</button></div>
-    <label class="sr-only" for="rehearsal-repo-files">Repository source file</label><select id="rehearsal-repo-files" hidden></select>
-    <label for="rehearsal-local">Or open a local source file</label><input id="rehearsal-local" class="rehearsal-file-input" type="file">
-    <label for="rehearsal-filename">File name</label><input id="rehearsal-filename" value="project.js" maxlength="240" autocomplete="off" spellcheck="false">
-    <label for="rehearsal-paste">Or paste code you can share</label><textarea id="rehearsal-paste" rows="4" maxlength="65536" spellcheck="false" placeholder="Paste a function, a module, or a small file…"></textarea>
-    <div class="rehearsal-actions"><button id="rehearsal-use-paste" type="button">Open pasted code</button></div>
-    <p>Read-only. No code runs. Up to 64 KB and 2,000 lines per file. Keep credentials and confidential code out. Only selected lines go to AI when you ask; imported files clear on refresh.</p>
+  <svg class="study-symbols" aria-hidden="true"><defs>
+    <symbol id="study-file" viewBox="0 0 24 24"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9Zm0 0v6h6M8 14h8m-8 4h5"/></symbol>
+    <symbol id="study-spark" viewBox="0 0 24 24"><path d="m12 3 2.6 6.4L21 12l-6.4 2.6L12 21l-2.6-6.4L3 12l6.4-2.6ZM20 2v4m-2-2h4"/></symbol>
+    <symbol id="study-question" viewBox="0 0 24 24"><path d="M8 19H4v-4a8 8 0 1 1 4 4Zm2-11a2.2 2.2 0 1 1 3 2c-1 .4-1 1-1 2m0 3h.01"/></symbol>
+    <symbol id="study-audio" viewBox="0 0 24 24"><path d="M3 10v4m4-7v10m5-14v18m5-14v10m4-7v4"/></symbol>
+    <symbol id="study-export" viewBox="0 0 24 24"><path d="M12 3v12m-4-4 4 4 4-4M4 16v4h16v-4"/></symbol>
+    <symbol id="study-plus" viewBox="0 0 24 24"><path d="M5 12h14m-7-7v14"/></symbol>
+  </defs></svg>
+  <header class="study-heading"><div><h2>Know what you built.</h2><p>Read it together. Explain it in your own words.</p></div><button id="rehearsal-close" type="button" aria-label="Close code preparation"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18"/></svg></button></header>
+  <details id="rehearsal-import" class="study-disclosure study-import" open><summary><svg aria-hidden="true"><use href="#study-plus"/></svg><span>Open code</span><span class="study-summary-hint">GitHub, file or paste</span></summary>
+    <div class="study-import-content">
+      <div class="study-import-tabs" role="tablist" aria-label="Code source">
+        <button id="study-tab-github" role="tab" type="button" aria-selected="true" aria-controls="study-source-github" data-import-tab="github">GitHub</button>
+        <button id="study-tab-local" role="tab" type="button" aria-selected="false" aria-controls="study-source-local" data-import-tab="local" tabindex="-1">Local file</button>
+        <button id="study-tab-paste" role="tab" type="button" aria-selected="false" aria-controls="study-source-paste" data-import-tab="paste" tabindex="-1">Paste code</button>
+      </div>
+      <div id="study-source-github" role="tabpanel" aria-labelledby="study-tab-github">
+        <label for="rehearsal-url">Public GitHub repository</label><div class="study-url-row"><input id="rehearsal-url" type="url" placeholder="https://github.com/owner/repository" maxlength="400" autocomplete="off" spellcheck="false"><button id="rehearsal-github" type="button">Browse repository</button></div>
+        <label class="sr-only" for="rehearsal-repo-files">Repository source file</label><select id="rehearsal-repo-files" hidden></select>
+      </div>
+      <div id="study-source-local" role="tabpanel" aria-labelledby="study-tab-local" hidden><label for="rehearsal-local">Open a local source file</label><input id="rehearsal-local" class="rehearsal-file-input" type="file"><p>Your file stays in this visit. Choose the lines to discuss after opening it.</p></div>
+      <div id="study-source-paste" role="tabpanel" aria-labelledby="study-tab-paste" hidden>
+        <label for="rehearsal-filename">File name</label><input id="rehearsal-filename" value="project.js" maxlength="240" autocomplete="off" spellcheck="false">
+        <label for="rehearsal-paste">Code you can share</label><textarea id="rehearsal-paste" rows="4" maxlength="65536" spellcheck="false" placeholder="Paste a function, a module, or a small file…"></textarea>
+        <button id="rehearsal-use-paste" type="button">Open pasted code</button>
+      </div>
+      <div class="study-examples"><span>Start with an example</span><button id="rehearsal-example" type="button">Try a small example</button><button id="rehearsal-spoken-example" type="button"><svg aria-hidden="true"><use href="#study-audio"/></svg>Try a four-line spoken example</button></div>
+      <p class="study-privacy">Read-only. No code runs. Up to 64 KB and 2,000 lines per file. Keep credentials and confidential code out. Only selected lines go to AI when you ask; imported files clear on refresh.</p>
+    </div>
   </details>
   <div id="rehearsal-work" hidden>
-    <label class="sr-only" for="rehearsal-loaded">Opened files</label><select id="rehearsal-loaded"></select>
-    <div class="rehearsal-meta"><span id="rehearsal-range"></span><a id="rehearsal-original" target="_blank" rel="noopener noreferrer" hidden>View source</a></div>
+    <div class="study-filebar"><svg aria-hidden="true"><use href="#study-file"/></svg><div id="rehearsal-loaded" role="tablist" aria-label="Opened files"></div><span class="study-readonly">Read only</span></div>
+    <div class="rehearsal-meta"><span id="rehearsal-range"></span><a id="rehearsal-original" target="_blank" rel="noopener noreferrer" hidden>View source</a><div class="study-navigation"><button id="rehearsal-previous" type="button" aria-label="Previous section" title="Previous section"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m14 6-6 6 6 6"/></svg></button><button id="rehearsal-next" type="button" title="Next section"><span>Next section</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m10 6 6 6-6 6"/></svg></button></div></div>
+    <div class="study-commandbar"><button id="rehearsal-explain" class="rehearsal-primary" type="button"><svg aria-hidden="true"><use href="#study-spark"/></svg><span>Explain these lines</span></button><button id="rehearsal-question" type="button" aria-label="Ask me about them" title="Ask me about them"><svg aria-hidden="true"><use href="#study-question"/></svg><span class="study-action-label">Ask me about them</span></button><button id="rehearsal-narrate" type="button" aria-label="Hear line by line" title="Hear line by line · up to 4 lines"><svg aria-hidden="true"><use href="#study-audio"/></svg><span class="study-action-label">Hear line by line</span></button></div>
     <div id="rehearsal-code" class="rehearsal-code" tabindex="0" role="region" aria-label="Selected code"></div>
-    <details><summary>Choose a complete section</summary><p>Select the whole function when it fits: up to 80 lines and 6,000 characters. Imported files are not automatically supporting context; open needed dependencies explicitly.</p><div class="rehearsal-range-inputs"><label>From line<input id="rehearsal-start" type="number" min="1" step="1"></label><label>To line<input id="rehearsal-end" type="number" min="1" step="1"></label><button id="rehearsal-select-range" type="button">Select range</button></div></details>
-    <div class="rehearsal-actions"><button id="rehearsal-previous" type="button">Previous</button><button id="rehearsal-next" type="button">Next section</button></div>
-    <div class="rehearsal-actions"><button id="rehearsal-explain" class="rehearsal-primary" type="button">Explain these lines</button><button id="rehearsal-question" type="button">Ask me about them</button></div>
-    <div class="rehearsal-actions"><button id="rehearsal-narrate" type="button">Hear line by line</button><button id="rehearsal-replay" type="button" hidden>Play walkthrough again</button><button id="rehearsal-stop" type="button" hidden>Stop walkthrough</button></div><p>Spoken walkthrough: up to 4 code lines and 4 voice requests. Each line lights up when its explanation starts playing.</p>
-    <label class="rehearsal-self-check"><input id="rehearsal-ready" type="checkbox">I can explain this section</label>
-    <p id="rehearsal-progress"></p>
-    <details><summary>My goal &amp; corrections</summary><label for="rehearsal-goal">What are you preparing for?</label><input id="rehearsal-goal" maxlength="300"><label for="rehearsal-corrections">Keep these points in mind</label><textarea id="rehearsal-corrections" rows="3" maxlength="1446" placeholder="One correction per line, up to six. For example: I built the API, not the database."></textarea><p>These are your explicit notes for this conversation. NOX may flag a conflict with the code. They are not saved as NOX preferences. Your AI provider’s data terms still apply.</p></details>
-    <button id="rehearsal-export" type="button">Export preparation sheet</button>
+    <div class="study-audiobar"><span class="study-audio-limit">Spoken walkthrough · up to 4 lines</span><button id="rehearsal-replay" type="button" hidden aria-label="Play walkthrough again" title="Play walkthrough again"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 10a9 9 0 1 1 1 7M3 4v6h6"/></svg></button><button id="rehearsal-stop" type="button" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="6" y="6" width="12" height="12" rx="2"/></svg><span>Stop walkthrough</span></button></div><p class="study-audio-help">Up to 4 voice requests. Each line lights up when its explanation starts playing.</p>
+    <details class="study-disclosure study-range"><summary><svg aria-hidden="true"><use href="#study-plus"/></svg><span>Choose a complete section</span></summary><p>Select the whole function when it fits: up to 80 lines and 6,000 characters. Imported files are not automatically supporting context; open needed dependencies explicitly.</p><div class="rehearsal-range-inputs"><label>From line<input id="rehearsal-start" type="number" min="1" step="1"></label><label>To line<input id="rehearsal-end" type="number" min="1" step="1"></label><button id="rehearsal-select-range" type="button">Select range</button></div></details>
+    <div class="study-progress"><label class="rehearsal-self-check"><input id="rehearsal-ready" type="checkbox"><span>I can explain this section</span></label><p id="rehearsal-progress"></p></div>
+    <details class="study-disclosure"><summary><svg aria-hidden="true"><use href="#study-plus"/></svg><span>My goal &amp; corrections</span></summary><label for="rehearsal-goal">What are you preparing for?</label><input id="rehearsal-goal" maxlength="300"><label for="rehearsal-corrections">Keep these points in mind</label><textarea id="rehearsal-corrections" rows="3" maxlength="1446" placeholder="One correction per line, up to six. For example: I built the API, not the database."></textarea><p>These are your explicit notes for this conversation. NOX may flag a conflict with the code. They are not saved as NOX preferences. Your AI provider’s data terms still apply.</p></details>
+    <button id="rehearsal-export" type="button"><svg aria-hidden="true"><use href="#study-export"/></svg>Export preparation sheet</button>
   </div>
   <p id="rehearsal-notice" role="status" aria-live="polite"></p>
 </section>

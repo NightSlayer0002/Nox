@@ -8,6 +8,23 @@ async function openExample(page){
   await expect(page.locator('#rehearsal-range')).toHaveText('Lines 1–8 of 15');
 }
 
+test('source tabs keep files accessible by keyboard and import choices preserve drafts',async({page})=>{
+  // Question: can the refined file/import controls keep exact sources and drafts while navigating by keyboard?
+  // Limits: Chromium accessibility semantics and source ownership, not screen-reader hardware or visual taste.
+  await openExample(page);await page.locator('#rehearsal-import').evaluate(node=>node.open=true);
+  await page.getByRole('tab',{name:'Paste code',exact:true}).click();
+  await page.locator('#rehearsal-filename').fill('second.js');await page.locator('#rehearsal-paste').fill('const second = 2;');
+  await page.getByRole('tab',{name:'GitHub',exact:true}).click();
+  await expect(page.locator('#rehearsal-paste')).toBeHidden();
+  await page.getByRole('tab',{name:'Paste code',exact:true}).click();await expect(page.locator('#rehearsal-paste')).toHaveValue('const second = 2;');
+  await page.locator('#rehearsal-use-paste').click();
+  const second=page.getByRole('tab',{name:'second.js',exact:true});await expect(second).toHaveAttribute('aria-selected','true');
+  await second.focus();await second.press('ArrowLeft');
+  await expect(page.getByRole('tab',{name:'retry.js',exact:true})).toBeFocused();await expect(page.locator('#rehearsal-code')).toContainText('return await task();');
+  await page.getByRole('tab',{name:'retry.js',exact:true}).press('End');await expect(second).toBeFocused();
+  await expect(page.locator('#rehearsal-code')).toHaveText('1const second = 2;');
+});
+
 test('spoken walkthrough follows actual playback events and Stop prevents another line',async({page})=>{
   // Question: are the highlighted source line and speech lifecycle synchronized without duplicate default narration?
   // Limits: synthetic speech events, not physical audio, microphone input or Orpheus quality.
@@ -66,7 +83,7 @@ for(const choice of ['close','example','range'])test(`successful late file impor
   await page.evaluate(()=>window.releaseFile());
   await expect(page.locator('#rehearsal-range')).toHaveText(choice==='range'?'Lines 9–15 of 15':'Lines 1–8 of 15');
   if(choice==='close')await expect(page.locator('#rehearsal-panel')).toBeHidden();
-  else await expect(page.locator('#rehearsal-loaded option:checked')).toHaveText('retry.js');
+  else await expect(page.locator('#rehearsal-loaded [aria-selected=true]')).toHaveText('retry.js');
 });
 
 test('missing original code after owner reload leaves the saved answer intact',async({page})=>{
@@ -119,6 +136,7 @@ test('retry restores the original code before replacing a reply',async({page})=>
   await openExample(page);await page.locator('#rehearsal-explain').click();
   const reply=page.locator('#conversation .message.nox:not(.draft)');await expect(reply).toHaveCount(1);
   await page.locator('#rehearsal-import').evaluate(node=>node.open=true);
+  await page.getByRole('tab',{name:'Paste code',exact:true}).click();
   await page.locator('#rehearsal-filename').fill('other.js');await page.locator('#rehearsal-paste').fill('x'.repeat(6001));
   await page.locator('#rehearsal-use-paste').click();await page.locator('#rehearsal-close').click();
   const request=page.waitForRequest('**/api/chat');await reply.hover();await reply.getByRole('button',{name:'Retry NOX’s reply',exact:true}).click();
@@ -156,6 +174,7 @@ test('code is literal text, corrections reach the model, and the call shows the 
   // Question: does displayed untrusted code remain inert and present in the existing voice call?
   // Limits: no semantic prompt-injection guarantee or live speech alignment is inferred.
   await openExample(page);await page.locator('#rehearsal-import').evaluate(node=>node.open=true);
+  await page.getByRole('tab',{name:'Paste code',exact:true}).click();
   await page.locator('#rehearsal-paste').fill('<script>window.codeExecuted=true</script>\nconst x = 7;');
   await page.locator('#rehearsal-filename').fill('example.html');await page.locator('#rehearsal-use-paste').click();
   await expect(page.locator('#rehearsal-code')).toContainText('<script>window.codeExecuted=true</script>');

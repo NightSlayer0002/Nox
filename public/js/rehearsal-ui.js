@@ -28,14 +28,14 @@ export function attachCodeRehearsal({getThread,send,voice,canAct=()=>true,onCont
     const state=session.snapshot(),file=state.file,section=state.section;
     doc.body.dataset.rehearsal=active?'open':'closed';
     $('rehearsal-panel').hidden=!active;$('rehearsal-toggle').setAttribute('aria-expanded',String(active));
-    $('rehearsal-toggle').textContent=active?'Close code preparation':file?'Continue code preparation':'Prepare with code';
+    $('rehearsal-toggle-label').textContent=active?'Close code preparation':file?'Continue code preparation':'Prepare with code';
+    $('rehearsal-panel').dataset.source=file?'ready':'empty';
     $('rehearsal-work').hidden=!file;
     $('rehearsal-replay').hidden=!spokenPlan;
     $('rehearsal-goal').value=state.goal;$('rehearsal-corrections').value=sessions.get(thread).correctionDraft;
     validateCorrections();
-    $('rehearsal-loaded').replaceChildren(...state.files.map(f=>{const option=doc.createElement('option');option.value=f.id;option.textContent=f.path;return option;}));
+    $('rehearsal-loaded').replaceChildren(...state.files.map(f=>{const tab=doc.createElement('button');tab.type='button';tab.role='tab';tab.dataset.sourceId=f.id;tab.textContent=f.path;tab.title=f.path;tab.setAttribute('aria-selected',String(f.id===file?.id));tab.tabIndex=f.id===file?.id?0:-1;tab.setAttribute('aria-controls','rehearsal-code');return tab;}));
     if(file){
-      $('rehearsal-loaded').value=file.id;
       $('rehearsal-range').textContent=`Lines ${section.startLine}–${section.endLine} of ${section.totalLines}`;
       $('rehearsal-progress').textContent=`${state.discussed}/${section.totalLines} lines discussed · ${state.ready} self-checked`;
       const link=$('rehearsal-original');link.hidden=!file.url;link.href=file.url||'#';link.textContent=file.source==='github'?`View source · ${file.revision.slice(0,7)}`:'Source';
@@ -115,7 +115,21 @@ export function attachCodeRehearsal({getThread,send,voice,canAct=()=>true,onCont
     };
   }));
   listen($('rehearsal-repo-files'),'change',event=>{if(!repository||event.target.value==='')return;const repo=repository,file=repo.files[Number(event.target.value)];if(file)void importSource(async signal=>{const value=await loadRepositoryFile(repo,file,{signal});return()=>openSource(value);});});
-  listen($('rehearsal-loaded'),'change',event=>{session.switchFile(event.target.value);renderedFile='';selectionChanged();});
+  function chooseFile(id,focus=false){session.switchFile(id);renderedFile='';selectionChanged();if(focus)$('rehearsal-loaded').querySelector('[aria-selected=true]')?.focus();}
+  listen($('rehearsal-loaded'),'click',event=>{const tab=event.target.closest('[data-source-id]');if(tab&&tab.getAttribute('aria-selected')!=='true')chooseFile(tab.dataset.sourceId);});
+  listen($('rehearsal-loaded'),'keydown',event=>{
+    if(!['ArrowLeft','ArrowRight','Home','End'].includes(event.key))return;
+    const tabs=[...$('rehearsal-loaded').children],index=tabs.indexOf(event.target);if(index<0)return;event.preventDefault();
+    const next=event.key==='Home'?0:event.key==='End'?tabs.length-1:(index+(event.key==='ArrowLeft'?-1:1)+tabs.length)%tabs.length;
+    chooseFile(tabs[next].dataset.sourceId,true);
+  });
+  const importTabs=[...doc.querySelectorAll('[data-import-tab]')];
+  function chooseImport(tab){cancelImport();for(const item of importTabs){const selected=item===tab;item.setAttribute('aria-selected',String(selected));item.tabIndex=selected?0:-1;$(item.getAttribute('aria-controls')).hidden=!selected;}}
+  for(const tab of importTabs){listen(tab,'click',()=>chooseImport(tab));listen(tab,'keydown',event=>{
+    if(!['ArrowLeft','ArrowRight','Home','End'].includes(event.key))return;event.preventDefault();
+    const index=importTabs.indexOf(tab),next=event.key==='Home'?0:event.key==='End'?importTabs.length-1:(index+(event.key==='ArrowLeft'?-1:1)+importTabs.length)%importTabs.length;
+    chooseImport(importTabs[next]);importTabs[next].focus();
+  });}
   listen($('rehearsal-code'),'click',event=>{const row=event.target.closest('.code-line-number')?.parentElement;if(row){session.select(Number(row.dataset.line));selectionChanged();}});
   listen($('rehearsal-select-range'),'click',protect(()=>{session.selectRange(Number($('rehearsal-start').value),Number($('rehearsal-end').value));selectionChanged();}));
   listen($('rehearsal-next'),'click',()=>{session.next();selectionChanged();});listen($('rehearsal-previous'),'click',()=>{session.previous();selectionChanged();});
