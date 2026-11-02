@@ -2,6 +2,7 @@ import { PACKET_SCHEMA, ANSWER_DEPTHS, answerDepth, normalizePacket, sanitizeCon
 import {productInstructions} from '../shared/product-capabilities.js';
 import {interfaceStateInstructions} from '../shared/interface-state.js';
 import {CONVERSATION_POLICY} from './conversation-policy.mjs';
+import {readBoundedJson,cancelResponseBody,MAX_PROVIDER_JSON_BYTES} from './bounded-json.mjs';
 export {explicitMemoryRequest} from '../shared/character.js';
 
 export const IDENTITY = `You are NOX, a minimalist fictional AI character with two expressive eyes and a small mouth. You can also take the form of a smoked-glass signal core.
@@ -78,13 +79,15 @@ export async function requestNox(input, { apiKey, model = 'gpt-4.1-mini', fetchI
       text: { format: { type: 'json_schema', name: 'nox_packet', strict: true, schema: PACKET_SCHEMA } },
     }),
   });
-  providerSignal.throwIfAborted();
   // Match the existing adapter contract without importing providers.mjs, which
   // already imports this module. Never attach upstream bodies or parser causes.
   const failure=(error,code,failureStage)=>Object.assign(error,{code,providerStatus:response.status,...(failureStage?{failureStage}:{})});
-  if (!response.ok) throw failure(new Error(`AI provider returned HTTP ${response.status}.`),response.status===429?'quota':[401,403].includes(response.status)?'credentials':'provider_http');
+  if (!response.ok){
+    cancelResponseBody(response);providerSignal.throwIfAborted();
+    throw failure(new Error(`AI provider returned HTTP ${response.status}.`),response.status===429?'quota':[401,403].includes(response.status)?'credentials':'provider_http');
+  }
   let data;
-  try{data=await response.json();}
+  try{data=await readBoundedJson(response,{maxBytes:MAX_PROVIDER_JSON_BYTES,signal:providerSignal});}
   catch(error){
     providerSignal.throwIfAborted();
     if(['AbortError','TimeoutError'].includes(error.name))throw error;
