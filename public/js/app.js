@@ -447,12 +447,12 @@ async function send(raw,{recorded=false,keepDraft=false,source='programmatic',on
   if(!turns.isCurrent(version))return;
   const replyTo=history.revisionTarget(history.active().turns.at(-1)?.seq,{role:'user'});
   if(!replyTo){cancelConversation();await restoreConversation();return;}
-  if(name)await memory.setName(name,{signal:requestController.signal,commitIfCurrent:commit=>history.commitReplyEffect(replyTo,commit,{signal:requestController.signal})});
-  if(!turns.isCurrent(version))return;
   rehearsal?.bind(rehearsalWork,history.active().turns.at(-1),text);
   if(!recorded){const userTurn=history.active().turns.at(-1),message=addMessage('user', text,userTurn);attachMessageActions(message,userTurn);}if(source==='composer'&&!keepDraft&&$('message').value===submittedDraft)composer.setValue(''); contextPreview();updateMemory();navigation?.render();companionChanged();
   setBusy(true); voice.stop(); microphone.stop(); stage.character.emotion = 'curious';
   try {
+    if(name)await memory.setName(name,{signal:requestController.signal,commitIfCurrent:commit=>history.commitReplyEffect(replyTo,commit,{signal:requestController.signal})});
+    if(!turns.isCurrent(version))return;
     let packet;
     if (brain === 'live') {
       const draft=addMessage('nox','');draft.classList.add('draft');pendingDraft=draft;

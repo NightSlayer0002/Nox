@@ -24,3 +24,18 @@ test('Stop cancels a generated fact waiting behind the native memory lock',async
   await expect(page.locator('#conversation .message.nox:not(.draft)')).toHaveCount(0);
   expect(await page.evaluate(()=>JSON.parse(localStorage.getItem('nox.chats.v1')).threads[0].turns.map(turn=>turn.role))).toEqual(['user']);
 });
+
+test('a queued name save cannot hide the committed question when stopped',async({page})=>{
+  // Question: can a slow personal-name write keep a saved user turn invisible and clear it from the canceled request's view?
+  // Limits: one native lock schedule with a synthetic server; not arbitrary external archive updates or model name usage.
+  await page.goto('/app#conversation');await expect(page.locator('#brain-status')).toContainText('Synthetic CI provider');
+  const requests=[];page.on('request',r=>{if(r.url().endsWith('/api/chat'))requests.push(r);});
+  const before=await page.evaluate(()=>localStorage.getItem('nox.memory.v1'));
+  await page.evaluate(()=>new Promise(resolve=>{window.heldName=navigator.locks.request('nox.memory.write',()=>new Promise(release=>{window.releaseName=release;resolve();}));}));
+  await page.locator('#message').fill('My name is Updated');await page.locator('#send-button').click();
+  await expect.poll(()=>page.evaluate(async()=>(await navigator.locks.query()).pending.some(lock=>lock.name==='nox.memory.write'))).toBe(true);
+  await page.locator('#cancel-reply').click();await page.evaluate(async()=>{releaseName();await heldName;});
+  await expect.poll(()=>page.evaluate(async()=>(await navigator.locks.query()).pending.length)).toBe(0);
+  await expect(page.locator('#conversation .message.user .message-content')).toHaveText('My name is Updated');
+  expect(await page.evaluate(()=>localStorage.getItem('nox.memory.v1'))).toBe(before);expect(requests).toHaveLength(0);
+});
