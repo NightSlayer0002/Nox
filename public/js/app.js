@@ -5,6 +5,7 @@ import { createMemory } from './memory.js';
 import { Stage } from './stage.js';
 import {connectStageControls} from './stage-controls.js';
 import { createVoice, createMicrophone } from './voice.js';
+import {createDictationDraft} from './dictation-draft.js';
 import { createCamera } from './camera.js';
 import { createRecorder } from './recorder.js';
 import {DEFAULT_EXPORT_PROFILE,resolveExportProfile} from './export-profile.js';
@@ -199,16 +200,20 @@ const recorder = createRecorder($('stage'), (active, clip, outcome) => {
   }
 },{getAudioStream:()=>voice.prepareCapture(),onError:toast});
 let dictating=false,callListening=false;
+const dictation=createDictationDraft({input:$('message'),
+  getThread:()=>{const thread=history.active();return JSON.stringify([thread.id,thread.branch,editTarget]);},
+  canInsert:()=>!busy&&brain!=='loading',onNotice:toast});
 const microphone = createMicrophone({
-  onText: text => {composer.setValue(text);contextPreview();send(text,{source:'composer'});},
-  onState: active => {
+  onText: (text,ticket) => dictation.accept(text,ticket),
+  onState: (active,ticket) => {
+    if(!active)dictation.cancel(ticket);
     dictating=active;
     activity.transition(busy?'thinking':active?'listening':'idle');
     $('mic-button').classList.toggle('listening', active); $('mic-button').querySelector('span').textContent = active ? 'Listening…' : 'Talk';
     $('mic-button').setAttribute('aria-pressed',active);$('mic-button').setAttribute('aria-label',active?'Stop dictation':'Dictate a message');$('mic-button').title=active?'Stop dictation':'Dictate a message';
     stage.character.activity = busy ? 'thinking' : active ? 'listening' : 'idle';
   },
-  onError: toast,
+  onError: (message,ticket)=>{dictation.cancel(ticket);toast(message);},
 });
 if(!microphone.supported){$('mic-button').disabled=true;$('mic-button').title='Dictation is unavailable in this browser. Type a message instead.';}
 const callMicrophone=createMicrophone({
@@ -352,7 +357,8 @@ async function perform(value, save = true, draft, version, depth='quick',remembe
   const packet = normalizePacket(value,depth); lastPacket = packet;
   const spoken=spokenPreview(packet.speech);
   if(!completion.silent)voice.prepare(spoken,mode,packet.emotion);
-  if (packet.memory&&rememberAllowed) await memory.remember(packet.memory);
+  if (packet.memory&&rememberAllowed&&completion.replyTo) await memory.remember(packet.memory,{signal:completion.signal,
+    commitIfCurrent:commit=>version!==undefined&&!turns.isCurrent(version)?false:history.commitReplyEffect(completion.replyTo,commit,{signal:completion.signal})});
   if(version!==undefined&&!turns.isCurrent(version))return;
   if (save && !await history.append('assistant', packet.speech,{sources,...completion})) {voice.stop();return;}
   if(version!==undefined&&!turns.isCurrent(version))return;
@@ -425,7 +431,6 @@ async function send(raw,{recorded=false,keepDraft=false,source='programmatic',on
   const timingVersion=replyDiagnostics.begin(brain==='live'?'NOX is thinking…':'Scripted demo · no AI request');
   summaryController?.abort();clearTimeout(summaryTimer);
   const name=selfDeclaredName(text);
-  if (name) await memory.setName(name);
   if(!turns.isCurrent(version))return;
   const depth=rehearsalWork?'balanced':$('reply-depth').value==='deep'&&!visit.owner?'balanced':$('reply-depth').value;
   const recent=history.context();if(recorded&&recent.history.at(-1)?.role==='user')recent.history=recent.history.slice(0,-1);
@@ -441,6 +446,8 @@ async function send(raw,{recorded=false,keepDraft=false,source='programmatic',on
   if(!turns.isCurrent(version))return;
   const replyTo=history.revisionTarget(history.active().turns.at(-1)?.seq,{role:'user'});
   if(!replyTo){cancelConversation();await restoreConversation();return;}
+  if(name)await memory.setName(name,{signal:requestController.signal,commitIfCurrent:commit=>history.commitReplyEffect(replyTo,commit,{signal:requestController.signal})});
+  if(!turns.isCurrent(version))return;
   rehearsal?.bind(rehearsalWork,history.active().turns.at(-1),text);
   if(!recorded){const userTurn=history.active().turns.at(-1),message=addMessage('user', text,userTurn);attachMessageActions(message,userTurn);}if(source==='composer'&&!keepDraft&&$('message').value===submittedDraft)composer.setValue(''); contextPreview();updateMemory();navigation?.render();companionChanged();
   setBusy(true); voice.stop(); microphone.stop(); stage.character.emotion = 'curious';
@@ -459,7 +466,7 @@ async function send(raw,{recorded=false,keepDraft=false,source='programmatic',on
       packet = demoReply(text, context);
       if(turns.isCurrent(version))replyDiagnostics.complete(timingVersion);
     }
-    if (turns.isCurrent(version)) {activity.transition('reply-ready',activityTurn);if(takeover)packet={...packet,action:'takeover'};const draft=pendingDraft;const completed=await perform(packet,true,draft,version,depth,explicitMemoryRequest(text),brain==='live'?request.context.knowledge:[],{replyTo,signal:requestController.signal,onCommitted:notifyCommitted,silent:rehearsalWork?.ticket.context.intent==='narrate'});if(turns.isCurrent(version)){pendingDraft=null;scheduleSummary();return completed;}}
+    if (turns.isCurrent(version)) {activity.transition('reply-ready',activityTurn);if(takeover)packet={...packet,action:'takeover'};const draft=pendingDraft;const completed=await perform(packet,true,draft,version,depth,explicitMemoryRequest(text),brain==='live'?request.context.knowledge:[],{replyTo,signal:requestController.signal,onCommitted:notifyCommitted,silent:rehearsalWork?.ticket.context.intent==='narrate'});if(turns.isCurrent(version)){if(completed)rehearsal?.completed(rehearsalWork,completed);pendingDraft=null;scheduleSummary();return completed;}}
   } catch (error) {
     if (turns.isCurrent(version)){setUsage(error.usage);pendingDraft?.remove();pendingDraft=null;if(error.name!=='AbortError'){activity.finishTurn(activityTurn,'error');if(source==='composer'&&!$('message').value){composer.setValue(text);contextPreview();}stage.character.react?.('worried',stage.time,2);if (brain === 'live') $('brain-status').lastChild.textContent = ' AI error'; addMessage('system', error.message); toast(error.message);replyDiagnostics.setStatus('Reply interrupted. Your message is still in this visit.');}}
   } finally { if (turns.isCurrent(version)) { setBusy(false); } }
@@ -503,7 +510,12 @@ for(const voiceControl of [$('voice-button'),$('composer-voice')])voiceControl.a
   if (enabled && !busy && afterimageBridge.snapshot().status!=='playing') playReplyPreview(lastPacket,{stage,voice,mode});
   else if (!voice.supported) toast('Speech synthesis is unavailable in this browser. You can read NOX’s captions.');
 });
-$('mic-button').addEventListener('click', () => { if (busy) { toast('Let NOX finish this thought first.'); return; } afterimageBridge.stop('conversation');voice.stop(); microphone.start(); });
+$('mic-button').addEventListener('click', () => {
+  if(dictation.pending){dictation.cancel();microphone.stop();return;}
+  if (busy) { toast('Let NOX finish this thought first.'); return; }
+  afterimageBridge.stop('conversation');voice.stop();
+  const ticket=dictation.begin();if(ticket&&!microphone.start(ticket))dictation.cancel(ticket);
+});
 $('camera-button').addEventListener('click', async () => {
   const button = $('camera-button'); button.disabled = true;
   try {
@@ -569,7 +581,7 @@ document.addEventListener('keydown', event => {
   if ($('inside-dialog').open || $('clip-dialog').open) return;
   if (event.key === 'Escape') { resetScene(); if (document.body.classList.contains('film') && !recorder.active) toggleFilm(); return; }
 });
-window.addEventListener('pagehide', event => { if(event.persisted)voiceCall?.session.end();else voiceCall?.dispose();afterimageBridge.stop('pagehide');ownerToken=''; camera.stop(); voice.stop(); microphone.stop();callMicrophone.stop(); });
+window.addEventListener('pagehide', event => { if(event.persisted)voiceCall?.session.end();else{voiceCall?.dispose();dictation.dispose();}afterimageBridge.stop('pagehide');ownerToken=''; camera.stop(); voice.stop(); microphone.stop();callMicrophone.stop(); });
 window.addEventListener('hashchange',()=>{revisionControls.cancelRetry();if(location.hash==='#afterimage'){cancelConversation();stage.caption='';stage.captionUntil=0;}else afterimageBridge.stop('navigation');requestAnimationFrame(composer.resize);});
 setInterval(() => { const seconds = Math.floor(stage.time); $('stage-time').textContent = `${String(Math.floor(seconds / 60)).padStart(2, '0')}:${String(seconds % 60).padStart(2, '0')}`; }, 1000);
 setInterval(() => {

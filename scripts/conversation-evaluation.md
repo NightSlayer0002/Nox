@@ -8,7 +8,7 @@ The runner sends fictional conversations to the normal guest chat endpoint. An e
 node scripts/evaluate-conversation.mjs --url https://YOUR-NOX-HOST --cases correction-repair --label baseline --out artifacts/baseline.json
 ```
 
-Ordinary cases require no source feature. `--cases companion` selects all six (19 requests):
+Ordinary cases require no source feature and explicitly use the shipping guest default, balanced depth. `--cases companion --max-requests 22` selects all seven (22 requests); the default 20-request cap remains unchanged, so the full suite requires that explicit budget:
 
 | Case | Turns | Review focus |
 | --- | ---: | --- |
@@ -18,10 +18,11 @@ Ordinary cases require no source feature. `--cases companion` selects all six (1
 | shorter-and-stop | 3 | Shorten, then let the conversation end |
 | explanation-focus | 3 | Follow the student's changing explanation focus |
 | companion-scope | 5 | Retain “Interview preparation is a feature; NOX remains a companion” across intervening topics |
+| company-not-homework | 3 | Exact fictional review diagnostic: an unfinished email idea, no-improvement correction, then disagreement with a universal one-week promise and a fitting headline |
 
-`--cases` also accepts a comma-separated list. The older interface/action probes remain selectable (for example `ordinary-reasoning,unavailable-vision`). `--cases rehearsal` selects all seven source probes, or use a single prefixed name such as `rehearsal-unavailable-dependency`. Rehearsal cases keep their balanced answer depth.
+`--cases` also accepts a comma-separated list or a single diagnostic such as `company-not-homework`. The older interface/action probes remain selectable (for example `ordinary-reasoning,unavailable-vision`) and retain quick depth. `--cases rehearsal` selects all seven source probes, or use a single prefixed name such as `rehearsal-unavailable-dependency`. Rehearsal cases keep their balanced answer depth.
 
-Each later turn uses the actual prior assistant replies. Reports save exact submitted message/context, seeded scenario definitions, local prompt/policy references, observed model/provider/policy metrics, latency, output length, allowance and retry information, and a versioned rubric. Missing hosted metadata stays unknown. The policy hash identifies only the conversation policy text; it does not fingerprint all deployment code, provider prompts or model weights. Full requests and source excerpts are retained, so use fictional fixtures rather than personal or confidential inputs.
+Each later turn uses the actual prior assistant replies. Reports save exact submitted message/context, requested depth per case and turn, seeded scenario definitions, local prompt/policy references, observed model/provider/policy metrics, latency, output length, allowance and retry information, and a versioned rubric. Requested depth is a request setting, not independent evidence of the served configuration. Missing hosted metadata stays unknown. The policy hash identifies only the conversation policy text; it does not fingerprint all deployment code, provider prompts or model weights. Full requests and source excerpts are retained, so use fictional fixtures rather than personal or confidential inputs.
 
 `structuralPass` means every requested turn returned nonempty speech and an allowed action. It does not mean the answer is correct, appropriately expressive, helpful, or accepted by a human. `semanticReview` stays `unreviewed`. Seed replies demonstrate a mistaken framing and are explicitly supplied context, not scored model outputs. User turns are scripted; they can refine an answer that was already good.
 

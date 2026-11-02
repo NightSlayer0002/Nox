@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {requestProvider} from '../server/providers.mjs';
 import {IDENTITY,requestNox} from '../server/ai.mjs';
-import {capabilitiesForModel} from '../shared/product-capabilities.js';
+import {capabilitiesForModel,productInstructions} from '../shared/product-capabilities.js';
 
 const packet={speech:'A clear answer.',emotion:'curious',action:'none',memory:''};
 function productData(instructions) {
@@ -76,4 +76,21 @@ test('verified owner access enables real capabilities while truthy unverified fl
     assert.equal(guest.afterimage.customGeneration,false);
     assert.equal(guest.voice.natural,false);
   }
+});
+
+// Question: can either visit get accurate guidance for shipped source controls without granting repository tools?
+// Limits: prompt delivery verifies available facts, not whether a hosted model follows them or explains code well.
+for(const owner of [false,true])test(`${owner?'owner':'guest'} instructions describe bounded, visit-only code preparation`,()=>{
+  const instructions=productInstructions(capabilitiesForModel({owner})),facts=productData(instructions);
+  assert.deepEqual(facts.controls.codePreparation,['Prepare with code','Continue code preparation','Close code preparation','Open code','GitHub','Local file','Paste code','Browse repository','Open a local source file','Open pasted code','Try a small example','Try a four-line spoken example','View source','Previous section','Next section','Explain these lines','Ask me about them','Hear line by line','Play walkthrough again','Stop walkthrough','Choose a complete section','Select range','I can explain this section','My goal & corrections','Export preparation sheet']);
+  assert.equal(facts.codePreparation.available,true);assert.equal(facts.codePreparation.readOnly,true);
+  assert.equal(facts.codePreparation.executesCode,false);assert.equal(facts.codePreparation.privateRepositoryAccess,false);assert.equal(facts.codePreparation.wholeRepositoryContext,false);
+  assert.deepEqual(facts.codePreparation.imports,['Public GitHub repository root URL, pinned to a commit; select a supported text source file.','Local UTF-8 text source file.','Pasted code with a file name.','Authored examples.']);
+  assert.deepEqual(facts.codePreparation.limits,{fileBytes:65536,fileLines:2000,selectedLines:80,selectedCharacters:6000,spokenLines:4,filesPerVisit:12,repliesPerSheet:80});
+  assert.equal(facts.codePreparation.importedSourcePersists,false);
+  assert.match(facts.codePreparation.context,/selected lines, goal and corrections/i);assert.match(facts.codePreparation.context,/dependencies.*explicitly/i);
+  assert.match(facts.codePreparation.voice,/playback starts/i);assert.match(facts.codePreparation.voice,/written answer.*kept/i);
+  assert.match(facts.codePreparation.storage,owner?/owner chat replies.*browser history/i:/guest chat replies.*refresh/i);
+  assert.equal(facts.externalTools,false);assert.equal(facts.routes.conversation,owner?'/owner#conversation':'/guest#conversation');
+  assert.match(instructions,/Code preparation is optional inside conversation/);assert.match(instructions,/cannot run code, access private repositories or inspect the whole repository/);
 });

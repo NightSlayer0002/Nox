@@ -128,6 +128,15 @@ export async function createHistory(storage,legacy=[]){
     subscribe(fn){listeners.add(fn);return ()=>listeners.delete(fn);},
     refresh,
     revisionTarget,
+    commitReplyEffect(target,effect,{signal}={}){return serialize(storage,()=>{
+      if(signal?.aborted||!target||typeof effect!=='function')return false;
+      if(!crossTabSafe()||!persistent||recovery)return false;
+      load();choose();const t=active();
+      if(!persistent||recovery)return false;
+      if(t?.id!==target.threadId||revision(t)!==target.revision||t.turns.at(-1)?.id!==target.turnId||t.turns.at(-1)?.role!=='user'){lastError='revision-conflict';return false;}
+      if(signal?.aborted)return false;
+      return effect();
+    });},
     replaceFrom:(target,content,options)=>revise(target,content,false,options),
     retryFrom:(target,options)=>revise(target,'',true,options),
     active:()=>structuredClone(active()),

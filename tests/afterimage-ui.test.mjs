@@ -65,6 +65,58 @@ test('generating another story requires resolving an unapplied cut instead of si
   ui.button('Edit this cut').props.onClick();ui.render();assert.equal(line().props.value,FIRST_CONTACT.signals[0].beats[0].speech);
 });
 
+for(const owner of [false,true])for(const action of ['branch','ending','example','archive','delete'])test(`${owner?'owner':'guest'} ${action} replacement preserves unapplied lines until explicitly discarded`,async()=>{
+  // Question: Can a replacement action erase a different open draft before the author applies, exports or discards it?
+  // Limits: Real JSX handlers and archive transactions with synthetic hooks/storage; not browser rendering, refreshed drafts or model output.
+  const other={...FIRST_CONTACT,title:'A second archived story'},applied=['Applied first beat.','Applied second beat.','Applied third beat.','Applied ending.'];
+  const initialRaw=JSON.stringify({version:1,receptions:[{id:'saved',revision:0,createdAt:'2026-10-24T00:00:00.000Z',packet:FIRST_CONTACT,seed:'First seed',tone:'uncanny',source:'live',signalIndex:0,endingIndex:0,editedLines:applied},{id:'other',revision:0,createdAt:'2026-10-23T00:00:00.000Z',packet:other,seed:'Second seed',tone:'wonder',source:'live',signalIndex:0,endingIndex:0}]});
+  const ui=receiver({owner,initialRaw}),firstLine=()=>ui.find(node=>node.type==='textarea'&&node.props.maxLength===90);
+  const replace=()=>{
+    if(action==='example')return ui.button('Play example').props.onClick();
+    if(action==='archive')return ui.find(node=>node.type==='button'&&ui.text(node).startsWith(other.title)).props.onClick();
+    if(action==='delete')return ui.button('Delete story').props.onClick();
+    return ui.find(node=>node.props?.className===(action==='branch'?'signal-choices':'ending-choices')).props.children.flat().filter(node=>node?.type==='button')[1].props.onClick();
+  };
+  ui.button('Edit this cut').props.onClick();ui.render();firstLine().props.onChange({target:{value:'A newer draft that has not been applied.'}});ui.render();
+  // Hiding the editor must not bypass the same replacement guard.
+  ui.button('Edit this cut').props.onClick();ui.render();
+  ui.button('Export story data').props.onClick();const before=JSON.parse(ui.downloads.at(-1)[0]);
+  if(action==='delete'){ui.find(node=>node.props?.['aria-label']===`Delete reception ${FIRST_CONTACT.title}`).props.onClick();ui.render();}
+  await replace();ui.render();
+  assert.equal(firstLine()?.props.value,'A newer draft that has not been applied.');
+  assert.equal(ui.storage.getItem('nox.afterimage.v1'),initialRaw);assert.equal(ui.plays.length,0);
+  ui.button('Export story data').props.onClick();assert.deepEqual(JSON.parse(ui.downloads.at(-1)[0]),before);
+  assert.match(ui.text(ui.find(node=>node.props?.role==='alert')),/apply|discard/i);
+  ui.button('Export open edits').props.onClick();assert.match(ui.downloads.at(-1)[0],/A newer draft that has not been applied\./);
+  ui.button('Discard open edits').props.onClick();ui.render();await replace();ui.render();
+  assert.equal(firstLine(),undefined);
+  if(action==='example')assert.equal(ui.plays.length,1);
+  else if(action==='archive')assert.equal(ui.text(ui.find(node=>node.props?.className==='reception-title')),other.title);
+  else if(action==='delete')assert.equal(JSON.parse(ui.storage.getItem('nox.afterimage.v1')).receptions.length,1);
+  else{ui.button('Export story data').props.onClick();assert.equal(JSON.parse(ui.downloads.at(-1)[0])[action==='branch'?'signalIndex':'endingIndex'],1);}
+});
+
+test('an awaited branch replacement locks its old editor before it can collect a new draft',async()=>{
+  // Question: Can typing into an untouched old editor while a branch transaction waits create a draft that its completion discards?
+  // Limits: Real JSX/store transaction across one synthetic microtask boundary; not native Web Lock scheduling or browser input dispatch.
+  const raw=JSON.stringify({version:1,receptions:[{id:'saved',revision:0,createdAt:'2026-10-24T00:00:00.000Z',packet:FIRST_CONTACT,seed:'A seed',tone:'uncanny',source:'live',signalIndex:0,endingIndex:0}]}),ui=receiver({owner:true,initialRaw:raw});
+  ui.button('Edit this cut').props.onClick();ui.render();
+  const changing=ui.find(node=>node.props?.className==='signal-choices').props.children.flat().filter(node=>node?.type==='button')[1].props.onClick();ui.render();
+  const first=ui.find(node=>node.type==='textarea'&&node.props.maxLength===90);assert.equal(first.props.disabled,true);
+  first.props.onChange({target:{value:'This cannot be entered during replacement.'}});ui.render();ui.button('Export open edits').props.onClick();assert.doesNotMatch(ui.downloads.at(-1)[0],/cannot be entered/);
+  await changing;ui.render();ui.button('Export story data').props.onClick();assert.equal(JSON.parse(ui.downloads.at(-1)[0]).signalIndex,1);
+});
+
+test('applying earlier lines still preserves newer typing while its save waits',async()=>{
+  // Question: Does preventing typing during replacement accidentally disable the existing newer-draft preservation when applying edits?
+  // Limits: JSX handlers and real archive transaction with explicit render/microtask ordering; not browser scheduling or multi-tab edits.
+  const raw=JSON.stringify({version:1,receptions:[{id:'saved',revision:0,createdAt:'2026-10-24T00:00:00.000Z',packet:FIRST_CONTACT,seed:'A seed',tone:'uncanny',source:'live',signalIndex:0,endingIndex:0}]}),ui=receiver({owner:true,initialRaw:raw}),first=()=>ui.find(node=>node.type==='textarea'&&node.props.maxLength===90);
+  ui.button('Edit this cut').props.onClick();ui.render();first().props.onChange({target:{value:'Earlier submitted edit.'}});ui.render();
+  const applying=ui.button('Apply edits').props.onClick();ui.render();assert.equal(first().props.disabled,false);
+  first().props.onChange({target:{value:'A newer draft stays open.'}});ui.render();await applying;ui.render();
+  assert.equal(first().props.value,'A newer draft stays open.');ui.button('Export story data').props.onClick();assert.equal(JSON.parse(ui.downloads.at(-1)[0]).editedLines[0],'Earlier submitted edit.');
+});
+
 for(const failSave of [false,true])test(`an untouched editor is seeded from the new ${failSave?'unsaved':'saved'} story`,async()=>{
   // Question: Can even unchanged old editor buffers cross the generation/save-fallback boundary into the next cut?
   // Limits: Real receiver/store with synthetic provider and injected write failure; not native quota or cross-device persistence.
@@ -91,6 +143,8 @@ test('repeated example playback and branch edits never fill the story archive',(
 });
 
 for(const source of ['authored sample','unsaved generated story','saved story'])for(const [choice,group,field] of [['branch','signal-choices','signalIndex'],['ending','ending-choices','endingIndex']])test(`reselecting the current ${choice} preserves applied lines and open drafts for ${source}`,async()=>{
+  // Question: Does selecting the current cut retain applied and unapplied lines while a deliberate fresh cut clears applied lines?
+  // Limits: JSX handlers with in-memory archive and bridge boundaries; not browser presentation or persistent drafts after refresh.
   const initialRaw=source==='saved story'?JSON.stringify({version:1,receptions:[{id:'saved',revision:0,createdAt:'2026-10-24T00:00:00.000Z',packet:FIRST_CONTACT,seed:'Only copy',tone:'uncanny',source:'live',signalIndex:0,endingIndex:0}]}):undefined;
   const ui=receiver({owner:source!=='authored sample',initialRaw,receive:async()=>({packet:FIRST_CONTACT})});
   if(source==='unsaved generated story'){
@@ -119,6 +173,7 @@ for(const source of ['authored sample','unsaved generated story','saved story'])
   ui.button('Play this cut').props.onClick();ui.render();
   assert.deepEqual(Array.from(ui.plays.at(-1)[3]),lines);
   ui.bridge.stop();ui.render();
+  ui.button('Discard open edits').props.onClick();ui.render();
   await buttons()[1].props.onClick();ui.render();
   const changed=exportCut();assert.equal(changed[field],1);assert.equal(changed.editedLines,undefined);
   assert.equal(firstLine(),undefined);

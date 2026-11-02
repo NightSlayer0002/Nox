@@ -25,6 +25,15 @@ test('a phone uses a small character and composer floor without reserving a chat
   assert.equal(layout.park.x,220);assert.ok(layout.park.y<layout.bounds.floor);
 });
 
+// Question: can a small automatic placement leave the minimum reading width
+// and its 12px clearance, instead of clamping the gutter into the artwork?
+// Limits: source geometry only; the navigation browser case checks real text.
+test('a 320px phone leaves at least 100px of reading width before the untouched character',()=>{
+  const layout=floatingLayout({viewport:{width:320,height:800},shell:{left:0,right:320},header:{bottom:66},composer:{left:18,right:302,top:700},compact:true});
+  assert.ok(layout.initial.x>=130,'100px column plus 12px gap after its 18px inset');
+  assert.ok(layout.initial.x+layout.size<=312,'character stays inside its viewport bounds');
+});
+
 test('a reduced viewport only clamps offscreen placement, and has room for the composer',()=>{
   const layout=floatingLayout({viewport:{width:320,height:340,offsetTop:0},shell:{left:18,right:302},header:{bottom:58},composer:{top:270},nav:{height:0},compact:true});
   assert.ok(layout.bounds.bottom<=332);assert.ok(layout.park.y+layout.size<=layout.bounds.bottom);

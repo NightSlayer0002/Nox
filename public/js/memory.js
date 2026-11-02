@@ -50,7 +50,7 @@ export function createMemory(storage) {
     notify(before);
     return readable;
   }
-  function mutate(action) {
+  function mutate(action,{signal,commitIfCurrent}={}) {
     const current = transaction();
     if (!current.supported) {
       const before = changeKey();
@@ -59,6 +59,7 @@ export function createMemory(storage) {
       return false;
     }
     const commit = () => {
+      if(signal?.aborted)return false;
       const before = changeKey(), readable = load();
       action();
       let committed = false;
@@ -81,7 +82,9 @@ export function createMemory(storage) {
       return false;
     };
     try {
-      const result = current.run(commit);
+      // A reply-owned effect waits for memory first, then validates its saved
+      // question under history's lock while the synchronous memory write runs.
+      const result = current.run(()=>signal?.aborted?false:commitIfCurrent?commitIfCurrent(commit):commit());
       return result?.then ? Promise.resolve(result).catch(failed) : result;
     } catch { return failed(); }
   }
@@ -99,11 +102,11 @@ export function createMemory(storage) {
     refresh,
     subscribe(listener) { listeners.add(listener); return () => listeners.delete(listener); },
     dispose() { globalThis.window?.removeEventListener('storage', onStorage); listeners.clear(); },
-    setName(name) { return mutate(() => { state.name = cleanText(name, 40); }); },
+    setName(name,options) { return mutate(() => { state.name = cleanText(name, 40); },options); },
     setMode(mode) { return mutate(() => { state.mode = sanitizeContext({ mode }).mode; }); },
-    remember(fact) {
+    remember(fact,options) {
       const text = cleanText(fact, 120);
-      return mutate(() => { if (text && !state.facts.includes(text)) state.facts = [...state.facts, text].slice(-12); });
+      return mutate(() => { if (text && !state.facts.includes(text)) state.facts = [...state.facts, text].slice(-12); },options);
     },
     addTurn(role, content) {
       if (!['user', 'assistant'].includes(role)) return false;

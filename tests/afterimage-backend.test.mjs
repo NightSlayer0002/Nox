@@ -72,11 +72,13 @@ test('AFTERIMAGE generation uses the same cancellation deadline during its secon
 });
 
 test('AFTERIMAGE normalizes exact playable counts and bounds every text field',async()=>{
+  // Question: Does a complete packet at each text limit remain intact while unsupported scene powers are neutralized?
+  // Limits: Shared normalization only; not generated prose quality or provider schema enforcement.
   const {normalizeAfterimage}=await import('../shared/afterimage.js');
-  const input=transmission();input.title='x'.repeat(100);input.anchor='a'.repeat(200);input.caption='c'.repeat(300);
-  input.signals[0].label='l'.repeat(60);input.signals[0].premise='p'.repeat(200);
-  input.signals[0].beats[0]=cue('s'.repeat(100),'invented','run_shell');
-  input.signals[0].endings[0].label='e'.repeat(60);
+  const input=transmission();input.title='x'.repeat(80);input.anchor='a'.repeat(160);input.caption='c'.repeat(280);
+  input.signals[0].label='l'.repeat(48);input.signals[0].premise='p'.repeat(180);
+  input.signals[0].beats[0]=cue('s'.repeat(90),'invented','run_shell');
+  input.signals[0].endings[0].label='e'.repeat(48);
   const packet=normalizeAfterimage(input);
   assert.equal(packet.title.length,80);assert.equal(packet.anchor.length,160);assert.equal(packet.caption.length,280);
   assert.equal(packet.signals.length,3);assert.equal(packet.signals[0].label.length,48);assert.equal(packet.signals[0].premise.length,180);
@@ -84,6 +86,20 @@ test('AFTERIMAGE normalizes exact playable counts and bounds every text field',a
   assert.deepEqual(packet.signals[0].beats[0],{speech:'s'.repeat(90),emotion:'neutral',action:'none'});
   assert.equal(packet.signals[0].endings[0].label.length,48);
   assert.notEqual(packet.signals,input.signals);
+});
+
+for(const [field,limit,set] of [
+  ['title',80,(p,v)=>p.title=v],['anchor',160,(p,v)=>p.anchor=v],['caption',280,(p,v)=>p.caption=v],
+  ['branch label',48,(p,v)=>p.signals[0].label=v],['premise',180,(p,v)=>p.signals[0].premise=v],
+  ['beat',90,(p,v)=>p.signals[0].beats[0].speech=v],['ending label',48,(p,v)=>p.signals[0].endings[0].label=v],['ending',90,(p,v)=>p.signals[0].endings[0].speech=v],
+])test(`AFTERIMAGE rejects an overlong ${field} instead of accepting clipped prose`,async()=>{
+  // Question: Can normalization report success while dropping the end of any generated story text field?
+  // Limits: Deterministic contract validation and generation wrapper; no semantic completeness judgment or live provider response.
+  const {normalizeAfterimage}=await import('../shared/afterimage.js'),{requestAfterimageGeneration}=await import('../server/afterimage-generation.mjs');
+  const input=transmission();set(input,`${'x'.repeat(limit-9)} complete.`);const original=structuredClone(input);
+  assert.throws(()=>normalizeAfterimage(input),error=>error instanceof RangeError&&error.code==='output_limit');
+  let calls=0;await assert.rejects(requestAfterimageGeneration(async()=>{calls++;return input;}),error=>error.code==='output_limit');
+  assert.equal(calls,1,'overflow must not start an unbounded repair/retry');assert.deepEqual(input,original);
 });
 
 test('AFTERIMAGE rejects incomplete, surplus, empty and unexpected structures',async()=>{
@@ -133,6 +149,13 @@ test('Gemini AFTERIMAGE receives nested schema and validates all branches before
     return Response.json({candidates:[{finishReason:'STOP',content:{parts:[{text:JSON.stringify(transmission())}]}}]});
   }});
   assert.equal(result.title,'The unanswered moon');
+});
+
+test('Gemini AFTERIMAGE rejects a valid-shaped overlong cue before returning a successful packet',async()=>{
+  // Question: Does the provider boundary reject prose overflow even when Gemini's converted schema omits string length constraints?
+  // Limits: Actual provider request/parser with a synthetic HTTP response; no external API, live generation quality or repair attempt.
+  const input=transmission();input.signals[0].beats[0].speech='The abandoned observatory glowed as though the stars had come down to rest, still waiting to tell us their secret.';
+  await assert.rejects(requestProvider({seed:'Ocean radio',tone:'uncanny'},{provider:'gemini',apiKey:'fixture',task:'afterimage',fetchImpl:async()=>Response.json({candidates:[{finishReason:'STOP',content:{parts:[{text:JSON.stringify(input)}]}}]})}),error=>error.code==='output_limit');
 });
 
 test('NVIDIA AFTERIMAGE keeps thinking off and rejects incomplete provider packets and non-JSON',async()=>{
@@ -244,6 +267,19 @@ test('AFTERIMAGE output-limit failures keep specific safe wording and do not ret
   let calls=0;await withServer({providers:[groq],providerRequest:async()=>{calls++;throw Object.assign(new Error('PRIVATE output'),{code:'output_limit'});}},async base=>{
     const response=await post(base,{seed:'A moon',tone:'wonder'});assert.equal(response.status,502);
     const {error}=await response.json();assert.match(error,/AFTERIMAGE/);assert.doesNotMatch(error,/PRIVATE/);assert.equal(calls,1);
+  });
+});
+
+for(const [field,set] of [['title',p=>p.title='x'.repeat(81)],['premise',p=>p.signals[0].premise='x'.repeat(181)],['cue',p=>p.signals[0].beats[0].speech='x'.repeat(91)]])test(`AFTERIMAGE API makes an overlong ${field} recoverable without caching a clipped story`,async()=>{
+  // Question: Can an overlong model result be published/cached as success, or prevent a complete replacement on the next request?
+  // Limits: Loopback HTTP handler and real generation/cache with synthetic provider output; no paid model call, browser error display or automatic repair.
+  let calls=0;const bad=transmission();set(bad);
+  await withServer({providers:[groq],providerRequest:async()=>++calls===1?bad:transmission()},async base=>{
+    const input={seed:'A moon',tone:'wonder'},failed=await post(base,input);assert.equal(failed.status,502);
+    const error=(await failed.json()).error;assert.match(error,/AFTERIMAGE/);assert.match(error,/another take|try again/i);assert.equal(calls,1);
+    const fresh=await post(base,input);assert.equal(fresh.status,200);const result=await fresh.json();
+    assert.equal(result.packet.title,'The unanswered moon');assert.equal(result.packet.signals[0].premise,'A listener follows the strange broadcast.');assert.equal(result.packet.signals[0].beats[0].speech,'A radio wakes.');
+    assert.equal(result.metrics.cacheHit,false);assert.equal(result.metrics.attempts,1);assert.equal(calls,2);
   });
 });
 

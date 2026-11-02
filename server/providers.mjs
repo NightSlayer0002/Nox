@@ -3,6 +3,7 @@ import { PACKET_SCHEMA, ANSWER_DEPTHS, answerDepth, normalizePacket, sanitizeCon
 import {productInstructions} from '../shared/product-capabilities.js';
 import { AFTERIMAGE_SCHEMA, normalizeAfterimage, sanitizeAfterimageInput } from '../shared/afterimage.js';
 import { consumeSSE, partialSpeech } from './stream.mjs';
+import {readBoundedJson,MAX_PROVIDER_JSON_BYTES,MAX_UPSTREAM_ERROR_BYTES} from './bounded-json.mjs';
 
 const AFTERIMAGE_INSTRUCTIONS=`You are NOX's AFTERIMAGE fiction instrument.
 Create a cinematic branching microfiction from the supplied seed, tone and variation.
@@ -82,7 +83,7 @@ export async function requestProvider(input, {provider, apiKey, model, deepModel
   providerSignal.throwIfAborted();
   const response=await fetchImpl(url,{method:'POST',headers,body:JSON.stringify(body),signal:providerSignal});
   if(!response.ok){
-    let code;try{const data=await response.json();code=data.error?.code;}catch{/* Do not retain upstream bodies. */}
+    let code;try{const data=await readBoundedJson(response,{maxBytes:MAX_UPSTREAM_ERROR_BYTES,signal:providerSignal});code=data?.error?.code;}catch{providerSignal.throwIfAborted();/* Do not retain upstream bodies. */}
     throw providerFailure(response.status,code);
   }
   if(providerStreaming) {
@@ -103,7 +104,7 @@ export async function requestProvider(input, {provider, apiKey, model, deepModel
     if(packet.speech!==previous)onText(packet.speech);
     return packet;
   }
-  let data;try{data=await response.json();}catch(error){providerSignal.throwIfAborted();throw Object.assign(new SyntaxError('AI provider returned a malformed response envelope.'),{code:'invalid_json',failureStage:'response_json'});}
+  let data;try{data=await readBoundedJson(response,{maxBytes:MAX_PROVIDER_JSON_BYTES,signal:providerSignal});}catch(error){providerSignal.throwIfAborted();if(['AbortError','TimeoutError'].includes(error.name))throw error;throw Object.assign(new SyntaxError('AI provider returned a malformed response envelope.'),{code:'invalid_json',failureStage:'response_json'});}
   providerSignal.throwIfAborted();
   let text;
   if(provider==='gemini') {

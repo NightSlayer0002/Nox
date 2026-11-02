@@ -87,10 +87,7 @@ export function attachCodeRehearsal({getThread,send,voice,canAct=()=>true,onCont
     const c=ticket.ticket.context;if(intent==='narrate'&&c.endLine-c.startLine>=4){notice('Choose up to four lines for spoken walkthrough, or open the four-line example. Longer sections remain available for written discussion.',true);return;}
     const message=intent==='narrate'?`Explain ${c.path}, lines ${c.startLine}–${c.endLine}, for a spoken walkthrough. Give one short explanation per line in the [Lnumber] format.`:intent==='question'?`Ask me one interview question about ${c.path}, lines ${c.startLine}–${c.endLine}. Wait for my answer before giving feedback.`:`Walk me through ${c.path}, lines ${c.startLine}–${c.endLine}, without skipping the code. Explain the functions used and distinguish what you can see from what you would need another file to know.`;
     notice('The selected lines stay in view. NOX will not advance until you choose Next section.');
-    const packet=await send(message,ticket);
-    if(intent==='narrate'&&packet&&ticket.thread===getThread()&&active&&session.isCurrent(ticket.ticket)){
-      try{spokenPlan={work:ticket,segments:parseNarration(packet.speech,c)};$('rehearsal-replay').hidden=false;revealSource();narration.start(spokenPlan.segments);}catch(error){notice(error.message,true);}
-    }
+    await send(message,ticket);
   }
   function validateCorrections(){
     const input=$('rehearsal-corrections'),lines=input.value.split('\n').map(v=>v.trim()).filter(Boolean);
@@ -107,6 +104,12 @@ export function attachCodeRehearsal({getThread,send,voice,canAct=()=>true,onCont
     return {thread,session,ticket};
   }
   function context(work){return work?.ticket.context||null;}
+  function completed(work,packet){
+    if(work?.ticket?.context?.intent!=='narrate'||!packet||work.thread!==getThread()||work.session!==session||!active||!session.isCurrent(work.ticket))return false;
+    spokenPlan=null;$('rehearsal-replay').hidden=true;
+    try{narration.stop();spokenPlan={work,segments:parseNarration(packet.speech,work.ticket.context)};$('rehearsal-replay').hidden=false;revealSource();narration.start(spokenPlan.segments);return true;}
+    catch(error){notice(error.message,true);return false;}
+  }
   function committed(work,answer){if(!work||work.thread!==getThread()||work.session!==session||!active)return false;const saved=session.complete(work.ticket,answer,work.input);if(saved){render();revealSource();}return saved;}
   function protect(fn){return event=>{try{fn(event);}catch(error){notice(error.message,true);}};}
   listen($('rehearsal-toggle'),'click',()=>enabled(!active));listen($('rehearsal-close'),'click',()=>{enabled(false);$('rehearsal-toggle').focus();});
@@ -154,5 +157,5 @@ export function attachCodeRehearsal({getThread,send,voice,canAct=()=>true,onCont
   sync();if(new URLSearchParams(location.search).get('prepare')==='code')enabled(true);
   listen(globalThis.window,'hashchange',()=>narration.stop());
   listen(doc,'visibilitychange',()=>{if(doc.hidden)narration.stop();});
-  return {sync,capture,context,bind,replay,committed,stopNarration:()=>narration.stop(),dispose(){narration.stop();loading?.abort();events.abort();sessions.clear();sent.clear();}};
+  return {sync,capture,context,bind,replay,completed,committed,stopNarration:()=>narration.stop(),dispose(){narration.stop();loading?.abort();events.abort();sessions.clear();sent.clear();}};
 }

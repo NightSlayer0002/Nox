@@ -69,9 +69,11 @@ test('OpenAI transport aborts retain their original error identity',async()=>{
 
 test('OpenAI cancellation during body parsing wins over a parser failure',async()=>{
   // Question: Can a body-read abort be mislabeled as malformed JSON or leak text?
-  // Limits: Controlled parser race; no real socket/body-reader integration claim.
+  // Limits: Controlled Web Stream race; no real socket or provider integration claim.
   const controller=new AbortController(),reason=new DOMException('Canceled.','AbortError');
-  await assert.rejects(invoke(async()=>({ok:true,status:200,json:async()=>{controller.abort(reason);throw new SyntaxError('PRIVATE parser error');}}),controller.signal),error=>error===reason);
+  await assert.rejects(invoke(async()=>new Response(new ReadableStream({pull(source){
+    source.error(new SyntaxError('PRIVATE parser error'));controller.abort(reason);
+  }},{highWaterMark:0})),controller.signal),error=>error===reason);
 });
 
 test('OpenAI cancellation before a late HTTP response wins over HTTP classification',async()=>{

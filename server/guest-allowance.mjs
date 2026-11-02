@@ -1,5 +1,6 @@
 import {createHmac} from 'node:crypto';
 import {createPublicQuota} from './public-quota.mjs';
+import {readBoundedJson,cancelResponseBody,MAX_ALLOWANCE_JSON_BYTES} from './bounded-json.mjs';
 
 // Redis is optional. Warm-process throttles are never presented as a durable
 // daily account limit. Anonymous daily limits are shared by a public IP/network.
@@ -28,9 +29,10 @@ export function createGuestAllowance({now=Date.now,fetchImpl=fetch,
   const keys=(client,date)=>{const identity=createHmac('sha256',token).update(client).digest('hex');return ['text','speech'].map(kind=>`nox:free:v1:${date}:${identity}:${kind}`);};
   async function command(value) {
     if(!valid)throw Error('Allowance store is not configured completely.');
-    const response=await fetchImpl(url.replace(/\/$/,''),{method:'POST',headers:{authorization:`Bearer ${token}`,'content-type':'application/json'},body:JSON.stringify(value),signal:AbortSignal.timeout(2500)});
-    if(!response.ok)throw Error('Allowance store unavailable.');
-    const result=await response.json();
+    const signal=AbortSignal.timeout(2500);
+    const response=await fetchImpl(url.replace(/\/$/,''),{method:'POST',headers:{authorization:`Bearer ${token}`,'content-type':'application/json'},body:JSON.stringify(value),signal});
+    if(!response.ok){cancelResponseBody(response);throw Error('Allowance store unavailable.');}
+    const result=await readBoundedJson(response,{maxBytes:MAX_ALLOWANCE_JSON_BYTES,signal});
     if(result.error||!Array.isArray(result.result))throw Error('Invalid allowance store response.');
     return result.result;
   }
