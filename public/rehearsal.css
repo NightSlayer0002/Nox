@@ -96,6 +96,8 @@
 .workspace .rehearsal-panel #rehearsal-export{justify-content:flex-start;font-size:12px;padding-left:22px;color:var(--muted);min-height:44px}
 .workspace .rehearsal-panel #rehearsal-notice{font-size:12px;line-height:1.5;margin:0;min-height:0;padding:0 22px}
 .workspace .rehearsal-panel #rehearsal-notice:not(:empty){padding-top:8px;padding-bottom:8px}
+.workspace .rehearsal-panel #rehearsal-notice[data-attention=true]:not(:empty){position:sticky;bottom:0;z-index:4;background:var(--study-bg);border-top:1px solid var(--line);color:var(--text);padding-block:12px}
+.workspace .rehearsal-panel textarea[aria-invalid=true]{border-color:var(--accent)}
 .rehearsal-range-inputs{display:flex;align-items:end;gap:8px;flex-wrap:wrap;padding-bottom:16px}
 .workspace .rehearsal-range-inputs label{flex:1;min-width:70px;margin:0}
 .workspace .study-disclosure[open]>p:last-child{padding-bottom:12px}
@@ -132,6 +134,7 @@
  .study-commandbar{padding:10px 14px 4px;gap:4px}
  .workspace .study-commandbar button{padding:8px 9px;font-size:13px}
  .study-commandbar .study-action-label{display:none}
+ .workspace .study-commandbar :is(#rehearsal-question,#rehearsal-narrate){min-width:44px}
  .study-audiobar{padding-inline:14px}
  .workspace .rehearsal-panel :is(.study-audio-help,#rehearsal-notice,.study-progress){padding-inline:14px}
  .workspace .rehearsal-panel #rehearsal-export{padding-left:14px}

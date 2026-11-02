@@ -21,6 +21,7 @@ test('source tabs keep files accessible by keyboard and import choices preserve 
   const second=page.getByRole('tab',{name:'second.js',exact:true});await expect(second).toHaveAttribute('aria-selected','true');
   await second.focus();await second.press('ArrowLeft');
   await expect(page.getByRole('tab',{name:'retry.js',exact:true})).toBeFocused();await expect(page.locator('#rehearsal-code')).toContainText('return await task();');
+  await expect(page.getByRole('tabpanel',{name:/retry\.js/})).toBeVisible();
   await page.getByRole('tab',{name:'retry.js',exact:true}).press('End');await expect(second).toBeFocused();
   await expect(page.locator('#rehearsal-code')).toHaveText('1const second = 2;');
 });
@@ -164,6 +165,7 @@ test('invalid corrections survive rerender and prevent an AI request until fixed
   const draft=Array.from({length:7},(_,i)=>`Correction ${i}`).join('\n');await page.locator('#rehearsal-corrections').fill(draft);
   const requests=[];page.on('request',r=>{if(r.url().endsWith('/api/chat'))requests.push(r);});
   await page.locator('#rehearsal-explain').click();await expect(page.locator('#rehearsal-notice')).toContainText('six corrections');
+  await expect(page.locator('#rehearsal-notice')).toBeInViewport();
   await page.locator('#rehearsal-ready').check();await expect(page.locator('#rehearsal-corrections')).toHaveValue(draft);expect(requests).toHaveLength(0);
   await page.locator('#rehearsal-corrections').fill('I wrote this function.');await page.locator('#message').fill('It retries because an operation might fail temporarily.');await page.locator('#message').press('Enter');
   await expect(page.locator('#conversation .message.nox:not(.draft)')).toHaveCount(1);

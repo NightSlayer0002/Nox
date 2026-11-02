@@ -8,10 +8,10 @@ export function attachCodeRehearsal({getThread,send,voice,canAct=()=>true,onCont
   const doc=documentTarget,$=id=>doc.getElementById(id),events=new AbortController(),sessions=new Map(),sent=new Map();
   let thread='',session,active=false,repository=null,loading=null,importVersion=0,renderedFile='',spokenPlan=null;
   const listen=(node,event,fn)=>node.addEventListener(event,fn,{signal:events.signal});
-  const notice=text=>{$('rehearsal-notice').textContent=text;};
+  const notice=(text,attention=false)=>{const node=$('rehearsal-notice');node.textContent=text;node.dataset.attention=String(attention);};
   const narration=createLineNarration({voice:voice||{stop(){},speak:(_,options)=>options.onPlaybackUnavailable({message:'Voice is unavailable.'})},
     onLine:line=>{for(const row of $('rehearsal-code').children){const speaking=Number(row.dataset.line)===line;row.classList.toggle('speaking',speaking);if(speaking)row.setAttribute('aria-current','true');else row.removeAttribute('aria-current');}},
-    onState:(state,line,message)=>{$('rehearsal-stop').hidden=!['preparing','speaking'].includes(state);if(state==='preparing')notice(`Preparing line ${line}…`);if(state==='speaking')notice(`Speaking about line ${line}.`);if(state==='ended')notice('Walkthrough finished. The highlighted range and written explanations are kept.');if(state==='error')notice(message||'Voice could not finish. Written explanations are kept. You can replay when voice is available.');},
+    onState:(state,line,message)=>{$('rehearsal-stop').hidden=!['preparing','speaking'].includes(state);if(state==='preparing')notice(`Preparing line ${line}…`);if(state==='speaking')notice(`Speaking about line ${line}.`);if(state==='ended')notice('Walkthrough finished. The highlighted range and written explanations are kept.');if(state==='error')notice(message||'Voice could not finish. Written explanations are kept. You can replay when voice is available.',true);},
   });
   function contextChanged(){narration.stop();spokenPlan=null;$('rehearsal-replay').hidden=true;onContextChange();}
   function sync(){
@@ -35,7 +35,7 @@ export function attachCodeRehearsal({getThread,send,voice,canAct=()=>true,onCont
     $('rehearsal-replay').hidden=!spokenPlan;
     $('rehearsal-goal').value=state.goal;$('rehearsal-corrections').value=sessions.get(thread).correctionDraft;
     validateCorrections();
-    $('rehearsal-loaded').replaceChildren(...state.files.map(f=>{const tab=doc.createElement('button');tab.type='button';tab.role='tab';tab.dataset.sourceId=f.id;tab.textContent=f.path;tab.title=f.path;tab.setAttribute('aria-selected',String(f.id===file?.id));tab.tabIndex=f.id===file?.id?0:-1;tab.setAttribute('aria-controls','rehearsal-code');return tab;}));
+    $('rehearsal-loaded').replaceChildren(...state.files.map(f=>{const tab=doc.createElement('button');tab.type='button';tab.role='tab';tab.id=`study-file-${f.id}`;tab.dataset.sourceId=f.id;tab.textContent=f.path;tab.title=f.path;tab.setAttribute('aria-selected',String(f.id===file?.id));tab.tabIndex=f.id===file?.id?0:-1;tab.setAttribute('aria-controls','rehearsal-code');return tab;}));
     if(file){
       $('rehearsal-range').textContent=`Lines ${section.startLine}–${section.endLine} of ${section.totalLines}`;
       $('rehearsal-progress').textContent=`${state.discussed}/${section.totalLines} lines discussed · ${state.ready} self-checked`;
@@ -57,6 +57,7 @@ export function attachCodeRehearsal({getThread,send,voice,canAct=()=>true,onCont
       $('rehearsal-ready').checked=state.sectionReady;
       $('rehearsal-start').value=section.startLine;$('rehearsal-end').value=section.endLine;
       $('rehearsal-code').setAttribute('aria-label',`${file.path}, lines ${section.startLine} to ${section.endLine} selected`);
+      $('rehearsal-code').setAttribute('aria-labelledby',`study-file-${file.id} rehearsal-range`);
     }
     renderCall();
   }
@@ -76,25 +77,25 @@ export function attachCodeRehearsal({getThread,send,voice,canAct=()=>true,onCont
     sync();loading?.abort();const controller=new AbortController(),version=++importVersion,owner=thread;loading=controller;
     $('rehearsal-import').setAttribute('aria-busy','true');notice('Opening source…');
     try{const value=await action(controller.signal);if(controller.signal.aborted||version!==importVersion||owner!==getThread())return;value?.();}
-    catch(error){if(version===importVersion&&owner===getThread()&&error.name!=='AbortError')notice(error.message||'Could not open the code. Paste it instead.');}
+    catch(error){if(version===importVersion&&owner===getThread()&&error.name!=='AbortError')notice(error.message||'Could not open the code. Paste it instead.',true);}
     finally{if(version===importVersion){loading=null;$('rehearsal-import').setAttribute('aria-busy','false');}}
   }
   async function ask(intent){
-    sync();if(!canAct()){notice('Finish or cancel your current reply or edit first. Your code is kept.');return;}
-    let ticket;try{ticket=capture(intent);}catch(error){notice(error.message);return;}
+    sync();if(!canAct()){notice('Finish or cancel your current reply or edit first. Your code is kept.',true);return;}
+    let ticket;try{ticket=capture(intent);}catch(error){notice(error.message,true);return;}
     if(!ticket)return;
-    const c=ticket.ticket.context;if(intent==='narrate'&&c.endLine-c.startLine>=4){notice('Choose up to four lines for spoken walkthrough, or open the four-line example. Longer sections remain available for written discussion.');return;}
+    const c=ticket.ticket.context;if(intent==='narrate'&&c.endLine-c.startLine>=4){notice('Choose up to four lines for spoken walkthrough, or open the four-line example. Longer sections remain available for written discussion.',true);return;}
     const message=intent==='narrate'?`Explain ${c.path}, lines ${c.startLine}–${c.endLine}, for a spoken walkthrough. Give one short explanation per line in the [Lnumber] format.`:intent==='question'?`Ask me one interview question about ${c.path}, lines ${c.startLine}–${c.endLine}. Wait for my answer before giving feedback.`:`Walk me through ${c.path}, lines ${c.startLine}–${c.endLine}, without skipping the code. Explain the functions used and distinguish what you can see from what you would need another file to know.`;
     notice('The selected lines stay in view. NOX will not advance until you choose Next section.');
     const packet=await send(message,ticket);
     if(intent==='narrate'&&packet&&ticket.thread===getThread()&&active&&session.isCurrent(ticket.ticket)){
-      try{spokenPlan={work:ticket,segments:parseNarration(packet.speech,c)};$('rehearsal-replay').hidden=false;revealSource();narration.start(spokenPlan.segments);}catch(error){notice(error.message);}
+      try{spokenPlan={work:ticket,segments:parseNarration(packet.speech,c)};$('rehearsal-replay').hidden=false;revealSource();narration.start(spokenPlan.segments);}catch(error){notice(error.message,true);}
     }
   }
   function validateCorrections(){
     const input=$('rehearsal-corrections'),lines=input.value.split('\n').map(v=>v.trim()).filter(Boolean);
     const message=lines.length>6||lines.some(v=>v.length>240)?'Keep up to six corrections, each within 240 characters. Your draft is kept.':'';
-    input.setCustomValidity(message);return message;
+    input.setCustomValidity(message);input.setAttribute('aria-invalid',String(Boolean(message)));return message;
   }
   function capture(intent='discuss'){sync();if(!active||!session.snapshot().file)return null;const error=validateCorrections();if(error)throw Error(error);return {thread,session,ticket:session.capture(intent)};}
   function bind(work,turn,text){if(work){work.input=text;sent.set(turn.id,work);}}
@@ -107,7 +108,7 @@ export function attachCodeRehearsal({getThread,send,voice,canAct=()=>true,onCont
   }
   function context(work){return work?.ticket.context||null;}
   function committed(work,answer){if(!work||work.thread!==getThread()||work.session!==session||!active)return false;const saved=session.complete(work.ticket,answer,work.input);if(saved){render();revealSource();}return saved;}
-  function protect(fn){return event=>{try{fn(event);}catch(error){notice(error.message);}};}
+  function protect(fn){return event=>{try{fn(event);}catch(error){notice(error.message,true);}};}
   listen($('rehearsal-toggle'),'click',()=>enabled(!active));listen($('rehearsal-close'),'click',()=>{enabled(false);$('rehearsal-toggle').focus();});
   listen($('rehearsal-example'),'click',protect(()=>openSource(REHEARSAL_EXAMPLE)));
   listen($('rehearsal-spoken-example'),'click',protect(()=>openSource({path:'total.js',source:'example',revision:'spoken-v1',text:'function total(items) {\n  const prices = items.map(item => item.price);\n  return prices.reduce((sum, price) => sum + price, 0);\n}'})));
@@ -144,7 +145,7 @@ export function attachCodeRehearsal({getThread,send,voice,canAct=()=>true,onCont
   listen($('rehearsal-replay'),'click',()=>{if(canAct()&&spokenPlan?.work.thread===getThread()&&active&&session.isCurrent(spokenPlan.work.ticket)){revealSource();narration.start(spokenPlan.segments);}});
   listen($('rehearsal-ready'),'change',event=>{session.markReady(event.target.checked);render();});
   listen($('rehearsal-goal'),'input',protect(event=>{session.setGoal(event.target.value);contextChanged();}));
-  listen($('rehearsal-corrections'),'input',event=>{sessions.get(thread).correctionDraft=event.target.value;const error=validateCorrections();if(error)notice(error);else session.setCorrections(event.target.value);contextChanged();});
+  listen($('rehearsal-corrections'),'input',event=>{sessions.get(thread).correctionDraft=event.target.value;const error=validateCorrections();if(error)notice(error,true);else{session.setCorrections(event.target.value);if($('rehearsal-notice').dataset.attention==='true')notice('');}contextChanged();});
   for(const [id,key] of [['rehearsal-paste','paste'],['rehearsal-filename','name'],['rehearsal-url','repo']])listen($(id),'input',event=>{cancelImport();sessions.get(thread)[key]=event.target.value;});
   listen($('rehearsal-export'),'click',()=>{
     const draft=validateCorrections()?`\nUnapplied correction draft (not sent):\n${sessions.get(thread).correctionDraft}\n`:'',text=session.export()+draft,url=URL.createObjectURL(new Blob([text],{type:'text/plain;charset=utf-8'})),link=doc.createElement('a');link.href=url;link.download='nox-code-preparation.txt';doc.body.append(link);link.click();link.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);notice('Preparation sheet exported. This visit still clears on refresh.');
