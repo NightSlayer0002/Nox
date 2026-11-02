@@ -33,6 +33,7 @@ export default function Afterimage(){
   useEffect(()=>()=>{version.current++;request.current?.abort();afterimageBridge.stop('receiver closed');},[]);
   const packet=current?.packet||example,signalIndex=current?.signalIndex||0,endingIndex=current?.endingIndex||0,signal=packet.signals[signalIndex];
   const selected=buildSelectedPerformance(packet,signalIndex,endingIndex,current?.editedLines),playing=view.status==='playing',preparing=view.preparing===true,disabled=busy||saving||playing||preparing;
+  const editLocked=busy||(saving&&!editPending.current);
   const recovery=store.recovery,full=items.length>=12;
   const captureNotice=view.captureOutcome==='saved'?'Clip ready. Save it from the clip preview.':'';
   const playbackNotice=preparing?'Preparing voice…':playing?(view.captionsOnly?`Playing with captions only. ${view.voiceError||'Voice is unavailable for this performance.'}`:'NOX is performing your selected cut.'):view.captureError&&notice.startsWith('Capturing')?'Performance stopped. Your story is kept.':'';
@@ -40,14 +41,19 @@ export default function Afterimage(){
   const canGenerate=visit.owner&&view.connected&&view.connection?.kind==='live';
   const reception=current||{packet:example,seed:'A door in a window with no wall.',tone:'uncanny',source:'authored',signalIndex:0,endingIndex:0,createdAt:new Date().toISOString()};
   const cancel=()=>{version.current++;request.current?.abort();request.current=null;setBusy(false);setNotice('Generation cancelled. Your seed is still here.');};
+  function keepOpenEdits(){
+    if(!draftLines.some((line,index)=>line!==selected.cues[index]?.speech))return false;
+    setError('Apply your open edits, or export and discard them, before replacing this cut.');setEditor(true);return true;
+  }
   const choose=async(which,index)=>{
     if(reception[which]===index)return;
+    if(keepOpenEdits())return;
     afterimageBridge.stop('selection changed');
     setSaving(true);try{const next=current?.id?await store.update(current.id,{[which]:index},{expectedRevision:current.revision}):{...reception,[which]:index,editedLines:undefined};if(!next)throw new Error('This reception was removed. Choose another from your archive.');buildSelectedPerformance(next.packet,next.signalIndex,next.endingIndex,next.editedLines);setCurrent(next);setConflict(false);setEditor(false);setDraftLines([]);setError('');setNotice('A different cut. No new model request.');}catch(e){if(e.code==='story_conflict')setConflict(true);setError(e.message);}finally{setSaving(false);}
   };
   async function receive(event,newTake=false){
     event?.preventDefault();if(!canGenerate||!seed.trim()||busy||playing)return;
-    if(draftLines.some((line,index)=>line!==selected.cues[index]?.speech)){setError('Apply your open edits, or export and discard them, before generating another story.');setEditor(true);return;}
+    if(keepOpenEdits())return;
     if(full){setError('Your archive has 12 stories. Export a copy and delete a story before generating another.');return;}
     const ownVersion=++version.current,controller=new AbortController();request.current=controller;setBusy(true);setError('');setNotice('NOX is writing three story branches.');
     if(newTake)variation.current=(variation.current+1)%1025;
@@ -64,6 +70,7 @@ export default function Afterimage(){
     finally{if(version.current===ownVersion){request.current=null;setBusy(false);}}
   }
   function useExample(){
+    if(keepOpenEdits())return;
     cancel();afterimageBridge.stop('authored example');
     const next={packet:example,seed:'A door in a window with no wall.',tone:'uncanny',source:'authored',signalIndex:0,endingIndex:0,createdAt:new Date().toISOString()};setCurrent(next);setConflict(false);setEditor(false);setDraftLines([]);play(false,next);
   }
@@ -96,9 +103,11 @@ export default function Afterimage(){
   }
   function restore(id){
     const item=store.get(id);if(!item){setError('This reception was removed from this browser.');return;}
+    if(keepOpenEdits())return;
     afterimageBridge.stop('archive selected');setCurrent(item);setSeed(item.seed);setTone(item.tone);setConflict(false);setEditor(false);setDraftLines([]);setError('');setNotice('Reception restored. No model request.');
   }
   async function remove(id){
+    if(current?.id===id&&keepOpenEdits())return;
     setSaving(true);setNotice('');setError('');
     try{const result=await store.remove(id);if(!result.committed||!result.removed){setError(result.error||'This story was already removed in another tab.');setItems(store.list());return;}
       if(current?.id===id){afterimageBridge.stop('reception deleted');setCurrent(null);setConflict(false);setEditor(false);setDraftLines([]);}setPendingDelete(null);setNotice(result.scope==='browser'?'Reception removed from this browser.':'Reception removed from this visit.');
@@ -139,7 +148,7 @@ export default function Afterimage(){
 
       <p className="capture-note" id="afterimage-capture-note">{exportProfile.width} × {exportProfile.height} · {exportProfile.frameRate} fps · Cues span 28 seconds; slower narration can extend the final beat, up to 60 seconds. Playback startup counts toward the capture’s 60-second limit. Captioned WebM saves locally with enabled Orpheus audio. Browser voice cannot be captured.</p>
       <div className="receiver-export"><button type="button" disabled={!view.connected} onClick={()=>afterimageBridge.setVoice(!view.voiceEnabled)} aria-pressed={view.voiceEnabled}>{view.voiceEnabled?'Voice on':'Voice off'}</button><button type="button" onClick={toggleEditor} disabled={disabled} aria-expanded={editor}>Edit this cut</button><button type="button" onClick={()=>downloadText(toMarkdown(reception),`nox-afterimage-script.md`)}>Export script</button><button type="button" onClick={()=>downloadText(JSON.stringify(reception,null,2),'nox-afterimage-reception.json')}>Export story data</button>{draftLines.length===4&&<button type="button" onClick={()=>downloadText(draftLines.join('\n'),'nox-unsaved-story-lines.txt')}>Export open edits</button>}{generated&&canGenerate&&<button type="button" disabled={disabled||!seed.trim()} onClick={event=>receive(event,true)}>New take</button>}</div>
-      {editor&&<div className="cut-editor"><p>{current?.id&&store.persistent?'Your edits stay in this browser.':'Your edits last for this visit; export before refreshing.'} Unapplied lines stay in this visit when you hide the editor or leave this page. Export open edits to keep them before refreshing. Changing branch starts a fresh cut and clears open edits.</p>{draftLines.map((line,index)=><label key={index}>{index===3?'Ending':`Beat ${index+1}`}<textarea value={line} maxLength={90} disabled={busy} onChange={e=>{if(busy)return;draftRevision.current++;const value=e.target.value;setDraftLines(lines=>lines.map((old,i)=>i===index?value:old));}} rows={2}/></label>)}<button type="button" className="receive-button" onClick={saveEdits} disabled={disabled||conflict||draftLines.length!==4||draftLines.some(line=>!line.trim())}>Apply edits</button><button type="button" onClick={discardEdits} disabled={disabled}>Discard open edits</button></div>}
+      {editor&&<div className="cut-editor"><p>{current?.id&&store.persistent?'Your edits stay in this browser.':'Your edits last for this visit; export before refreshing.'} Unapplied lines stay in this visit when you hide the editor or leave this page. Export open edits to keep them before refreshing. Apply or discard open edits before choosing another cut, playing the example or restoring a story. Changing branch starts a fresh cut without applied edits.</p>{draftLines.map((line,index)=><label key={index}>{index===3?'Ending':`Beat ${index+1}`}<textarea value={line} maxLength={90} disabled={editLocked} onChange={e=>{if(editLocked)return;draftRevision.current++;const value=e.target.value;setDraftLines(lines=>lines.map((old,i)=>i===index?value:old));}} rows={2}/></label>)}<button type="button" className="receive-button" onClick={saveEdits} disabled={disabled||conflict||draftLines.length!==4||draftLines.some(line=>!line.trim())}>Apply edits</button><button type="button" onClick={discardEdits} disabled={disabled}>Discard open edits</button></div>}
       <div className="reception-caption"><span>Caption</span><p>{packet.caption}</p></div>
       {metrics&&<p className="reception-metrics">{metrics.provider} · {metrics.model} · received in {(metrics.totalMs/1000).toFixed(1)}s{metrics.cacheHit?' · warm cache':''}{metrics.attempts===2?' · written in 2 attempts':''}</p>}
     </motion.div></AnimatePresence>
