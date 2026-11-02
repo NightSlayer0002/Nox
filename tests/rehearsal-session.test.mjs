@@ -72,6 +72,40 @@ test('preparation sheet separates discussed, self checked and corrections',()=>{
   const sheet=session.export();assert.match(sheet,/I wrote the route/);assert.match(sheet,/It returns 42/);assert.match(sheet,/Self-check/);
 });
 
+// Question: can an exported answer be matched to its submitted explanation and exact effective source instructions?
+// Limits: chronological provenance preserves what was submitted; it does not establish that an AI reply is correct.
+test('export binds each reply to its captured revision, range, goal and corrections in discussion order',()=>{
+  const session=createRehearsalSession();
+  session.open({path:'demo.js',text:'first source\nold second line',source:'pasted',revision:'draft-1'});session.selectRange(1,1);
+  session.setGoal('Explain my browser code');session.setCorrections('This runs in the browser.');
+  assert.equal(session.complete(session.capture('explain'),'First AI explanation.','My first explanation.'),true);
+  session.open({path:'demo.js',text:'new first line\nsecond source',source:'github',revision:'commit-2'});session.selectRange(2,2);
+  session.setGoal('Discuss the server revision');session.setCorrections('This revision runs on the server.\nI wrote this function.');
+  assert.equal(session.complete(session.capture('question'),'Second AI question.','My revised explanation.'),true);
+  session.setGoal('Unsent future goal');session.setCorrections('Unsent future correction.');
+
+  const sheet=session.export(),first=sheet.split('Discussion 1\n')[1]?.split('Discussion 2\n')[0],second=sheet.split('Discussion 2\n')[1]?.split('Current draft for the next message')[0];
+  assert.ok(first,'the first discussion must have its own provenance block');assert.ok(second,'the second discussion must have its own provenance block');
+  assert.match(first,/demo\.js · lines 1–1 · explain\nSource: pasted · revision draft-1/);
+  assert.match(first,/Goal at submission: Explain my browser code\nCorrections at submission:\n- This runs in the browser\./);
+  assert.match(first,/Selected source:\nfirst source\n/);assert.match(first,/Your message:\nMy first explanation\./);assert.match(first,/NOX \(AI-generated; verify against your code\):\nFirst AI explanation\./);
+  assert.doesNotMatch(first,/server revision|Unsent future|My revised explanation/);
+  assert.match(second,/demo\.js · lines 2–2 · question\nSource: github · revision commit-2/);
+  assert.match(second,/Goal at submission: Discuss the server revision\nCorrections at submission:\n- This revision runs on the server\.\n- I wrote this function\./);
+  assert.match(second,/Selected source:\nsecond source\n/);assert.match(second,/Your message:\nMy revised explanation\./);assert.match(second,/Second AI question\./);
+  assert.doesNotMatch(second,/browser code|Unsent future/);
+  assert.match(sheet,/Current draft for the next message \(not applied to earlier replies\):\nGoal: Unsent future goal\nCorrections to preserve:\n- Unsent future correction\./);
+  assert.ok(sheet.indexOf('Discussion 1\n')<sheet.indexOf('Discussion 2\n'));
+});
+
+// Question: does removing a correction leave an explicit empty submitted set instead of implying an older correction still applied?
+// Limits: this checks exported context, not semantic compliance with the correction.
+test('export represents an empty submitted goal and correction set explicitly',()=>{
+  const session=createRehearsalSession();session.open({path:'demo.js',text:'source',source:'local',revision:'local'});
+  session.setGoal('');session.setCorrections('');session.complete(session.capture('discuss'),'A reply.');
+  assert.match(session.export(),/Goal at submission: \(none\)\nCorrections at submission:\n- None\./);
+});
+
 // Question: can switching files lose a prior file or turn an interview question into coverage?
 // Limits: no refresh persistence is promised; the session lives only in this visit.
 test('file state survives switching and questions do not mark explanation coverage',()=>{

@@ -73,9 +73,13 @@ export function createRehearsalSession(){
       sectionReady:Boolean(file&&Array.from({length:section.endLine-section.startLine+1},(_,i)=>section.startLine+i).every(n=>file.ready.has(n))),records:structuredClone(records)};
   }
   function exportSheet(){
-    const out=['NOX — code interview preparation','This is a preparation record, not a certification of correctness or understanding.',`Goal: ${goal}`,'','Corrections to preserve:',...corrections.map(c=>`- ${c}`),''];
+    const out=['NOX — code interview preparation','This is a preparation record, not a certification of correctness or understanding.','','Opened sources and current self-checks:'];
     for(const file of files.values())out.push(`File: ${file.path}`,`Source: ${file.source} · revision ${file.revision||'pasted'}`,file.url||'',`Discussed: ${file.discussed.size}/${file.lines.length} lines. Self-check: ${file.ready.size}/${file.lines.length} lines.`,'');
-    for(const record of records){const c=record.context;out.push(`${c.path} · lines ${c.startLine}–${c.endLine} · ${c.intent}`,c.code,'','Your message:',record.input,'','NOX (AI-generated; verify against your code):',record.answer,'');}
+    for(const [index,record] of records.entries()){
+      const c=record.context;
+      out.push(`Discussion ${index+1}`,`${c.path} · lines ${c.startLine}–${c.endLine} · ${c.intent}`,`Source: ${c.source} · revision ${c.revision}`,`Goal at submission: ${c.goal||'(none)'}`,'Corrections at submission:',...(c.corrections.length?c.corrections.map(value=>`- ${value}`):['- None.']),'','Selected source:',c.code,'','Your message:',record.input,'','NOX (AI-generated; verify against your code):',record.answer,'');
+    }
+    out.push('Current draft for the next message (not applied to earlier replies):',`Goal: ${goal||'(none)'}`,'Corrections to preserve:',...(corrections.length?corrections.map(value=>`- ${value}`):['- None.']),'');
     return out.join('\n');
   }
   return {open,switchFile,select,selectRange,next,previous,context,capture,recall,complete,markReady,setGoal,setCorrections,snapshot,export:exportSheet,isCurrent:ticket=>ticket?.file===active&&ticket.epoch===epoch};
