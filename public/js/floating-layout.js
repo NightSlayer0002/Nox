@@ -21,7 +21,9 @@ export function floatingLayout({viewport={},shell={},header={},welcome={},compos
   // The composer is measurable before the welcome mounts. Keep the pair in
   // that centered content span, with room for the bot on NOX's right.
   const contentRight=finite(composer.right,finite(visibleWelcome.right,right));
-  const initialX=clamp(contentRight-size-48,left,right-size);
+  // Automatic placement must leave the gutter's minimum 100px reading measure
+  // plus its 12px gap. Small phones may use the spare space beside the bot.
+  const initialX=clamp(Math.max(contentRight-size-48,finite(composer.left,left)+112),left,right-size);
   const centerY=finite(visibleWelcome.height)>0?finite(visibleWelcome.top,top)+visibleWelcome.height*.5:(top+finite(composer.top,bottom))*.5;
   const initialY=compact||reading?top:clamp(centerY-size*.5,top,Math.max(top,floor-size));
   return {size,bounds:{left,top,right,bottom,floor},initial:{x:initialX,y:initialY},park:{x:parkX,y:floor-size}};
