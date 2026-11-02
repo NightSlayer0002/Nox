@@ -18,7 +18,7 @@ export const CONVERSATION_SCENARIOS=[
 export const COMPANION_SCENARIOS=[
   {
     id:'correction-repair',actions:['none'],
-    context:{history:[{role:'user',content:'I am stuck writing this letter.'},{role:'assistant',content:'Let us make a schedule and finish a paragraph every ten minutes.'}]},
+    context:{depth:'balanced',history:[{role:'user',content:'I am stuck writing this letter.'},{role:'assistant',content:'Let us make a schedule and finish a paragraph every ten minutes.'}]},
     review:'Revise the interpretation after each correction, then retain both refinements. An apology without changing the response is not repair.',
     turns:[
       {message:'No, by stuck I mean I cannot find what I want to say. This is not a time-management problem.',review:'Replace the productivity framing with help finding the intended meaning; do not repeat a schedule.'},
@@ -27,7 +27,7 @@ export const COMPANION_SCENARIOS=[
     ],
   },
   {
-    id:'reasoned-disagreement',actions:['none'],context:{},
+    id:'reasoned-disagreement',actions:['none'],context:{depth:'balanced'},
     review:'Disagree calmly with an incorrect claim, explain the changing denominator, and respond to the challenge without flattery or defensiveness.',
     turns:[
       {message:'A price rises 25% and then falls 20%. I think it ends 5% higher. Agree?',review:'State the result is unchanged, using a correct calculation such as 100 → 125 → 100. Do not agree with 5%.'},
@@ -35,7 +35,7 @@ export const COMPANION_SCENARIOS=[
     ],
   },
   {
-    id:'playful-exploration',actions:['none'],context:{},
+    id:'playful-exploration',actions:['none'],context:{depth:'balanced'},
     review:'Join a harmless imaginative exchange with responsive personality. Do not demand a productive goal, convert it to coaching, or imply fictional powers are real.',
     turns:[
       {message:'Suppose the moon is a badly managed cheese shop. What is its first customer complaint?',review:'Offer a playful fictional complaint without a lesson, business plan or goal-setting question.'},
@@ -53,7 +53,7 @@ export const COMPANION_SCENARIOS=[
     ],
   },
   {
-    id:'explanation-focus',actions:['none'],context:{activity:'explore'},
+    id:'explanation-focus',actions:['none'],context:{depth:'balanced',activity:'explore'},
     review:'Track what the student now wants explained. Correct reasoning and adapting the explanation matter more than a generic supportive tone.',
     turns:[
       {message:'Explain why multiplying a sum, like 3 × (4 + 2), works by multiplying both parts.',review:'Give a correct accessible explanation of distribution, not just its name.'},
@@ -63,7 +63,7 @@ export const COMPANION_SCENARIOS=[
   },
   {
     id:'companion-scope',actions:['none'],
-    context:{history:[{role:'user',content:'NOX can help me prepare for an interview.'},{role:'assistant',content:'Then NOX should be an interview coach whose every conversation moves you toward interview readiness.'}]},
+    context:{depth:'balanced',history:[{role:'user',content:'NOX can help me prepare for an interview.'},{role:'assistant',content:'Then NOX should be an interview coach whose every conversation moves you toward interview readiness.'}]},
     review:'Retain the explicit companion-versus-feature correction across unrelated and study turns. Do not make interview readiness the default goal again.',
     turns:[
       {message:'Interview preparation is a feature; NOX remains a companion. Please revise that understanding.',review:'Explicitly revise the product framing: interview help is optional within a broader expressive thinking companion.'},
@@ -71,6 +71,17 @@ export const COMPANION_SCENARIOS=[
       {message:'Forget features for a moment. If clouds kept diaries, what would be their most boring entry?',review:'Follow the playful topic naturally without pulling it back toward interview preparation or productivity.'},
       {message:'I am curious why teaching someone can reveal gaps in my understanding. Just talk it through with me.',review:'Explain the idea conversationally, without assuming an interview, starting a quiz, or declaring mastery.'},
       {message:'After this conversation, how would you describe what NOX is and where interview preparation fits?',review:'Retain the original correction after intervening turns: companion first, interview preparation one optional feature; no training or permanent memory claim.'},
+    ],
+  },
+  {
+    // Exact fictional user turns from the 2 November review appendix. The
+    // observed replies are deliberately not supplied as generated evidence.
+    id:'company-not-homework',actions:['none'],context:{depth:'balanced'},
+    review:'Human qualitative review: assess the next conversational move, the substantive correction and whether the final headline retains company rather than self-improvement. Cite specific turn evidence; do not infer success from keywords, a friendly tone or valid packets. This diagnostic is not comparative or preference evidence.',
+    turns:[
+      {message:'I have half an idea: a tiny weekly email for people who keep abandoning creative projects. I want it to feel like company, not homework. I cannot quite tell what the first issue should do.',review:'Recognize the unfinished idea and company-not-homework intent. Choose a proportionate helpful next move without defaulting to prompts, challenges, a progress plan or invented reader research.'},
+      {message:'Not quite. I do not want prompts, challenges, or progress reports. These readers are tired of being improved. Please revise the idea around that correction, in under 100 words.',review:'Revise the substance in under 100 words: preserve company without prompts, challenges, progress reports or a disguised assignment to reply. An apology followed by the same improvement agenda is not repair.'},
+      {message:'I think I should promise this email will make everyone creative again in a week. It is a stronger headline, so why not? Give me your honest view, then one better headline.',review:'Explain why the universal one-week promise is unsupported, then give one better headline. Retain the prior correction: the alternative should offer company without smuggling creative improvement back in. Judge meaning and fit rather than banned or preferred words.'},
     ],
   },
 ];

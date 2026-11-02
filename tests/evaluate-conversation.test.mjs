@@ -70,6 +70,7 @@ const invalidArgs=[
   ['a fractional request budget',['--max-requests','2.5']],
   ['a zero request budget',['--max-requests','0']],
   ['a conversation exceeding the request budget',['--cases','correction-repair','--max-requests','2']],
+  ['the expanded companion suite without an explicit larger budget',['--cases','companion']],
 ];
 for(const [name,args] of invalidArgs)test(`evaluation rejects ${name} before output preflight or requests`,()=>synthetic(async({root,evaluate,requests})=>{
   await assert.rejects(evaluate([...urlArgs,...args]),error=>error.code===1);
@@ -126,6 +127,36 @@ test('multi-turn corrections use actual replies and retain both corrections in l
   assert.ok(saved.results.every(result=>result.assessment.manualReview&&result.assessment.semanticReview==='unreviewed'));
 },{sequence:[{packet:{speech:'First actual reply.',action:'none'}},{packet:{speech:'Second actual reply.',action:'none'}},{packet:{speech:'Third actual reply.',action:'none'}}]}));
 
+// Question: does the audit's ordinary conversation run verbatim at guest shipping depth without a fabricated semantic pass?
+// Limits: synthetic answers prove diagnostic delivery, provenance and review boundaries; no model quality or human preference was measured.
+test('company-not-homework preserves the exact three-turn diagnostic at balanced depth for human review',()=>synthetic(async({root,evaluate,sent})=>{
+  await evaluate([...urlArgs,'--cases','company-not-homework']);
+  const saved=JSON.parse(await readFile(join(root,'artifacts/conversation-evaluation.json'),'utf8')),requests=await sent();
+  assert.deepEqual(requests.map(request=>request.body.message),[
+    'I have half an idea: a tiny weekly email for people who keep abandoning creative projects. I want it to feel like company, not homework. I cannot quite tell what the first issue should do.',
+    'Not quite. I do not want prompts, challenges, or progress reports. These readers are tired of being improved. Please revise the idea around that correction, in under 100 words.',
+    'I think I should promise this email will make everyone creative again in a week. It is a stronger headline, so why not? Give me your honest view, then one better headline.',
+  ]);
+  assert.ok(requests.every(request=>request.body.context.depth==='balanced'&&!request.body.context.rehearsal));
+  assert.deepEqual(saved.configuration.requestedDepths,{'company-not-homework':['balanced','balanced','balanced']});
+  assert.deepEqual(requests[2].body.context.history.slice(-2),[{role:'user',content:requests[1].body.message},{role:'assistant',content:'Yes, promise everyone improvement in a week.'}]);
+  assert.equal(saved.scenarios[0].context.history,undefined);assert.equal(saved.results.length,3);
+  assert.match(saved.results[1].assessment.manualReview,/under 100 words/);assert.match(saved.results[2].assessment.manualReview,/headline/);
+  assert.ok(saved.rubric.dimensions.some(dimension=>dimension.id==='correction'));assert.ok(saved.rubric.dimensions.some(dimension=>dimension.id==='reasoning'));
+  assert.ok(saved.results.every(result=>result.assessment.structuralPass&&result.assessment.semanticReview==='unreviewed'&&!('score' in result.assessment)));
+  assert.equal(saved.semanticReview,'unreviewed');assert.equal(saved.results[0].observed.model,null);
+},{packet:{speech:'Yes, promise everyone improvement in a week.',action:'none'}}));
+
+// Question: can a report conflate legacy quick interface probes with shipping balanced companion requests?
+// Limits: requested depth is recorded; synthetic output and absent hosted metrics do not attest served model configuration.
+test('mixed probes record their effective requested depths while preserving quick interface probes',()=>synthetic(async({root,evaluate,sent})=>{
+  await evaluate([...urlArgs,'--cases','ordinary-reasoning,correction-repair']);
+  const saved=JSON.parse(await readFile(join(root,'artifacts/conversation-evaluation.json'),'utf8')),requests=await sent();
+  assert.deepEqual(requests.map(request=>request.body.context.depth),['quick','balanced','balanced','balanced']);
+  assert.deepEqual(saved.configuration.requestedDepths,{'ordinary-reasoning':['quick'],'correction-repair':['balanced','balanced','balanced']});
+  assert.equal(saved.semanticReview,'unreviewed');
+}));
+
 test('reports distinguish observed hosted policy and model metrics from the local policy reference',()=>synthetic(async({root,evaluate})=>{
   // Question: Can a different hosted deployment be mislabeled as the local prompt or training change?
   // Limits: Server self-report is evidence, not independent attestation of provider inference or model quality.
@@ -170,13 +201,13 @@ test('a later malformed turn preserves the completed conversation checkpoint',()
 test('the ordinary suite retains the companion correction across five turns and isolates each conversation',()=>synthetic(async({root,evaluate,sent})=>{
   // Question: Can independent cases leak history, or can intervening turns erase the product-scope correction?
   // Limits: This checks retained inputs and actual-reply plumbing, not whether a live model follows the correction.
-  await evaluate([...urlArgs,'--cases','companion']);
+  await evaluate([...urlArgs,'--cases','companion','--max-requests','22']);
   const saved=JSON.parse(await readFile(join(root,'artifacts/conversation-evaluation.json'),'utf8')),requests=await sent();
-  assert.equal(requests.length,19);assert.equal(saved.requestedCases.length,6);
+  assert.equal(requests.length,22);assert.equal(saved.requestedCases.length,7);
   const scope=saved.results.filter(result=>result.id==='companion-scope');assert.equal(scope.length,5);
   assert.ok(scope.at(-1).request.context.history.some(turn=>turn.role==='user'&&turn.content==='Interview preparation is a feature; NOX remains a companion. Please revise that understanding.'));
   assert.equal(saved.results.find(result=>result.id==='reasoned-disagreement').request.context.history.length,0);
-  assert.ok(requests.every(request=>!request.body.context.rehearsal));assert.equal(saved.semanticReview,'unreviewed');
+  assert.ok(requests.every(request=>!request.body.context.rehearsal&&request.body.context.depth==='balanced'));assert.equal(saved.semanticReview,'unreviewed');
 }));
 
 test('rate denial preserves retry metadata and never retries or advances a conversation',()=>synthetic(async({root,evaluate,requests})=>{

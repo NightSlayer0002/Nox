@@ -3,13 +3,14 @@
 import {writeFile,mkdir,open} from 'node:fs/promises';
 import {dirname} from 'node:path';
 import {randomUUID,createHash} from 'node:crypto';
-import {prepareChatRequest} from '../shared/character.js';
+import {prepareChatRequest,answerDepth} from '../shared/character.js';
 import {IDENTITY,answerInstructions} from '../server/ai.mjs';
 import {CONVERSATION_POLICY,CONVERSATION_POLICY_VERSION,CONVERSATION_POLICY_SHA256} from '../server/conversation-policy.mjs';
 import {CONVERSATION_SCENARIOS,COMPANION_SCENARIOS,CONVERSATION_RUBRIC,scenarioTurns,assessScenario} from './conversation-scenarios.mjs';
 import {REHEARSAL_SCENARIOS} from './rehearsal-scenarios.mjs';
 
 const rehearsalCases=REHEARSAL_SCENARIOS.map(scenario=>({...scenario,id:'rehearsal-'+scenario.id}));
+const requestedDepth=(scenario,step)=>answerDepth(step.context?.depth??scenario.context?.depth??'quick');
 function options(args){
   const flags=new Set(['--url','--out','--label','--cases','--max-requests']),seen=new Set();
   const values={'--out':'artifacts/conversation-evaluation.json','--label':'probe','--cases':'correction-repair','--max-requests':'20'};
@@ -56,7 +57,7 @@ async function evaluate(){
   const visit=randomUUID(),results=[],failedTurns=new Set(),at=new Date().toISOString();
   let attempted=0,current,turn,stage,interrupted,stopped;
   const report=()=>({
-    schemaVersion:2,label,at,configuration:{origin:url.origin,endpoint:'/api/chat',mode:'companion',depth:'per-case',guest:true,maxRequests,minimumGapMs:21000,retries:0},
+    schemaVersion:2,label,at,configuration:{origin:url.origin,endpoint:'/api/chat',mode:'companion',depth:'per-case',requestedDepths:Object.fromEntries(selected.map(scenario=>[scenario.id,scenarioTurns(scenario).map(step=>requestedDepth(scenario,step))])),guest:true,maxRequests,minimumGapMs:21000,retries:0},
     policyReference:{scope:'local-prompt-policy',version:CONVERSATION_POLICY_VERSION,sha256:CONVERSATION_POLICY_SHA256,text:CONVERSATION_POLICY},
     promptReference:{scope:'local-only; hosted system prompt and deployment are not independently inspected',identity:IDENTITY,identitySha256:createHash('sha256').update(IDENTITY).digest('hex')},
     requestedCases:selected.map(scenario=>scenario.id),scenarios:selected,rubric:CONVERSATION_RUBRIC,
@@ -72,7 +73,7 @@ async function evaluate(){
         if(attempted)await new Promise(resolve=>setTimeout(resolve,21000));
         current=scenario.id;turn=index+1;stage='request';
         const step=turns[index],context={...scenario.context,...step.context,history,mode:'companion'};
-        context.depth=context.depth||'quick';
+        context.depth=requestedDepth(scenario,step);
         const request=prepareChatRequest(step.message,context),started=performance.now();
         attempted++;
         const response=await fetch(new URL('/api/chat',url),{method:'POST',headers:{'content-type':'application/json',origin:url.origin,'x-nox-guest':'1','x-nox-visit-id':visit},body:JSON.stringify(request),signal:AbortSignal.timeout(30000)});
