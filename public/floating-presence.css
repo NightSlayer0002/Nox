@@ -1,4 +1,4 @@
-/* Conversation presence uses the page, without reserving transcript space. */
+/* Conversation presence floats over the page; untouched placement reserves a reading gutter. */
 .workspace .floating-ui[hidden]{display:none!important}
 .workspace .floating-ui{position:fixed;inset:0;z-index:40;pointer-events:none}
 .workspace[data-floating=true][data-view=conversation] .studio{grid-template-columns:minmax(0,1fr);grid-template-rows:minmax(0,1fr) auto;gap:12px 0}
@@ -51,9 +51,6 @@
 }
 .workspace .floating-ui[data-motion=reduced] :is(.presence-bot,.floating-nox-handle){transition:none}
 .workspace .floating-ui[data-motion=reduced] .floating-bot-trail{display:none}
-/* Reserve the occupied lines, not a whole empty row or a narrow full reply. */
-.workspace .message[data-presence-clearance] .message-content::before{content:"";float:right;width:var(--presence-clearance-width);height:var(--presence-clearance-height);pointer-events:none}
-
 .nox-network-status{position:absolute;left:50%;bottom:0;transform:translateX(-50%);white-space:nowrap;padding:5px 9px;border-radius:10px;background:#101c20;color:#bdd4cd;font:12px/1.3 system-ui,sans-serif;pointer-events:none;animation:nox-offline-beacon 3s ease-in-out infinite}
 .nox-network-status[hidden]{display:none}
 @keyframes nox-offline-beacon{50%{color:#ecf4e7}}

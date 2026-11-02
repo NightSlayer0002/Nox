@@ -25,5 +25,5 @@ export function attachPresenceClearance({conversation,windowTarget=window,getPla
   const changes=new windowTarget.MutationObserver(schedule);changes.observe(conversation,{childList:true,subtree:true,characterData:true});
   const resize=new windowTarget.ResizeObserver(schedule);resize.observe(conversation);
   conversation.addEventListener('scroll',schedule,{passive:true});
-  return {update:schedule,dispose(){disposed=true;changes.disconnect();resize.disconnect();conversation.removeEventListener('scroll',schedule);if(frame!==null)windowTarget.cancelAnimationFrame(frame);for(const message of conversation.querySelectorAll('.message')){message.style.marginInlineEnd='';message.style.maxInlineSize='';message.removeAttribute('data-presence-clearance');message.style.removeProperty('--presence-clearance-width');message.style.removeProperty('--presence-clearance-height');}}};
+  return {update:schedule,dispose(){disposed=true;changes.disconnect();resize.disconnect();conversation.removeEventListener('scroll',schedule);if(frame!==null)windowTarget.cancelAnimationFrame(frame);for(const message of conversation.querySelectorAll('.message')){message.style.marginInlineEnd='';message.style.maxInlineSize='';}}};
 }
