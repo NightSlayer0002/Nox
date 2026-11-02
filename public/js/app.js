@@ -436,6 +436,7 @@ async function send(raw,{recorded=false,keepDraft=false,source='programmatic',on
   const recent=history.context();if(recorded&&recent.history.at(-1)?.role==='user')recent.history=recent.history.slice(0,-1);
   const preferences=approvedPreferences.context(currentActivity);
   const context = {...(visit.owner?memory.snapshot():{}),...recent,mode,depth,activity:currentActivity,preferences,knowledge:knowledge.context(text),interfaceState:observeInterface({stage,floating:floatingPresence,view:document.body.dataset.view,presence:document.body.dataset.presence})};
+  if(visit.owner&&name)context.name=name;
   companionBridge.propose(text,currentActivity);
   applyApprovedPreferences();
   if(rehearsalWork)context.rehearsal=rehearsal.context(rehearsalWork);
