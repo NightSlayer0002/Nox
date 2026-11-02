@@ -9,8 +9,9 @@ export function createCache({ttlMs=300000,maxEntries=12,maxBytes=12*1024*1024,no
     if(cached)remove(key);
     let work=pending.get(key),hit=Boolean(work);
     if(!work){
+      if(pending.size>=maxEntries)throw Object.assign(new Error('Natural voice is busy. Try again shortly.'),{code:'busy'});
       work={controller:new AbortController(),users:0,settled:false,promise:null};
-      if(pending.size<maxEntries)pending.set(key,work);
+      pending.set(key,work);
       work.promise=Promise.resolve().then(()=>{work.controller.signal.throwIfAborted();return factory(work.controller.signal);}).then(value=>{
         work.controller.signal.throwIfAborted();
         const size=value.byteLength||0;
