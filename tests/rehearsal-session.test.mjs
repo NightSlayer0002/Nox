@@ -83,6 +83,25 @@ test('file state survives switching and questions do not mark explanation covera
   assert.equal(session.context().path,'a.js');assert.equal(session.snapshot().records.length,1);
 });
 
+// Question: does a complete line-aligned narration count as discussed without claiming understanding?
+// Limits: validated structure cannot establish explanation accuracy, audible playback or user learning.
+test('validated narrated explanations count as discussion without marking self checks',()=>{
+  const session=createRehearsalSession();session.open({path:'a.js',text:'one\ntwo\nthree\nfour',source:'pasted',revision:'1'});
+  const answer='[L1] First line.\n[L2] Second line.\n[L3] Third line.\n[L4] Fourth line.';
+  assert.equal(session.complete(session.capture('narrate'),answer,'Explain aloud'),true);
+  assert.equal(session.snapshot().discussed,4);assert.equal(session.snapshot().ready,0);
+  assert.match(session.export(),/Discussed: 4\/4 lines\. Self-check: 0\/4 lines\./);
+});
+
+// Question: can an incomplete narration inflate coverage while its written answer is retained?
+// Limits: one invalid plan; parser tests cover other alignment and length failures.
+test('an invalid narration is retained without marking missing lines as discussed',()=>{
+  const session=createRehearsalSession();session.open({path:'a.js',text:'one\ntwo',source:'pasted',revision:'1'});
+  assert.equal(session.complete(session.capture('narrate'),'[L1] Only one line.'),true);
+  assert.equal(session.snapshot().discussed,0);assert.equal(session.snapshot().ready,0);
+  assert.equal(session.snapshot().records[0].answer,'[L1] Only one line.');
+});
+
 // Question: can one very long or malformed source be silently shortened or exhaust the page?
 // Limits: this is a bounded text viewer, not a parser for every programming language.
 test('source and section limits reject without replacing existing work',()=>{

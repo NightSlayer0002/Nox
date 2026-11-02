@@ -189,8 +189,10 @@ export async function loadRepository(input, {fetchImpl = globalThis.fetch, signa
     if (typeof metadata.full_name !== 'string' || metadata.full_name.toLowerCase() !== name.toLowerCase()
       || typeof metadata.default_branch !== 'string' || !metadata.default_branch || metadata.default_branch.length > 255
       || /[\u0000-\u0020\u007f~^:?*\[\\]/.test(metadata.default_branch)) throw invalidResponse();
-    const commit = await githubJson(`${base}/commits/${encodeURIComponent(metadata.default_branch)}`, 256 * 1024, fetchImpl, requestSignal);
-    const revision = commit?.sha, treeSha = commit?.commit?.tree?.sha;
+    // Branch metadata pins the same commit/tree without downloading its file diffs.
+    const branch = await githubJson(`${base}/branches/${encodeURIComponent(metadata.default_branch)}`, 64 * 1024, fetchImpl, requestSignal);
+    if (branch?.name !== metadata.default_branch) throw invalidResponse();
+    const revision = branch?.commit?.sha, treeSha = branch?.commit?.commit?.tree?.sha;
     if (typeof revision !== 'string' || !SHA.test(revision) || typeof treeSha !== 'string' || !SHA.test(treeSha)) throw invalidResponse();
     const listing = await githubJson(`${base}/git/trees/${treeSha}?recursive=1`, MAX_TREE_BYTES, fetchImpl, requestSignal);
     if (listing?.sha !== treeSha || !Array.isArray(listing.tree) || listing.tree.length > 20000 || typeof listing.truncated !== 'boolean') throw invalidResponse();

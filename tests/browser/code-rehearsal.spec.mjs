@@ -15,6 +15,7 @@ test('spoken walkthrough follows actual playback events and Stop prevents anothe
   await page.route('**/api/chat',route=>route.fulfill({json:{speech:'[L1] Declare a total function receiving items.\n[L2] Map each item to its price.\n[L3] Add the prices, starting at zero, and return the result.\n[L4] Close the function body.',emotion:'curious',action:'none',memory:''}}));
   await page.goto('/guest?prepare=code#conversation');await expect(page.locator('#brain-status')).toContainText('Guest visit');await page.locator('#rehearsal-spoken-example').click();
   await page.locator('#rehearsal-narrate').click();await expect.poll(()=>page.evaluate(()=>ciUtterances.length)).toBe(1);
+  await expect(page.locator('#rehearsal-progress')).toHaveText('4/4 lines discussed · 0 self-checked');
   await expect(page.locator('.code-line.speaking')).toHaveCount(0);await page.evaluate(()=>ciUtterances[0].onstart());
   await expect(page.locator('.code-line.speaking')).toHaveAttribute('data-line','1');
   await page.evaluate(()=>ciUtterances[0].onend());await expect.poll(()=>page.evaluate(()=>ciUtterances.length)).toBe(2);
@@ -32,6 +33,7 @@ test('a malformed spoken plan keeps the answer and spends no speech requests',as
   await page.goto('/guest?prepare=code#conversation');await expect(page.locator('#brain-status')).toContainText('Guest visit');await page.locator('#rehearsal-spoken-example').click();
   await page.locator('#rehearsal-narrate').click();await expect(page.locator('#rehearsal-notice')).toContainText('every selected line');
   await expect(page.locator('#conversation .message.nox:not(.draft)')).toContainText('Just one line.');expect(requests).toHaveLength(0);
+  await expect(page.locator('#rehearsal-progress')).toHaveText('0/4 lines discussed · 0 self-checked');
 });
 
 for(const operation of ['send','retry'])test(`a source change cancels ${operation} while its history write is queued`,async({page})=>{

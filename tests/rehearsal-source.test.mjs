@@ -80,10 +80,10 @@ const metadata = {name:'Hello-World', full_name:'octocat/Hello-World', private:f
 const commit = {sha:COMMIT, commit:{tree:{sha:TREE, url:`${BASE}/git/trees/${TREE}`}}};
 const tree = (entries, overrides = {}) => ({sha:TREE, url:`${BASE}/git/trees/${TREE}`, tree:entries, truncated:false, ...overrides});
 
-function githubFixture({repository = metadata, revision = commit, listing = tree([entry()]), blob} = {}) {
+function githubFixture({repository = metadata, revision = commit, branchName = metadata.default_branch, listing = tree([entry()]), blob} = {}) {
   const requests = [];
   const responses = new Map([
-    [BASE, repository], [`${BASE}/commits/release%2Fv1`, revision],
+    [BASE, repository], [`${BASE}/branches/release%2Fv1`, {name:branchName, commit:revision}],
     [`${BASE}/git/trees/${TREE}?recursive=1`, listing], [`${BASE}/git/blobs/${BLOB}`, blob],
   ]);
   return {requests, fetchImpl:async (url, options) => {
@@ -102,7 +102,7 @@ test('repository loading resolves default branch once and pins the commit, tree 
   ])});
   const repository = await loadRepository(REPO_URL, fixture);
   assert.deepEqual(repository, {name:'octocat/Hello-World', revision:COMMIT, url:REPO_URL, files:[{path:'src/main.js', sha:BLOB, size:5}], truncated:false});
-  assert.deepEqual(fixture.requests.map(request => request.url), [BASE, `${BASE}/commits/release%2Fv1`, `${BASE}/git/trees/${TREE}?recursive=1`]);
+  assert.deepEqual(fixture.requests.map(request => request.url), [BASE, `${BASE}/branches/release%2Fv1`, `${BASE}/git/trees/${TREE}?recursive=1`]);
   for (const {options} of fixture.requests) {
     assert.equal(options.credentials, 'omit');
     assert.equal(options.redirect, 'error');
@@ -110,6 +110,23 @@ test('repository loading resolves default branch once and pins the commit, tree 
     assert.equal(options.headers['X-GitHub-Api-Version'], '2022-11-28');
     assert.equal(new Headers(options.headers).has('authorization'), false);
   }
+});
+
+// Question: can a large latest commit's diff prevent importing otherwise small source files?
+// Limits: fixture responses establish endpoint choice and pinned identity, not live GitHub availability or CORS.
+test('repository import does not download a latest commit diff', async () => {
+  const fixture = githubFixture();
+  let diffRequests = 0;
+  const repository = await loadRepository(REPO_URL, {fetchImpl:async (url, options) => {
+    if (url.includes('/commits/')) {
+      diffRequests++;
+      return json({...commit, files:[{patch:'x'.repeat(300000)}]});
+    }
+    return fixture.fetchImpl(url, options);
+  }});
+  assert.equal(repository.revision, COMMIT);
+  assert.equal(repository.files[0].sha, BLOB);
+  assert.equal(diffRequests, 0);
 });
 
 test('repository truncation reports both GitHub partial trees and the 2,000 usable-file cap', async () => {
@@ -125,6 +142,7 @@ test('malformed repository, commit and tree metadata fail closed', async () => {
   for (const fixture of [
     {repository:{...metadata, private:true}}, {repository:{...metadata, default_branch:''}},
     {repository:{...metadata, full_name:'other/repo'}}, {revision:{...commit, sha:'main'}},
+    {branchName:'different-branch'},
     {revision:{sha:COMMIT, commit:{tree:{sha:'../../elsewhere'}}}},
     {listing:tree([entry('../escape.js')])}, {listing:tree([entry('a.js', {sha:'bad'})])},
     {listing:tree([entry('a.js', {size:-1})])}, {listing:tree([entry(), entry()])},
