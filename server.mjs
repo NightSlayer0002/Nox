@@ -8,7 +8,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import { normalizePacket, sanitizeContext, sanitizeRehearsal, answerDepth, EMOTIONS, CHAT_INPUT_CHARACTERS, CHAT_REQUEST_BYTES, MAX_PACKET_CHARACTERS } from './shared/character.js';
 import {capabilitiesForModel} from './shared/product-capabilities.js';
 import { requestNox, explicitMemoryRequest } from './server/ai.mjs';
-import {CONVERSATION_POLICY_VERSION,CONVERSATION_POLICY_SHA256} from './server/conversation-policy.mjs';
+import {CONVERSATION_POLICY_VERSION,CONVERSATION_POLICY_SHA256,priorAgeLabelCorrection} from './server/conversation-policy.mjs';
 import { getProviders, providerKey, requestProvider, requestSummary, modelForDepth } from './server/providers.mjs';
 import {FREE_CHAT_MODEL,requestFreeChat} from './server/free-model-policy.mjs';
 import {createChatBudget,CHAT_BUDGET_MS} from './server/chat-budget.mjs';
@@ -301,15 +301,21 @@ export function createAppServer({
           const prompt = { message: input.message.trim(), context: sanitizeContext(guestChat?{...sanitizeContext(input.context),depth:input.context?.depth==='quick'?'quick':'balanced'}:input.context) };
           prompt.context.depth=answerDepth(prompt.context.depth);
           const selectedModel=modelForDepth(selected.id,selected.model,prompt.context.depth,groqDeepModel);
-          let actualModel=selectedModel,fallbackReason=null;
+          const correction=prompt.context.rehearsal?null:priorAgeLabelCorrection(prompt.message,prompt.context.history);
+          let actualModel=correction?'NOX':selectedModel,fallbackReason=null;
           const options={apiKey:selected.id==='openai'?apiKey:providerKey(selected.id),model:selectedModel,signal:budget.signal,deadlineAt:budget.deadlineAt,now,provider:selected.id,deepModel:groqDeepModel,productCapabilities:capabilitiesForModel({owner,naturalVoice:Boolean(naturalVoice&&voiceKey&&(!locked||speechProvider==='groq'))})};
-          const generate=onText=>guestChat?requestFreeChat(prompt,{...options,onText,request:providerRequest,onModel:(model,reason)=>{actualModel=model;fallbackReason=reason;}}):selected.id==='openai'?chat(prompt,options):providerRequest(prompt,{...options,onText});
+          const generate=onText=>{
+            if(correction)return correction;
+            if(guestChat)return requestFreeChat(prompt,{...options,onText,request:providerRequest,onModel:(model,reason)=>{actualModel=model;fallbackReason=reason;}});
+            if(selected.id==='openai')return chat(prompt,options);
+            return providerRequest(prompt,{...options,onText});
+          };
           const finish=packet=>{
             const result=normalizePacket(packet,prompt.context.depth);
             if(guestChat||!explicitMemoryRequest(prompt.message))result.memory='';
             return result;
           };
-          const metrics=firstTextMs=>({firstTextMs,totalMs:Math.round(performance.now()-started),provider:selected.name,model:actualModel,conversationPolicyVersion:CONVERSATION_POLICY_VERSION,conversationPolicyHash:CONVERSATION_POLICY_SHA256,...(fallbackReason?{fallbackReason}:{}),depth:prompt.context.depth});
+          const metrics=firstTextMs=>({firstTextMs,totalMs:Math.round(performance.now()-started),provider:correction?'Local':selected.name,model:actualModel,conversationPolicyVersion:CONVERSATION_POLICY_VERSION,conversationPolicyHash:CONVERSATION_POLICY_SHA256,...(fallbackReason?{fallbackReason}:{}),depth:prompt.context.depth});
           if(input.stream===true) {
             let firstTextMs=null,previousSpeech='';
             response.writeHead(200,{'content-type':'text/event-stream; charset=utf-8','x-accel-buffering':'no'});response.flushHeaders();
