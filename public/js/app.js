@@ -361,7 +361,7 @@ async function perform(value, save = true, draft, version, depth='quick',remembe
   const appendReply=afterPersist=>history.append('assistant',packet.speech,{sources,...completion,afterPersist});
   const remember=save&&packet.memory&&rememberAllowed&&completion.replyTo;
   let remembered=false;
-  if(remember)await memory.remember(packet.memory,{signal:completion.signal,durableOnly:true,
+  if(remember)await memory.remember(packet.memory,{signal:completion.signal,durableOnly:true,expectedClearGeneration:completion.memoryGeneration,
     commitIfCurrent:async commit=>{
       if(version!==undefined&&!turns.isCurrent(version))return false;
       // Hold both locks and require a durable answer before storing its fact.
@@ -407,6 +407,7 @@ async function send(raw,{recorded=false,keepDraft=false,source='programmatic',on
   const submittedDraft=$('message').value;
   if(brain==='loading'){replyDiagnostics.setStatus('The AI connection is not ready. Your message is still here.');return;}
   if(visit.owner&&history.crossTabSafe===false){toast(historyFailure(history));return;}
+  const memoryGeneration=memory.clearGeneration();
   try{if(rehearsalWork===undefined){const thread=history.active(),editing=source==='composer'&&editTarget?thread.turns.find(turn=>turn.id===editTarget.turnId):null,last=thread.turns.at(-1),retry=recorded||last?.role==='user'&&last.content===text;rehearsalWork=editing||retry?rehearsal?.replay(editing||last):rehearsal?.capture();}}catch(error){toast(error.message);return;}
   if(source==='composer'&&editTarget!==null){
     const operation=revisionControls.beginCommit();if(!operation)return;
@@ -461,7 +462,7 @@ async function send(raw,{recorded=false,keepDraft=false,source='programmatic',on
   if(!recorded){const userTurn=history.active().turns.at(-1),message=addMessage('user', text,userTurn);attachMessageActions(message,userTurn);}if(source==='composer'&&!keepDraft&&$('message').value===submittedDraft)composer.setValue(''); contextPreview();updateMemory();navigation?.render();companionChanged();
   setBusy(true); voice.stop(); microphone.stop(); stage.character.emotion = 'curious';
   try {
-    if(name)await memory.setName(name,{signal:requestController.signal,commitIfCurrent:commit=>history.commitReplyEffect(replyTo,commit,{signal:requestController.signal})});
+    if(name)await memory.setName(name,{signal:requestController.signal,expectedClearGeneration:memoryGeneration,commitIfCurrent:commit=>history.commitReplyEffect(replyTo,commit,{signal:requestController.signal})});
     if(!turns.isCurrent(version))return;
     let packet;
     if (brain === 'live') {
@@ -477,7 +478,7 @@ async function send(raw,{recorded=false,keepDraft=false,source='programmatic',on
       packet = demoReply(text, context);
       if(turns.isCurrent(version))replyDiagnostics.complete(timingVersion);
     }
-    if (turns.isCurrent(version)) {activity.transition('reply-ready',activityTurn);if(takeover)packet={...packet,action:'takeover'};const draft=pendingDraft;const completed=await perform(packet,true,draft,version,depth,explicitMemoryRequest(text),brain==='live'?request.context.knowledge:[],{replyTo,signal:requestController.signal,onCommitted:notifyCommitted,silent:rehearsalWork?.ticket.context.intent==='narrate'});if(turns.isCurrent(version)){if(completed)rehearsal?.completed(rehearsalWork,completed);pendingDraft=null;scheduleSummary();return completed;}}
+    if (turns.isCurrent(version)) {activity.transition('reply-ready',activityTurn);if(takeover)packet={...packet,action:'takeover'};const draft=pendingDraft;const completed=await perform(packet,true,draft,version,depth,explicitMemoryRequest(text),brain==='live'?request.context.knowledge:[],{replyTo,memoryGeneration,signal:requestController.signal,onCommitted:notifyCommitted,silent:rehearsalWork?.ticket.context.intent==='narrate'});if(turns.isCurrent(version)){if(completed)rehearsal?.completed(rehearsalWork,completed);pendingDraft=null;scheduleSummary();return completed;}}
   } catch (error) {
     if (turns.isCurrent(version)){setUsage(error.usage);pendingDraft?.remove();pendingDraft=null;if(error.name!=='AbortError'){activity.finishTurn(activityTurn,'error');if(source==='composer'&&!$('message').value){composer.setValue(text);contextPreview();}stage.character.react?.('worried',stage.time,2);if (brain === 'live') $('brain-status').lastChild.textContent = ' AI error'; addMessage('system', error.message); toast(error.message);replyDiagnostics.setStatus('Reply interrupted. Your message is still in this visit.');}}
   } finally { if (turns.isCurrent(version)) { setBusy(false); } }
@@ -562,7 +563,7 @@ $('record-button').addEventListener('click', toggleRecording);
 $('film-record').addEventListener('click', toggleRecording);
 $('clear-memory').addEventListener('click', async () => {
   if(!window.confirm('Clear your saved name and remembered facts? Pasted notes and chats will stay.'))return;
-  cancelConversation();const saved=await memory.clear();
+  cancelConversation();const saved=await memory.clear({durableOnly:true});
   updateMemory();toast(saved?'Your saved name and remembered facts were cleared.':'Your saved name and remembered facts could not be cleared. Check browser storage and try again.');
 });
 $('inside-button').addEventListener('click', () => { $('packet-view').textContent = JSON.stringify(lastPacket, null, 2); openSettings(); });

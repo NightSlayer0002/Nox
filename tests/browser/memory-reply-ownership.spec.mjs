@@ -1,5 +1,40 @@
 import {test,expect} from '@playwright/test';
 
+test('a clear in one owner tab fences older remember requests in another',async({page,context})=>{
+  // Question: can a reply already waiting on the provider undo another tab's confirmed clear?
+  // Limits: two Chromium pages and synthetic model packets, without a production owner session.
+  const other=await context.newPage();
+  let release,started;
+  const wait=new Promise(resolve=>{release=resolve;});
+  const inFlight=new Promise(resolve=>{started=resolve;});
+  await other.route('**/api/chat',async route=>{
+    const {message}=route.request().postDataJSON();
+    if(message.includes('blue')){started();await wait;}
+    await route.fulfill({json:{speech:'I heard your request.',emotion:'neutral',action:'none',memory:message.includes('blue')?'likes blue':'likes green'}});
+  });
+  for(const tab of [page,other]){
+    await tab.goto('/app#conversation');
+    await expect(tab.locator('#brain-status')).toContainText('Synthetic CI provider');
+  }
+  const send=async text=>{
+    await other.locator('#message').fill(text);
+    await other.locator('#send-button').click();
+  };
+  const facts=()=>other.evaluate(()=>JSON.parse(localStorage.getItem('nox.memory.v1')).facts);
+  try{
+    await send('Remember that I like blue.');await inFlight;
+    await page.locator('#settings-button').click();
+    await page.getByText('Conversation context',{exact:true}).click();
+    page.once('dialog',dialog=>dialog.accept());
+    await page.getByRole('button',{name:'Clear remembered facts'}).click();
+    await expect(page.locator('#toast')).toContainText('were cleared');
+  }finally{release();}
+  await expect(other.locator('#conversation .message.nox:not(.draft)')).toHaveCount(1);
+  expect(await facts()).toEqual([]);
+  await send('Remember that I like green.');
+  await expect.poll(facts).toEqual(['likes green']);
+});
+
 test('clearing remembered facts confirms the exact scope',async({page})=>{
   // Question: can an owner cancel this clear, and do saved chats survive confirmation?
   // Limits: synthetic owner session and browser-local storage, without live sign-in.

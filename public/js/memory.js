@@ -2,7 +2,8 @@ import { cleanText, MODES, sanitizeContext } from '../../shared/character.js';
 import {createStorageTransaction} from './storage-transaction.js';
 
 const KEY = 'nox.memory.v1';
-const empty = () => ({ version: 1, name: '', facts: [], history: [], mode: 'companion' });
+const empty = () => ({ version: 1, name: '', facts: [], history: [], mode: 'companion', clearGeneration: '' });
+const visible = ({clearGeneration,...state}) => structuredClone(state);
 
 function parse(raw) {
   if (raw === null || raw === undefined) return empty();
@@ -10,11 +11,12 @@ function parse(raw) {
   if (!saved || saved.version !== 1 || Array.isArray(saved) ||
       typeof saved.name !== 'string' || !Array.isArray(saved.facts) || saved.facts.some(fact => typeof fact !== 'string') ||
       !MODES.includes(saved.mode) || !Array.isArray(saved.history) ||
+      (saved.clearGeneration !== undefined && typeof saved.clearGeneration !== 'string') ||
       saved.history.some(turn => !turn || !['user', 'assistant'].includes(turn.role) || typeof turn.content !== 'string')) {
     throw Error('unreadable-storage');
   }
   const { name, facts, mode } = sanitizeContext(saved);
-  return { version: 1, name, facts, mode, history: saved.history.slice(-24).map(turn => ({ role: turn.role, content: cleanText(turn.content, 600) })) };
+  return { version: 1, name, facts, mode, clearGeneration: saved.clearGeneration ?? '', history: saved.history.slice(-24).map(turn => ({ role: turn.role, content: cleanText(turn.content, 600) })) };
 }
 
 // Storage is injected so this module also works in tests and restricted browsers.
@@ -28,7 +30,7 @@ export function createMemory(storage) {
   const changeKey = () => JSON.stringify([state, readError, writeError]);
   function notify(before) {
     if (before !== changeKey()) for (const listener of listeners) {
-      try { listener(structuredClone(state)); } catch {}
+      try { listener(visible(state)); } catch {}
     }
   }
   function load() {
@@ -50,7 +52,7 @@ export function createMemory(storage) {
     notify(before);
     return readable;
   }
-  function mutate(action,{signal,commitIfCurrent,durableOnly=false}={}) {
+  function mutate(action,{signal,commitIfCurrent,durableOnly=false,expectedClearGeneration}={}) {
     const current = transaction();
     if (!current.supported) {
       const before = changeKey();
@@ -61,6 +63,10 @@ export function createMemory(storage) {
     const commit = () => {
       if(signal?.aborted)return false;
       const before = changeKey(), readable = load();
+      if(expectedClearGeneration!==undefined&&(!readable||expectedClearGeneration!==state.clearGeneration)){
+        notify(before);
+        return false;
+      }
       const previous = durableOnly ? structuredClone(state) : null;
       action();
       let committed = false;
@@ -100,7 +106,8 @@ export function createMemory(storage) {
     get persistent() { return persistent(); },
     get crossTabSafe() { return crossTabSafe(); },
     get status() { return { persistent: persistent(), crossTabSafe: crossTabSafe(), error: readError || writeError || coordinationError(), hasStoredData: rawBackup !== null }; },
-    snapshot() { refresh(); return structuredClone(state); },
+    snapshot() { refresh(); return visible(state); },
+    clearGeneration() { return refresh() ? state.clearGeneration : null; },
     refresh,
     subscribe(listener) { listeners.add(listener); return () => listeners.delete(listener); },
     dispose() { globalThis.window?.removeEventListener('storage', onStorage); listeners.clear(); },
@@ -114,7 +121,7 @@ export function createMemory(storage) {
       if (!['user', 'assistant'].includes(role)) return false;
       return mutate(() => { state.history = [...state.history, { role, content: cleanText(content, 600) }].slice(-24); });
     },
-    clear() { return mutate(() => { state = empty(); }); },
+    clear(options) { return mutate(() => { state = {...empty(),clearGeneration:crypto.randomUUID()}; },options); },
     clearHistory() { return mutate(() => { state.history = []; }); },
   };
 }
