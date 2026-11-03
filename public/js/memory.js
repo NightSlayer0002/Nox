@@ -50,7 +50,7 @@ export function createMemory(storage) {
     notify(before);
     return readable;
   }
-  function mutate(action,{signal,commitIfCurrent}={}) {
+  function mutate(action,{signal,commitIfCurrent,durableOnly=false}={}) {
     const current = transaction();
     if (!current.supported) {
       const before = changeKey();
@@ -61,6 +61,7 @@ export function createMemory(storage) {
     const commit = () => {
       if(signal?.aborted)return false;
       const before = changeKey(), readable = load();
+      const previous = durableOnly ? structuredClone(state) : null;
       action();
       let committed = false;
       // Never "repair" unreadable or future data with a cached snapshot.
@@ -72,6 +73,7 @@ export function createMemory(storage) {
         writeError = null;
         committed = true;
       } catch { writeError = 'storage-full-or-blocked'; }
+      if(durableOnly&&!committed)state=previous;
       notify(before);
       return committed;
     };
@@ -82,8 +84,8 @@ export function createMemory(storage) {
       return false;
     };
     try {
-      // A reply-owned effect waits for memory first, then validates its saved
-      // question under history's lock while the synchronous memory write runs.
+      // A reply-owned effect takes the memory lock first, then uses the
+      // history lock to validate its transcript and authorize the write.
       const result = current.run(()=>signal?.aborted?false:commitIfCurrent?commitIfCurrent(commit):commit());
       return result?.then ? Promise.resolve(result).catch(failed) : result;
     } catch { return failed(); }

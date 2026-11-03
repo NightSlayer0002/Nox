@@ -357,11 +357,21 @@ async function perform(value, save = true, draft, version, depth='quick',remembe
   const packet = normalizePacket(value,depth); lastPacket = packet;
   const spoken=spokenPreview(packet.speech);
   if(!completion.silent)voice.prepare(spoken,mode,packet.emotion);
-  if (packet.memory&&rememberAllowed&&completion.replyTo) await memory.remember(packet.memory,{signal:completion.signal,
-    commitIfCurrent:commit=>version!==undefined&&!turns.isCurrent(version)?false:history.commitReplyEffect(completion.replyTo,commit,{signal:completion.signal})});
+  let appended;
+  const appendReply=afterPersist=>history.append('assistant',packet.speech,{sources,...completion,afterPersist});
+  const remember=save&&packet.memory&&rememberAllowed&&completion.replyTo;
+  let remembered=false;
+  if(remember)await memory.remember(packet.memory,{signal:completion.signal,durableOnly:true,
+    commitIfCurrent:async commit=>{
+      if(version!==undefined&&!turns.isCurrent(version))return false;
+      // Hold both locks and require a durable answer before storing its fact.
+      appended=await appendReply(()=>{remembered=commit();});
+      return remembered;
+    }});
   if(version!==undefined&&!turns.isCurrent(version))return;
-  if (save && !await history.append('assistant', packet.speech,{sources,...completion})) {voice.stop();return;}
+  if(save&&!(appended??await appendReply())){voice.stop();return;}
   if(version!==undefined&&!turns.isCurrent(version))return;
+  if(remember&&!remembered)toast('NOX couldn’t save that fact. You can ask him to remember it again.');
   const replyTurn=save?history.active().turns.at(-1):null;
   if(save)try{completion.onCommitted?.(packet.speech);}catch{/* A failed view must not discard a committed answer. */}
   const presentation=createReplyPresentation({voiceEnabled:!completion.silent&&voice.enabled&&voice.supported,isCurrent:()=>version===undefined||turns.isCurrent(version),
