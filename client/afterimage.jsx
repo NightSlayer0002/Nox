@@ -61,7 +61,7 @@ export default function Afterimage(){
       const result=await afterimageBridge.receive({seed:seed.trim(),tone,variation:variation.current,signal:controller.signal});
       if(controller.signal.aborted||version.current!==ownVersion)return;
       const generatedCut={packet:result.packet,seed:seed.trim(),tone,source:'live',metrics:result.metrics,signalIndex:0,endingIndex:0,createdAt:new Date().toISOString()};let next;
-      try{next=await store.add(generatedCut);}catch(saveError){
+      try{next=await store.add(generatedCut,{signal:controller.signal});}catch(saveError){
         if(controller.signal.aborted||version.current!==ownVersion)return;
         setCurrent(generatedCut);setConflict(false);setEditor(false);setDraftLines([]);setError(`Your story was generated but could not be saved. ${saveError.message}`);setNotice('This cut is available for this visit. Export it before refreshing; your saved archive is unchanged.');return;
       }
