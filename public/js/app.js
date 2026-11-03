@@ -407,7 +407,8 @@ async function send(raw,{recorded=false,keepDraft=false,source='programmatic',on
   const submittedDraft=$('message').value;
   if(brain==='loading'){replyDiagnostics.setStatus('The AI connection is not ready. Your message is still here.');return;}
   if(visit.owner&&history.crossTabSafe===false){toast(historyFailure(history));return;}
-  const memoryGeneration=memory.clearGeneration();
+  const name=selfDeclaredName(text),rememberAllowed=explicitMemoryRequest(text);
+  const memoryGeneration=visit.owner&&(name||rememberAllowed)?memory.clearGeneration():undefined;
   try{if(rehearsalWork===undefined){const thread=history.active(),editing=source==='composer'&&editTarget?thread.turns.find(turn=>turn.id===editTarget.turnId):null,last=thread.turns.at(-1),retry=recorded||last?.role==='user'&&last.content===text;rehearsalWork=editing||retry?rehearsal?.replay(editing||last):rehearsal?.capture();}}catch(error){toast(error.message);return;}
   if(source==='composer'&&editTarget!==null){
     const operation=revisionControls.beginCommit();if(!operation)return;
@@ -441,7 +442,6 @@ async function send(raw,{recorded=false,keepDraft=false,source='programmatic',on
   activityTurn=activity.beginTurn();
   const timingVersion=replyDiagnostics.begin(brain==='live'?'NOX is thinking…':'Scripted demo · no AI request');
   summaryController?.abort();clearTimeout(summaryTimer);
-  const name=selfDeclaredName(text);
   if(!turns.isCurrent(version))return;
   const depth=rehearsalWork?'balanced':$('reply-depth').value==='deep'&&!visit.owner?'balanced':$('reply-depth').value;
   const recent=history.context();if(recorded&&recent.history.at(-1)?.role==='user')recent.history=recent.history.slice(0,-1);
@@ -478,7 +478,7 @@ async function send(raw,{recorded=false,keepDraft=false,source='programmatic',on
       packet = demoReply(text, context);
       if(turns.isCurrent(version))replyDiagnostics.complete(timingVersion);
     }
-    if (turns.isCurrent(version)) {activity.transition('reply-ready',activityTurn);if(takeover)packet={...packet,action:'takeover'};const draft=pendingDraft;const completed=await perform(packet,true,draft,version,depth,explicitMemoryRequest(text),brain==='live'?request.context.knowledge:[],{replyTo,memoryGeneration,signal:requestController.signal,onCommitted:notifyCommitted,silent:rehearsalWork?.ticket.context.intent==='narrate'});if(turns.isCurrent(version)){if(completed)rehearsal?.completed(rehearsalWork,completed);pendingDraft=null;scheduleSummary();return completed;}}
+    if (turns.isCurrent(version)) {activity.transition('reply-ready',activityTurn);if(takeover)packet={...packet,action:'takeover'};const draft=pendingDraft;const completed=await perform(packet,true,draft,version,depth,rememberAllowed,brain==='live'?request.context.knowledge:[],{replyTo,memoryGeneration,signal:requestController.signal,onCommitted:notifyCommitted,silent:rehearsalWork?.ticket.context.intent==='narrate'});if(turns.isCurrent(version)){if(completed)rehearsal?.completed(rehearsalWork,completed);pendingDraft=null;scheduleSummary();return completed;}}
   } catch (error) {
     if (turns.isCurrent(version)){setUsage(error.usage);pendingDraft?.remove();pendingDraft=null;if(error.name!=='AbortError'){activity.finishTurn(activityTurn,'error');if(source==='composer'&&!$('message').value){composer.setValue(text);contextPreview();}stage.character.react?.('worried',stage.time,2);if (brain === 'live') $('brain-status').lastChild.textContent = ' AI error'; addMessage('system', error.message); toast(error.message);replyDiagnostics.setStatus('Reply interrupted. Your message is still in this visit.');}}
   } finally { if (turns.isCurrent(version)) { setBusy(false); } }
