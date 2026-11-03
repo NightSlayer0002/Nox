@@ -5,7 +5,7 @@ export function floatingAllowed({view,presence,callOpen,film=false,recording=fal
   return view==='conversation'&&presence!=='hidden'&&callOpen!=='true'&&!film&&!recording;
 }
 
-export function floatingLayout({viewport={},shell={},header={},welcome={},composer={},nav={},compact=false,takeover=false,reading=false}={}){
+export function floatingLayout({viewport={},shell={},header={},welcome={},composer={},nav={},compact=false,takeover=false,reading=false,readingArea={}}={}){
   const width=Math.max(1,finite(viewport.width,390)),height=Math.max(1,finite(viewport.height,844));
   const offsetLeft=finite(viewport.offsetLeft),offsetTop=finite(viewport.offsetTop);
   const left=clamp(Math.max(offsetLeft,finite(shell.left))+8,offsetLeft,offsetLeft+width-1);
@@ -18,7 +18,7 @@ export function floatingLayout({viewport={},shell={},header={},welcome={},compos
   // (4px), and clearance (12px). At ordinary phone widths the artwork stays 144px.
   const compactReadingSpan=144+32+4+12;
   const compactSize=clamp(contentRight-finite(composer.left,left)-compactReadingSpan,72,144);
-  const preferredSize=(reading?(compact?72:88):compact?compactSize:208)*(takeover?1.5:1);
+  const preferredSize=(reading?(compact?104:148):compact?compactSize:208)*(takeover?1.5:1);
   // Short landscapes and Takeover shrink the artwork, never its usable bounds.
   const size=Math.min(preferredSize,right-left,bottom-top);
   // Face artwork has a small transparent lower margin inside its canvas.
@@ -29,7 +29,8 @@ export function floatingLayout({viewport={},shell={},header={},welcome={},compos
   // Compact placement uses the right shoulder's existing lifted bot position
   // instead of spending another 48px of the transcript on the desktop bot gap.
   const botGap=compact&&!reading?0:48;
-  const initialX=clamp(Math.max(contentRight-size-botGap,finite(composer.left,left)+112),left,right-size);
+  const placementRight=reading?finite(readingArea.right,contentRight):contentRight;
+  const initialX=clamp(Math.max(placementRight-size-botGap,finite(composer.left,left)+112),left,right-size);
   const centerY=finite(visibleWelcome.height)>0?finite(visibleWelcome.top,top)+visibleWelcome.height*.5:(top+finite(composer.top,bottom))*.5;
   const initialY=compact||reading?top:clamp(centerY-size*.5,top,Math.max(top,floor-size));
   return {size,bounds:{left,top,right,bottom,floor},initial:{x:initialX,y:initialY},park:{x:parkX,y:floor-size}};

@@ -5,11 +5,13 @@ import {floatingBotTarget} from '../public/js/floating-follower.js';
 
 // Question: can code and its answer share a screen without NOX covering their first controls?
 // Limits: geometry only; browser checks verify actual CSS and no hardware rendering is inferred.
-test('source reading parks a smaller companion inside its reserved header strip',()=>{
+test('code preparation gives NOX a larger canvas inside its reserved header',()=>{
   for(const compact of [true,false]){
-    const layout=floatingLayout({viewport:{width:compact?390:1440,height:900},shell:{left:0,right:compact?390:1440},header:{bottom:70},composer:{top:780,right:compact?372:1380},compact,reading:true});
-    assert.ok(layout.size<=88);assert.equal(layout.initial.y,layout.bounds.top);
-    assert.ok(layout.initial.y+layout.size<=174);
+    const right=compact?372:1400;
+    const layout=floatingLayout({viewport:{width:compact?390:1440,height:900},shell:{left:0,right:compact?390:1440},header:{bottom:70},composer:{top:780,right:compact?372:1380},readingArea:{right},compact,reading:true});
+    assert.equal(layout.size,compact?104:148);
+    assert.equal(layout.initial.y,layout.bounds.top);
+    assert.equal(layout.initial.x+layout.size+48,right);
   }
 });
 
