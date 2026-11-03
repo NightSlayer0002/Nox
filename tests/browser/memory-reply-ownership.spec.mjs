@@ -1,5 +1,28 @@
 import {test,expect} from '@playwright/test';
 
+test('clearing remembered facts confirms the exact scope',async({page})=>{
+  // Question: can an owner cancel this clear, and do saved chats survive confirmation?
+  // Limits: synthetic owner session and browser-local storage, without live sign-in.
+  await page.addInitScript(()=>localStorage.setItem('nox.memory.v1',JSON.stringify({version:1,name:'Alex',facts:['likes blue'],history:[],mode:'companion'})));
+  await page.goto('/app#conversation');await expect(page.locator('#brain-status')).toContainText('Synthetic CI provider');
+  const snapshot=()=>page.evaluate(()=>[localStorage.getItem('nox.memory.v1'),localStorage.getItem('nox.chats.v1')]);
+  const before=await snapshot();
+  await page.locator('#settings-button').click();
+  await page.getByText('Conversation context',{exact:true}).click();
+  const clear=page.getByRole('button',{name:'Clear remembered facts'});
+  let message;
+  page.once('dialog',dialog=>{message=dialog.message();return dialog.dismiss();});
+  await clear.click();
+  expect(message).toContain('Pasted notes and chats will stay.');
+  expect(await snapshot()).toEqual(before);
+  page.once('dialog',dialog=>dialog.accept());
+  await clear.click();
+  await expect.poll(async()=>JSON.parse((await snapshot())[0]).facts).toEqual([]);
+  const after=await snapshot();
+  expect(JSON.parse(after[0]).name).toBe('');
+  expect(after[1]).toBe(before[1]);
+});
+
 test('a self-declared name correction reaches the current request before it is remembered',async({page})=>{
   // Question: can deferred persistence leave the model's current name context behind the user's explicit correction?
   // Limits: request evidence and local persistence, not whether the hosted model follows the correction or guest identity retention.

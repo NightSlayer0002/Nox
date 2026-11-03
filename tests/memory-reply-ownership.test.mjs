@@ -16,12 +16,12 @@ async function fixture(){
  const storage=disk(),history=await createHistory(storage),memory=createMemory(storage),turns=createTurnGate(),controller=new AbortController();
  await history.append('user','Remember that I like blue');const replyTo=history.revisionTarget(1),version=turns.begin();turns.attach(version,controller);
  history.subscribe(({currentChanged})=>{if(currentChanged)turns.cancel();});
- const nodes=new Map(),context=vm.createContext({history,memory,turns,normalizePacket,spokenPreview,createReplyPresentation,setTimeout,clearTimeout,
+ const nodes=new Map(),notices=[],context=vm.createContext({history,memory,turns,normalizePacket,spokenPreview,createReplyPresentation,setTimeout,clearTimeout,toast:message=>notices.push(message),
   voice:{enabled:false,supported:true,prepare:noop,stop:noop,speak:async()=>{}},mode:'companion',lastPacket:null,pendingPresentation:null,pendingDraft:null,
   stage:{speak:noop},replyFollow:{update:fn=>fn()},addMessage:()=>({}),attachMessageActions:noop,updateMemory:noop,navigation:{render:noop},companionChanged:noop,
   replyDiagnostics:{setStatus:noop},$:id=>{if(!nodes.has(id))nodes.set(id,{hidden:true,textContent:''});return nodes.get(id);}});
  vm.runInContext(perform,context);
- return {storage,history,memory,turns,controller,replyTo,run:()=>context.perform(packet,true,undefined,version,'balanced',true,[],{replyTo,signal:controller.signal})};
+ return {storage,history,memory,turns,controller,replyTo,notices,run:()=>context.perform(packet,true,undefined,version,'balanced',true,[],{replyTo,signal:controller.signal})};
 }
 async function holdMemory(run){
  const descriptor=Object.getOwnPropertyDescriptor(globalThis,'navigator'),waiting=[];
@@ -44,6 +44,17 @@ test('a current explicit memory request saves its fact and complete answer',asyn
  // Question: does the ownership repair retain the supported explicit remember flow?
  // Limits: consent classification and generated fact accuracy have separate tests/review.
  const f=await fixture();await f.run();assert.deepEqual(f.memory.snapshot().facts,['likes blue']);assert.equal(f.history.active().turns.at(-1).role,'assistant');
+});
+for(const blocked of ['nox.chats.v1','nox.memory.v1'])test(`generated memory stays truthful when ${blocked} rejects the write`,async()=>{
+ // Question: can a failed write create a remembered fact without its saved reply or silently claim a failed fact save?
+ // Limits: injected localStorage errors exercise write ordering and feedback, without promising a two-store transaction.
+ const f=await fixture(),write=f.storage.setItem;
+ f.storage.setItem=(key,value)=>{if(key===blocked)throw Error('Storage full');write(key,value);};
+ await f.run();
+ assert.deepEqual(f.memory.snapshot().facts,[]);
+ assert.equal(f.storage.getItem('nox.memory.v1'),null);
+ assert.equal(JSON.parse(f.storage.getItem('nox.chats.v1')).threads[0].turns.at(-1).role,blocked==='nox.chats.v1'?'user':'assistant');
+ assert.match(f.notices.at(-1)??'',/couldn’t save that fact/i);
 });
 test('cancellation also prevents a queued name mutation',async()=>{
  // Question: can a canceled name update still write after waiting for the memory lock?

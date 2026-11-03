@@ -152,6 +152,7 @@
 .workspace .consumer-settings button{padding:9px 12px;border:1px solid var(--line);background:transparent;font-size:14px}
 .workspace #owner-access,.workspace .advanced-model,.workspace .conversation-context,.workspace .persona-guide,.workspace .developer-inspector{display:none}
 .workspace[data-developer=true] :is(#owner-access,.advanced-model,.conversation-context,.persona-guide,.developer-inspector){display:block}
+.workspace[data-visit=owner] .conversation-context{display:block}
 .workspace .mobile-bottom-nav{display:none}
 .workspace .sidebar .rail-bottom{display:flex;gap:14px}
 .workspace .sidebar .rail-bottom a{display:block}

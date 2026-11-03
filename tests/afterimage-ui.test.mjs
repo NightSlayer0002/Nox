@@ -16,7 +16,7 @@ const bundle=await build({entryPoints:[path.join(root,'client/afterimage.jsx')],
   builder.onResolve({filter:/^\/js\//},args=>({path:path.join(root,'public',args.path.slice(1))}));
 }}]});
 
-function receiver({owner=false,kind='live',exportProfile='landscape',recording=false,preparing=false,captionsOnly=false,voiceError='',initialRaw,receive=async()=>{throw Error('Unexpected generation');}}={}){
+function receiver({owner=false,kind='live',exportProfile='landscape',recording=false,preparing=false,captionsOnly=false,voiceError='',initialRaw,lock=(_,operation)=>Promise.resolve().then(operation),receive=async()=>{throw Error('Unexpected generation');}}={}){
   let slots=[],cursor=0,pendingEffects=[],tree,plays=[],requests=[],state={connected:true,status:preparing||captionsOnly?'playing':'idle',preparing,captionsOnly,voiceError,connection:{kind},recordSupported:true,voiceEnabled:false,exportProfile,recording};
   const subscribers=new Set(),data=new Map(initialRaw===undefined?[]:[['nox.afterimage.v1',initialRaw]]),downloads=[],storage={temporary:!owner,getItem:key=>data.get(key)??null,setItem:(key,value)=>data.set(key,value)};
   const react={createElement:(type,props,...children)=>({type,props:{...props,children}}),useRef(value){const index=cursor++;return slots[index]??= {current:value};},useState(initial){const index=cursor++;if(!slots[index])slots[index]={value:typeof initial==='function'?initial():initial};return [slots[index].value,value=>{slots[index].value=typeof value==='function'?value(slots[index].value):value;}];},useEffect(effect,deps){const index=cursor++,old=slots[index];if(!old||deps.some((value,i)=>value!==old.deps[i])){pendingEffects.push(()=>{old?.cleanup?.();slots[index]={deps,cleanup:effect()};});}},useReducedMotion:()=>false};
@@ -26,7 +26,7 @@ function receiver({owner=false,kind='live',exportProfile='landscape',recording=f
   const bridge={snapshot:()=>state,subscribe(fn){subscribers.add(fn);return()=>subscribers.delete(fn);},stop(){state={...state,status:'stopped'};for(const fn of subscribers)fn();},play(...args){plays.push(args);state={...state,status:'playing'};for(const fn of subscribers)fn();return true;},recordAndPlay(...args){plays.push(args);return true;},receive(options){requests.push(options);return receive(options);},setVoice(value){state={...state,voiceEnabled:value};},setExportProfile(value){state={...state,exportProfile:value};for(const fn of subscribers)fn();}};
   const mocks={'react':react,'react-dom':{createPortal:children=>children},'motion/react':{AnimatePresence:'presence',motion:{div:'motion-div'},useReducedMotion:react.useReducedMotion},'/js/afterimage-bridge.js':{afterimageBridge:bridge},'/js/visit-scope.js':{visit:{owner,storage}},'/js/workbench.js':{downloadText:(...args)=>downloads.push(args)},'/js/companion-context.js':{}};
   const module={exports:{}};
-  vm.runInNewContext(bundle.outputFiles[0].text,{module,exports:module.exports,require:id=>mocks[id]??nativeRequire(id),navigator:{locks:{request:(_,operation)=>Promise.resolve().then(operation)}},window:{innerWidth:1400,matchMedia:()=>({matches:false}),addEventListener(){},removeEventListener(){},dispatchEvent(){}},Event,document:{body:{},getElementById:()=>null},AbortController,Date,console,setTimeout,clearTimeout});
+  vm.runInNewContext(bundle.outputFiles[0].text,{module,exports:module.exports,require:id=>mocks[id]??nativeRequire(id),navigator:{locks:{request:lock}},window:{innerWidth:1400,matchMedia:()=>({matches:false}),addEventListener(){},removeEventListener(){},dispatchEvent(){}},Event,document:{body:{},getElementById:()=>null},AbortController,Date,console,setTimeout,clearTimeout});
   function render(){cursor=0;tree=module.exports.default();for(const effect of pendingEffects.splice(0))effect();return tree;}
   function nodes(node){if(!node||typeof node!=='object')return [];return [node,...(node.props?.children??[]).flat(Infinity).flatMap(child=>nodes(child))];}
   function text(node){return (node?.props?.children??[]).flat(Infinity).map(child=>typeof child==='object'?text(child):child??'').join('');}
@@ -270,6 +270,29 @@ test('cancelled and failed generation preserve the existing story and seed',asyn
   assert.equal(ui.find(node=>node.props?.id==='afterimage-seed').props.value,'Keep this seed');
   assert.equal(ui.text(ui.find(node=>node.props?.className==='reception-title')),title);
   assert.equal(ui.text(ui.find(node=>node.props?.role==='alert')),'Provider unavailable');
+});
+
+for(const exit of ['cancel','unmount','finish'])test(`Afterimage archive respects ${exit} while the write lock is queued`,async()=>{
+  // Question: can pending generation still write after cancellation or route exit?
+  // Limits: real receiver and archive code with a controlled lock and synthetic story.
+  let release;
+  const queued=new Promise(resolve=>{
+    release=resolve;
+  });
+  let waiting;
+  const lockRequested=new Promise(resolve=>{waiting=resolve;});
+  const ui=receiver({owner:true,lock:(key,operation)=>{
+    assert.equal(key,'nox.afterimage.write');waiting();return queued.then(operation);
+  },receive:async()=>({packet:{...FIRST_CONTACT,title:'New generated story'}})});
+  ui.find(node=>node.props?.id==='afterimage-seed').props.onChange({target:{value:'Keep this seed'}});ui.render();
+  const pending=ui.find(node=>node.type==='form').props.onSubmit({preventDefault(){}});ui.render();
+  await lockRequested;
+  if(exit==='cancel')ui.button('Cancel generation').props.onClick();
+  if(exit==='unmount')ui.unmount();
+  release();await pending;
+  const saved=ui.storage.getItem('nox.afterimage.v1');
+  if(exit==='finish')assert.equal(JSON.parse(saved).receptions[0].packet.title,'New generated story');
+  else assert.equal(saved,null);
 });
 
 test('capture format follows the shared bridge selection and updates the exported dimensions',()=>{

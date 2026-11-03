@@ -199,6 +199,32 @@ for(const width of [320,390,768,1440])test(`source stays visible and conversatio
   await page.screenshot({path:`artifacts/rehearsal-${width}.png`});
 });
 
+test('default NOX placement clears the source reader after a narrow-to-wide resize',async({page})=>{
+  // Question: does an undragged NOX stay out of the code controls across a resize and source change?
+  // Limits: desktop Chromium viewports with Canvas fallback, without physical touch or GPU checks.
+  await page.setViewportSize({width:1180,height:758});await openExample(page);
+  const code=page.locator('#rehearsal-panel'),character=page.locator('.floating-nox-handle');
+  const clear=async narrow=>{
+    await expect.poll(async()=>{
+      const reader=await code.boundingBox(),nox=await character.boundingBox();
+      return narrow?nox.y+nox.height<=reader.y:nox.x>=reader.x+reader.width;
+    }).toBe(true);
+  };
+  await clear(false);
+  await page.setViewportSize({width:500,height:758});await clear(true);
+  await page.locator('#rehearsal-import').evaluate(node=>node.open=true);
+  await page.getByRole('tab',{name:'Paste code',exact:true}).click();
+  await page.locator('#rehearsal-filename').fill('second.js');
+  await page.locator('#rehearsal-paste').fill('const second = 2;');
+  await page.locator('#rehearsal-use-paste').click();
+  await expect(page.getByRole('tab',{name:'second.js'})).toHaveAttribute('aria-selected','true');
+  await page.setViewportSize({width:1180,height:758});await clear(false);
+  await page.getByRole('tab',{name:'retry.js'}).click();
+  await page.locator('#rehearsal-explain').click();
+  await expect(page.locator('#conversation .message.nox:not(.draft)')).toHaveCount(1);
+  await page.screenshot({path:'artifacts/rehearsal-resized-desktop.png'});
+});
+
 test('retry restores the original code before replacing a reply',async({page})=>{
   // Question: can a changed or closed source panel redirect an older retry to unrelated code?
   // Limits: synthetic model responses; source ownership does not establish factual quality.

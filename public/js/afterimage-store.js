@@ -91,7 +91,8 @@ export function createAfterimageStore(storage, {now = () => Date.now(), createId
     subscribe(listener) { listeners.add(listener);return () => listeners.delete(listener); },
     list:() => {refresh();return [...receptions];},
     get:id => {refresh();return receptions.find(entry => entry.id === id) ?? null;},
-    add(value) {return mutate(()=>{
+    add(value,{signal}={}) {return mutate(()=>{
+      signal?.throwIfAborted();
       const entry=normalizeReception({...value,id:createId(),createdAt:new Date(now()).toISOString(),signalIndex:value?.signalIndex ?? 0,endingIndex:value?.endingIndex ?? 0});
       refresh();if(receptions.length>=LIMIT)throw Error('Your story archive is full (12 stories). Export a copy and delete a story before adding another. Nothing was removed.');
       persist([entry,...receptions.filter(item => item.id !== entry.id)]);return entry;
