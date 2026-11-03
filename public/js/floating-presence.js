@@ -58,6 +58,7 @@ export function attachFloatingPresence({stage,documentTarget=document,windowTarg
     world.style.setProperty('--floating-size',`${layout.size}px`);
     motion.setBounds(layout.bounds);
     if(!placed||changedReading&&reading){motion.place(layout.initial);placed=true;}
+    else if(reading&&!userPlaced&&held===null&&!previousGravity&&stage.scene?.action!=='takeover')motion.place(layout.initial);
     if(changedReading&&!reading&&readingHome){motion.place(readingHome);readingHome=null;}
     if(restorePlacement){motion.place(restorePlacement);restorePlacement=null;}
     if(previousSize!==layout.size)stage.resize();
