@@ -154,6 +154,16 @@ for(const width of [320,390,768,1440])test(`source stays visible and conversatio
   await expect(page.locator('#rehearsal-range')).toHaveText('Lines 9–15 of 15');
   await expect(page.locator('#rehearsal-progress')).toHaveText('8/15 lines discussed · 8 self-checked');
   const bounds=await page.locator('#rehearsal-panel').boundingBox();expect(bounds.x).toBeGreaterThanOrEqual(0);expect(bounds.x+bounds.width).toBeLessThanOrEqual(width);
+  const character=await page.locator('.floating-nox-handle').boundingBox();
+  const transcript=await page.locator('#conversation').boundingBox();
+  if(width>1000){
+    expect(bounds.width).toBeGreaterThan(transcript.width);
+    expect(bounds.height).toBeGreaterThan(600);
+    expect(bounds.x+bounds.width).toBeLessThan(character.x);
+    expect(transcript.y).toBeGreaterThan(character.y+character.height);
+  }else{
+    expect(bounds.y).toBeGreaterThan(character.y+character.height);
+  }
   expect(await page.evaluate(()=>document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);
   await page.screenshot({path:`artifacts/rehearsal-${width}.png`});
 });
