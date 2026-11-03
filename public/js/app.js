@@ -644,12 +644,12 @@ async function removeConversation(id){
     return true;
   }finally{if(deleting!==undefined&&turns.isCurrent(deleting))setBusy(false);}
 }
-navigation=createNavigation({history,onOpen:async id=>{if(!revisionControls.canLeave())return false;cancelConversation();const opening=turns.begin();editTarget=null;currentActivity='conversation';const selected=await history.select(id);if(!turns.isCurrent(opening))return false;const restored=await restoreConversation();if(!selected)toast('That conversation was removed in another tab.');return selected&&turns.isCurrent(restored);},onRemove:removeConversation,onNew:newConversation,onStart:async(text,persona)=>{if(!revisionControls.canLeave())return;const started=await setMode(persona,false);if(turns.isCurrent(started))await send(text);}});
+navigation=createNavigation({history,onRoute:route=>rehearsal?.setOpen(route==='prepare-code'),onOpen:async id=>{if(!revisionControls.canLeave())return false;cancelConversation();const opening=turns.begin();editTarget=null;currentActivity='conversation';const selected=await history.select(id);if(!turns.isCurrent(opening))return false;const restored=await restoreConversation();if(!selected)toast('That conversation was removed in another tab.');return selected&&turns.isCurrent(restored);},onRemove:removeConversation,onNew:newConversation,onStart:async(text,persona)=>{if(!revisionControls.canLeave())return;const started=await setMode(persona,false);if(turns.isCurrent(started))await send(text);}});
 messageCompanion=attachMessageCompanion({conversation:$('conversation'),onAction:exploreWithNox});
 const releaseNetwork=attachNetworkPresence({stage,host:$('world')});
 floatingPresence=attachFloatingPresence({stage,onInspect:value=>messageCompanion.inspect(value),onRelease:value=>messageCompanion.release(value),onClear:()=>messageCompanion.clear()});
 window.addEventListener('pagehide',event=>{if(!event.persisted){releaseNetwork();floatingPresence.dispose();messageCompanion.dispose();}},{once:true});
-rehearsal=attachCodeRehearsal({getThread:()=>history.active().id,canAct:()=>!busy&&editTarget===null,
+rehearsal=attachCodeRehearsal({getThread:()=>history.active().id,navigate:navigation.setView,canAct:()=>!busy&&editTarget===null,
   voice:{stop:()=>voice.stop(),speak:(text,options)=>{voice.setEnabled(true);showVoice();return voice.speak(text,mode,'neutral',undefined,{...options,onPlaybackStart:()=>{stage.speak({speech:text,emotion:'curious',action:'none',memory:''});options.onPlaybackStart();}});}},
   send:(text,rehearsalWork)=>send(text,{rehearsalWork}),onContextChange:()=>cancelConversation()});
 window.addEventListener('pagehide',event=>{if(!event.persisted)rehearsal.dispose();},{once:true});

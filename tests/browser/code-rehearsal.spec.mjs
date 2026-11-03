@@ -8,6 +8,36 @@ async function openExample(page){
   await expect(page.locator('#rehearsal-range')).toHaveText('Lines 1–8 of 15');
 }
 
+test('welcome, sidebar and mobile Discover open one code workspace without attaching it to ordinary chat',async({page})=>{
+  // Question: can users find code preparation from each entry and leave its source context behind when they return to chat?
+  // Limits: browser routing and a captured request, with synthetic model replies.
+  await page.goto('/guest#conversation');
+  await expect(page.locator('#brain-status')).toContainText('Guest visit');
+  await page.locator('.welcome-invitations').getByRole('link',{name:'Prepare with code',exact:true}).click();
+  await expect(page).toHaveURL(/#prepare-code$/);
+  const sidebar=page.locator('#prepare-code-nav');
+  await expect(sidebar).toHaveAttribute('aria-current','page');
+  await page.locator('#rehearsal-example').click();
+  await page.locator('#rehearsal-close').click();
+  await expect(page).toHaveURL(/#conversation$/);
+  await expect(page.locator('#rehearsal-panel')).toBeHidden();
+  await sidebar.click();
+  await expect(page.locator('#rehearsal-range')).toHaveText('Lines 1–8 of 15');
+  await page.locator('#workspace-nav a[href="#conversation"]').click();
+  await expect(page.locator('#rehearsal-panel')).toBeHidden();
+  const request=page.waitForRequest('**/api/chat');
+  await page.locator('#message').fill('An ordinary chat.');
+  await page.locator('#send-button').click();
+  expect((await request).postDataJSON().context.rehearsal).toBeFalsy();
+  await expect(page.locator('#conversation .message.nox')).toContainText('An ordinary chat.');
+  await expect(page.locator('#chat').getByText('Prepare with code',{exact:true})).toBeHidden();
+  await page.setViewportSize({width:390,height:844});
+  await page.locator('.mobile-bottom-nav a[href="#discover"]').click();
+  await page.getByRole('link',{name:/Know what you built/}).click();
+  await expect(page).toHaveURL(/#prepare-code$/);
+  await expect(page.locator('#rehearsal-range')).toHaveText('Lines 1–8 of 15');
+});
+
 test('source tabs keep files accessible by keyboard and import choices preserve drafts',async({page})=>{
   // Question: can the refined file/import controls keep exact sources and drafts while navigating by keyboard?
   // Limits: Chromium accessibility semantics and source ownership, not screen-reader hardware or visual taste.
@@ -154,6 +184,7 @@ for(const width of [320,390,768,1440])test(`source stays visible and conversatio
   await expect(page.locator('#rehearsal-range')).toHaveText('Lines 9–15 of 15');
   await expect(page.locator('#rehearsal-progress')).toHaveText('8/15 lines discussed · 8 self-checked');
   const bounds=await page.locator('#rehearsal-panel').boundingBox();expect(bounds.x).toBeGreaterThanOrEqual(0);expect(bounds.x+bounds.width).toBeLessThanOrEqual(width);
+  await expect(page.locator('#rehearsal-close')).toBeInViewport();
   const character=await page.locator('.floating-nox-handle').boundingBox();
   const transcript=await page.locator('#conversation').boundingBox();
   if(width>1000){
@@ -205,7 +236,7 @@ test('closing preparation invalidates a delayed repository import',async({page})
   await page.route('https://api.github.com/**',async route=>{await held;await route.fulfill({status:404,json:{message:'Not found'}}).catch(()=>{});});
   await page.locator('#rehearsal-url').fill('https://github.com/example/repo');const request=page.waitForRequest('https://api.github.com/**');
   await page.locator('#rehearsal-github').click();await request;await page.locator('#rehearsal-close').click();release();
-  await expect(page.locator('#rehearsal-panel')).toBeHidden();await page.locator('#rehearsal-toggle').click();
+  await expect(page.locator('#rehearsal-panel')).toBeHidden();await page.locator('#prepare-code-nav').click();
   await expect(page.locator('#rehearsal-range')).toHaveText('Lines 1–8 of 15');await expect(page.locator('#rehearsal-import')).toHaveAttribute('aria-busy','false');
 });
 
@@ -242,7 +273,7 @@ test('changing the selection cancels an old response and new conversations have 
   await expect(page.locator('#rehearsal-progress')).toHaveText('0/15 lines discussed · 0 self-checked');
   await page.locator('#new-chat').click();
   await expect(page.locator('#rehearsal-panel')).toBeHidden();
-  await page.locator('#rehearsal-toggle').click();await expect(page.locator('#rehearsal-work')).toBeHidden();
+  await page.locator('#prepare-code-nav').click();await expect(page.locator('#rehearsal-work')).toBeHidden();
 });
 
 test('failed explanation preserves source and export reports no completed coverage',async({page})=>{

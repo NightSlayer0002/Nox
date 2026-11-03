@@ -14,7 +14,7 @@
 <aside id="workspace-nav" class="sidebar" aria-label="Workspace navigation"><button id="close-navigation" type="button" class="quiet-button mobile-only">Close menu</button>
 <a class="brand" href="/" aria-label="NOX home"><span class="brand-mark" aria-hidden="true"><i></i><i></i></span><span>NOX</span></a>
 <button id="new-chat" class="new-chat">New conversation</button>
-<nav aria-label="Workspace"><a href="#conversation" data-view="conversation" class="selected"><i class="source-icon icon-voice" aria-hidden="true"></i>NOX</a><a href="#discover" data-view="discover"><i class="source-icon icon-orbit" aria-hidden="true"></i>Discover</a><a href="#scenes" data-view="scenes"><img class="rail-feature-icon" src="/assets/nox/takeover.svg" width="20" height="20" alt="" aria-hidden="true">Scene studio</a><a href="#afterimage" data-view="afterimage"><img class="rail-feature-icon" src="/vendor/lucide/orbit.svg" width="20" height="20" alt="" aria-hidden="true">Afterimage</a></nav>
+<nav aria-label="Workspace"><a href="#conversation" data-view="conversation" class="selected"><i class="source-icon icon-voice" aria-hidden="true"></i>NOX</a><a href="#discover" data-view="discover"><i class="source-icon icon-orbit" aria-hidden="true"></i>Discover</a><a href="#scenes" data-view="scenes"><img class="rail-feature-icon" src="/assets/nox/takeover.svg" width="20" height="20" alt="" aria-hidden="true">Scene studio</a><a href="#afterimage" data-view="afterimage"><img class="rail-feature-icon" src="/vendor/lucide/orbit.svg" width="20" height="20" alt="" aria-hidden="true">Afterimage</a><a id="prepare-code-nav" href="#prepare-code" data-view="prepare-code"><svg class="rail-feature-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m8 7-5 5 5 5m8-10 5 5-5 5m-3-13-2 16"/></svg>Prepare with code</a></nav>
 <a class="rail-label rail-chat-index" href="#library" data-view="library" title="Search and manage your chats">Chats</a><div id="recent-chats" class="recent-chats"></div>
 <div class="rail-bottom"><a href="#memory">Preferences</a><button id="knowledge-button" class="quiet-button">Notes for this visit</button><a href="#access">Your access</a><a href="/" class="rail-version">NOX home</a></div>
 </aside>
@@ -93,7 +93,6 @@
 <aside class="release-column activity-column" data-panel="learn" hidden><div id="everyday-root"></div></aside>
 <aside class="companion-column" id="chat" data-panel="conversation">
 <h2 id="chat-title" class="sr-only">New conversation</h2>
-<div class="rehearsal-tools"><button id="rehearsal-toggle" type="button" aria-expanded="false" aria-controls="rehearsal-panel"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m8 7-5 5 5 5m8-10 5 5-5 5m-3-13-2 16"/></svg><span id="rehearsal-toggle-label">Prepare with code</span></button></div>
 <section id="rehearsal-panel" class="rehearsal-panel" hidden aria-label="Code preparation">
   <svg class="study-symbols" aria-hidden="true"><defs>
     <symbol id="study-file" viewBox="0 0 24 24"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9Zm0 0v6h6M8 14h8m-8 4h5"/></symbol>

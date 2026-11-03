@@ -2,7 +2,8 @@ import {historyNotice,historyFailure} from './history-notice.js';
 const $=id=>document.getElementById(id);
 const views={explore:['Explore','','A place to begin.'],conversation:['Conversation','','Think something through with NOX.'],scenes:['Scene studio','','Shape a performance and capture it.'],library:['Chats','','Return to a conversation.'],afterimage:['Afterimage','','A fictional transmission you can change.']};
 Object.assign(views,{discover:['Discover','','Follow your curiosity.'],memory:['Preferences','','Only what you approve.'],access:['Your access','','Current capabilities and limits.'],learn:['Explore together','','Bring an idea or try an example.'],guessing:['Play together','','Ask questions. Follow the clues.']});
-export function createNavigation({history,onOpen,onNew,onStart,onRemove}) {
+views['prepare-code']=['Prepare with code','','Read the source together.'];
+export function createNavigation({history,onOpen,onNew,onStart,onRemove,onRoute}) {
   let currentView;
   function setMenu(open,restoreFocus=false){document.body.dataset.menuOpen=String(open);$('menu-button').setAttribute('aria-expanded',String(open));$('workspace-shell').inert=open;if(restoreFocus)$('menu-button').focus();}
   setMenu(false);
@@ -14,9 +15,10 @@ export function createNavigation({history,onOpen,onNew,onStart,onRemove}) {
   document.body.dataset.presence='visible';
   $('presence-toggle').addEventListener('click',()=>{const visible=document.body.dataset.presence==='hidden';document.body.dataset.presence=visible?'visible':'hidden';$('presence-toggle').setAttribute('aria-expanded',String(visible));$('presence-toggle').textContent=visible?'Hide NOX':'Show NOX';if(!visible)$('presence-toggle').focus({preventScroll:true});});
   function applyView(){
-    const view=location.hash.slice(1),current=Object.hasOwn(views,view)?view:'conversation';
-    document.body.dataset.view=current;$('view-label').textContent=views[current][0];
-    const [first,,note]=views[current];$('workspace-heading').textContent=first;$('workspace-note').textContent=note;
+    const view=location.hash.slice(1),route=Object.hasOwn(views,view)?view:'conversation';
+    const current=route==='prepare-code'?'conversation':route;
+    document.body.dataset.view=current;$('view-label').textContent=views[route][0];
+    const [first,,note]=views[route];$('workspace-heading').textContent=first;$('workspace-note').textContent=note;
     // Reparent the existing controls, never the canvas or narration state.
     $(current==='conversation'?'presence-menu-panel':'stage-wrap').append($('stage-playback'));
     $(current==='conversation'?'stage-playback':'stage-heading').append($('stage-time'));
@@ -24,9 +26,10 @@ export function createNavigation({history,onOpen,onNew,onStart,onRemove}) {
     $('presence-menu').open=false;
     const panel=current==='guessing'?'learn':current==='explore'?'discover':current;
     document.querySelectorAll('[data-panel]').forEach(p=>p.hidden=p.dataset.panel!==panel);
-    document.querySelectorAll('a[data-view]').forEach(link=>{const active=link.dataset.view===current||current==='explore'&&link.dataset.view==='discover';link.classList.toggle('selected',active);if(active)link.setAttribute('aria-current','page');else link.removeAttribute('aria-current');});
-    if(currentView&&currentView!==current){setMenu(false);window.scrollTo({top:0,left:0,behavior:'auto'});$('workspace-main').focus({preventScroll:true});}
-    currentView=current;
+    document.querySelectorAll('a[data-view]').forEach(link=>{const active=link.dataset.view===route||route==='explore'&&link.dataset.view==='discover';link.classList.toggle('selected',active);if(active)link.setAttribute('aria-current','page');else link.removeAttribute('aria-current');});
+    if(currentView&&currentView!==route){setMenu(false);window.scrollTo({top:0,left:0,behavior:'auto'});$('workspace-main').focus({preventScroll:true});}
+    currentView=route;
+    onRoute?.(route);
   }
   function setView(view){setMenu(false);if(location.hash!==`#${view}`)location.hash=view;applyView();}
   async function open(id){if(await onOpen(id)===false)return false;setView('conversation');return true;}

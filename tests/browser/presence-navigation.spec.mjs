@@ -53,7 +53,7 @@ test('automatic placement clears both roles after routes and closing code prepar
   }
   await page.locator('#settings-button').click();await page.locator('#close-inside').click();
   await page.locator('a[href="#conversation"]').first().click();
-  await page.locator('#rehearsal-toggle').click();await page.locator('#rehearsal-example').click();
+  await page.locator('#prepare-code-nav').click();await page.locator('#rehearsal-example').click();
   await expect(page.locator('#rehearsal-range')).toHaveText('Lines 1–8 of 15');
   await page.locator('#rehearsal-close').click();
   await expect.poll(()=>intersections(page)).toEqual([]);
@@ -91,7 +91,8 @@ for(const width of [562,390,320])test(`long prose and code keep a stable gutter 
     await expect.poll(()=>intersections(page),{message:`clear transcript after ${route}`}).toEqual([]);
   }
   for(let pass=0;pass<2;pass++){
-    await page.locator('#rehearsal-toggle').click();
+    await page.evaluate(()=>{location.hash='prepare-code';});
+    await expect(page.locator('#rehearsal-panel')).toBeVisible();
     if(!pass)await page.locator('#rehearsal-example').click();
     await expect.poll(()=>intersections(page)).toEqual([]);
     await page.locator('#rehearsal-close').click();
@@ -129,7 +130,7 @@ test('deliberate placement and Park retain free overlay after code preparation c
   await expect(page.locator('#conversation .message.nox:not(.draft)')).toHaveCount(1);
   const handle=page.locator('.floating-nox-handle');await handle.focus();await page.keyboard.press('ArrowLeft');
   const before=await handle.boundingBox();
-  await page.locator('#rehearsal-toggle').click();await page.locator('#rehearsal-close').click();
+  await page.locator('#prepare-code-nav').click();await page.locator('#rehearsal-close').click();
   await expect.poll(()=>handle.boundingBox()).toEqual(before);
   await expect.poll(()=>page.locator('#conversation .message').evaluateAll(nodes=>nodes.every(node=>!node.style.marginInlineEnd&&!node.style.maxInlineSize))).toBe(true);
   await page.locator('#presence-menu summary').click();await page.getByRole('button',{name:'Park NOX',exact:true}).click();
