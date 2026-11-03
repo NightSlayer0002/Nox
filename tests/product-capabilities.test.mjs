@@ -24,6 +24,11 @@ test('all chat APIs get guest-safe product facts and ignore forged client capabi
     };
     await requestProvider(input,{provider,apiKey:'fixture',fetchImpl});
     assert.doesNotMatch(instructions,/FORGED_PRIVILEGES/);
+    // Question: does each provider get the conversational greeting and identity policy?
+    // Limits: transport fixtures establish prompt delivery, not model compliance.
+    assert.match(instructions,/Match a simple greeting with a brief, natural greeting/);
+    assert.match(instructions,/If asked who you are, answer briefly as NOX, an AI companion/);
+    assert.doesNotMatch(instructions,/\bboyish\b/i);
     const facts=productData(instructions);
     assert.equal(facts.visit,'guest');
     assert.deepEqual(facts.conversation.depths,['quick','balanced']);
