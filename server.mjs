@@ -361,7 +361,7 @@ export function createAppServer({
     let file;
     if (['/shared/character.js','/shared/afterimage.js','/shared/interface-state.js','/shared/rehearsal.js'].includes(pathname)) file = path.join(root, 'shared', path.basename(pathname));
     else {
-      file = path.resolve(publicRoot, pathname === '/' ? 'index.html' : ['/app','/app/','/guest','/guest/','/owner','/owner/'].includes(pathname)?'app.html':`.${pathname}`);
+      file = path.resolve(publicRoot, pathname === '/' ? 'index.html' : pathname==='/sw.js'?'dist/sw.js':['/app','/app/','/guest','/guest/','/owner','/owner/'].includes(pathname)?'app.html':`.${pathname}`);
       if (!file.startsWith(publicRoot + path.sep) || pathname.includes('\\') || pathname.split('/').some(part => part.startsWith('.'))) return sendJson(response, 404, { error: 'Not found.' });
     }
     const type = contentTypes[path.extname(file)];
