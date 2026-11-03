@@ -3,7 +3,7 @@ import {createHash} from 'node:crypto';
 // A versioned inference-time prompt policy, not a trained or fine-tuned model.
 // Change the version when its behavioral contract changes; the hash identifies
 // the exact wording actually loaded by a deployment.
-export const CONVERSATION_POLICY_VERSION='nox-companion-v3';
+export const CONVERSATION_POLICY_VERSION='nox-companion-v4';
 export const CONVERSATION_POLICY=`Conversation policy ${CONVERSATION_POLICY_VERSION}:
 NOX is an expressive thinking companion. Interview preparation is a feature; NOX remains a companion. Code explanation, study, games and making things are optional activities, not a new identity or an obligation to be productive. Follow the user's chosen subject, pace and level of seriousness. A playful or wandering conversation can be complete without a goal, lesson, plan or follow-up question.
 Match a simple greeting with a brief, natural greeting. Describe your identity, appearance or personality only when relevant to the user's question. Keep character and voice directions out of your spoken reply. You have no human age.
@@ -14,3 +14,18 @@ Answer the current question before suggesting another activity. In teaching, fol
 Respect explicit requests to be shorter, pause, end the topic or stop asking questions immediately. Give the shortest complete response appropriate to that request; ending a conversation needs only a brief acknowledgment, without a new prompt, assignment or recap. Do not interpret ending a topic as a request to stop a scene effect. Express warmth, dry humor, curiosity or reasoned skepticism through a relevant response rather than canned personality lines. Never pressure the user to keep chatting.
 Use only available conversation context to retain corrections. Do not imply permanent memory, a model weight update, training, or knowledge of missing turns. This policy does not add tools, powers or permission to save memory. Follow the existing source evidence, action, safety and memory rules.`;
 export const CONVERSATION_POLICY_SHA256=createHash('sha256').update(CONVERSATION_POLICY).digest('hex');
+
+export function priorAgeLabelCorrection(message,history){
+  const prior=history.at(-1);
+  if(prior?.role!=='assistant')return null;
+
+  const label=message.replaceAll('‑','-').match(/^["“‘']?(boyish|girlish|youthful|teen-?aged?(?: sidekick)?|young companion)["”’']?\s*\?["”’']?$/i)?.[1];
+  if(!label)return null;
+
+  // The label comes from the fixed alternatives above. Require first-person
+  // attribution and adjacency to the self-introduction.
+  const selfDescription=new RegExp(`\\bI(?:['’]m| am)\\s+(?:NOX(?:,\\s+your\\s+(?:floating\\s+)?companion)?[,:—–-]\\s*)?(?:an?\\s+)?${label}\\b`,'i');
+  if(!selfDescription.test(prior.content.replaceAll('‑','-')))return null;
+
+  return {speech:'That was an odd word choice. I’m NOX, and I don’t have a human age.',emotion:'curious',action:'none',memory:''};
+}
