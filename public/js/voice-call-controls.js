@@ -42,6 +42,8 @@ export function attachVoiceCall({documentTarget=globalThis.document,options,getD
   listen(dialog,'cancel',event=>{event.preventDefault();session.end();});
   listen(dialog,'close',()=>{if(session.snapshot().open)session.end();});
   listen(doc,'visibilitychange',()=>{if(doc.hidden)session.end();});
-  listen(globalThis.window,'hashchange',()=>{if(location.hash!=='#conversation')session.end();});
+  listen(globalThis.window,'hashchange',()=>{
+    if(session.snapshot().open&&!['#conversation','#prepare-code'].includes(location.hash))session.end();
+  });
   return {session,dispose(){if(disposed)return;session.end();disposed=true;release();events.abort();session.dispose();}};
 }

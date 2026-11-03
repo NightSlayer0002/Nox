@@ -4,7 +4,7 @@ import {parseNarration,createLineNarration} from './rehearsal-narration.js';
 import {tokenizeSource} from './code-tokens.js';
 
 // The source stays a companion to the existing chat, not a second conversation.
-export function attachCodeRehearsal({getThread,send,voice,canAct=()=>true,onContextChange=()=>{},documentTarget=globalThis.document}){
+export function attachCodeRehearsal({getThread,send,voice,navigate=()=>{},canAct=()=>true,onContextChange=()=>{},documentTarget=globalThis.document}){
   const doc=documentTarget,$=id=>doc.getElementById(id),events=new AbortController(),sessions=new Map(),sent=new Map();
   let thread='',session,active=false,repository=null,loading=null,importVersion=0,renderedFile='',spokenPlan=null;
   const listen=(node,event,fn)=>node.addEventListener(event,fn,{signal:events.signal});
@@ -17,19 +17,22 @@ export function attachCodeRehearsal({getThread,send,voice,canAct=()=>true,onCont
   function sync(){
     const id=getThread();if(id===thread)return;
     narration.stop();spokenPlan=null;cancelImport();repository=null;renderedFile='';thread=id;
-    if(!sessions.has(id))sessions.set(id,{session:createRehearsalSession(),active:false,paste:'',name:'project.js',repo:'',correctionDraft:''});
-    session=sessions.get(id).session;active=sessions.get(id).active;
+    if(!sessions.has(id))sessions.set(id,{session:createRehearsalSession(),paste:'',name:'project.js',repo:'',correctionDraft:''});
+    session=sessions.get(id).session;
     $('rehearsal-paste').value=sessions.get(id).paste;$('rehearsal-filename').value=sessions.get(id).name;$('rehearsal-url').value=sessions.get(id).repo;
     $('rehearsal-repo-files').replaceChildren();$('rehearsal-repo-files').hidden=true;notice('');render();
   }
   function cancelImport(){loading?.abort();loading=null;importVersion++;$('rehearsal-import').setAttribute('aria-busy','false');}
-  function enabled(value){sync();cancelImport();active=value;sessions.get(thread).active=value;contextChanged();render();}
+  function setOpen(value){
+    sync();
+    if(active===value)return;
+    cancelImport();active=value;contextChanged();render();
+  }
   function render(){
     if(!session)return;
     const state=session.snapshot(),file=state.file,section=state.section;
     doc.body.dataset.rehearsal=active?'open':'closed';
-    $('rehearsal-panel').hidden=!active;$('rehearsal-toggle').setAttribute('aria-expanded',String(active));
-    $('rehearsal-toggle-label').textContent=active?'Close code preparation':file?'Continue code preparation':'Prepare with code';
+    $('rehearsal-panel').hidden=!active;
     $('rehearsal-panel').dataset.source=file?'ready':'empty';
     $('rehearsal-work').hidden=!file;
     $('rehearsal-replay').hidden=!spokenPlan;
@@ -72,7 +75,7 @@ export function attachCodeRehearsal({getThread,send,voice,canAct=()=>true,onCont
   }
   function revealSource(){const panel=$('rehearsal-panel'),code=$('rehearsal-code'),row=code.querySelector('.selected');if(row)code.scrollTop=Math.max(0,row.offsetTop-24);panel.scrollTop+=code.getBoundingClientRect().top-panel.getBoundingClientRect().top-32;}
   function selectionChanged(){cancelImport();contextChanged();render();revealSource();}
-  function openSource(value){cancelImport();session.open(value);renderedFile='';$('rehearsal-import').open=false;enabled(true);notice('Code stays in this visit. Selected lines, goal and corrections go to AI with each message while this panel is open. Earlier chat replies may also quote code.');}
+  function openSource(value){cancelImport();session.open(value);renderedFile='';$('rehearsal-import').open=false;contextChanged();render();notice('Code stays in this visit. Selected lines, goal and corrections go to AI with each message while this panel is open. Earlier chat replies may also quote code.');}
   async function importSource(action){
     sync();loading?.abort();const controller=new AbortController(),version=++importVersion,owner=thread;loading=controller;
     $('rehearsal-import').setAttribute('aria-busy','true');notice('Opening source…');
@@ -100,7 +103,8 @@ export function attachCodeRehearsal({getThread,send,voice,canAct=()=>true,onCont
     sync();if(!turn?.requiresSource)return null;
     const original=sent.get(turn.id);if(!original||original.thread!==thread)throw Error('This message needs its original code, which is no longer in this visit. Its answer is kept. Open the source and ask a new question.');
     const error=validateCorrections();if(error)throw Error(error);
-    narration.stop();spokenPlan=null;const ticket=original.session.recall(original.ticket);active=true;sessions.get(thread).active=true;session=original.session;renderedFile='';cancelImport();render();
+    narration.stop();spokenPlan=null;const ticket=original.session.recall(original.ticket);active=true;session=original.session;renderedFile='';cancelImport();render();
+    if(location.hash!=='#prepare-code')navigate('prepare-code');
     return {thread,session,ticket};
   }
   function context(work){return work?.ticket.context||null;}
@@ -112,7 +116,13 @@ export function attachCodeRehearsal({getThread,send,voice,canAct=()=>true,onCont
   }
   function committed(work,answer){if(!work||work.thread!==getThread()||work.session!==session||!active)return false;const saved=session.complete(work.ticket,answer,work.input);if(saved){render();revealSource();}return saved;}
   function protect(fn){return event=>{try{fn(event);}catch(error){notice(error.message,true);}};}
-  listen($('rehearsal-toggle'),'click',()=>enabled(!active));listen($('rehearsal-close'),'click',()=>{enabled(false);$('rehearsal-toggle').focus();});
+  listen($('rehearsal-close'),'click',()=>{
+    setOpen(false);
+    navigate('conversation');
+    const entry=[$('prepare-code-nav'),doc.querySelector('.welcome-invitations a[href="#prepare-code"]')]
+      .find(link=>link?.getClientRects().length);
+    (entry||$('message')).focus({preventScroll:true});
+  });
   listen($('rehearsal-example'),'click',protect(()=>openSource(REHEARSAL_EXAMPLE)));
   listen($('rehearsal-spoken-example'),'click',protect(()=>openSource({path:'total.js',source:'example',revision:'spoken-v1',text:'function total(items) {\n  const prices = items.map(item => item.price);\n  return prices.reduce((sum, price) => sum + price, 0);\n}'})));
   listen($('rehearsal-use-paste'),'click',protect(()=>{loading?.abort();importVersion++;openSource(validateCodeSource({path:$('rehearsal-filename').value||'project.js',text:$('rehearsal-paste').value,source:'pasted',revision:'pasted'}));}));
@@ -153,9 +163,15 @@ export function attachCodeRehearsal({getThread,send,voice,canAct=()=>true,onCont
   listen($('rehearsal-export'),'click',()=>{
     const draft=validateCorrections()?`\nUnapplied correction draft (not sent):\n${sessions.get(thread).correctionDraft}\n`:'',text=session.export()+draft,url=URL.createObjectURL(new Blob([text],{type:'text/plain;charset=utf-8'})),link=doc.createElement('a');link.href=url;link.download='nox-code-preparation.txt';doc.body.append(link);link.click();link.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);notice('Preparation sheet exported. This visit still clears on refresh.');
   });
-  listen(doc,'nox:prepare-code',()=>{if(location.hash!=='#conversation')location.hash='conversation';enabled(true);$('rehearsal-example').focus();});
-  sync();if(new URLSearchParams(location.search).get('prepare')==='code')enabled(true);
-  listen(globalThis.window,'hashchange',()=>narration.stop());
+  sync();
+  const entry=new URL(location.href);
+  if(entry.searchParams.get('prepare')==='code'&&(!entry.hash||entry.hash==='#conversation')&&doc===globalThis.document){
+    entry.searchParams.delete('prepare');
+    entry.hash='prepare-code';
+    globalThis.history.replaceState(null,'',entry);
+    navigate('prepare-code');
+  }
+  setOpen(location.hash==='#prepare-code');
   listen(doc,'visibilitychange',()=>{if(doc.hidden)narration.stop();});
-  return {sync,capture,context,bind,replay,completed,committed,stopNarration:()=>narration.stop(),dispose(){narration.stop();loading?.abort();events.abort();sessions.clear();sent.clear();}};
+  return {sync,setOpen,capture,context,bind,replay,completed,committed,stopNarration:()=>narration.stop(),dispose(){narration.stop();loading?.abort();events.abort();sessions.clear();sent.clear();}};
 }

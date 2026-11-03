@@ -1,10 +1,8 @@
 /* Code companion: a reading workspace, with controls kept outside the source. */
-.workspace .rehearsal-tools{display:flex;align-items:center;flex:none;margin:0 0 8px}
-.workspace .rehearsal-tools button{display:inline-flex;align-items:center;gap:9px;padding:6px 0;min-height:36px;background:none;border:0;box-shadow:none;color:var(--muted);font-size:14px}
-.rehearsal-tools svg{width:19px;height:19px;fill:none;stroke:var(--secondary-accent);stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round}
+.workspace .sidebar nav #prepare-code-nav{gap:8px;padding-inline:10px;font-size:14px;white-space:nowrap}
+.workspace #prepare-code-nav svg{width:18px;height:18px;filter:none;color:var(--secondary-accent)}
 .workspace .rehearsal-panel{--study-bg:color-mix(in srgb,var(--bg) 97%,var(--secondary-accent));position:relative;min-width:0;min-height:0;overflow:auto;overscroll-behavior:contain;background:var(--study-bg);padding:22px 0 12px;border:0;border-radius:14px;scrollbar-width:thin;scrollbar-color:var(--line) transparent}
 :root[data-theme=light] .workspace .rehearsal-panel{--secondary-accent:var(--accent)}
-:root[data-theme=light] .rehearsal-tools svg{stroke:var(--accent)}
 .workspace .rehearsal-panel[hidden],.workspace .rehearsal-panel [hidden]{display:none!important}
 .rehearsal-panel .study-symbols{position:absolute;width:0;height:0;overflow:hidden}
 .rehearsal-panel svg:not(.study-symbols){width:18px;height:18px;flex:none;fill:none;stroke:currentColor;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round}
@@ -14,8 +12,8 @@
 .workspace .rehearsal-panel[data-source=ready] h2{display:none}
 .workspace .rehearsal-panel[data-source=ready] .study-heading p{display:none}
 .workspace .rehearsal-panel[data-source=ready]{padding-top:0}
-.workspace .rehearsal-panel[data-source=ready] .study-heading{padding:0;height:0}
-.workspace .rehearsal-panel[data-source=ready] #rehearsal-close{position:absolute;top:6px;right:12px;z-index:3}
+.workspace .rehearsal-panel[data-source=ready] .study-heading{position:sticky;top:0;z-index:3;padding:0;height:0;pointer-events:none}
+.workspace .rehearsal-panel[data-source=ready] #rehearsal-close{position:absolute;top:6px;right:12px;pointer-events:auto}
 .workspace .rehearsal-panel[data-source=ready] .study-import summary{padding-right:32px}
 .workspace .rehearsal-panel[data-source=ready] .study-summary-hint{display:none}
 .workspace .rehearsal-panel :is(button,input,select,textarea){font:inherit;color:var(--text);max-width:100%;box-sizing:border-box}
@@ -52,6 +50,7 @@
 .workspace .rehearsal-panel .study-examples button{padding-left:0;text-align:left;justify-content:flex-start;min-height:34px;color:var(--text)}
 .workspace .rehearsal-panel .study-privacy{font-size:12px;margin:16px 0 0}
 .study-filebar{position:sticky;top:-1px;z-index:2;display:flex;align-items:center;gap:10px;background:var(--study-bg);padding:0 22px;border-bottom:1px solid var(--line);min-height:49px}
+.workspace .rehearsal-panel[data-source=ready] .study-filebar{padding-inline-end:56px}
 .study-filebar>svg{color:var(--secondary-accent)}
 #rehearsal-loaded{display:flex;min-width:0;overflow:auto;scrollbar-width:none;gap:16px;flex:1}
 .workspace .rehearsal-panel #rehearsal-loaded button{position:relative;flex-shrink:0;max-width:240px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:block;border-radius:0;padding:12px 0;border-bottom:1px solid transparent;color:var(--muted);font-size:13px}
@@ -62,7 +61,7 @@
 .study-navigation{display:flex;gap:2px;margin-left:auto;align-items:center}
 .workspace .rehearsal-panel .study-navigation button{min-height:30px;padding:4px 6px;font-size:12px}
 .study-navigation svg{width:15px;height:15px}
-.workspace .rehearsal-panel .rehearsal-code{position:relative;max-height:340px;min-height:96px;overflow:auto;border:0;padding:8px 0 12px;tab-size:2;scrollbar-width:thin;scrollbar-color:var(--line) transparent}
+.workspace .rehearsal-panel .rehearsal-code{position:relative;max-height:clamp(340px,58dvh,600px);min-height:96px;overflow:auto;border:0;padding:8px 0 12px;tab-size:2;scrollbar-width:thin;scrollbar-color:var(--line) transparent}
 .code-line{position:relative;display:flex;min-width:max-content;min-height:28px;padding-right:24px;align-items:baseline}
 .code-line.selected{background:color-mix(in srgb,var(--secondary-accent) 5%,transparent)}
 .code-line.selected::before{content:'';position:absolute;inset:0 auto 0 45px;width:1px;background:color-mix(in srgb,var(--secondary-accent) 55%,transparent)}
@@ -103,11 +102,11 @@
 .rehearsal-range-inputs{display:flex;align-items:end;gap:8px;flex-wrap:wrap;padding-bottom:16px}
 .workspace .rehearsal-range-inputs label{flex:1;min-width:70px;margin:0}
 .workspace .study-disclosure[open]>p:last-child{padding-bottom:12px}
-.workspace[data-rehearsal=open][data-view=conversation] #chat{display:grid;max-width:none;width:100%;grid-template-columns:minmax(300px,1fr) minmax(300px,1fr);grid-template-rows:auto minmax(0,1fr);gap:0 24px;padding-top:8px!important}
-.workspace[data-rehearsal=open] .rehearsal-tools{grid-column:1/-1;min-height:96px;align-items:center}
-.workspace[data-rehearsal=open] #rehearsal-panel{grid-column:1;grid-row:2}
+.workspace[data-rehearsal=open][data-view=conversation] #chat{--study-presence-space:156px;display:grid;max-width:none;width:100%;grid-template-columns:minmax(0,1.4fr) minmax(280px,1fr);grid-template-rows:minmax(0,1fr);gap:0 24px;padding-top:0!important}
+.workspace[data-rehearsal=open][data-presence=hidden][data-view=conversation] #chat{--study-presence-space:0px}
+.workspace[data-rehearsal=open] #rehearsal-panel{grid-column:1;grid-row:1}
 .workspace[data-rehearsal=open] #conversation-welcome{display:none!important}
-.workspace[data-rehearsal=open] #conversation{grid-column:2;grid-row:2;padding:8px 4px!important;min-height:0}
+.workspace[data-rehearsal=open] #conversation{grid-column:2;grid-row:1;margin-top:var(--study-presence-space);padding:8px 4px!important;min-height:0}
 .workspace[data-rehearsal=open] #conversation .message{padding-right:0!important}
 .workspace[data-rehearsal=open] #conversation:empty::before{content:'Pick a section. Ask NOX to explain it, then try it in your own words.';display:block;padding:24px 12px;color:var(--muted);font-size:17px;line-height:1.6}
 .rehearsal-call-source{margin:12px 0;border-block:1px solid var(--line);padding:12px 0}
@@ -123,16 +122,16 @@
  .study-disclosure summary:hover{color:var(--text)}
 }
 @media(max-width:1000px){
- .workspace[data-rehearsal=open][data-view=conversation] #chat{grid-template-columns:minmax(0,1fr);grid-template-rows:auto minmax(230px,1.15fr) minmax(100px,.85fr);gap:8px;padding-top:0!important}
- .workspace[data-rehearsal=open] #conversation{grid-column:1;grid-row:3}
- .workspace[data-rehearsal=open] .rehearsal-tools{min-height:80px}
+ .workspace[data-rehearsal=open][data-view=conversation] #chat{grid-template-columns:minmax(0,1fr);grid-template-rows:var(--study-presence-space) minmax(0,1.7fr) minmax(0,1fr);gap:8px}
+ .workspace[data-rehearsal=open] #rehearsal-panel{grid-row:2}
+ .workspace[data-rehearsal=open] #conversation{grid-column:1;grid-row:3;margin-top:0}
  .workspace .rehearsal-panel{padding-top:12px}
  .workspace .rehearsal-panel .study-heading{padding:0 14px 8px}
  .workspace .rehearsal-panel h2{font-size:19px}
  .workspace .rehearsal-panel :is(.study-filebar,.rehearsal-meta,.study-disclosure){padding-inline:14px}
  .workspace .rehearsal-panel button{min-height:44px}
  .workspace .rehearsal-panel .study-navigation button{min-height:34px}
- .workspace .rehearsal-panel .rehearsal-code{max-height:210px}
+ .workspace .rehearsal-panel .rehearsal-code{max-height:clamp(210px,38dvh,330px)}
  .study-commandbar{padding:10px 14px 4px;gap:4px}
  .workspace .study-commandbar button{padding:8px 9px;font-size:13px}
  .study-commandbar .study-action-label{display:none}
@@ -141,6 +140,9 @@
  .workspace .rehearsal-panel :is(.study-audio-help,#rehearsal-notice,.study-progress){padding-inline:14px}
  .workspace .rehearsal-panel #rehearsal-export{padding-left:14px}
  .study-summary-hint{font-size:11px}
+}
+@media(max-width:600px){
+ .workspace[data-rehearsal=open][data-view=conversation] #chat{--study-presence-space:112px}
 }
 @media(prefers-reduced-motion:reduce){
  .workspace .rehearsal-panel button,.study-disclosure summary>svg{transition:none}

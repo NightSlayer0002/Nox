@@ -46,7 +46,8 @@ export function attachFloatingPresence({stage,documentTarget=document,windowTarg
     // its floor. Suggestion-bar resizes keep the same keyboard state.
     motion.keyboard(keyboardState.open,{reduceMotion:reduceMotion()});lastKeyboard=keyboardState.open;
     const nav=$('mobile-bottom-nav')??doc.querySelector('.mobile-bottom-nav');
-    return floatingLayout({viewport:{width,height,offsetLeft:viewport?.offsetLeft??0,offsetTop:viewport?.offsetTop??0},shell:$('workspace-shell').getBoundingClientRect(),header:doc.querySelector('.header').getBoundingClientRect(),welcome:doc.querySelector('.companion-welcome')?.getBoundingClientRect(),composer:$('chat-form').getBoundingClientRect(),nav:{height:nav&&win.getComputedStyle(nav).display!=='none'?nav.getBoundingClientRect().height:0},compact:compact.matches,takeover:stage.scene?.action==='takeover',reading:doc.body.dataset.rehearsal==='open'});
+    const reading=doc.body.dataset.rehearsal==='open';
+    return floatingLayout({viewport:{width,height,offsetLeft:viewport?.offsetLeft??0,offsetTop:viewport?.offsetTop??0},shell:$('workspace-shell').getBoundingClientRect(),header:doc.querySelector('.header').getBoundingClientRect(),welcome:doc.querySelector('.companion-welcome')?.getBoundingClientRect(),composer:$('chat-form').getBoundingClientRect(),nav:{height:nav&&win.getComputedStyle(nav).display!=='none'?nav.getBoundingClientRect().height:0},compact:compact.matches,takeover:stage.scene?.action==='takeover',reading,readingArea:reading?$('chat')?.getBoundingClientRect():undefined});
   }
   function measure(){
     measureFrame=null;if(!active||disposed)return;

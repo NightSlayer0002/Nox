@@ -24,6 +24,11 @@ test('all chat APIs get guest-safe product facts and ignore forged client capabi
     };
     await requestProvider(input,{provider,apiKey:'fixture',fetchImpl});
     assert.doesNotMatch(instructions,/FORGED_PRIVILEGES/);
+    // Question: does each provider get the conversational greeting and identity policy?
+    // Limits: transport fixtures establish prompt delivery, not model compliance.
+    assert.match(instructions,/Match a simple greeting with a brief, natural greeting/);
+    assert.match(instructions,/If asked who you are, answer briefly as NOX, an AI companion/);
+    assert.doesNotMatch(instructions,/\bboyish\b/i);
     const facts=productData(instructions);
     assert.equal(facts.visit,'guest');
     assert.deepEqual(facts.conversation.depths,['quick','balanced']);
@@ -32,6 +37,7 @@ test('all chat APIs get guest-safe product facts and ignore forged client capabi
     assert.equal(facts.afterimage.customGeneration,false);
     assert.equal(facts.afterimage.authoredExample,true);
     assert.equal(facts.routes.conversation,'/guest#conversation');
+    assert.equal(facts.routes.codePreparation,'/guest#prepare-code');
     assert.equal(facts.routes.afterimage,'/guest#afterimage');
     assert.equal(facts.cameraVision,false);
     assert.equal(facts.presence.autonomousWandering,false);
@@ -82,7 +88,7 @@ test('verified owner access enables real capabilities while truthy unverified fl
 // Limits: prompt delivery verifies available facts, not whether a hosted model follows them or explains code well.
 for(const owner of [false,true])test(`${owner?'owner':'guest'} instructions describe bounded, visit-only code preparation`,()=>{
   const instructions=productInstructions(capabilitiesForModel({owner})),facts=productData(instructions);
-  assert.deepEqual(facts.controls.codePreparation,['Prepare with code','Continue code preparation','Close code preparation','Open code','GitHub','Local file','Paste code','Browse repository','Open a local source file','Open pasted code','Try a small example','Try a four-line spoken example','View source','Previous section','Next section','Explain these lines','Ask me about them','Hear line by line','Play walkthrough again','Stop walkthrough','Choose a complete section','Select range','I can explain this section','My goal & corrections','Export preparation sheet']);
+  assert.deepEqual(facts.controls.codePreparation,['Prepare with code','Close code preparation','Open code','GitHub','Local file','Paste code','Browse repository','Open a local source file','Open pasted code','Try a small example','Try a four-line spoken example','View source','Previous section','Next section','Explain these lines','Ask me about them','Hear line by line','Play walkthrough again','Stop walkthrough','Choose a complete section','Select range','I can explain this section','My goal & corrections','Export preparation sheet']);
   assert.equal(facts.codePreparation.available,true);assert.equal(facts.codePreparation.readOnly,true);
   assert.equal(facts.codePreparation.executesCode,false);assert.equal(facts.codePreparation.privateRepositoryAccess,false);assert.equal(facts.codePreparation.wholeRepositoryContext,false);
   assert.deepEqual(facts.codePreparation.imports,['Public GitHub repository root URL, pinned to a commit; select a supported text source file.','Local UTF-8 text source file.','Pasted code with a file name.','Authored examples.']);

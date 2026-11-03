@@ -4,7 +4,7 @@ import {EMOTIONS} from '../shared/character.js';
 import {readBoundedJson,cancelResponseBody,MAX_UPSTREAM_ERROR_BYTES} from './bounded-json.mjs';
 
 const directions = {
-  companion: 'Speak as a thoughtful young companion. Warm, conversational, understated, with relaxed pauses and dry humor. Avoid an announcer or assistant cadence.',
+  companion: 'Speak as a thoughtful companion. Warm, conversational, understated, with relaxed pauses and dry humor. Avoid an announcer or assistant cadence.',
   director: 'Speak with casual confidence and a wry smile. Conversational timing, lightly sarcastic, never a formal announcer.',
   uncanny: 'Speak quietly with subtle suspense and unhurried pauses. An intimate fictional performance, no shouting and no exaggerated villain voice.',
 };
