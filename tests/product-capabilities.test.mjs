@@ -28,6 +28,7 @@ test('all chat APIs get guest-safe product facts and ignore forged client capabi
     // Limits: transport fixtures establish prompt delivery, not model compliance.
     assert.match(instructions,/Match a simple greeting with a brief, natural greeting/);
     assert.match(instructions,/If asked who you are, answer briefly as NOX, an AI companion/);
+    assert.match(instructions,/Do not justify an age-coded description by calling it a vibe/);
     assert.doesNotMatch(instructions,/\bboyish\b/i);
     const facts=productData(instructions);
     assert.equal(facts.visit,'guest');
