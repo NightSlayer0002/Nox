@@ -8,27 +8,43 @@ const SPEND=`local t=tonumber(redis.call('GET',KEYS[1]) or '0')
 local s=tonumber(redis.call('GET',KEYS[2]) or '0')
 local used=ARGV[1]=='text' and t or s
 if used>=tonumber(ARGV[2]) then return {0,t,s} end
+if KEYS[3] then
+  local total=tonumber(redis.call('GET',KEYS[3]) or '0')
+  if total>=tonumber(ARGV[4]) then return {2,t,s} end
+  if redis.call('INCR',KEYS[3])==1 then redis.call('EXPIRE',KEYS[3],ARGV[3]) end
+end
 local key=ARGV[1]=='text' and KEYS[1] or KEYS[2]
 local next=redis.call('INCR',key)
 if next==1 then redis.call('EXPIRE',key,ARGV[3]) end
 if ARGV[1]=='text' then t=next else s=next end
 return {1,t,s}`;
+const SPEND_DEPLOYMENT=`local used=tonumber(redis.call('GET',KEYS[1]) or '0')
+if used>=tonumber(ARGV[1]) then return {0} end
+if redis.call('INCR',KEYS[1])==1 then redis.call('EXPIRE',KEYS[1],ARGV[2]) end
+return {1}`;
 const positive=(value,fallback,max)=>Number.isInteger(Number(value))&&Number(value)>0?Math.min(Number(value),max):fallback;
 
 export function createGuestAllowance({now=Date.now,fetchImpl=fetch,
   url=process.env.UPSTASH_REDIS_REST_URL||'',token=process.env.UPSTASH_REDIS_REST_TOKEN||'',
   textLimit=process.env.NOX_FREE_TEXT_DAILY,speechLimit=process.env.NOX_FREE_SPEECH_DAILY,
+  deploymentTextLimit=process.env.NOX_DEPLOYMENT_TEXT_DAILY,deploymentSpeechLimit=process.env.NOX_DEPLOYMENT_SPEECH_DAILY,
   textRate=8,speechRate=4,
 }={}) {
   const limits={text:positive(textLimit,20,1000),speech:positive(speechLimit,30,2000)};
   const rates={text:createPublicQuota({now,perClient:textRate,total:24}),speech:createPublicQuota({now,perClient:speechRate,total:12})};
-  const configured=Boolean(url||token);
+  const deploymentEnabled=deploymentTextLimit!==undefined||deploymentSpeechLimit!==undefined;
+  const deploymentLimits={text:Number(deploymentTextLimit),speech:Number(deploymentSpeechLimit)};
+  const deploymentValid=Object.values(deploymentLimits).every(value=>Number.isSafeInteger(value)&&value>0);
+  const configured=Boolean(url||token||deploymentEnabled);
   let valid=false;
   try {const endpoint=new URL(url);valid=Boolean(token&&endpoint.protocol==='https:'&&!endpoint.username&&!endpoint.password&&!endpoint.search&&!endpoint.hash);}catch{/* Misconfiguration fails closed. */}
   const day=()=>{const time=now(),date=new Date(time).toISOString().slice(0,10),reset=Date.parse(`${date}T00:00:00.000Z`)+86400000;return {date,reset,ttl:Math.max(1,Math.ceil((reset-time)/1000))+60};};
   const keys=(client,date)=>{const identity=createHmac('sha256',token).update(client).digest('hex');return ['text','speech'].map(kind=>`nox:free:v1:${date}:${identity}:${kind}`);};
+  const deploymentKey=(date,kind)=>`nox:deployment:v1:${date}:${kind}`;
+  const capacityFailure=reset=>({allowed:false,code:'deployment_limit',retryAfter:Math.max(1,Math.ceil((reset-now())/1000))});
+  const unavailable=()=>({allowed:false,code:'allowance_unavailable',retryAfter:30});
   async function command(value) {
-    if(!valid)throw Error('Allowance store is not configured completely.');
+    if(!valid||deploymentEnabled&&!deploymentValid)throw Error('Allowance store is not configured completely.');
     const signal=AbortSignal.timeout(2500);
     const response=await fetchImpl(url.replace(/\/$/,''),{method:'POST',headers:{authorization:`Bearer ${token}`,'content-type':'application/json'},body:JSON.stringify(value),signal});
     if(!response.ok){cancelResponseBody(response);throw Error('Allowance store unavailable.');}
@@ -55,12 +71,25 @@ export function createGuestAllowance({now=Date.now,fetchImpl=fetch,
     const {date,reset,ttl}=day();
     if(!configured)return {allowed:true,usage:snapshot(client,'preview',null,reset)};
     try {
-      const result=await command(['EVAL',SPEND,2,...keys(client,date),kind,limits[kind],ttl]);
+      const counters=keys(client,date);
+      if(deploymentEnabled)counters.push(deploymentKey(date,kind));
+      const result=await command(['EVAL',SPEND,counters.length,...counters,kind,limits[kind],ttl,...(deploymentEnabled?[deploymentLimits[kind]]:[])]);
       const counts=validCounts(result.slice(1));
-      if(![0,1].includes(result[0])||!counts)throw Error('Invalid allowance result.');
+      if(!(deploymentEnabled?[0,1,2]:[0,1]).includes(result[0])||!counts)throw Error('Invalid allowance result.');
+      if(result[0]===2){reservation.releaseShared();return {...capacityFailure(reset),usage:snapshot(client,'daily',counts,reset)};}
       if(result[0]===0)reservation.releaseShared();
       return {allowed:result[0]===1,...(result[0]===0?{code:'daily_limit',retryAfter:Math.max(1,Math.ceil((reset-now())/1000))}:{}),usage:snapshot(client,'daily',counts,reset)};
     }catch{reservation.releaseShared();return {allowed:false,code:'allowance_unavailable',retryAfter:30,usage:snapshot(client,'unavailable',null,reset)};}
   }
-  return {status,take};
+  async function takeDeployment(kind){
+    if(!deploymentEnabled)return {allowed:true};
+    if(!Object.hasOwn(deploymentLimits,kind))throw TypeError('Unknown allowance kind.');
+    const {date,reset,ttl}=day();
+    try{
+      const result=await command(['EVAL',SPEND_DEPLOYMENT,1,deploymentKey(date,kind),deploymentLimits[kind],ttl]);
+      if(result.length!==1||![0,1].includes(result[0]))throw Error('Invalid deployment allowance result.');
+      return result[0]===1?{allowed:true}:capacityFailure(reset);
+    }catch{return unavailable();}
+  }
+  return {status,take,takeDeployment};
 }

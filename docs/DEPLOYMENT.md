@@ -23,9 +23,12 @@ Copy `.env.example` to `.env`, then configure the required variables. Never comm
 | `NOX_NATURAL_VOICE`, `NOX_SPEECH_PROVIDER`, `NOX_SPEECH_VOICE` | Optional speech configuration. |
 | `UPSTASH_REDIS_REST_URL`, `UPSTASH_REDIS_REST_TOKEN` | Optional shared per-network daily allowance storage; configure both together. |
 | `NOX_FREE_TEXT_DAILY`, `NOX_FREE_SPEECH_DAILY` | Separate daily request budgets when shared allowance storage is configured. |
+| `NOX_DEPLOYMENT_TEXT_DAILY`, `NOX_DEPLOYMENT_SPEECH_DAILY` | Optional UTC-day admission ceilings shared across instances. Set both to positive integers with Upstash. Use a dedicated Redis database per environment. |
 | `PORT` | Local HTTP port; defaults to `3000`. |
 
 `.env.example` documents the complete supported configuration. Only configured providers are available. Without allowance-store credentials, the public service uses a rate-limited preview rather than claiming durable daily accounting. Partial or unavailable allowance configuration fails closed.
+
+The shared text ceiling covers guest and owner chat, summaries, and Afterimage. The speech ceiling covers natural voice. Each accepted request uses one slot, including requests that later hit a cache or fail. Provider retries or multiple speech clips may use more than one provider call per slot. Verify billing limits with the provider separately.
 
 ## Vercel
 
@@ -60,7 +63,7 @@ After deployment, verify the exact commit's Vercel status and inspect the public
 ## Operational boundaries
 
 - Provider keys stay server-side. Owner sessions use a signed HttpOnly cookie; locking clears the current browser cookie. Individual copied stateless sessions cannot be revoked separately; rotating the owner secret invalidates all sessions.
-- Per-process admission limits are not distributed spending or concurrency limits. Optional daily storage counts accepted requests per public network, not per person or account. Configure provider-side billing controls and deployment-wide budgets separately where needed.
+- Per-process limits handle bursts. Optional Redis counters can also enforce daily limits per public network and across the deployment. Configure provider billing controls separately.
 - Locally rate-rejected requests return immediately without Redis reads or writes. Their response has no fresh daily-usage snapshot; the normal status path and accepted requests supply usage. This keeps rejected bursts from turning into allowance-store traffic.
 - Guest work clears on refresh. Owner archives remain plaintext browser-local data, without cloud recovery or synchronization. Exports provide portable copies.
 - Browser functional checks use synthetic providers/media. Full GPU rendering, physical devices, real microphone permissions, and offline/PWA behavior need separate acceptance checks.
@@ -69,6 +72,6 @@ After deployment, verify the exact commit's Vercel status and inspect the public
 
 The existing defaults remain 20 accepted text requests and 30 accepted natural-voice requests per public network per UTC day when Redis is configured. These are separate from short burst limits. Provider failures count after admission because generation may already have begun. Without Redis, the service explicitly uses a process-local preview allowance instead.
 
-A per-network allowance does not cap the sum across all networks. A deployment-wide request ceiling would need shared counters covering every relevant function and instance, with separate text and speech limits. It would still not be a monetary ceiling: model selection, input/output lengths, voice generation, retries, database requests, and hosting have different costs.
+When both deployment ceilings are configured, every instance must use the same limits and Redis database for that environment. Admission fails if Redis cannot confirm capacity. Request ceilings count admissions, so review provider, Redis, and hosting costs separately.
 
 Before enabling paid usage, choose a budget for each provider and hosting/storage service, check whether its controls are hard stops or notification thresholds, and define what visitors see when capacity runs out. Do not treat a billing alert or this app's request counter as proof of a hard spending limit. Deployment-wide allowance changes are a separate product decision; this repair does not change existing allowances or enable paid services.

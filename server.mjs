@@ -92,7 +92,6 @@ export function createAppServer({
     const window=windowStart;let released=false;requests++;if(publicTraffic)publicRequests++;
     return {wait:0,release(){if(released)return;released=true;if(window!==windowStart)return;requests--;if(publicTraffic)publicRequests--;}};
   };
-  const sharedWait=()=>reserveShared().wait;
   const audioCache=createCache();
   const speechClipCache=createCache();
   const afterimageCache=createAfterimageCache({now});
@@ -114,13 +113,16 @@ export function createAppServer({
   const admitGeneration=async(client,kind,publicTraffic)=>{
     const reservation=reserveShared(publicTraffic);
     if(reservation.wait)return {wait:reservation.wait};
-    if(!publicTraffic)return {};
-    try{const decision=await takeAllowance(client,kind);if(!decision.allowed)reservation.release();return {decision};}
+    try{
+      const decision=publicTraffic?await takeAllowance(client,kind):await guestAllowance.takeDeployment?.(kind);
+      if(decision&&!decision.allowed){reservation.release();return {decision};}
+      return publicTraffic?{decision}:{};
+    }
     catch(error){reservation.release();throw error;}
   };
   const allowanceFailure=(response,decision,kind)=>{
     response.setHeader('retry-after',decision.retryAfter);
-    const error=decision.code==='allowance_unavailable'?'NOX cannot check the public allowance right now. Your draft is safe; please try again shortly.':decision.code==='daily_limit'?(kind==='speech'?'This network has used its natural voice allowance for today. Text remains available within its own allowance.':'This network has used its free messages for today. Your draft is safe; the allowance resets at the time shown.'):(kind==='speech'?'NOX needs a short voice break. Text has its own allowance.':'A few replies arrived quickly. Give NOX a moment; your draft is safe.');
+    const error=decision.code==='allowance_unavailable'?'NOX cannot check capacity right now. Your draft is safe; please try again shortly.':decision.code==='deployment_limit'?(kind==='speech'?'NOX’s natural voice has reached today’s capacity. Browser voice is still available.':'NOX has reached today’s text capacity. Your draft is safe.'):decision.code==='daily_limit'?(kind==='speech'?'This network has used its natural voice allowance for today. Text remains available within its own allowance.':'This network has used its free messages for today. Your draft is safe; the allowance resets at the time shown.'):(kind==='speech'?'NOX needs a short voice break. Text has its own allowance.':'A few replies arrived quickly. Give NOX a moment; your draft is safe.');
     return sendJson(response,decision.code==='allowance_unavailable'?503:429,{error,code:decision.code,retryAfter:decision.retryAfter,usage:decision.usage});
   };
   const available = [...providers];
@@ -200,7 +202,10 @@ export function createAppServer({
           const eligible=available.filter(p=>['groq','gemini','nvidia'].includes(p.id));
           const selected=creative.provider?eligible.find(p=>p.id===creative.provider):eligible.find(p=>p.id===preferred?.id)||eligible.find(p=>p.id==='groq')||eligible[0];
           if(!selected)return sendJson(response,503,{error:'Configure a Groq, Gemini or NVIDIA server key to receive an AFTERIMAGE.'});
-          const wait=sharedWait();if(wait)return sharedFailure(wait,'Give NOX a moment before receiving another AFTERIMAGE.');
+          const admission=await admitGeneration(clientIP,'text',false);
+          if(controller.signal.aborted)return;
+          if(admission.wait)return sharedFailure(admission.wait,'Give NOX a moment before receiving another AFTERIMAGE.');
+          if(admission.decision)return allowanceFailure(response,admission.decision,'text');
           const started=performance.now(),selectedModel=modelForDepth(selected.id,selected.model,'quick');
           const key=createHash('sha256').update(JSON.stringify([host,creative.seed,creative.tone,creative.variation,selected.id,selectedModel])).digest('hex');
           try{
@@ -272,7 +277,10 @@ export function createAppServer({
           if(!input||!Array.isArray(input.turns)||input.turns.length<1||input.turns.length>24||input.turns.some(t=>!t||!['user','assistant'].includes(t.role)||typeof t.content!=='string'||t.content.length>(t.role==='assistant'?MAX_PACKET_CHARACTERS:CHAT_INPUT_CHARACTERS))||typeof input.previous!=='undefined'&&typeof input.previous!=='string')return sendJson(response,400,{error:'Send 1–24 conversation turns and an optional previous summary.'});
           const selected=input.provider?available.find(p=>p.id===input.provider):preferred;
           if(!selected||selected.id==='openai')return sendJson(response,400,{error:'Choose a configured Groq, Gemini or NVIDIA provider for summaries.'});
-          const wait=sharedWait();if(wait)return sharedFailure(wait,'Give NOX a moment before summarizing more conversation.');
+          const admission=await admitGeneration(clientIP,'text',false);
+          if(controller.signal.aborted)return;
+          if(admission.wait)return sharedFailure(admission.wait,'Give NOX a moment before summarizing more conversation.');
+          if(admission.decision)return allowanceFailure(response,admission.decision,'text');
           try{
             if(controller.signal.aborted)return;
             const value=await summary(input,{provider:selected.id,apiKey:providerKey(selected.id),model:selected.model,signal:controller.signal});
