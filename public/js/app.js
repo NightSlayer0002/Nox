@@ -561,8 +561,9 @@ function toggleRecording() {
 $('record-button').addEventListener('click', toggleRecording);
 $('film-record').addEventListener('click', toggleRecording);
 $('clear-memory').addEventListener('click', async () => {
+  if(!window.confirm('Clear your saved name and remembered facts? Pasted notes and chats will stay.'))return;
   cancelConversation();const saved=await memory.clear();
-  updateMemory();toast(saved?'The saved name and notebook facts are cleared. Conversations remain in Chats.':'The saved notebook could not be changed. Its original data is protected; check browser storage before trying again.');
+  updateMemory();toast(saved?'Your saved name and remembered facts were cleared.':'Your saved name and remembered facts could not be cleared. Check browser storage and try again.');
 });
 $('inside-button').addEventListener('click', () => { $('packet-view').textContent = JSON.stringify(lastPacket, null, 2); openSettings(); });
 $('settings-button').addEventListener('click', () => openSettings());
