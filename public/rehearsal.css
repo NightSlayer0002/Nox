@@ -142,7 +142,10 @@
  .study-summary-hint{font-size:11px}
 }
 @media(max-width:600px){
- .workspace[data-rehearsal=open][data-view=conversation] #chat{--study-presence-space:112px}
+ .workspace[data-rehearsal=open][data-view=conversation] #chat{--study-presence-space:112px;grid-template-rows:var(--study-presence-space) minmax(0,2.5fr) minmax(0,1fr)}
+ .workspace .rehearsal-panel .rehearsal-code{max-height:clamp(240px,45dvh,360px)}
+ .workspace .rehearsal-panel .code-line-number{min-width:38px;padding-inline:6px 8px}
+ .code-line code{padding-left:10px}
 }
 @media(prefers-reduced-motion:reduce){
  .workspace .rehearsal-panel button,.study-disclosure summary>svg{transition:none}
