@@ -1,85 +1,67 @@
-// Cache only the public application shell and same-origin static assets.
-// API responses, account status, keys and user messages are never cached.
-const CACHE='nox-shell-v4';
-const CORE=['/offline.html','/offline.css','/source-ui.css','/icon.svg','/assets/nox/icon-192.png','/assets/nox/icon-512.png','/manifest.webmanifest'];
-const NAV=new Set(['/','/guest','/guest/','/app','/app/','/owner','/owner/']);
-const PUBLIC_NAV=new Set(['/','/guest','/guest/','/app','/app/']);
-const MAX_ENTRIES=220,MAX_WARM_URLS=180;
-const PINNED=new Set([...CORE,'/guest']);
-function publicAsset(url){
-  if(url.origin!==self.location.origin||url.search||url.hash||url.username||url.password)return false;
-  const path=url.pathname;
-  return CORE.includes(path)||/^\/[a-z0-9-]+\.css$/i.test(path)||
-    /^\/(?:js|dist|assets|vendor|fonts)\/[^?]+\.(?:js|css|svg|png|jpg|woff2?|ttf|glb|bin|glsl|vert|frag)$/i.test(path)||
-    ['/shared/character.js','/shared/afterimage.js','/shared/interface-state.js','/shared/rehearsal.js'].includes(path);
+// The build prepends RELEASE and ASSETS. Each worker controls one verified set
+// of public files for its lifetime. Only a complete install can replace it.
+const cacheName = 'nox-shell-' + RELEASE;
+const workspaceRoutes = new Set(['/guest', '/guest/', '/app', '/app/', '/owner', '/owner/']);
+
+async function releaseResponse(path, signal) {
+  const response = await fetch(path, {cache:'no-store', credentials:'omit', redirect:'error', signal});
+  if (!response.ok || response.type !== 'basic' || response.redirected ||
+      /\bprivate\b/i.test(response.headers.get('cache-control') || '') ||
+      /(?:^|,)\s*(?:cookie|authorization|\*)\s*(?:,|$)/i.test(response.headers.get('vary') || '') ||
+      response.headers.has('set-cookie')) throw Error('Expected a public release asset');
+  const digest = await crypto.subtle.digest('SHA-256', await response.clone().arrayBuffer());
+  const hash = Array.from(new Uint8Array(digest), byte => byte.toString(16).padStart(2, '0')).join('');
+  if (hash !== ASSETS[path]) throw Error('Release asset changed during installation');
+  return response;
 }
-function publicResponse(response){
-  return response.ok&&response.type==='basic'&&!response.redirected&&
-    !/\bprivate\b/i.test(response.headers.get('cache-control')||'')&&
-    !/(?:^|,)\s*(?:cookie|authorization|\*)\s*(?:,|$)/i.test(response.headers.get('vary')||'')&&
-    !response.headers.has('set-cookie');
-}
-// Serialize writes and eviction: parallel module requests must share one bound.
-// The server deliberately marks even these known public shell files no-store;
-// only this static allowlist is persisted, never a general response cache.
-let writes=Promise.resolve(),warming=null;
-const warmQueue=new Set();
-function remember(request,response){
-  const copy=response.clone();
-  const next=writes.then(async()=>{
-    const cache=await caches.open(CACHE);await cache.put(request,copy);
-    const keys=await cache.keys(),removable=keys.filter(key=>!PINNED.has(new URL(key.url).pathname));
-    for(let count=keys.length-MAX_ENTRIES;count>0&&removable.length;count--)await cache.delete(removable.shift());
+
+async function installRelease() {
+  const cache = await caches.open(cacheName);
+  const controller = new AbortController();
+  const signal = AbortSignal.any([controller.signal, AbortSignal.timeout(30000)]);
+  const pending = Object.keys(ASSETS).values();
+  const workers = Array.from({length:8}, async () => {
+    for (const path of pending) await cache.put(path, await releaseResponse(path, signal));
   });
-  // Device storage failure must not discard a successful online response.
-  writes=next.catch(()=>{});return writes;
-}
-self.addEventListener('install',event=>event.waitUntil(caches.open(CACHE).then(cache=>cache.addAll(CORE))));
-self.addEventListener('activate',event=>event.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(key=>key.startsWith('nox-shell-')&&key!==CACHE).map(key=>caches.delete(key)))).then(()=>self.clients.claim())));
-self.addEventListener('message',event=>{
-  if(event.data?.type!=='cache-saved-shell'||!Array.isArray(event.data.urls))return;
-  warmQueue.add(self.location.origin+'/guest');
-  for(const value of event.data.urls.slice(0,MAX_WARM_URLS*4)){
-    if(warmQueue.size>MAX_WARM_URLS)break;
-    if(typeof value!=='string')continue;
-    try{const url=new URL(value,self.location.origin);if(publicAsset(url))warmQueue.add(url.href);}catch{}
+  try {
+    await Promise.all(workers);
+  } catch (error) {
+    controller.abort();
+    await Promise.allSettled(workers);
+    await caches.delete(cacheName);
+    throw error;
   }
-  // Late modules join the bounded queue instead of being discarded while an
-  // earlier snapshot is fetching. Every message keeps that drain alive.
-  if(!warming)warming=(async()=>{
-    try{
-      const cache=await caches.open(CACHE);
-      while(warmQueue.size){
-        const url=warmQueue.values().next().value;warmQueue.delete(url);
-        try{
-          if(await cache.match(url))continue;
-          const response=await fetch(url);if(publicResponse(response))await remember(url,response);
-        }catch{/* A missing asset never changes the loaded visit. */}
-      }
-    }catch{/* Offline shell preparation is optional. */}
-    finally{warmQueue.clear();}
-  })().finally(()=>{warming=null;});
-  event.waitUntil(warming);
-});
-self.addEventListener('fetch',event=>{
-  const request=event.request,url=new URL(request.url);
-  const navigation=request.mode==='navigate'&&NAV.has(url.pathname);
-  // Workspace routes use fragments; only allow them for known navigations.
-  if(request.method!=='GET'||url.origin!==self.location.origin||url.search||(url.hash&&!navigation)||request.headers.has('authorization'))return;
-  const asset=publicAsset(url);
-  if(!navigation&&!asset)return;
-  event.respondWith((async()=>{
-    try{
-      const response=await fetch(request);
-      if(publicResponse(response)&&(asset||PUBLIC_NAV.has(url.pathname)))event.waitUntil(remember(request,response));
-      return response;
-    }catch{
-      try{
-        const cache=await caches.open(CACHE),saved=(asset||PUBLIC_NAV.has(url.pathname))&&await cache.match(request);if(saved)return saved;
-        if(navigation){const fallback=await cache.match('/guest')||await cache.match('/offline.html');if(fallback)return fallback;}
-      }catch{/* Browsers can disable Cache Storage independently of networking. */}
-      if(navigation)return new Response('NOX is offline. Connect to load the workspace. Guest conversations clear on refresh.',{status:503,headers:{'content-type':'text/plain; charset=utf-8'}});
-      return Response.error();
+}
+
+self.addEventListener('install', event => event.waitUntil(installRelease()));
+// Let existing documents finish on their current worker before switching.
+self.addEventListener('activate', event => event.waitUntil((async () => {
+  const names = await caches.keys();
+  await Promise.all(names.filter(name => name.startsWith('nox-shell-') && name !== cacheName).map(name => caches.delete(name)));
+})()));
+
+self.addEventListener('fetch', event => {
+  const {request} = event, url = new URL(request.url);
+  if (request.method !== 'GET' || url.origin !== self.location.origin || request.headers.has('authorization')) return;
+  const documentPath = request.mode === 'navigate' &&
+    (url.pathname === '/' ? '/index.html' : workspaceRoutes.has(url.pathname) && '/app.html');
+  if (!documentPath && (url.search || url.hash || !Object.hasOwn(ASSETS, url.pathname))) return;
+  const path = documentPath || url.pathname;
+  event.respondWith((async () => {
+    let cache;
+    try {
+      cache = await caches.open(cacheName);
+      const saved = await cache.match(path);
+      if (saved) return saved;
+    } catch { /* Storage can be disabled independently of the network. */ }
+    try {
+      return await releaseResponse(path, AbortSignal.timeout(5000));
+    } catch {
+      if (!documentPath) return Response.error();
+      const offline = await cache?.match('/offline.html').catch(() => null);
+      return offline || new Response('NOX is offline. Connect to load the workspace. Guest conversations clear on refresh.', {
+        status:503, headers:{'content-type':'text/plain; charset=utf-8'},
+      });
     }
   })());
 });

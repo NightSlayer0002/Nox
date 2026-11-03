@@ -7,8 +7,9 @@ import {tokenizeSource} from './code-tokens.js';
 export function attachCodeRehearsal({getThread,send,voice,navigate=()=>{},canAct=()=>true,onContextChange=()=>{},documentTarget=globalThis.document}){
   const doc=documentTarget,$=id=>doc.getElementById(id),events=new AbortController(),sessions=new Map(),sent=new Map();
   let thread='',session,active=false,repository=null,loading=null,importVersion=0,renderedFile='',spokenPlan=null;
+  let importNotice=false;
   const listen=(node,event,fn)=>node.addEventListener(event,fn,{signal:events.signal});
-  const notice=(text,attention=false)=>{const node=$('rehearsal-notice');node.textContent=text;node.dataset.attention=String(attention);};
+  const notice=(text,attention=false,fromImport=false)=>{const node=$('rehearsal-notice');node.textContent=text;node.dataset.attention=String(attention);importNotice=fromImport;};
   const narration=createLineNarration({voice:voice||{stop(){},speak:(_,options)=>options.onPlaybackUnavailable({message:'Voice is unavailable.'})},
     onLine:line=>{for(const row of $('rehearsal-code').children){const speaking=Number(row.dataset.line)===line;row.classList.toggle('speaking',speaking);if(speaking)row.setAttribute('aria-current','true');else row.removeAttribute('aria-current');}},
     onState:(state,line,message)=>{$('rehearsal-stop').hidden=!['preparing','speaking'].includes(state);if(state==='preparing')notice(`Preparing line ${line}…`);if(state==='speaking')notice(`Speaking about line ${line}.`);if(state==='ended')notice('Walkthrough finished. The highlighted range and written explanations are kept.');if(state==='error')notice(message||'Voice could not finish. Written explanations are kept. You can replay when voice is available.',true);},
@@ -78,9 +79,9 @@ export function attachCodeRehearsal({getThread,send,voice,navigate=()=>{},canAct
   function openSource(value){cancelImport();session.open(value);renderedFile='';$('rehearsal-import').open=false;contextChanged();render();notice('Code stays in this visit. Selected lines, goal and corrections go to AI with each message while this panel is open. Earlier chat replies may also quote code.');}
   async function importSource(action){
     sync();loading?.abort();const controller=new AbortController(),version=++importVersion,owner=thread;loading=controller;
-    $('rehearsal-import').setAttribute('aria-busy','true');notice('Opening source…');
+    $('rehearsal-import').setAttribute('aria-busy','true');notice('Opening source…',false,true);
     try{const value=await action(controller.signal);if(controller.signal.aborted||version!==importVersion||owner!==getThread())return;value?.();}
-    catch(error){if(version===importVersion&&owner===getThread()&&error.name!=='AbortError')notice(error.message||'Could not open the code. Paste it instead.',true);}
+    catch(error){if(version===importVersion&&owner===getThread()&&error.name!=='AbortError')notice(error.message||'Could not open the code. Paste it instead.',true,true);}
     finally{if(version===importVersion){loading=null;$('rehearsal-import').setAttribute('aria-busy','false');}}
   }
   async function ask(intent){
@@ -115,7 +116,7 @@ export function attachCodeRehearsal({getThread,send,voice,navigate=()=>{},canAct
     catch(error){notice(error.message,true);return false;}
   }
   function committed(work,answer){if(!work||work.thread!==getThread()||work.session!==session||!active)return false;const saved=session.complete(work.ticket,answer,work.input);if(saved){render();revealSource();}return saved;}
-  function protect(fn){return event=>{try{fn(event);}catch(error){notice(error.message,true);}};}
+  function protect(fn,fromImport=false){return event=>{try{fn(event);}catch(error){notice(error.message,true,fromImport);}};}
   listen($('rehearsal-close'),'click',()=>{
     setOpen(false);
     navigate('conversation');
@@ -125,7 +126,7 @@ export function attachCodeRehearsal({getThread,send,voice,navigate=()=>{},canAct
   });
   listen($('rehearsal-example'),'click',protect(()=>openSource(REHEARSAL_EXAMPLE)));
   listen($('rehearsal-spoken-example'),'click',protect(()=>openSource({path:'total.js',source:'example',revision:'spoken-v1',text:'function total(items) {\n  const prices = items.map(item => item.price);\n  return prices.reduce((sum, price) => sum + price, 0);\n}'})));
-  listen($('rehearsal-use-paste'),'click',protect(()=>{loading?.abort();importVersion++;openSource(validateCodeSource({path:$('rehearsal-filename').value||'project.js',text:$('rehearsal-paste').value,source:'pasted',revision:'pasted'}));}));
+  listen($('rehearsal-use-paste'),'click',protect(()=>{cancelImport();openSource(validateCodeSource({path:$('rehearsal-filename').value||'project.js',text:$('rehearsal-paste').value,source:'pasted',revision:'pasted'}));},true));
   listen($('rehearsal-local'),'change',event=>{const file=event.target.files?.[0];if(file)void importSource(async()=>{const value=await readCodeFile(file);return()=>openSource(value);});event.target.value='';});
   listen($('rehearsal-github'),'click',()=>void importSource(async signal=>{
     const result=await loadRepository($('rehearsal-url').value,{signal});return()=>{
@@ -135,7 +136,11 @@ export function attachCodeRehearsal({getThread,send,voice,navigate=()=>{},canAct
     };
   }));
   listen($('rehearsal-repo-files'),'change',event=>{if(!repository||event.target.value==='')return;const repo=repository,file=repo.files[Number(event.target.value)];if(file)void importSource(async signal=>{const value=await loadRepositoryFile(repo,file,{signal});return()=>openSource(value);});});
-  function chooseFile(id,focus=false){session.switchFile(id);renderedFile='';selectionChanged();if(focus)$('rehearsal-loaded').querySelector('[aria-selected=true]')?.focus();}
+  function chooseFile(id,focus=false){
+    if(importNotice){$('rehearsal-import').open=false;notice('');}
+    session.switchFile(id);renderedFile='';selectionChanged();
+    if(focus)$('rehearsal-loaded').querySelector('[aria-selected=true]')?.focus();
+  }
   listen($('rehearsal-loaded'),'click',event=>{const tab=event.target.closest('[data-source-id]');if(tab&&tab.getAttribute('aria-selected')!=='true')chooseFile(tab.dataset.sourceId);});
   listen($('rehearsal-loaded'),'keydown',event=>{
     if(!['ArrowLeft','ArrowRight','Home','End'].includes(event.key))return;

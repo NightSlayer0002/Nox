@@ -8,14 +8,60 @@ function redisFixture() {
     const command=JSON.parse(options.body);requests.push({url,options,command});
     if(command[0]==='MGET')return Response.json({result:command.slice(1).map(key=>values.get(key)??null)});
     assert.equal(command[0],'EVAL');
-    const [,script,keyCount,textKey,speechKey,kind,limit,ttl]=command;
-    assert.match(script,/redis.call\('INCR'/);assert.match(script,/EXPIRE/);assert.equal(keyCount,2);assert.ok(ttl>0);
+    const [,script,keyCount]=command;
+    assert.match(script,/redis.call\('INCR'/);assert.match(script,/EXPIRE/);
+    if(keyCount===1){
+      const [key,limit,ttl]=command.slice(3),used=values.get(key)||0;
+      assert.ok(ttl>0);
+      if(used>=limit)return Response.json({result:[0]});
+      values.set(key,used+1);return Response.json({result:[1]});
+    }
+    assert.ok(keyCount===2||keyCount===3);
+    const [textKey,speechKey,globalKey]=command.slice(3,3+keyCount);
+    const [kind,limit,ttl,globalLimit]=command.slice(3+keyCount);
+    assert.ok(ttl>0);
     const key=kind==='text'?textKey:speechKey,used=values.get(key)||0,allowed=used<limit;
+    if(allowed&&globalKey){
+      const total=values.get(globalKey)||0;
+      if(total>=globalLimit)return Response.json({result:[2,values.get(textKey)||0,values.get(speechKey)||0]});
+      values.set(globalKey,total+1);
+    }
     if(allowed)values.set(key,used+1);
     return Response.json({result:[allowed?1:0,values.get(textKey)||0,values.get(speechKey)||0]});
   };
   return {fetchImpl,requests,values};
 }
+
+test('guest and owner admissions share a ceiling across instances and UTC days',async()=>{
+  // Question: do both admission paths address the same counters and preserve separate speech and text allowances?
+  // Limits: models Redis results in memory, without testing Upstash or provider billing.
+  const fixture=redisFixture();
+  let time=Date.parse('2026-11-04T23:00:00Z');
+  const options={...fixture,url:'https://fixture.upstash.io',token:'fixture',now:()=>time,textLimit:1,deploymentTextLimit:2,deploymentSpeechLimit:1};
+  const first=createGuestAllowance(options),second=createGuestAllowance(options);
+  assert.equal((await first.take('A','text')).allowed,true);
+  assert.equal((await second.take('A','text')).code,'daily_limit');
+  assert.equal((await second.takeDeployment('text')).allowed,true);
+  const blocked=await first.take('B','text');
+  assert.equal(blocked.code,'deployment_limit');
+  assert.equal(blocked.usage.text.used,0);
+  assert.equal(blocked.retryAfter,3600);
+  assert.equal((await second.takeDeployment('text')).code,'deployment_limit');
+  assert.equal((await first.take('B','speech')).allowed,true);
+  assert.equal((await second.takeDeployment('speech')).code,'deployment_limit');
+  time+=3600000;
+  assert.equal((await first.take('B','text')).allowed,true);
+});
+
+test('enabled deployment ceilings fail closed when incomplete or unavailable',async()=>{
+  // Question: can a failed shared admission allow a provider request?
+  // Limits: verifies admission results with injected configuration and transport failure.
+  for(const settings of [{deploymentTextLimit:2},{deploymentTextLimit:2,deploymentSpeechLimit:1}]){
+    const allowance=createGuestAllowance({url:'https://fixture.upstash.io',token:'fixture',...settings,fetchImpl:async()=>{throw Error('Offline');}});
+    assert.equal((await allowance.take('A','text')).code,'allowance_unavailable');
+    assert.equal((await allowance.takeDeployment('speech')).code,'allowance_unavailable');
+  }
+});
 
 test('preview mode never claims durable daily counts and independently bounds text and speech bursts',async()=>{
   let time=0;const allowance=createGuestAllowance({url:'',token:'',now:()=>time,textRate:2,speechRate:1});

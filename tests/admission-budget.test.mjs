@@ -55,3 +55,24 @@ test('allowance lookup time is included in the original HTTP reply deadline',asy
   await fixture({now:()=>time,guestAllowance:{status:async()=>null,take:async()=>{time+=5000;return {allowed:true,usage:null};}},providerRequest:async(_,options)=>{deadline=options.deadlineAt;return packet;}},async base=>assert.equal(await post(base,{'x-nox-guest':'1'}),200));
   assert.equal(deadline,27000);
 });
+
+test('a shared capacity rejection stops all cloud generation routes',async()=>{
+  // Question: can an owner or guest reach a provider when shared admission fails?
+  // Limits: real HTTP handlers with a synthetic capacity store and provider.
+  const kinds=[];
+  let upstream=0;
+  const reject=async kind=>{kinds.push(kind);return {allowed:false,code:'deployment_limit',retryAfter:60};};
+  const call=async()=>{upstream++;throw Error('Must be rejected before generation');};
+  await fixture({naturalVoice:true,speechKey:'fixture',providerRequest:call,summary:call,speech:call,
+    guestAllowance:{status:async()=>null,take:(_,kind)=>reject(kind),takeDeployment:reject}},async base=>{
+    const owner={authorization:'Bearer owner'},guest={'x-nox-guest':'1'};
+    assert.equal(await post(base,guest),429);
+    assert.equal(await post(base,owner),429);
+    assert.equal(await send(base,'/api/summary',{turns:[{role:'user',content:'Hello'}]},owner),429);
+    assert.equal(await send(base,'/api/afterimage',{seed:'A window in the sea.',tone:'wonder'},owner),429);
+    assert.equal(await send(base,'/api/speech',{text:'Hello'},owner),429);
+    assert.equal(await send(base,'/api/speech',{text:'Hello'},guest),429);
+  });
+  assert.equal(upstream,0);
+  assert.deepEqual(kinds,['text','text','text','text','speech','speech']);
+});

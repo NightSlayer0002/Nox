@@ -39,6 +39,7 @@ export async function buildVercel(destination = path.join(root,'.vercel/output')
     {src:'/(.*)',headers:securityHeaders,continue:true},
     {src:'/dist/chunks/(.*)-[A-Z0-9]{8}\\.js',headers:{'Cache-Control':'public, max-age=31536000, immutable'},continue:true},
     {src:'/assets/nox/body-v[0-9]+\\.glb',headers:{'Cache-Control':'public, max-age=31536000, immutable'},continue:true},
+    {src:'/sw.js',dest:'/dist/sw.js'},
     {src:'/',dest:'/index.html'},
     {src:'/app/?',dest:'/app.html'},
     {src:'/guest/?',dest:'/app.html'},

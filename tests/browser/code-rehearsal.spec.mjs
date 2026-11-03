@@ -49,8 +49,14 @@ test('source tabs keep files accessible by keyboard and import choices preserve 
   await page.getByRole('tab',{name:'Paste code',exact:true}).click();await expect(page.locator('#rehearsal-paste')).toHaveValue('const second = 2;');
   await page.locator('#rehearsal-use-paste').click();
   const second=page.getByRole('tab',{name:'second.js',exact:true});await expect(second).toHaveAttribute('aria-selected','true');
+  await page.locator('#rehearsal-import').evaluate(node=>node.open=true);
+  await page.getByRole('tab',{name:'GitHub',exact:true}).click();
+  await page.locator('#rehearsal-url').fill('https://example.com/owner/repo');
+  await page.locator('#rehearsal-github').click();
+  await expect(page.locator('#rehearsal-notice')).toHaveAttribute('data-attention','true');
   await second.focus();await second.press('ArrowLeft');
   await expect(page.getByRole('tab',{name:'retry.js',exact:true})).toBeFocused();await expect(page.locator('#rehearsal-code')).toContainText('return await task();');
+  await expect(page.locator('#rehearsal-notice')).toBeEmpty();
   await expect(page.getByRole('tabpanel',{name:/retry\.js/})).toBeVisible();
   await page.getByRole('tab',{name:'retry.js',exact:true}).press('End');await expect(second).toBeFocused();
   await expect(page.locator('#rehearsal-code')).toHaveText('1const second = 2;');

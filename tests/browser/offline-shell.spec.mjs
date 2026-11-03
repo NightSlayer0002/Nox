@@ -4,16 +4,13 @@ import {test,expect} from '@playwright/test';
 // journeys remain isolated from workers so their interception stays meaningful.
 test.use({serviceWorkers:'allow'});
 
-test('a warmed public workspace starts after a real offline reload and keeps local learning usable',async({page,context})=>{
+test('an installed release starts after a real offline reload and keeps local learning usable',async({page,context})=>{
   await page.goto('/guest#learn');await expect(page.locator('#brain-status')).toContainText('Guest visit');
   await expect(page.getByRole('slider',{name:/Move the Moon/})).toBeVisible();
   await page.evaluate(async()=>{
     await navigator.serviceWorker.ready;
-    if(!navigator.serviceWorker.controller)await new Promise(resolve=>navigator.serviceWorker.addEventListener('controllerchange',resolve,{once:true}));
   });
-  // Warming is serialized. Wait for the entire loaded module/style graph,
-  // not just early entries, before treating this shell as warmed.
-  const needed=await page.evaluate(()=>[...new Set(['/guest',...performance.getEntriesByType('resource').flatMap(entry=>{
+  const needed=await page.evaluate(()=>[...new Set(['/app.html',...performance.getEntriesByType('resource').flatMap(entry=>{
     const url=new URL(entry.name);return url.origin===location.origin&&!url.search&&/\.(?:js|css)$/.test(url.pathname)?[url.pathname]:[];
   })])]);
   await expect.poll(()=>page.evaluate(async paths=>{
