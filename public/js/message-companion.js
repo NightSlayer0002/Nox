@@ -122,7 +122,7 @@ export function attachMessageCompanion({documentTarget=globalThis.document,conve
       if(pending?.message===message&&Math.hypot(x-pending.startX,y-pending.startY)<=12){pending.x=x;pending.y=y;return;}
       cancelDwell();
       const delay=Math.max(0,Number.isFinite(dwellMs)?dwellMs:650);
-      const indicator=documentTarget.createElement('span');indicator.className='message-companion-dwell';indicator.setAttribute('aria-hidden','true');indicator.style.animationDuration=`${delay}ms`;
+      const indicator=documentTarget.createElement('span');indicator.className='message-companion-dwell';indicator.textContent='Hold for actions';indicator.setAttribute('aria-hidden','true');indicator.style.animationDuration=`${delay}ms`;
       message.dataset.companionState='holding';message.append(indicator);
       const waiting={message,x,y,startX:x,startY:y,indicator};pending=waiting;
       timer=setTimeout(()=>{
