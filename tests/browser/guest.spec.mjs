@@ -4,6 +4,22 @@ async function openChat(page){await page.goto('/guest#conversation');await expec
 async function send(page,text){await page.locator('#message').fill(text);await page.locator('#send-button').click();}
 const answers=page=>page.locator('#conversation .message.nox:not(.draft) .message-content');
 
+test('the public landing links lead to real activities and normal settings show guest controls',async({page})=>{
+  // Question: can a narrow-screen visitor enter the code workspace and find consumer settings without operator controls?
+  // Limits: Chromium Canvas fallback with synthetic AI and no physical-phone testing.
+  await page.setViewportSize({width:390,height:844});
+  await page.goto('/');
+  await expect(page.getByText('Free to try. No account needed.',{exact:true})).toBeVisible();
+  await expect(page.getByRole('link',{name:'Developer access'})).toHaveCount(0);
+  await page.getByRole('link',{name:/Work through code/}).click();
+  await expect(page).toHaveURL(/\/guest#prepare-code$/);
+  await expect(page.locator('#rehearsal-panel')).toBeVisible();
+  await page.locator('#settings-button').click();
+  await expect(page.getByLabel('Speech pace',{exact:true})).toBeVisible();
+  await expect(page.getByLabel(/Developer mode/)).toBeHidden();
+  await expect(page.getByText('AI provider and answer settings',{exact:true})).toBeHidden();
+});
+
 test('cold guest entry preserves the selected panel while status headers precede its body',async({page,context})=>{
   await context.addCookies([{name:'nox-ci-delayed-status',value:'1',url:'http://127.0.0.1:3017'}]);
   const header=page.waitForResponse(response=>response.url().endsWith('/api/status'));

@@ -26,7 +26,7 @@
   #features .contact-copy,#about .contact-copy{text-align:right}
   #features .contact-actions,#about .hero-actions{justify-content:flex-end;max-width:none}
   #home .contact-description,.contact-description{font-size:17px;line-height:1.6;margin:0 0 26px;max-width:100%}
-  .hero-instruction{font-size:13px;max-width:25ch;margin-top:22px}
+  .hero-instruction{font-size:13px;margin-top:18px}
   #home .hero-visual{position:absolute;left:auto;right:7vw;top:auto;bottom:48px;width:104px;height:108px!important;margin:0!important}
   #home .mascot-room{width:104px!important;height:108px!important;right:0;bottom:0!important}
   .contact-hud{bottom:28px}

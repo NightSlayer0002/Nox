@@ -255,7 +255,7 @@ test('AFTERIMAGE API sanitizes repeated validation failures with its task tag an
     await withServer({providers:[groq],providerRequest:async()=>{calls++;throw validationFailure();}},async base=>{
       for(let index=0;index<2;index++){
         const response=await post(base,{seed:'A moon',tone:'wonder'});assert.equal(response.status,502);
-        const body=await response.json();assert.match(body.error,/AFTERIMAGE/);assert.doesNotMatch(body.error,/PRIVATE/);
+        const body=await response.json();assert.match(body.error,/couldn’t finish this story/);assert.doesNotMatch(body.error,/PRIVATE/);
       }
       assert.equal(calls,4);
     });
@@ -266,7 +266,7 @@ test('AFTERIMAGE API sanitizes repeated validation failures with its task tag an
 test('AFTERIMAGE output-limit failures keep specific safe wording and do not retry',async()=>{
   let calls=0;await withServer({providers:[groq],providerRequest:async()=>{calls++;throw Object.assign(new Error('PRIVATE output'),{code:'output_limit'});}},async base=>{
     const response=await post(base,{seed:'A moon',tone:'wonder'});assert.equal(response.status,502);
-    const {error}=await response.json();assert.match(error,/AFTERIMAGE/);assert.doesNotMatch(error,/PRIVATE/);assert.equal(calls,1);
+    const {error}=await response.json();assert.match(error,/couldn’t finish this story/);assert.doesNotMatch(error,/PRIVATE/);assert.equal(calls,1);
   });
 });
 
@@ -276,7 +276,7 @@ for(const [field,set] of [['title',p=>p.title='x'.repeat(81)],['premise',p=>p.si
   let calls=0;const bad=transmission();set(bad);
   await withServer({providers:[groq],providerRequest:async()=>++calls===1?bad:transmission()},async base=>{
     const input={seed:'A moon',tone:'wonder'},failed=await post(base,input);assert.equal(failed.status,502);
-    const error=(await failed.json()).error;assert.match(error,/AFTERIMAGE/);assert.match(error,/another take|try again/i);assert.equal(calls,1);
+    const error=(await failed.json()).error;assert.match(error,/couldn’t finish this story/);assert.match(error,/try again/i);assert.equal(calls,1);
     const fresh=await post(base,input);assert.equal(fresh.status,200);const result=await fresh.json();
     assert.equal(result.packet.title,'The unanswered moon');assert.equal(result.packet.signals[0].premise,'A listener follows the strange broadcast.');assert.equal(result.packet.signals[0].beats[0].speech,'A radio wakes.');
     assert.equal(result.metrics.cacheHit,false);assert.equal(result.metrics.attempts,1);assert.equal(calls,2);

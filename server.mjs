@@ -65,9 +65,15 @@ function chatFailure(error,task='chat'){
   const tag=task==='afterimage'?'afterimage':'chat';
   const stage=['response_json','packet_json','packet_schema'].includes(error.failureStage)?error.failureStage:null;
   console.warn(`[NOX ${tag}] reason=${reason} status=${Number.isInteger(error.providerStatus)?error.providerStatus:'none'} code=${code}${stage?` stage=${stage}`:''}`);
-  if(tag==='afterimage'&&reason==='invalid_json')return 'The AI returned an invalid AFTERIMAGE transmission. Please receive another take.';
-  if(tag==='afterimage'&&reason==='output_limit')return 'The AI could not finish the AFTERIMAGE script within its output budget. Please receive another take.';
-  return {quota:'The AI provider’s free quota is temporarily exhausted. Wait for its limit to reset or choose another configured provider.',credentials:'The AI provider rejected its server key or model access. Check its account settings.',model_access:'The configured AI model is unavailable. Choose an enabled model in server settings.',output_limit:'The AI ran out of reply tokens. Try a shorter question.',invalid_json:'NOX received an unreadable reply from its AI connection. Your message is safe; please try again.',timeout:'NOX could not finish before the reply deadline. Your message is safe; please try again.'}[reason]||'NOX could not finish this reply. Check provider access or limits and try again.';
+  if(tag==='afterimage')return 'NOX couldn’t finish this story. Your idea is still here. Try again, or play the included mystery.';
+  return {
+    quota:'NOX is at capacity right now. Your message is here. Try again later.',
+    credentials:'Chat is temporarily unavailable. Your message is here. Try again later.',
+    model_access:'Chat is temporarily unavailable. Your message is here. Try again later.',
+    output_limit:'NOX couldn’t finish the whole reply. Try a shorter question.',
+    invalid_json:'NOX couldn’t read the reply. Your message is here. Try again.',
+    timeout:'NOX took too long to reply. Your message is here. Try again.',
+  }[reason]||'NOX couldn’t finish this reply. Your message is here. Try again.';
 }
 
 export function createAppServer({
@@ -201,7 +207,7 @@ export function createAppServer({
           try{creative=sanitizeAfterimageInput(input);}catch{return sendJson(response,400,{error:'Send a seed of 1–600 characters, a wonder/uncanny/bold tone, and an optional variation from 0 to 1024 or configured provider.'});}
           const eligible=available.filter(p=>['groq','gemini','nvidia'].includes(p.id));
           const selected=creative.provider?eligible.find(p=>p.id===creative.provider):eligible.find(p=>p.id===preferred?.id)||eligible.find(p=>p.id==='groq')||eligible[0];
-          if(!selected)return sendJson(response,503,{error:'Configure a Groq, Gemini or NVIDIA server key to receive an AFTERIMAGE.'});
+          if(!selected)return sendJson(response,503,{error:'New stories are unavailable right now. You can still play the included mystery.'});
           const admission=await admitGeneration(clientIP,'text',false);
           if(controller.signal.aborted)return;
           if(admission.wait)return sharedFailure(admission.wait,'Give NOX a moment before receiving another AFTERIMAGE.');
@@ -222,7 +228,7 @@ export function createAppServer({
           }
         }
         if (pathname === '/api/speech') {
-          if (!voiceKey || !naturalVoice) return sendJson(response,503,{error:'Natural voice is not configured. Browser voice is still available.'});
+          if (!voiceKey || !naturalVoice) return sendJson(response,503,{error:'Natural voice is unavailable. You can use a voice from this device.'});
           if (!input || typeof input.text !== 'string' || !input.text.trim() || input.text.length>420) return sendJson(response,400,{error:'Speech must contain 1–420 characters.'});
           let speechCues;try{speechCues=normalizeSpeechCues(input.text,input.speechCues);}catch{return sendJson(response,400,{error:'Speech cues must match four bounded script lines and known emotions.'});}
           const admission=await admitGeneration(clientIP,'speech',!owner);
@@ -264,13 +270,13 @@ export function createAppServer({
             const status=Number.isInteger(error.providerStatus)?error.providerStatus:'none';
             const format=['application/octet-stream','application/json','text/html','other'].includes(error.audioType)?error.audioType:'none';
             console.warn(`[NOX speech] reason=${reason} status=${status} format=${format}`);
-            const failure=reason==='busy'?{error:'Natural voice is busy. Try again in a few seconds, or choose Browser voice.',code:'busy',retryAfter:2}:{error:'Natural voice could not respond. Check model access and account limits, or choose Browser voice.'};
+            const failure=reason==='busy'?{error:'Natural voice is busy. Try again in a few seconds, or choose a voice from this device.',code:'busy',retryAfter:2}:{error:'Natural voice is unavailable right now. Try again or choose a voice from this device.'};
             if(response.headersSent) {
               try {await writeSpeechRecord(response,failure,controller.signal);}catch{/* A disconnected receiver needs no error record. */}
               if(!response.destroyed)response.end();return;
             }
             if(reason==='busy'){response.setHeader('retry-after',failure.retryAfter);return sendJson(response,429,failure);}
-            return sendJson(response,502,{error:reason==='terms_required'?'Groq requires you to review and accept the speech model’s terms in its console before Orpheus can speak. Browser voice remains available.':'Natural voice could not respond. Check model access and account limits, or choose Browser voice.'});
+            return sendJson(response,502,{error:owner&&reason==='terms_required'?'Groq requires you to accept the speech model’s terms in its console. A voice from this device is still available.':failure.error});
           }
         }
         if(pathname==='/api/summary') {
@@ -295,7 +301,7 @@ export function createAppServer({
           return sendJson(response, 400, { error: `Message must contain 1–${messageLimit} characters.` });
         }
         if(input.context?.rehearsal!=null&&!sanitizeRehearsal(input.context.rehearsal))return sendJson(response,400,{error:'Select a valid bounded code section before sending. No AI request was made.'});
-        if (!preferred) return sendJson(response, 503, { error: 'Add a Groq, Gemini, or NVIDIA API key to server environment settings and restart or redeploy NOX.' });
+        if (!preferred) return sendJson(response, 503, { error: 'Chat is unavailable right now. You can still explore and play in Discover.' });
         if(guestChat&&input.provider&&input.provider!=='groq')return sendJson(response,400,{error:'NOX Free uses its configured public connection.'});
         const selected = guestChat?guestProvider:input.provider ? available.find(p=>p.id===input.provider) : preferred;
         if(!selected) return sendJson(response,400,{error:'That provider is not configured on this server.'});

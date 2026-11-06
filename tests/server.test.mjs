@@ -124,11 +124,11 @@ test('a hosted key without an access token never enables anonymous paid calls', 
   });
 });
 
-test('chat without a key returns an explicit configuration error', async () => {
+test('chat without a configured provider gives the visitor a usable alternative', async () => {
   await withServer({ apiKey: '' }, async base => {
     const response = await fetch(`${base}/api/chat`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ message: 'hello' }) });
     assert.equal(response.status, 503);
-    assert.match((await response.json()).error, /key/i);
+    assert.match((await response.json()).error, /Chat is unavailable.*Discover/i);
   });
 });
 

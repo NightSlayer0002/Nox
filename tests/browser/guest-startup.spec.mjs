@@ -36,7 +36,7 @@ for(const phase of ['headers','body'])test(`guest activities and typing are read
   await expect(page.locator('#workspace-background .source-scene')).toHaveCount(1);
   await page.getByRole('button',{name:'Back to NOX',exact:true}).click();
   const input=page.locator('#message');await input.fill(`My thought while ${phase} wait`);await input.press('Enter');
-  await expect(page.locator('#connection-message')).toContainText('Checking the AI connection');
+  await expect(page.locator('#connection-message')).toContainText('Getting NOX ready');
   await expect(page.locator('#send-button')).toBeDisabled();await expect(input).toHaveValue(`My thought while ${phase} wait`);
   await expect(page.locator('#conversation .message.user')).toHaveCount(0);await expect(page.locator('#inside-dialog')).not.toBeVisible();
   await page.locator('#call-button').click();await page.getByRole('button',{name:'Connect microphone',exact:true}).click();
@@ -61,7 +61,7 @@ test('failed guest connection can retry without refreshing the draft or local ac
   await page.goto('/guest#learn');await page.getByRole('slider',{name:/Move the Moon/}).fill('123');
   await page.getByRole('button',{name:'Back to NOX',exact:true}).click();
   const input=page.locator('#message');await input.fill('Keep my failed-connection draft');await input.press('Enter');
-  const retry=page.getByRole('button',{name:'Retry AI connection',exact:true});await expect(retry).toBeEnabled();
+  const retry=page.locator('#connection-help').getByRole('button',{name:'Try again',exact:true});await expect(retry).toBeEnabled();
   expect(checks).toBe(1);expect(chats).toHaveLength(0);await expect(page.locator('#send-button')).toBeDisabled();
   await retry.click();await expect(page.locator('#brain-status')).toContainText('Guest visit');
   await expect(input).toHaveValue('Keep my failed-connection draft');await expect(page.locator('#send-button')).toBeEnabled();

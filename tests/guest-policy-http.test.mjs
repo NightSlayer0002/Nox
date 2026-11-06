@@ -41,16 +41,16 @@ for(const stream of [false,true])test(`charged provider failures retain updated 
         const body=new Response(response.text,{headers:{'content-type':response.headers['content-type']}});
         await assert.rejects(readChatStream(body,()=>{}),error=>{
           assert.deepEqual(error.usage,expected);
-          assert.match(error.message,/provider rejected/);
+          assert.match(error.message,/Chat is temporarily unavailable.*Try again later/);
           return true;
         });
       }else{
         const error=JSON.parse(response.text);
         assert.deepEqual(error.usage,expected);
-        assert.match(error.error,/provider rejected/);
+        assert.match(error.error,/Chat is temporarily unavailable.*Try again later/);
       }
       assert.equal(used,1,'failed provider attempts remain charged exactly once');
-      assert.doesNotMatch(response.text,/PRIVATE_UPSTREAM_BODY_AND_KEY/);
+      assert.doesNotMatch(response.text,/PRIVATE_UPSTREAM_BODY_AND_KEY|server key|provider settings/i);
     });
     assert.equal(warnings.length,1);
     assert.doesNotMatch(warnings.join('\n'),/PRIVATE_UPSTREAM_BODY_AND_KEY/);
