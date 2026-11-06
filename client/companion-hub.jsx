@@ -14,7 +14,22 @@ const preferenceValues={answerLength:[['short','Shorter'],['balanced','Balanced'
 function preferenceOptions(entry){const options=preferenceValues[entry.key]||[];return options.some(([value])=>value===entry.value)?options:[...options,[entry.value,`${entry.value}× · Current pace`]];}
 function preferenceLabel(entry){return preferenceOptions(entry).find(([value])=>value===entry.value)?.[1]||String(entry.value);}
 
-function Welcome(){useCompanion();return <div className="companion-welcome"><h1>A little company.<br/><span>Room for whatever’s on your mind.</span></h1><p>Ask a question, bring a passage, or try something together.</p><div className="welcome-invitations"><a href="#learn">Help me understand</a><a href="#afterimage">Start a little mystery</a><a href="#guessing">Play a guessing game</a><a href="#prepare-code">Prepare with code</a></div></div>;}
+const invitations=[
+  ['#learn','Help me understand','M12 20V6m0 0C9 3 5 3 3 4v14c3-1 6-1 9 2m0-14c3-3 7-3 9-2v14c-3-1-6-1-9 2'],
+  ['#afterimage','Start a little mystery','M12 2v5m0 10v5M2 12h5m10 0h5M12 7l5 5-5 5-5-5z'],
+  ['#guessing','Play a guessing game','M8 7h8a4 4 0 0 1 4 3l1 4a3 3 0 0 1-5 3l-2-2h-4l-2 2a3 3 0 0 1-5-3l1-4a4 4 0 0 1 4-3zm0 3v4m-2-2h4m5 0h1m2-2h1'],
+  ['#prepare-code','Prepare with code','m8 6-6 6 6 6m8-12 6 6-6 6m-3-15-2 18'],
+];
+function Welcome(){
+  useCompanion();
+  return <div className="companion-welcome">
+    <h1>A little company.<br/><span>Room for whatever’s on your mind.</span></h1>
+    <p>Start with a message, or pick something to try together.</p>
+    <div className="welcome-invitations">{invitations.map(([href,title,icon])=><a key={href} href={href}>
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d={icon}/></svg>{title}
+    </a>)}</div>
+  </div>;
+}
 function Discover(){useCompanion();return <div className="discover-content"><h1>Follow your curiosity.</h1><p className="release-lead">A few ways to spend a moment with NOX. No perfect prompt needed.</p><div className="discovery-list"><a href="#prepare-code"><span className="discovery-title">Know what you built.</span><span>Bring code. Read the actual lines together, challenge an explanation, or rehearse in your own words.</span><small>Think together · source-linked conversation</small></a><a href="#learn"><span className="discovery-title">Why does the Moon change shape?</span><span>Move the Moon. Follow the light. Explain it back to NOX.</span><small>Explore · interactive example</small></a><a href="#afterimage"><span className="discovery-title">The door under your cursor.</span><span>A short mystery with a choice, an ending, and a little unease.</span><small>Play · an authored Afterimage</small></a><a href="#guessing"><span className="discovery-title">What’s NOX thinking of?</span><span>Ask questions, collect clues, and make your guess.</span><small>Play · a complete guessing round</small></a></div><div className="discover-footer"><a href="#conversation">Or just talk with NOX</a><button onClick={()=>companionBridge.start("Tell me a short original story, and let me choose what happens next.","mystery")}>Tell me a story</button><a href="#scenes">Open the performance studio</a></div></div>;}
 
 function Preferences(){useCompanion();const [notice,setNotice]=useState(''),[pendingDelete,setPendingDelete]=useState(null),[applying,setApplying]=useState(false);const entries=approvedPreferences.list();async function change(entry,raw){const options=preferenceOptions(entry);const value=options.find(([value])=>String(value)===raw)?.[0];const result=await approvedPreferences.update(entry.id,value);setNotice(result?'Preference updated. It applies to the next relevant reply.':'This preference could not be updated.');companionBridge.preferenceChanged();}

@@ -60,7 +60,7 @@ test('only the selected engine exposes its speaker while both choices survive sw
   await page.addInitScript(()=>{speechSynthesis.getVoices=()=>[{name:'CI Browser Voice',lang:'en-US'}];});
   await page.route('**/api/status',async route=>{const response=await route.fetch();await route.fulfill({response,json:{...await response.json(),voice:'natural'}});});
   await ready(page);await page.locator('#settings-button').click();
-  const natural=page.getByLabel('Orpheus character voice',{exact:true}),browser=page.getByLabel('Browser voice',{exact:true});
+  const natural=page.getByLabel('Natural speaker',{exact:true}),browser=page.getByLabel('Browser voice',{exact:true});
   await page.getByLabel('Voice',{exact:true}).selectOption('browser');await expect(natural).toBeHidden();await expect(browser).toBeVisible();
   await browser.selectOption('CI Browser Voice');
   await page.getByLabel('Voice',{exact:true}).selectOption('natural');await expect(browser).toBeHidden();await expect(natural).toBeVisible();await natural.selectOption('daniel');

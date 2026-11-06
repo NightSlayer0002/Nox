@@ -291,6 +291,15 @@
 .workspace .unlock-row button {font-size:15px;min-height:42px;padding:10px 14px}
 .workspace :is(dialog,.lab-dialog) {border-radius:8px;width:min(640px,calc(100vw - 32px));max-height:calc(var(--workspace-height,100dvh) - 32px);background:var(--bg);color:var(--text);padding:24px;border-color:var(--line)}
 .workspace .dialog-top .eyebrow {font-size:14px}
+.workspace #inside-dialog .dialog-top {align-items:center;margin-bottom:18px}
+.workspace #inside-dialog .dialog-top h2 {margin:0}
+.workspace #inside-dialog #close-inside {min-width:44px;min-height:44px}
+.workspace #inside-dialog :is(.voice-settings,.install-settings) {border-top:1px solid var(--line);padding-block:16px}
+.workspace #inside-dialog h3 {font-size:18px;font-weight:550;margin:0 0 12px}
+.workspace #inside-dialog :is(#voice-note,#speech-pace-note,#install-note) {color:var(--muted);font-size:14px;line-height:1.55;margin:8px 0}
+.workspace #inside-dialog .voice-settings select {width:min(50%,280px)}
+.workspace .voice-setting-actions {display:flex;flex-wrap:wrap;gap:8px;margin-top:14px}
+.workspace .voice-setting-actions button {min-height:44px}
 .workspace dialog h2 {font-size:28px;font-weight:500;letter-spacing:normal;margin:16px 0}
 .workspace .lab-form :is(input,textarea) {font-size:16px;border-radius:5px}
 .workspace .lab-tabs button,.workspace .lab-form label,.workspace .lab-check {font-size:15px}
