@@ -4,6 +4,7 @@ export default defineConfig({
   timeout:30000,expect:{timeout:10000},reporter:process.env.CI?'github':'list',
   outputDir:'artifacts/browser-results',
   use:{baseURL:'http://127.0.0.1:3017',trace:'retain-on-failure',screenshot:'only-on-failure',
+    channel:process.env.NOX_BROWSER_CHANNEL||undefined,
     // Network-failure journeys must reach their route handler: a claimed PWA
     // worker can otherwise fetch/cache the chunk outside page interception.
     // This isolates the test context; the production service worker is intact.
