@@ -254,3 +254,29 @@ svg {
       #07171b,
       #3c8d88);
 }
+.release-update {
+  position: fixed;
+  z-index: 80;
+  inset-block-start: max(82px, env(safe-area-inset-top));
+  inset-inline-end: max(16px, env(safe-area-inset-right));
+  width: min(420px, calc(100% - 32px));
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: 0 12px 32px #0004;
+}
+.release-update p {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.4;
+}
+.release-update button {
+  flex: none;
+  min-height: 44px;
+  padding: 6px 11px;
+}
