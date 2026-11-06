@@ -39,6 +39,30 @@ async function intersections(page){
   });
 }
 
+test('dragging NOX onto a completed message shows the hold cue and then the action menu',async({page})=>{
+  // Question: does the drag feedback identify the actual target until the action menu opens?
+  // Limits: Chromium mouse input and a synthetic reply, without touch hardware or GPU validation.
+  await page.goto(`${origin}/guest#conversation`);
+  await expect(page.locator('#brain-status')).toContainText('Guest visit');
+  await page.locator('#message').fill('CI message targeting');
+  await page.locator('#send-button').click();
+  const answer=page.locator('#conversation .message.nox:not(.draft)');
+  await expect(answer).toHaveCount(1);
+  const handle=await page.locator('.floating-nox-handle').boundingBox();
+  const target=await answer.locator('.message-content').boundingBox();
+  await page.mouse.move(handle.x+handle.width/2,handle.y+handle.height/2);
+  await page.mouse.down();
+  try{
+    await page.mouse.move(target.x+24,target.y+target.height/2);
+    await expect(answer.locator('.message-companion-dwell')).toHaveText('Hold for actions');
+    await expect(page.getByRole('group',{name:'Actions for this message'})).toBeVisible();
+    await expect(answer).toHaveAttribute('data-companion-state','selected');
+    await expect(answer.locator('.message-companion-dwell')).toHaveCount(0);
+  }finally{await page.mouse.up();}
+  await page.keyboard.press('Escape');
+  await expect(answer).not.toHaveAttribute('data-companion-state');
+});
+
 test('automatic placement clears both roles after routes and closing code preparation',async({page})=>{
   await page.setViewportSize({width:1188,height:761});
   await page.goto(`${origin}/guest#conversation`);

@@ -1,16 +1,79 @@
-/* Edge light for the existing boxed actions. Typography, fill and geometry
- * remain owned by the source-button and page styles. Text links stay quiet. */
+/* The moving reflection stays inside the control, leaving its hit area fixed. */
+.landing {
+  --action-edge: #9ce6da;
+  --action-tail: #b79be8;
+  --action-scan: #b6a4ec42;
+}
+:root[data-theme=light] .landing {
+  --action-edge: #23615e;
+  --action-tail: #67498d;
+  --action-scan: #7756a433;
+}
+.landing :is(.liquid-button:not(.material-control),.contact-nav .nav-enter) {
+  --action-edge: #23615e;
+  --action-tail: #67498d;
+  --action-scan: #7756a433;
+}
+:root[data-theme=light] .landing :is(.liquid-button:not(.material-control),.contact-nav .nav-enter) {
+  --action-edge: #b8f1de;
+  --action-tail: #dac4ff;
+  --action-scan: #d8c4ff45;
+}
 .landing :is(.liquid-button,.nav-enter,.contact-actions button,.mobile-menu) {
-  transition:box-shadow .34s cubic-bezier(.22,1,.36,1),background var(--motion-fast,.14s),color var(--motion-fast,.14s),border-color var(--motion-fast,.14s);
+  position:relative;
+  isolation:isolate;
+  overflow:hidden;
 }
-.landing :is(.liquid-button,.nav-enter,.contact-actions button,.mobile-menu):not(:disabled):not([aria-disabled=true]):is(:hover,:focus-visible,:active) {
-  box-shadow:inset 0 0 0 1px #fff5d5,0 0 0 1px #f4e5b6d9,0 0 14px #f4e5b663,0 0 34px #f4e5b638,0 8px 24px #0003;
+.landing :is(.liquid-button,.nav-enter,.contact-actions button,.mobile-menu)::after {
+  content:"";
+  display:block;
+  position:absolute;
+  inset:3px;
+  pointer-events:none;
+  opacity:0;
+  background:
+    linear-gradient(90deg,var(--action-edge),transparent) left top / 18px 1px,
+    linear-gradient(var(--action-edge),transparent) left top / 1px 9px,
+    linear-gradient(270deg,var(--action-tail),transparent) right bottom / 18px 1px,
+    linear-gradient(0deg,var(--action-tail),transparent) right bottom / 1px 9px;
+  background-repeat:no-repeat;
 }
-/* The Try NOX fill and lettering do not change when its edge lights up. */
-.landing :is(.liquid-button,.nav-enter)[href="/guest#conversation"]:is(:hover,:focus-visible,:active) {
+.landing :is(.liquid-button,.nav-enter,.contact-actions button,.mobile-menu):not(:disabled):not([aria-disabled=true]):active::after {
+  opacity:1;
+}
+.landing :is(.liquid-button,.nav-enter,.contact-actions button,.mobile-menu,.hero-explore,.start-list a):focus-visible {
+  outline:2px solid var(--accent);
+  outline-offset:4px;
+}
+.landing :is(.liquid-button:not(.material-control),.contact-nav .nav-enter):is(:hover,:focus-visible,:active) {
   background:var(--accent);
   color:var(--bg);
 }
-@media(prefers-reduced-motion:reduce) {
-  .landing :is(.liquid-button,.nav-enter,.contact-actions button,.mobile-menu) {transition:none}
+
+@media (hover:hover) and (pointer:fine) {
+  .landing :is(.liquid-button,.nav-enter,.contact-actions button,.mobile-menu):not(:disabled):not([aria-disabled=true]):hover::after {
+    opacity:1;
+  }
+  @media (prefers-reduced-motion:no-preference) {
+    .landing :is(.liquid-button,.nav-enter,.contact-actions button,.mobile-menu):not(:disabled):not([aria-disabled=true]):hover::before {
+      content:"";
+      display:block;
+      position:absolute;
+      z-index:-1;
+      inset:0;
+      pointer-events:none;
+      background:linear-gradient(108deg,transparent 25%,var(--action-scan) 48%,transparent 68%);
+      animation:landing-reflection 280ms cubic-bezier(.22,1,.36,1) both;
+    }
+    .landing :is(.hero-explore span,.start-list svg) {
+      transition:transform 180ms cubic-bezier(.22,1,.36,1);
+    }
+    .landing .hero-explore:hover span {transform:translateY(3px)}
+    .landing .start-list a:hover svg {transform:translateX(4px)}
+  }
+}
+@keyframes landing-reflection {
+  from {transform:translateX(-82%);opacity:.35}
+  55% {opacity:1}
+  to {transform:translateX(82%);opacity:0}
 }

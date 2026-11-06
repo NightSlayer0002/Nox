@@ -1,8 +1,32 @@
-/* Deliberate message exploration, using the workspace's existing palette. */
-/* A light wash belongs to the text; no enclosing rectangle around the row. */
-.workspace #conversation .message[data-companion-state]{outline:none;background:linear-gradient(100deg,color-mix(in srgb,var(--secondary-accent) 10%,transparent),transparent 78%);border-radius:0}
-.workspace #conversation .message[data-companion-state=selected] .message-content{color:var(--text)}
-.workspace .message-companion-dwell{position:absolute;left:0;bottom:-6px;width:48px;height:2px;border-radius:2px;background:var(--secondary-accent);pointer-events:none;transform-origin:left center;animation:message-dwell-progress 650ms linear both}
+/* The target wash and charge trace sit behind the message interaction. */
+.workspace #conversation .message[data-companion-state]{
+  --target-violet:#b79be8;
+  --target-teal:var(--secondary-accent);
+  background:linear-gradient(100deg,color-mix(in srgb,var(--target-teal) 15%,transparent),color-mix(in srgb,var(--target-violet) 12%,transparent) 52%,transparent);
+}
+:root[data-theme=light] .workspace #conversation .message[data-companion-state]{--target-violet:#70519a}
+.workspace #conversation .message.user[data-companion-state]{background:linear-gradient(270deg,color-mix(in srgb,var(--target-teal) 15%,transparent),color-mix(in srgb,var(--target-violet) 12%,transparent) 52%,transparent)}
+.workspace #conversation .message[data-companion-state]::after{
+  content:"";position:absolute;inset:0;pointer-events:none;
+  background:
+    linear-gradient(90deg,var(--target-teal),transparent) left top / 17px 1px,
+    linear-gradient(var(--target-teal),transparent) left top / 1px 9px,
+    linear-gradient(270deg,var(--target-violet),transparent) right bottom / 17px 1px,
+    linear-gradient(0deg,var(--target-violet),transparent) right bottom / 1px 9px;
+  background-repeat:no-repeat;
+}
+.workspace #conversation .message[data-companion-state=selected]::after{opacity:.65}
+.workspace #conversation .message[data-companion-state=holding] .message-actions:not(:focus-within){opacity:0}
+.workspace .message-companion-dwell{
+  position:absolute;inset-block-start:calc(100% + 4px);inset-inline-end:0;
+  width:max-content;padding:2px 8px 5px;border-radius:4px;overflow:hidden;pointer-events:none;
+  background:var(--surface);color:var(--text);font-size:12px;line-height:1.4;
+}
+.workspace .message-companion-dwell::after{
+  content:"";position:absolute;inset:auto 0 0;height:2px;
+  background:linear-gradient(90deg,var(--target-teal),var(--target-violet));transform-origin:left center;
+  animation:message-dwell-progress 650ms linear both;animation-duration:inherit;
+}
 @keyframes message-dwell-progress{from{transform:scaleX(0)}to{transform:scaleX(1)}}
 
 /* The action strip sits outside its message box: its own hit area must work
@@ -31,7 +55,7 @@
  .workspace .message-companion-menu .message-companion-close{width:44px;min-height:44px;padding:12px}
 }
 @media(prefers-reduced-motion:reduce){
- .workspace .message-companion-dwell,.workspace .message-companion-menu[data-entry=pointer]{animation:none}
+ .workspace .message-companion-dwell::after,.workspace .message-companion-menu[data-entry=pointer]{animation:none}
  .workspace .message-companion-menu .message-companion-action{transition:none}
  .workspace .message-companion-menu .message-companion-action:active{transform:none}
 }

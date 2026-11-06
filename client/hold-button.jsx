@@ -38,8 +38,11 @@ export function HoldButton({metal,source,onComplete,onProgress,disabled=false}){
   return <animated.div className="material-press" style={{transform:to([x,y,sx,sy,tilt],(px,py,scaleX,scaleY,angle)=>`translate(${px}px,${py}px) rotate(${angle}deg) scale(${scaleX},${scaleY})`)}}>
     <LiquidButton className="material-control" source={source} interaction={interaction} pressed={metal} disabled={disabled}
       onPointerDown={begin} onPointerUp={release} onPointerCancel={release} onLostPointerCapture={release}
-      onPointerEnter={()=>{interaction.current.hover=1;spring.start({y:-3});}}
-      onPointerMove={event=>{if(event.pointerType==='touch')return;const box=event.currentTarget.getBoundingClientRect(),dx=Math.max(-1,Math.min(1,(event.clientX-box.left)/box.width*2-1));spring.start({x:dx*5,tilt:dx*1.8});}}
+      onPointerEnter={event=>{
+        if(event.pointerType==='touch'||!matchMedia('(hover:hover) and (pointer:fine) and (prefers-reduced-motion:no-preference)').matches)return;
+        interaction.current.hover=1;spring.start({y:-3});
+      }}
+      onPointerMove={event=>{if(!interaction.current.hover)return;const box=event.currentTarget.getBoundingClientRect(),dx=Math.max(-1,Math.min(1,(event.clientX-box.left)/box.width*2-1));spring.start({x:dx*5,tilt:dx*1.8});}}
       onPointerLeave={()=>{interaction.current.hover=0;if(!gate.current.active)spring.start({x:0,y:0,tilt:0});}}
       onKeyDown={event=>{if(event.key==='Escape')cancel();}}
       onClick={event=>{if(event.detail===0&&!disabled){cancel();callbacks.current.onComplete();}}} aria-describedby="material-help">
