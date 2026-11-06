@@ -3,17 +3,30 @@ import {FIRST_CONTACT} from '../../client/afterimage-example.js';
 import {readFile} from 'node:fs/promises';
 
 test('real same-origin tabs serialize notebook and story mutations without reviving deleted items',async({context,page})=>{
-  const second=await context.newPage();await Promise.all([page.goto('/guest#conversation'),second.goto('/guest#conversation')]);
-  for(const tab of [page,second])await tab.evaluate(async()=>{
+  // Exercise the production stores on a real origin without loading the workspace UI.
+  const fixture='/storage-layout-fixture';
+  await context.route(`**${fixture}`,route=>route.fulfill({contentType:'text/html',body:'<title>Storage fixture</title>'}));
+  const second=await context.newPage();await Promise.all([page.goto(fixture),second.goto(fixture)]);
+  const openStores=tab=>tab.evaluate(async()=>{
     const {createKnowledge}=await import('/js/knowledge.js');const {createAfterimageStore}=await import('/js/afterimage-store.js');
     window.ciNotes=createKnowledge(localStorage);window.ciStories=createAfterimageStore(localStorage);
   });
+  for(const tab of [page,second])await openStores(tab);
   const note=await page.evaluate(()=>ciNotes.add({title:'Delete this fixture',text:'A fictional notebook entry.'}));
   const story=await page.evaluate(packet=>ciStories.add({packet,seed:'A synthetic door',tone:'wonder',source:'authored'}),FIRST_CONTACT);
-  await second.evaluate(()=>{ciNotes.list();ciStories.list();});
-  await Promise.all([page.evaluate(id=>ciNotes.remove(id),note.id),second.evaluate(()=>ciNotes.setEnabled(false))]);
-  await Promise.all([page.evaluate(id=>ciStories.remove(id),story.id),second.evaluate(packet=>ciStories.add({packet:{...packet,title:'Surviving fixture'},seed:'Another synthetic door',tone:'wonder',source:'authored'}),FIRST_CONTACT)]);
-  for(const tab of [page,second])expect(await tab.evaluate(()=>({notes:ciNotes.list().length,enabled:ciNotes.enabled,stories:ciStories.list().map(story=>story.packet.title)}))).toEqual({notes:0,enabled:false,stories:['Surviving fixture']});
+  const snapshot=tab=>tab.evaluate(()=>({notes:ciNotes.list().map(note=>note.id),enabled:ciNotes.enabled,stories:ciStories.list().map(story=>story.id)}));
+  await expect.poll(()=>snapshot(second)).toEqual({notes:[note.id],enabled:true,stories:[story.id]});
+  const [noteRemoved]=await Promise.all([page.evaluate(id=>ciNotes.remove(id),note.id),second.evaluate(()=>ciNotes.setEnabled(false))]);
+  const [storyRemoved,survivor]=await Promise.all([page.evaluate(id=>ciStories.remove(id),story.id),second.evaluate(packet=>ciStories.add({packet:{...packet,title:'Surviving fixture'},seed:'Another synthetic door',tone:'wonder',source:'authored'}),FIRST_CONTACT)]);
+  expect(noteRemoved).toBe(true);
+  expect(storyRemoved).toMatchObject({removed:true,committed:true,scope:'browser'});
+  const expected={notes:[],enabled:false,stories:[survivor.id]};
+  // Chrome can settle the write promises before delivering the cross-tab
+  // updates. Both tabs must converge and a reload must read the same archive.
+  for(const tab of [page,second])await expect.poll(()=>snapshot(tab)).toEqual(expected);
+  await second.reload();
+  await openStores(second);
+  expect(await snapshot(second)).toEqual(expected);
 });
 
 test('source titles survive fresh replies, owner reload and the actual archive download',async({page})=>{
