@@ -123,7 +123,7 @@ export function attachMessageCompanion({documentTarget=globalThis.document,conve
       cancelDwell();
       const delay=Math.max(0,Number.isFinite(dwellMs)?dwellMs:650);
       const indicator=documentTarget.createElement('span');indicator.className='message-companion-dwell';indicator.textContent='Hold for actions';indicator.setAttribute('aria-hidden','true');indicator.style.animationDuration=`${delay}ms`;
-      message.dataset.companionState='holding';message.append(indicator);
+      message.dataset.companionState='holding';message.querySelector('.message-content').append(indicator);
       const waiting={message,x,y,startX:x,startY:y,indicator};pending=waiting;
       timer=setTimeout(()=>{
         if(pending!==waiting)return;
