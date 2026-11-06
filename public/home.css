@@ -179,7 +179,7 @@ body.landing{background:#050909}
 /* Quiet landing composition; the source scene/scroll pose is unchanged. */
 body.landing{background:var(--bg);font-family:var(--font-ui)}
 .landing{--landing-navy:#0b1523;--landing-teal:#17413f;--landing-violet:#44335f}
-.landing .contact-world,.landing .source-fallback{
+.landing .contact-world{
  background:
   radial-gradient(ellipse at 85% 21%,var(--landing-violet),transparent 58%),
   radial-gradient(ellipse at 16% 70%,var(--landing-teal),transparent 63%),
@@ -187,7 +187,13 @@ body.landing{background:var(--bg);font-family:var(--font-ui)}
 }
 .landing .contact-world::after{content:"";position:absolute;inset:0;background:var(--bg);opacity:calc(var(--playground-shade,0)*.72)}
 :root[data-theme=light] .landing{--landing-navy:#dce5ed;--landing-teal:#c6e2dc;--landing-violet:#e0d5ec}
-.contact-water{opacity:calc(.74 - var(--playground-shade,0)*.56)}.contact-water::after{background:linear-gradient(100deg,color-mix(in srgb,var(--bg) 46%,transparent),transparent 72%),linear-gradient(0deg,color-mix(in srgb,var(--bg) 24%,transparent),transparent 38%)}
+/* The landing palette belongs to the persistent world behind the animated terrain. */
+.landing .contact-water{opacity:calc(.42 - var(--playground-shade,0)*.30)}
+.landing .contact-water::after{content:none}
+.landing .contact-water .source-fallback{background:none}
+.landing .source-scene-spring{opacity:0;transition:opacity 520ms ease-out}
+.landing .source-scene[data-render-ready=true] .source-scene-spring{opacity:1}
+@media(prefers-reduced-motion:reduce){.landing .source-scene-spring{transition:none}}
 .contact-nav{padding:24px 7vw;background:linear-gradient(color-mix(in srgb,var(--bg) 95%,transparent),transparent);gap:24px}
 .contact-nav .brand{font-size:18px;font-weight:600;letter-spacing:.3em}
 .home-links{font-size:16px}.home-links>a:first-child{color:var(--muted)}
