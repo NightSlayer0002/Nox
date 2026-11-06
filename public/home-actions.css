@@ -1,79 +1,91 @@
-/* The moving reflection stays inside the control, leaving its hit area fixed. */
-.landing {
-  --action-edge: #9ce6da;
-  --action-tail: #b79be8;
-  --action-scan: #b6a4ec42;
-}
-:root[data-theme=light] .landing {
-  --action-edge: #23615e;
-  --action-tail: #67498d;
-  --action-scan: #7756a433;
-}
-.landing :is(.liquid-button:not(.material-control),.contact-nav .nav-enter) {
-  --action-edge: #23615e;
-  --action-tail: #67498d;
-  --action-scan: #7756a433;
-}
-:root[data-theme=light] .landing :is(.liquid-button:not(.material-control),.contact-nav .nav-enter) {
-  --action-edge: #b8f1de;
-  --action-tail: #dac4ff;
-  --action-scan: #d8c4ff45;
-}
+/* One color sweep crosses the whole control and leaves a readable active state. */
 .landing :is(.liquid-button,.nav-enter,.contact-actions button,.mobile-menu) {
   position:relative;
   isolation:isolate;
   overflow:hidden;
 }
+.landing :is(.liquid-button:not(.material-control),.nav-enter,.contact-actions button,.mobile-menu) {
+  --action-fill:linear-gradient(108deg,#67d8c2 0%,#b1f0df 48%,#c4a6f8 100%);
+}
+.landing .material-control {
+  --action-fill:linear-gradient(108deg,#204b45,#1a3337 48%,#40335c);
+}
+.landing :is(.liquid-button,.nav-enter,.contact-actions button,.mobile-menu)::before,
 .landing :is(.liquid-button,.nav-enter,.contact-actions button,.mobile-menu)::after {
   content:"";
   display:block;
   position:absolute;
-  inset:3px;
+  inset:0;
+  z-index:-1;
   pointer-events:none;
-  opacity:0;
-  background:
-    linear-gradient(90deg,var(--action-edge),transparent) left top / 18px 1px,
-    linear-gradient(var(--action-edge),transparent) left top / 1px 9px,
-    linear-gradient(270deg,var(--action-tail),transparent) right bottom / 18px 1px,
-    linear-gradient(0deg,var(--action-tail),transparent) right bottom / 1px 9px;
-  background-repeat:no-repeat;
 }
-.landing :is(.liquid-button,.nav-enter,.contact-actions button,.mobile-menu):not(:disabled):not([aria-disabled=true]):active::after {
+.landing :is(.liquid-button,.nav-enter,.contact-actions button,.mobile-menu)::before {
+  background:var(--action-fill);
+  opacity:0;
+}
+.landing :is(.liquid-button,.nav-enter,.contact-actions button,.mobile-menu)::after {
+  background:linear-gradient(108deg,transparent 29%,#ffffff1a 41%,#ffffff9e 49%,#ffffff30 54%,transparent 68%);
+  opacity:0;
+}
+.landing :is(.liquid-button:not(.material-control),.nav-enter,.contact-actions button,.mobile-menu):not(:disabled):not([aria-disabled=true]):is(:focus-visible,:active) {
+  color:#142423;
+}
+.landing .material-control:not(:disabled):not([aria-disabled=true]):is(:focus-visible,:active) {
+  color:#f3f1ea;
+}
+.landing :is(.liquid-button,.nav-enter,.contact-actions button,.mobile-menu):not(:disabled):not([aria-disabled=true]):is(:focus-visible,:active)::before {
   opacity:1;
 }
 .landing :is(.liquid-button,.nav-enter,.contact-actions button,.mobile-menu,.hero-explore,.start-list a):focus-visible {
   outline:2px solid var(--accent);
   outline-offset:4px;
 }
-.landing :is(.liquid-button:not(.material-control),.contact-nav .nav-enter):is(:hover,:focus-visible,:active) {
-  background:var(--accent);
-  color:var(--bg);
+.landing .liquid-button:has(.launch-arrow)>span {
+  display:inline-flex;
+  align-items:center;
+  gap:10px;
 }
-
+.landing .launch-arrow {
+  width:16px;
+  height:16px;
+  flex:none;
+  fill:none;
+  stroke:currentColor;
+  stroke-width:1.65;
+  stroke-linecap:round;
+  stroke-linejoin:round;
+}
+@media(max-width:400px) {
+  .landing .hero-actions {column-gap:14px}
+  .landing .hero-actions .liquid-button:has(.launch-arrow) {padding-inline:17px}
+}
 @media (hover:hover) and (pointer:fine) {
-  .landing :is(.liquid-button,.nav-enter,.contact-actions button,.mobile-menu):not(:disabled):not([aria-disabled=true]):hover::after {
+  .landing :is(.liquid-button:not(.material-control),.nav-enter,.contact-actions button,.mobile-menu):not(:disabled):not([aria-disabled=true]):hover {
+    color:#142423;
+  }
+  .landing .material-control:not(:disabled):not([aria-disabled=true]):hover {
+    color:#f3f1ea;
+  }
+  .landing :is(.liquid-button,.nav-enter,.contact-actions button,.mobile-menu):not(:disabled):not([aria-disabled=true]):hover::before {
     opacity:1;
   }
+  .landing .start-list a:hover {
+    background:linear-gradient(105deg,color-mix(in srgb,var(--secondary-accent) 21%,transparent),color-mix(in srgb,var(--landing-violet) 40%,transparent));
+  }
   @media (prefers-reduced-motion:no-preference) {
-    .landing :is(.liquid-button,.nav-enter,.contact-actions button,.mobile-menu):not(:disabled):not([aria-disabled=true]):hover::before {
-      content:"";
-      display:block;
-      position:absolute;
-      z-index:-1;
-      inset:0;
-      pointer-events:none;
-      background:linear-gradient(108deg,transparent 25%,var(--action-scan) 48%,transparent 68%);
-      animation:landing-reflection 280ms cubic-bezier(.22,1,.36,1) both;
+    .landing :is(.liquid-button,.nav-enter,.contact-actions button,.mobile-menu):not(:disabled):not([aria-disabled=true]):hover::after {
+      animation:landing-reflection 460ms cubic-bezier(.33,0,.2,1) both;
     }
-    .landing :is(.hero-explore span,.start-list svg) {
-      transition:transform 180ms cubic-bezier(.22,1,.36,1);
+    .landing :is(.launch-arrow,.hero-explore span,.start-list svg) {
+      transition:transform 220ms cubic-bezier(.22,1,.36,1);
     }
-    .landing .hero-explore:hover span {transform:translateY(3px)}
-    .landing .start-list a:hover svg {transform:translateX(4px)}
+    .landing :is(.liquid-button,.nav-enter):hover .launch-arrow {transform:translateX(6px)}
+    .landing .hero-explore:hover span {transform:translateY(5px)}
+    .landing .start-list a:hover svg {transform:translateX(7px)}
   }
 }
 @keyframes landing-reflection {
-  from {transform:translateX(-82%);opacity:.35}
-  55% {opacity:1}
-  to {transform:translateX(82%);opacity:0}
+  from {transform:translateX(-95%);opacity:0}
+  24%,70% {opacity:1}
+  to {transform:translateX(95%);opacity:0}
 }
