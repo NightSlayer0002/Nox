@@ -178,6 +178,15 @@ body.landing{background:#050909}
 
 /* Quiet landing composition; the source scene/scroll pose is unchanged. */
 body.landing{background:var(--bg);font-family:var(--font-ui)}
+.landing{--landing-navy:#0b1523;--landing-teal:#17413f;--landing-violet:#44335f}
+.landing .contact-world,.landing .source-fallback{
+ background:
+  radial-gradient(ellipse at 85% 21%,var(--landing-violet),transparent 58%),
+  radial-gradient(ellipse at 16% 70%,var(--landing-teal),transparent 63%),
+  linear-gradient(145deg,var(--bg),var(--landing-navy) 62%,var(--bg));
+}
+.landing .contact-world::after{content:"";position:absolute;inset:0;background:var(--bg);opacity:calc(var(--playground-shade,0)*.72)}
+:root[data-theme=light] .landing{--landing-navy:#dce5ed;--landing-teal:#c6e2dc;--landing-violet:#e0d5ec}
 .contact-water{opacity:calc(.74 - var(--playground-shade,0)*.56)}.contact-water::after{background:linear-gradient(100deg,color-mix(in srgb,var(--bg) 46%,transparent),transparent 72%),linear-gradient(0deg,color-mix(in srgb,var(--bg) 24%,transparent),transparent 38%)}
 .contact-nav{padding:24px 7vw;background:linear-gradient(color-mix(in srgb,var(--bg) 95%,transparent),transparent);gap:24px}
 .contact-nav .brand{font-size:18px;font-weight:600;letter-spacing:.3em}
@@ -191,6 +200,9 @@ body.landing{background:var(--bg);font-family:var(--font-ui)}
 .contact-copy .liquid-button{font-size:16px;min-height:50px;padding:14px 26px;border-radius:3px;border:0;background:var(--accent);color:var(--bg)}
 .liquid-button:not(.material-control)>canvas{display:none}
 .hero-instruction{font-size:14px;margin-top:24px;opacity:1}
+.hero-explore{display:inline-flex;align-items:center;gap:10px;min-height:44px;color:var(--text);font-size:16px}
+.hero-explore:hover{text-decoration:underline;text-underline-offset:4px}
+.hero-explore span{color:var(--muted)}
 .contact-actions{gap:12px}.contact-actions button,.contact-actions .nav-enter{font-size:16px;font-weight:600;min-height:48px;border-radius:3px;padding:13px 24px;border:0;background:var(--surface);color:var(--text)}
 .contact-copy .material-control{background:var(--surface);color:var(--text);padding:14px 20px;border:1px solid var(--line);min-height:76px}
 .material-mark{border-radius:3px}.material-label>span{font-size:16px}.material-label small,.material-help{font-size:14px;letter-spacing:normal;line-height:1.55}
@@ -198,8 +210,19 @@ body.landing{background:var(--bg);font-family:var(--font-ui)}
 .hud-presence{font-size:14px;color:var(--muted);margin:0;max-width:400px;line-height:1.45}
 .contact-details{max-width:none;margin:0 9vw 64px;padding:64px 0 0;border:0;pointer-events:auto}
 .contact-details h2{font-size:clamp(36px,4vw,58px);font-weight:400;max-width:760px}
+.contact-start{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:clamp(32px,7vw,100px);align-items:start}
+.contact-start h2{margin:0}
+.start-list{margin:0;padding:0;list-style:none}
+.start-list li{border-block-start:1px solid var(--line)}
+.start-list li:last-child{border-block-end:1px solid var(--line)}
+.start-list a{display:flex;align-items:center;justify-content:space-between;gap:18px;min-height:80px;padding:14px 12px;color:var(--text)}
+.start-list a:hover{background:color-mix(in srgb,var(--text) 6%,transparent)}
+.start-list :is(strong,small){display:block}
+.start-list strong{font-size:21px;font-weight:500}
+.start-list small{font-size:16px;color:var(--muted);line-height:1.4;margin-top:3px}
+.start-list svg{width:21px;height:21px;flex:none;stroke:currentColor;stroke-width:1.5;fill:none}
 .detail-intro{max-width:520px;font-size:18px;line-height:1.6;color:var(--muted);margin:20px 0 28px}
-.home-privacy{margin-top:40px;max-width:880px;color:var(--muted);font-size:16px}
+.home-privacy{margin-top:40px;max-width:880px;color:var(--muted);font-size:16px;scroll-margin-top:110px}
 .home-privacy summary{cursor:pointer;min-height:44px;display:flex;align-items:center;list-style:none}
 .home-privacy summary::-webkit-details-marker{display:none}.home-privacy[open] summary{color:var(--text)}
 .home-privacy>a{display:inline-block;margin-top:20px;text-decoration:underline;text-underline-offset:4px}
@@ -217,6 +240,8 @@ body.landing{background:var(--bg);font-family:var(--font-ui)}
  .contact-copy .material-control{min-width:0;max-width:100%;padding:14px}.material-label{min-width:0}.material-label>span{font-size:16px}.material-label small,.material-help{font-size:13px}
  .contact-hud{left:7vw;width:calc(100% - 180px);max-width:none;bottom:24px}.contact-hud .hud-presence{max-width:100%;font-size:13px;min-height:0}
  .contact-details{margin:0 7vw 45px;padding-top:45px}.detail-intro{font-size:17px}.detail-columns{gap:28px}
+ .contact-start{grid-template-columns:minmax(0,1fr);gap:8px}
+ .start-list a{padding-inline:4px}
  .source-footer{margin:0 7vw;padding-bottom:110px;gap:20px;flex-wrap:wrap}.source-footer>span:nth-child(2){width:auto}
 }
 
