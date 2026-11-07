@@ -12,27 +12,27 @@ class Boundary extends Component{
   componentDidCatch(){this.props.onError?.();}
   render(){return this.state.failed?<div className="source-fallback" aria-hidden="true"/>:this.props.children;}
 }
-function revealTerrain(material){
-  if(material.userData.terrainRelief)return;
+function revealTerrain(material,atmospheric){
+  if(!atmospheric||material.userData.terrainRelief)return;
   material.userData.terrainRelief=true;
   const compile=material.onBeforeCompile;
-  // Keep the licensed water geometry and its animated noise. Its displaced
-  // height becomes broad mineral shelves, so depth reads even in a dark room.
+  // The defaults/waterPlane shader uses physical lighting. Patch that actual
+  // output, retaining its animated geometry and the surrounding CSS palette.
   material.onBeforeCompile=function(shader,...args){
     compile.call(this,shader,...args);
-    shader.fragmentShader=shader.fragmentShader.replace(
-      'gl_FragColor = vec4(color1 * vPos.x + color2 * vPos.y + color3 * vPos.z, 1.);',
-      `float elevation = clamp(vPos.z * 0.24 + 0.5, 0.0, 1.0);
-       vec3 terrainColor = mix(color1, color2, smoothstep(0.12, 0.68, elevation));
-       terrainColor = mix(terrainColor, color3, smoothstep(0.60, 0.91, elevation) * 0.74);
-       vec3 reliefNormal = normalize(cross(dFdx(vPos), dFdy(vPos)));
-       float relief = 0.72 + 0.28 * abs(dot(reliefNormal, normalize(vec3(-0.3, 0.5, 1.0))));
-       float mineralSeam = 1.0 - smoothstep(0.012, 0.055, abs(elevation - 0.67));
-       terrainColor = mix(terrainColor * relief, vec3(0.25, 0.46, 0.44), mineralSeam * 0.04);
-       gl_FragColor = vec4(terrainColor, 1.0);`
-    );
+    shader.vertexShader='varying vec2 noxTerrainUv;\n'+shader.vertexShader.replace('void main() {','void main() {\n  noxTerrainUv = uv;');
+    shader.fragmentShader='varying vec2 noxTerrainUv;\n'+shader.fragmentShader
+      // Unbounded height extrapolated the gradient into negative RGB, making
+      // abrupt dark shelves rather than a continuous material.
+      .replace('color3, vPos.z)','color3, smoothstep(-1.8, 2.2, vPos.z))')
+      .replace('gl_FragColor = vec4(outgoingLight, diffuseColor.a);',
+        `vec2 edge = smoothstep(vec2(0.0), vec2(0.24), noxTerrainUv) * smoothstep(vec2(0.0), vec2(0.24), 1.0 - noxTerrainUv);
+         vec3 reliefNormal = normalize(cross(dFdx(vPos), dFdy(vPos)));
+         float veil = smoothstep(0.08, 0.65, abs(reliefNormal.z));
+         gl_FragColor = vec4(outgoingLight, diffuseColor.a * edge.x * edge.y * veil);`);
   };
-  material.customProgramCacheKey=()=> 'nox-water-relief-v2';
+  material.transparent=true;material.depthWrite=false;
+  material.customProgramCacheKey=()=> 'nox-water-atmosphere-v1';
   material.needsUpdate=true;
 }
 function Budget({onCanvas,pose}){
@@ -86,7 +86,7 @@ function Budget({onCanvas,pose}){
     const delta=lastFrame.current===null?1/SOURCE_MATERIAL_FPS:(now-lastFrame.current)/1000;lastFrame.current=now;
     const mesh=scene.getObjectByName('shadergradient-mesh');
     if(mesh){
-      revealTerrain(mesh.material);
+      revealTerrain(mesh.material,Boolean(pose));
       const input=signals.current;
       terrain.current=advanceTerrain(terrain.current,{...input,activity:document.body.dataset.activity,voice:document.body.dataset.voiceState,typing:now<input.typingUntil?1:0},delta);
       input.scrollImpulse=0;
@@ -94,7 +94,7 @@ function Budget({onCanvas,pose}){
       // These are the incumbent water shader's actual deformation uniforms.
       // Shape and metal use one cadence, independent of the display rate.
       if(uniforms.uTime)uniforms.uTime.value=water.time;
-      if(uniforms.uNoiseStrength)uniforms.uNoiseStrength.value=water.strength;
+      if(uniforms.uNoiseStrength)uniforms.uNoiseStrength.value=water.strength*(pose?.48:1);
       if(uniforms.uNoiseDensity)uniforms.uNoiseDensity.value=water.density;
       mesh.rotation.set(Math.PI/4+water.tiltX,water.tiltY,(pose?.waterTurn||0)+water.turn);
       mesh.position.set((pose?.waterX||0)+water.x,.9+water.y,-.3);
