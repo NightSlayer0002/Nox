@@ -11,6 +11,7 @@ import {visit} from '/js/visit-scope.js';
 import {EXPORT_PROFILES,resolveExportProfile} from '/js/export-profile.js';
 const disk=visit.storage;
 const store=createAfterimageStore(disk);
+export const storyStoreReady=store.ready;
 const example=normalizeAfterimage(FIRST_CONTACT);
 const timecode=ms=>`${String(Math.floor(ms/1000/60)).padStart(2,'0')}:${String(Math.floor(ms/1000)%60).padStart(2,'0')}`;
 const tones=[['wonder','Wonder','A small impossible thing.'],['uncanny','Uncanny','Leave the light on.'],['bold','Bold','Break something interesting.']];
@@ -95,26 +96,58 @@ export default function Afterimage(){
       else setNotice('Your earlier edits were applied. Your newer edits are still open; apply them when ready.');
     }catch(e){if(e.code==='story_conflict')setConflict(true);setError(e.message);}finally{editPending.current=false;setSaving(false);}
   }
-  function reviewSavedCut(){
-    const latest=store.get(current?.id);
-    if(!latest){setError('This story was removed in another tab. Your open edits are still here; export them before leaving.');return;}
-    afterimageBridge.stop('review saved cut');setCurrent(latest);setConflict(false);setError('');
-    setNotice(editor?'Reviewing the latest saved branch. Your draft is still open; applying it will replace this cut’s lines.':'Showing the latest saved cut. Review it before choosing another branch.');
+  async function reviewSavedCut(){
+    setSaving(true);
+    try{
+      if(await store.refresh()===false)throw Error(store.error||'Your story archive could not be loaded. Your open edits are still here.');
+      const latest=store.get(current?.id);
+      if(!latest){setError('This story was removed in another tab. Your open edits are still here; export them before leaving.');return;}
+      afterimageBridge.stop('review saved cut');setCurrent(latest);setConflict(false);setError('');
+      setNotice(editor?'Reviewing the latest saved branch. Your draft is still open; applying it will replace this cut’s lines.':'Showing the latest saved cut. Review it before choosing another branch.');
+    }catch(error){setError(error.message);}finally{setSaving(false);}
   }
-  function restore(id){
-    const item=store.get(id);if(!item){setError('This reception was removed from this browser.');return;}
+  async function restore(id){
     if(keepOpenEdits())return;
-    afterimageBridge.stop('archive selected');setCurrent(item);setSeed(item.seed);setTone(item.tone);setConflict(false);setEditor(false);setDraftLines([]);setError('');setNotice('Reception restored. No model request.');
+    setSaving(true);
+    try{
+      if(await store.refresh()===false)throw Error(store.error||'Your story archive could not be loaded. Your current cut is still here.');
+      const item=store.get(id);if(!item){setError('This reception was removed from this browser.');return;}
+      afterimageBridge.stop('archive selected');setCurrent(item);setSeed(item.seed);setTone(item.tone);setConflict(false);setEditor(false);setDraftLines([]);setError('');setNotice('Reception restored. No model request.');
+    }catch(error){setError(error.message);}finally{setSaving(false);}
   }
   async function remove(id){
     if(current?.id===id&&keepOpenEdits())return;
     setSaving(true);setNotice('');setError('');
     try{const result=await store.remove(id);if(!result.committed||!result.removed){setError(result.error||'This story was already removed in another tab.');setItems(store.list());return;}
-      if(current?.id===id){afterimageBridge.stop('reception deleted');setCurrent(null);setConflict(false);setEditor(false);setDraftLines([]);}setPendingDelete(null);setNotice(result.scope==='browser'?'Reception removed from this browser.':'Reception removed from this visit.');
+      if(current?.id===id){afterimageBridge.stop('reception deleted');setCurrent(null);setConflict(false);setEditor(false);setDraftLines([]);}
+      setPendingDelete(null);
+      let message='Reception removed from this visit.';
+      if(result.scope==='browser')message=store.legacyBackup
+        ?'Story removed from your active archive. The original copy remains available below.'
+        :'Reception removed from this browser.';
+      setNotice(message);
     }catch(e){setError(e.message||'The saved story could not be deleted.');}finally{setSaving(false);}
   }
   const generated=current?.source==='live',metrics=current?.metrics;
   return <div className="afterimage-receiver">
+    {store.legacyBackup&&!recovery&&<section className="archive-note" aria-label="Original story archive copy">
+      <p>Your saved stories have been upgraded. Their original copy is kept for recovery. Deleted stories may remain in that copy until you remove it.</p>
+      <div className="receiver-export">
+        <button type="button" onClick={()=>{const raw=store.exportOriginal();if(raw!==null)downloadText(raw,'nox-original-stories.json');}}>Export original copy</button>
+        <button type="button" disabled={disabled} onClick={()=>setReplacement(store.exportOriginal())}>Remove original copy</button>
+      </div>
+      {replacement!==undefined&&<div role="group" aria-label="Confirm removal of original story archive copy">
+        <p>Close older NOX tabs first. Removing this copy keeps your current archive. Export the original first if you need it.</p>
+        <button type="button" disabled={disabled} onClick={async()=>{
+          setSaving(true);
+          try{
+            if(!await store.discardLegacy(replacement))throw Error('The original copy changed. Export its current copy and review again.');
+            setNotice('Original story copy removed. Your current archive is saved.');
+          }catch(error){setError(error.message);}finally{setSaving(false);setReplacement(undefined);}
+        }}>Confirm removal of original copy</button>
+        <button type="button" disabled={disabled} onClick={()=>setReplacement(undefined)}>Keep original copy</button>
+      </div>}
+    </section>}
     {createPortal(<AnimatePresence>{playing&&<motion.div className="receiver-onair" initial={{opacity:0,y:reduceMotion?0:12}} animate={{opacity:1,y:0}} exit={{opacity:0,y:reduceMotion?0:12}} transition={{duration:reduceMotion?0:.18}}><span><i/>{preparing?'Preparing voice…':view.recording?'Capturing':'Playing'} <b>{timecode(view.elapsedMs||0)}</b></span><button type="button" onClick={stopPerformance}>Stop performance</button></motion.div>}</AnimatePresence>,document.body)}
     <div className="receiver-top"><span className="eyebrow">Afterimage</span><span className={`receiver-state ${playing?'is-playing':''}`}><i/>{busy?'Writing':preparing?'Preparing voice…':playing?'Playing':view.connected?'Ready':'Connecting'}</span></div>
     <h2>A story you can change.</h2>

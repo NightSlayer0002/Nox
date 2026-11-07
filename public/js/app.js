@@ -444,6 +444,10 @@ async function send(raw,{recorded=false,keepDraft=false,source='programmatic',on
   const timingVersion=replyDiagnostics.begin(brain==='live'?'NOX is thinking…':'Scripted demo · no AI request');
   summaryController?.abort();clearTimeout(summaryTimer);
   if(!turns.isCurrent(version))return;
+  setBusy(true);
+  const notebookReady=await knowledge.refresh?.();
+  if(!turns.isCurrent(version))return;
+  if(notebookReady===false&&knowledge.enabled!==false){cancelConversation();toast(knowledge.error||'Your notebook could not be loaded. Your message is still here. Open your notes to review, export, or turn off notebook context for this visit.');return;}
   const depth=rehearsalWork?'balanced':$('reply-depth').value==='deep'&&!visit.owner?'balanced':$('reply-depth').value;
   const recent=history.context();if(recorded&&recent.history.at(-1)?.role==='user')recent.history=recent.history.slice(0,-1);
   const preferences=approvedPreferences.context(currentActivity);

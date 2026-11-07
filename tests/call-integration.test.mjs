@@ -71,6 +71,35 @@ test('call turns preserve downstream history while a pending edited draft is sus
   ui.adapter.restoreDraft(draft);assert.equal(ui.$('message').value,'My unsent revision');assert.deepEqual(ui.context.editTarget,draft.edit);
 });
 
+for(const enabled of [true,false])test(`a notebook read failure ${enabled?'preserves the pending question':'respects explicitly disabled context'}`,async()=>{
+  // Question: can missing source context silently change a request, or block a deliberate opt-out?
+  // Limits: the real send boundary with a controlled storage failure, not browser permission UX or model accuracy.
+  const ui=await fixture();
+  ui.context.visit.owner=true;ui.context.memory.snapshot=()=>({});
+  ui.context.knowledge={enabled,error:'Notebook storage is unavailable.',refresh:async()=>false,context:()=>[]};
+  ui.$('message').value='Continue our discussion.';
+  await ui.context.send('Continue our discussion.',{source:'composer'});
+  assert.equal(ui.requests.length,enabled?0:1);
+  if(enabled){
+    assert.equal(ui.history.active().turns.length,0);
+    assert.equal(ui.$('message').value,'Continue our discussion.');
+  }else assert.equal(ui.requests[0].context.knowledge,undefined);
+  assert.equal(ui.context.busy,false);
+});
+
+test('cancelling a question while its notebook refresh waits prevents history and inference',async()=>{
+  // Question: does Stop still own a send during the new asynchronous source read?
+  // Limits: one controlled interleaving of the real send/controller, not all browser event timing.
+  const ui=await fixture();let release;
+  ui.context.knowledge.refresh=()=>new Promise(resolve=>{release=resolve;});
+  ui.$('message').value='Keep this question.';
+  const sending=ui.context.send('Keep this question.',{source:'composer'});
+  assert.equal(ui.context.busy,true);
+  ui.context.cancelConversation();release(true);await sending;
+  assert.equal(ui.requests.length,0);assert.equal(ui.history.active().turns.length,0);
+  assert.equal(ui.$('message').value,'Keep this question.');assert.equal(ui.context.busy,false);
+});
+
 test('a call cannot restore an old edit into a different thread or overwrite a newer draft',async()=>{
   const ui=await fixture();await ui.history.append('user','Old thread');ui.context.editTarget=ui.history.revisionTarget(1);ui.$('message').value='Old edit';
   const draft=ui.adapter.getDraft();await ui.history.create();ui.$('message').value='';
