@@ -10,7 +10,7 @@ import {SourceBoundary} from './source-boundary.jsx';
 import {mountCompanionHub} from './companion-hub.jsx';
 applyTheme(readTheme());
 const SourceScene=lazy(()=>import('./source-scene.jsx'));
-const Afterimage=lazy(()=>import('./afterimage.jsx'));
+const Afterimage=lazy(async()=>{const module=await import('./afterimage.jsx');await module.storyStoreReady;return module;});
 function Background(){const connect=useCallback(canvas=>sourceBackground.publish(canvas),[]);return <SourceBoundary><Suspense fallback={<div className="source-fallback"/>}><SourceScene onCanvas={connect}/></Suspense></SourceBoundary>;}
 const background=document.getElementById('workspace-background');if(background)createRoot(background).render(<Background/>);
 
@@ -33,7 +33,7 @@ function Notebook(){
   const [replacement,setReplacement]=useState(undefined),[pendingDelete,setPendingDelete]=useState(null),[busy,setBusy]=useState(false),recovery=knowledge.recovery;
   const mutationPending=useRef(false),draftRevision=useRef(0);
   const refresh=()=>{setDocuments(knowledge.list());setEnabled(knowledge.enabled);};
-  useEffect(()=>{const listener=()=>refresh();window.addEventListener('storage',listener);return()=>window.removeEventListener('storage',listener);},[]);
+  useEffect(()=>{const listener=()=>refresh(),unsubscribe=knowledge.subscribe?.(listener);window.addEventListener('storage',listener);return()=>{unsubscribe?.();window.removeEventListener('storage',listener);};},[]);
   async function act(fn,message){if(mutationPending.current)return false;mutationPending.current=true;setBusy(true);try{await fn();refresh();knowledgeChanged();setStatus(typeof message==='function'?message():message);setError(false);return true;}catch(e){refresh();setStatus(e.message);setError(true);return false;}finally{mutationPending.current=false;setBusy(false);}}
   const addedMessage=()=>!knowledge.persistent?(enabled?'Added for this visit. Relevant passages can accompany your next question. Export notes before refreshing.':'Added for this visit. Turn on notebook context to use relevant passages in chat.'):enabled?'Note saved. Relevant passages can accompany your next question.':'Note saved. Turn on notebook context to include relevant passages in chat.';
   async function submit(e){
@@ -45,12 +45,45 @@ function Notebook(){
     }
   }
   async function importFile(e){const file=e.target.files?.[0];e.target.value='';if(!file)return;try{if(!/\.(txt|md|markdown)$/i.test(file.name))throw Error('Choose a .txt or Markdown file.');if(file.size>128*1024)throw Error('Choose a text file smaller than 128 KB. Each note allows 24,000 characters.');await act(async()=>knowledge.add({title:file.name,text:await file.text()}),addedMessage);}catch(error){setStatus(error.message);setError(true);}}
-  async function removeNote(doc){const removed=await act(async()=>{if(!await knowledge.remove(doc.id))throw Error('This note was already removed in another tab.');},visit.owner?'Note deleted. Future questions will not include it.':'Note removed from this visit.');if(removed)setPendingDelete(null);}
+  async function removeNote(doc){
+    const message=()=>{
+      if(!visit.owner)return 'Note removed from this visit.';
+      return knowledge.legacyBackup
+        ?'Note removed from your active notebook. The original copy remains available below. Future questions will not include the deleted note.'
+        :'Note deleted. Future questions will not include it.';
+    };
+    const removed=await act(async()=>{
+      if(!await knowledge.remove(doc.id))throw Error('This note was already removed in another tab.');
+    },message);
+    if(removed)setPendingDelete(null);
+  }
+  function changeNotebookContext(value){
+    if(!value&&knowledge.error){
+      act(()=>knowledge.disableForVisit(),'Notebook context disabled for this visit. Saved notes remain available for export.');
+      return;
+    }
+    act(()=>knowledge.setEnabled(value),value?'Notebook context enabled.':'Notebook context disabled. Notes stay saved.');
+  }
   return <>
     <p className="lab-note">{visit.owner?'Give NOX useful context: a project brief, story outline, or your own notes. Relevant excerpts accompany a question when context is enabled.':'A scratchpad for this visit. Relevant excerpts can accompany your questions while context is enabled. Export a copy to keep these notes.'}</p>
     {!knowledge.crossTabSafe&&<p className="lab-note" role="status">This browser cannot safely save changes across tabs. Saved notes remain readable and exportable. Use a browser with Web Locks support to edit them.</p>}
+    {knowledge.legacyBackup&&!recovery&&<section className="lab-form" aria-label="Original notebook copy">
+      <p className="lab-note">Your saved notebook has been upgraded. Its original copy is kept for recovery. Deleted notes may remain in that copy until you remove it.</p>
+      <div className="lab-actions">
+        <button type="button" onClick={()=>{const raw=knowledge.exportOriginal();if(raw!==null)downloadText(raw,'nox-original-notebook.json');}}>Export original copy</button>
+        <button type="button" disabled={busy} onClick={()=>setReplacement(knowledge.exportOriginal())}>Remove original copy</button>
+      </div>
+      {replacement!==undefined&&<div role="group" aria-label="Confirm removal of original notebook copy">
+        <p className="lab-note">Close older NOX tabs first. Removing this copy keeps your current notebook. Export the original first if you need it.</p>
+        <button type="button" disabled={busy} onClick={async()=>{
+          await act(async()=>{if(!await knowledge.discardLegacy(replacement))throw Error('The original copy changed. Export its current copy and review again.');},'Original notebook copy removed. Your current notebook is saved.');
+          setReplacement(undefined);
+        }}>Confirm removal of original copy</button>
+        <button type="button" disabled={busy} onClick={()=>setReplacement(undefined)}>Keep original copy</button>
+      </div>}
+    </section>}
     {recovery&&<section className="lab-form" aria-label="Notebook recovery"><p className="lab-note">{recovery.reason==='changed'?'The saved notebook changed in another tab.':recovery.reason==='unsupported'?'The saved notebook uses an unsupported format.':'The saved notebook could not be read.'} Its original data is untouched. New notes last for this visit until you explicitly replace it.</p><div className="lab-actions"><button type="button" onClick={()=>{const raw=knowledge.exportOriginal();if(raw!==null)downloadText(raw,'nox-original-notebook.json');}}>Download original notebook</button><button type="button" onClick={()=>setReplacement(knowledge.exportOriginal())}>Replace protected notebook</button></div>{replacement!==undefined&&<div role="group" aria-label="Confirm notebook replacement"><p className="lab-note">Save this visit’s {documents.length} notes together with any readable original notes? Unreadable original data will be replaced. Download the original first if you need it.</p><button type="button" disabled={busy} onClick={async()=>{await act(async()=>{if(!await knowledge.resetOriginal(replacement))throw Error('The original changed or could not be replaced. Download its current copy and review again.');},'This visit’s notebook is now saved.');setReplacement(undefined);}}>Confirm notebook replacement</button><button type="button" disabled={busy} onClick={()=>setReplacement(undefined)}>Keep original notebook</button></div>}</section>}
-    <div className="lab-actions"><label className="lab-check"><input type="checkbox" checked={enabled} disabled={busy} onChange={e=>act(()=>knowledge.setEnabled(e.target.checked),e.target.checked?'Notebook context enabled.':'Notebook context disabled. Notes stay saved.')} />Use relevant notes in chat</label><button className="quiet-button" type="button" onClick={()=>downloadText(knowledge.export(),'nox-knowledge.json')}>Export notes </button></div>
+    <div className="lab-actions"><label className="lab-check"><input type="checkbox" checked={enabled} disabled={busy} onChange={e=>changeNotebookContext(e.target.checked)} />Use relevant notes in chat</label><button className="quiet-button" type="button" onClick={()=>downloadText(knowledge.export(),'nox-knowledge.json')}>Export notes </button></div>
     <form className="lab-form" onSubmit={submit}>
       <label htmlFor="knowledge-title">Note title (optional)</label><input id="knowledge-title" value={title} onChange={e=>{draftRevision.current++;setTitle(e.target.value);}} maxLength={160} placeholder="Uses the first line if left blank" />
       <label htmlFor="knowledge-text">Source text</label><textarea id="knowledge-text" value={text} onChange={e=>{draftRevision.current++;setText(e.target.value);}} maxLength={24000} placeholder={visit.owner?'Paste the details NOX should know…':'Paste text to keep handy during this visit…'} required />

@@ -2,6 +2,7 @@ import { normalizeAfterimage } from '../../shared/afterimage.js';
 import { cleanText } from '../../shared/character.js';
 import { buildSelectedPerformance, normalizeEditedLines } from './afterimage-engine.js';
 import {createStorageTransaction} from './storage-transaction.js';
+import {createTransactionalArchive} from './transactional-archive.js';
 
 export const AFTERIMAGE_STORAGE_KEY = 'nox.afterimage.v1';
 const VERSION = 1, LIMIT = 12;
@@ -38,7 +39,7 @@ function parseStore(raw) {
 
 // Local and deliberately bounded. Refresh and commit share an origin-wide lock.
 export function createAfterimageStore(storage, {now = () => Date.now(), createId = () => globalThis.crypto?.randomUUID?.() ?? `take-${Date.now()}-${Math.random().toString(36).slice(2)}`,...options} = {}) {
-  let persistent=true,memoryOnly=false,recovery=null,lastRaw,receptions=[],durableIds=new Set();
+  let persistent=true,memoryOnly=false,recovery=null,lastRaw,receptions=[],durableIds=new Set(),authority;
   const listeners=new Set();
   if (storage === undefined) { try { storage=globalThis.localStorage; } catch { persistent=false; } }
   if (!storage?.getItem || !storage?.setItem) {persistent=false;memoryOnly=true;}
@@ -47,7 +48,8 @@ export function createAfterimageStore(storage, {now = () => Date.now(), createId
   function refresh() {
     if (memoryOnly) return;
     try {
-      const raw=storage.getItem(AFTERIMAGE_STORAGE_KEY);if(raw===lastRaw)return;
+      if(authority&&!authority.loaded)return;
+      const raw=authority?authority.raw:storage.getItem(AFTERIMAGE_STORAGE_KEY);if(raw===lastRaw)return;
       if(recovery)recovery={reason:'changed',raw};
       else try{receptions=parseStore(raw);durableIds=new Set(receptions.map(item=>item.id));persistent=true;}catch(error){receptions=[];recovery={reason:error.message==='unsupported'?'unsupported':'invalid',raw};persistent=false;}
       lastRaw=raw;
@@ -64,11 +66,14 @@ export function createAfterimageStore(storage, {now = () => Date.now(), createId
   }
   const mutate=operation=>memoryOnly||recovery?operation():transaction.run(operation);
   refresh();publish();
-  return {
-    get persistent() { return persistent&&storage?.temporary!==true; },
-    get crossTabSafe() { return memoryOnly||transaction.supported; },
-    get recovery() { refresh();return recovery?{reason:recovery.reason}:null; },
-    exportOriginal() { refresh();return recovery?.raw??null; },
+  const api={
+    get persistent() { return persistent&&storage?.temporary!==true&&(!authority||authority.loaded&&!authority.error); },
+    get error(){return authority?.error||'';},
+    get legacyBackup(){return authority?.legacyBackup||false;},
+    get crossTabSafe() { return memoryOnly||(authority?authority.supported:transaction.supported); },
+    get recovery() { refresh();return recovery?{reason:recovery.reason}:authority?.error?{reason:'changed'}:null; },
+    exportOriginal() { refresh();return recovery?.raw??authority?.legacyRaw??null; },
+    discardLegacy(expected){return authority?authority.acknowledgeLegacy(expected):Promise.resolve(false);},
     resetOriginal(expected) {return transaction.run(()=>{
       if(!recovery||expected!==recovery.raw)return false;
       let raw;try{raw=storage.getItem(AFTERIMAGE_STORAGE_KEY);}catch{return false;}
@@ -120,4 +125,37 @@ export function createAfterimageStore(storage, {now = () => Date.now(), createId
     clear() { return mutate(()=>{refresh();if(memoryOnly&&storage?.temporary!==true&&durableIds.size)throw Error('Could not clear saved stories because browser storage cannot be read. Export a copy and reload before retrying.');persist([]);}); },
     export(id) { refresh();const entry=id === undefined ? {version:VERSION,receptions} : receptions.find(item => item.id === id);if (!entry) throw new Error('This reception was deleted.');return JSON.stringify(entry,null,2); },
   };
+  authority=memoryOnly?null:createTransactionalArchive(storage,AFTERIMAGE_STORAGE_KEY,{...options,lockName:'nox.afterimage.write',validate:parseStore});
+  if(!authority){api.ready=Promise.resolve(true);api.refresh=async()=>{refresh();publish();return true;};return api;}
+  authority.subscribe(({error})=>{refresh();persistent=!error&&!recovery;publish();});
+  api.ready=authority.ready.then(()=>{refresh();publish();return true;},()=>{refresh();persistent=false;publish();return authority.protectedOriginal;});
+  api.refresh=async()=>{try{await authority.refresh();refresh();publish();return true;}catch{return authority.protectedOriginal;}};
+  for(const name of ['add','update','remove','clear']){
+    const original=api[name];
+    api[name]=(...args)=>{
+      if(memoryOnly||recovery)return original(...args);
+      const signal=name==='add'?args[1]?.signal:undefined;
+      const change=authority.run(raw=>{
+        let bytes=raw;
+        const staged={getItem:()=>bytes,setItem:(_,value)=>{bytes=String(value);}};
+        const draft=createAfterimageStore(staged,{now,createId,browser:false});
+        if(draft.recovery)throw Error('Your saved story archive needs recovery. Export the protected original before retrying.');
+        const result=draft[name](...args);
+        return {raw:bytes,result};
+      },{signal});
+      return name==='remove'?change.catch(error=>({removed:false,committed:false,scope:'browser',error:error.message})):change;
+    };
+  }
+  const reset=api.resetOriginal;
+  api.resetOriginal=async expected=>{
+    if(authority.loaded&&authority.error&&!recovery)return authority.acknowledgeLegacy(expected);
+    if(authority.loaded&&recovery){
+      try{
+        const result=await authority.run(raw=>({raw:raw===expected?JSON.stringify({version:VERSION,receptions}):raw,result:raw===expected}));
+        if(result){recovery=null;lastRaw=undefined;refresh();publish();}return result;
+      }catch{return false;}
+    }
+    const result=await reset(expected);return result?api.refresh():false;
+  };
+  return api;
 }

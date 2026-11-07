@@ -329,7 +329,7 @@ test('a changed saved cut preserves the draft and requires review before applyin
   assert.equal(firstLine().props.value,'Keep my original branch draft.');
   assert.match(ui.text(ui.find(node=>node.props?.role==='alert')),/another tab|changed/i);
   assert.equal(ui.button('Apply edits').props.disabled,true);
-  ui.button('Review saved cut').props.onClick();ui.render();
+  await ui.button('Review saved cut').props.onClick();ui.render();
   assert.equal(firstLine().props.value,'Keep my original branch draft.');
   assert.match(ui.text(ui.find(node=>node.props?.role==='status')),/review|replace/i);
   await ui.button('Apply edits').props.onClick();ui.render();
