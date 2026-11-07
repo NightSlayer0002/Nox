@@ -9,6 +9,7 @@ import {SVGLoader} from 'three/addons/loaders/SVGLoader.js';
 import {SourceBoundary} from './source-boundary.jsx';
 import {EmblemFollowers} from './emblem-followers.jsx';
 import {createLiquidLogoSurface} from './source-surface.js';
+import {createEmblemEnvironment} from './emblem-lighting.js';
 import {createLogoReadiness,createLogoGesture,emblemFeatures,releaseLogoInteraction} from '/js/logo-interaction.js';
 import {emblemPointer} from '/js/home-choreography.js';
 import {createFrameBudget,logoSurfaceSize,SOURCE_MATERIAL_FPS} from '/js/source-effects.js';
@@ -19,8 +20,21 @@ function LogoModel({pose,matter,pointer,rotation,spring,onStatus,gesture,target}
   const outer=useRef(),inner=useRef(),meshes=useRef([]),resources=useRef({}),readiness=useRef(),due=useRef(createFrameBudget(60)),textureDue=useRef(createFrameBudget(SOURCE_MATERIAL_FPS)),lastPointer=useRef({x:0,y:0}),targetLayout=useRef({}),pressureState=useRef(0),finishState=useRef(0),frames=useRef(0);
   const {gl,viewport,setFrameloop,invalidate}=useThree(),[parts,setParts]=useState([]);
   const wave=useMemo(()=>({time:{value:0},pressure:{value:0}}),[]);
-  const front=useMemo(()=>new THREE.MeshPhysicalMaterial({color:'#b5cfca',metalness:.72,roughness:.24,clearcoat:1,clearcoatRoughness:.16,transparent:true}),[]);
-  const side=useMemo(()=>new THREE.MeshStandardMaterial({color:'#356961',metalness:.75,roughness:.2,transparent:true}),[]);
+  const front=useMemo(()=>new THREE.MeshPhysicalMaterial({color:'#c2d1ce',metalness:.68,roughness:.28,clearcoat:.65,clearcoatRoughness:.22,envMapIntensity:1.1,transparent:true}),[]);
+  const side=useMemo(()=>new THREE.MeshStandardMaterial({color:'#657f7b',metalness:.72,roughness:.28,envMapIntensity:1,transparent:true}),[]);
+  useEffect(()=>{
+    let environment;
+    const update=()=>{
+      const palette=getComputedStyle(gl.domElement.closest('.landing')||document.documentElement);
+      const next=createEmblemEnvironment({teal:palette.getPropertyValue('--landing-teal').trim()||'#17413f',violet:palette.getPropertyValue('--landing-violet').trim()||'#44335f'});
+      front.envMap=side.envMap=next;front.needsUpdate=side.needsUpdate=true;
+      environment?.dispose();environment=next;invalidate();
+    };
+    update();
+    const observer=new MutationObserver(update);
+    observer.observe(document.documentElement,{attributes:true,attributeFilter:['data-theme']});
+    return()=>{observer.disconnect();front.envMap=side.envMap=null;environment?.dispose();};
+  },[gl,front,side,invalidate]);
   useEffect(()=>{
     // Original R3F ShaderMaterial demo wave, applied to existing icon geometry.
     for(const material of [front,side]){material.onBeforeCompile=shader=>{shader.uniforms.noxTime=wave.time;shader.uniforms.noxPressure=wave.pressure;shader.vertexShader='uniform float noxTime;\nuniform float noxPressure;\n'+shader.vertexShader.replace('#include <begin_vertex>','#include <begin_vertex>\ntransformed.z += sin((position.x / 8.0 + noxTime) * 4.0) * noxPressure * 0.8;');};material.customProgramCacheKey=()=> 'nox-emblem-source-wave-v1';}
@@ -36,13 +50,13 @@ function LogoModel({pose,matter,pointer,rotation,spring,onStatus,gesture,target}
       const svg=new SVGLoader().parse(await response.text());if(!live)return;
       const eyes=svg.paths.filter(path=>path.userData.style.fill==='#eee8cc');
       for(const path of eyes){for(const shape of path.toShapes()){
-        const geometry=new THREE.ExtrudeGeometry(shape,{depth:4,steps:1,bevelEnabled:true,bevelThickness:.8,bevelSize:.7,bevelSegments:3,curveSegments:20});
+        const geometry=new THREE.ExtrudeGeometry(shape,{depth:4,steps:1,bevelEnabled:true,bevelThickness:1.2,bevelSize:.9,bevelSegments:8,curveSegments:28});
         geometry.computeBoundingBox();const {min,max}=geometry.boundingBox;geometry.userData.centerY=(min.y+max.y)/2;
         const uv=geometry.attributes.uv;for(let i=0;i<uv.count;i++)uv.setXY(i,(uv.getX(i)-min.x)/(max.x-min.x),(uv.getY(i)-min.y)/(max.y-min.y));
         owned.push(geometry);
       }}
       const mouth=svg.paths.find(path=>path.userData.style.stroke==='#eee8cc');
-      if(mouth){const points=mouth.subPaths[0].getPoints(48).map(p=>new THREE.Vector3(p.x,p.y,2));owned.push(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(points),48,1,8,false));}
+      if(mouth){const points=mouth.subPaths[0].getPoints(48).map(p=>new THREE.Vector3(p.x,p.y,2));owned.push(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(points),64,1,16,false));}
       if(owned.length<3)throw Error('NOX icon could not be adapted');
       setParts([...owned]);geometryReady=true;state.setPhase('solid');
       const mask=document.createElement('canvas');mask.width=mask.height=256;const ctx=mask.getContext('2d');ctx.fillStyle='#fff';ctx.fillRect(0,0,256,256);
@@ -62,7 +76,7 @@ function LogoModel({pose,matter,pointer,rotation,spring,onStatus,gesture,target}
     pressureState.current+=(matter.hold-pressureState.current)*.28;
     finishState.current+=((matter.metal?1:0)-finishState.current)*.12;
     const finish=finishState.current;
-    front.color.setRGB(.42+finish*.35,.65+finish*.15,.60+finish*.22);front.metalness=.55+finish*.4;front.roughness=.34-finish*.2;side.roughness=.3-finish*.16;
+    front.color.setRGB(.73+finish*.16,.82+finish*.1,.80+finish*.13);front.metalness=.68+finish*.25;front.roughness=.3-finish*.13;side.roughness=.3-finish*.1;
     const pressure=pressureState.current,turn=gesture.current.angles,attention=gesture.current.active||turn.y!==0?turn:emblemPointer(pointer.current,pose);
     if(Math.abs(attention.x-lastPointer.current.x)+Math.abs(attention.y-lastPointer.current.y)>.002){lastPointer.current=attention;spring.start(attention);}
     outer.current.rotation.set(pose.x,pose.y,pose.z);outer.current.position.set((pose.screenX-.5)*viewport.width,(.5-pose.screenY)*viewport.height,0);outer.current.scale.setScalar(pose.size*viewport.width/3.2);

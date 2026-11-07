@@ -8,7 +8,7 @@ import * as terrainMotion from '../public/js/source-terrain.js';
 
 const bundle=await build({entryPoints:[fileURLToPath(new URL('../client/source-scene.jsx',import.meta.url))],bundle:true,write:false,metafile:true,platform:'node',format:'cjs',jsx:'transform',external:['react','@shadergradient/react','@react-three/fiber','@react-spring/web','/js/*']});
 
-function world(){
+function world({landing=true}={}){
   const effects=[],frames=[],observers=[],loops=[],published=[];let now=0,stateIndex=0;
   const document=Object.assign(new EventTarget(),{hidden:false,body:{dataset:{}},scrollingElement:{scrollTop:0,scrollHeight:1600,clientHeight:800}}),window=new EventTarget();
   const gl={domElement:{dataset:{}},render(){gl.renders=(gl.renders||0)+1;}},mesh={material:{userData:{uTime:{value:0},uNoiseStrength:{value:3.6},uNoiseDensity:{value:1.12}},onBeforeCompile(){}},rotation:{set(...value){this.value=value;}},position:{set(...value){this.value=value;}}};
@@ -16,7 +16,7 @@ function world(){
   const modules={react,'@shadergradient/react':{ShaderGradient:'water-material',ShaderGradientCanvas:'water-canvas'},'@react-three/fiber':{useFrame:frame=>frames.push(frame),useThree:()=>({gl,setFrameloop:value=>loops.push(value),invalidate(){}})},'/js/source-effects.js':sourceEffects,'/js/source-terrain.js':terrainMotion,'/js/preferences.js':{readMotionPreference:()=>true}};
   const module={exports:{}};
   vm.runInNewContext(bundle.outputFiles[0].text,{module,exports:module.exports,require:name=>{if(!(name in modules))throw Error(`Unexpected dependency: ${name}`);return modules[name];},document,window,innerWidth:1000,innerHeight:800,devicePixelRatio:2,performance:{now:()=>now},IntersectionObserver:class{constructor(callback){this.callback=callback;observers.push(this);}observe(){}disconnect(){this.disconnected=true;}}});
-  const tree=module.exports.default({onCanvas:canvas=>published.push(canvas),pose:{waterTurn:.25,waterX:.1}});
+  const tree=module.exports.default({onCanvas:canvas=>published.push(canvas),pose:landing?{waterTurn:.25,waterX:.1}:undefined});
   const nodes=node=>!node||typeof node!=='object'?[]:[node,...node.props.children.flat(Infinity).flatMap(nodes)];
   const all=nodes(tree),canvas=all.find(node=>node.type==='water-canvas'),material=all.find(node=>node.type==='water-material'),budget=all.find(node=>typeof node.type==='function'&&node.type.name==='Budget');
   effects.length=0;budget.type(budget.props);const cleanups=effects.map(effect=>effect());
@@ -43,7 +43,7 @@ test('the live world retains its authored water surface and responds to pointer 
   assert.ok(room.mesh.material.userData.uTime.value>first+.9);
   assert.ok(room.mesh.material.userData.uNoiseDensity.value>1.2);
   assert.ok(room.mesh.position.value[0]>.3);assert.ok(room.mesh.rotation.value[1]>.02);
-  assert.equal(room.gl.domElement.dataset.geometry,'water-plane');assert.equal(room.mesh.material.customProgramCacheKey(),'nox-water-relief-v2');
+  assert.equal(room.gl.domElement.dataset.geometry,'water-plane');assert.equal(room.mesh.material.customProgramCacheKey(),'nox-water-atmosphere-v1');
   room.dispose();
 });
 
@@ -62,4 +62,30 @@ test('terrain publishes only after two authored render passes',()=>{
   const room=world();assert.equal(room.published.length,0);room.frame(0);
   assert.equal(room.published.length,0);room.frame(34);
   assert.equal(room.published[0],room.gl.domElement);assert.equal(room.gl.renders,2);room.dispose();
+});
+
+// Question: does the landing blend reach the installed package's real water
+// shader, rather than silently matching an unused shader variant?
+// Limits: checks generated GLSL and material state, not GPU appearance or FPS.
+test('landing feathers the active physical water shader and bounds its color interpolation',async()=>{
+  // Pinned dependency fixture. A package update must recheck its shader contract.
+  const {c:water}=await import('../node_modules/@shadergradient/react/dist/chunk-S63T3L7T.mjs');
+  const room=world();room.mesh.material.onBeforeCompile=shader=>Object.assign(shader,{vertexShader:water.vertex,fragmentShader:water.fragment});
+  room.frame(0);const shader={};room.mesh.material.onBeforeCompile(shader);
+  assert.ok(shader.vertexShader.includes('noxTerrainUv = uv;'));
+  assert.ok(shader.fragmentShader.includes('color3, smoothstep(-1.8, 2.2, vPos.z)'));
+  assert.ok(shader.fragmentShader.includes('diffuseColor.a * edge.x * edge.y * veil'));
+  assert.equal(room.mesh.material.transparent,true);assert.equal(room.mesh.material.depthWrite,false);
+  room.dispose();
+});
+
+// Question: can this landing refinement accidentally alter workspace water?
+// Limits: the workspace render is substituted; it does not measure its pixels.
+test('workspace retains its original water material and deformation strength',()=>{
+  const room=world({landing:false}),compile=room.mesh.material.onBeforeCompile;
+  room.frame(0);
+  assert.equal(room.mesh.material.onBeforeCompile,compile);
+  assert.equal(room.mesh.material.transparent,undefined);
+  assert.equal(room.mesh.material.userData.uNoiseStrength.value,terrainMotion.advanceTerrain(terrainMotion.createTerrainMotion(),{},1/sourceEffects.SOURCE_MATERIAL_FPS).strength);
+  room.dispose();
 });
