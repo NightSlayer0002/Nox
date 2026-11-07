@@ -2,22 +2,38 @@
  * Source: ai-elements 6a9d5b1822ffb10bba4bd97175f01edd7d8651cd.
  * Original component and Apache-2.0 notice: /vendor/ai-elements.
  * NOX uses flat primary/secondary/ghost variants and rectangular corners. */
-:where(.nav-enter,.liquid-button,.outline-button,.cream-button,.receive-button,.save-clip,.new-chat,.contact-actions button,.suggestions button,.resume-row,#send-button,#unlock-ai,#test-voice,.receiver-form-actions button,.receiver-export button,.lab-actions button){
+:where(.nav-enter,.mobile-menu,.liquid-button,.outline-button,.cream-button,.receive-button,.save-clip,.new-chat,.contact-actions button,.suggestions button,.resume-row,#send-button,#unlock-ai,#test-voice,.receiver-form-actions button,.receiver-export button,.lab-actions button){
  display:inline-flex;align-items:center;justify-content:center;gap:10px;
  min-height:46px;padding:12px 23px;border:1px solid transparent;border-radius:var(--radius,3px);
  background:var(--surface);color:var(--text);box-shadow:none;
  font-size:16px;font-weight:600;line-height:1.25;letter-spacing:normal;white-space:normal;
- transition:background var(--motion-fast,.14s),color var(--motion-fast,.14s),opacity var(--motion-fast,.14s);
+ --button-edge-start:var(--secondary-accent,#8de6d4);--button-edge-end:#c4a6f8;
+ transition:background var(--motion-fast,.14s),color var(--motion-fast,.14s),opacity var(--motion-fast,.14s),box-shadow 160ms ease,transform 160ms cubic-bezier(.22,1,.36,1);
 }
 :where(.liquid-button,.cream-button,.receive-button,#send-button,#unlock-ai,.lab-actions .primary){background:var(--accent);color:var(--bg)}
+.landing :where(.nav-enter,.liquid-button,.contact-actions button,.mobile-menu){--button-edge-start:#67d8c2;--button-edge-end:#c4a6f8}
 :where(.nav-enter,.outline-button,.save-clip,.new-chat,.contact-actions button,.receiver-export button,.lab-actions button){background:color-mix(in srgb,var(--text) 9%,transparent);color:var(--text)}
-:where(.nav-enter,.liquid-button,.outline-button,.cream-button,.receive-button,.save-clip,.new-chat,.contact-actions button,.suggestions button,.resume-row,#send-button,#unlock-ai,#test-voice,.receiver-form-actions button,.receiver-export button,.lab-actions button):hover{background:color-mix(in srgb,var(--text) 17%,var(--surface))}
+:where(.nav-enter,.mobile-menu,.liquid-button,.outline-button,.cream-button,.receive-button,.save-clip,.new-chat,.contact-actions button,.suggestions button,.resume-row,#send-button,#unlock-ai,#test-voice,.receiver-form-actions button,.receiver-export button,.lab-actions button):hover{background:color-mix(in srgb,var(--text) 17%,var(--surface))}
 :where(.liquid-button,.cream-button,.receive-button,#send-button,#unlock-ai):hover{background:color-mix(in srgb,var(--accent) 92%,#fff);color:var(--bg)}
 :where(button,a):focus-visible{outline:2px solid var(--accent);outline-offset:4px}
 :where(button):disabled{opacity:.4;pointer-events:none}
-:where(.nav-enter,.liquid-button,.outline-button,.cream-button,.receive-button,.save-clip,.new-chat,.contact-actions button,.suggestions button,.resume-row,#send-button,#unlock-ai,#test-voice,.receiver-form-actions button,.receiver-export button,.lab-actions button)::before,
-:where(.nav-enter,.liquid-button,.outline-button,.cream-button,.receive-button,.save-clip,.new-chat,.contact-actions button,.suggestions button,.resume-row,#send-button,#unlock-ai,#test-voice,.receiver-form-actions button,.receiver-export button,.lab-actions button)::after{display:none;content:none}
+:where(.nav-enter,.mobile-menu,.liquid-button,.outline-button,.cream-button,.receive-button,.save-clip,.new-chat,.contact-actions button,.suggestions button,.resume-row,#send-button,#unlock-ai,#test-voice,.receiver-form-actions button,.receiver-export button,.lab-actions button)::before,
+:where(.nav-enter,.mobile-menu,.liquid-button,.outline-button,.cream-button,.receive-button,.save-clip,.new-chat,.contact-actions button,.suggestions button,.resume-row,#send-button,#unlock-ai,#test-voice,.receiver-form-actions button,.receiver-export button,.lab-actions button)::after{display:none;content:none}
 .header button,.stage-tools button,.composer button,.sidebar button,.mode-tabs button,.reaction-guide summary{letter-spacing:normal;text-transform:none}
 .resume-row>span:last-child:empty{display:none}
 .rail-version{display:inline-block;padding:8px 0}
+:where(.nav-enter,.mobile-menu,.liquid-button,.outline-button,.cream-button,.receive-button,.save-clip,.new-chat,.contact-actions button,.suggestions button,.resume-row,#send-button,#unlock-ai,#test-voice,.receiver-form-actions button,.receiver-export button,.lab-actions button):not(:disabled):not([aria-disabled=true]):focus-visible{
+ box-shadow:-5px 0 18px -5px color-mix(in srgb,var(--button-edge-start) 65%,transparent),5px 0 18px -5px color-mix(in srgb,var(--button-edge-end) 65%,transparent),inset 1px 0 0 color-mix(in srgb,var(--button-edge-start) 75%,transparent),inset -1px 0 0 color-mix(in srgb,var(--button-edge-end) 75%,transparent);
+}
+@media(hover:hover) and (pointer:fine){
+ :where(.nav-enter,.mobile-menu,.liquid-button,.outline-button,.cream-button,.receive-button,.save-clip,.new-chat,.contact-actions button,.suggestions button,.resume-row,#send-button,#unlock-ai,#test-voice,.receiver-form-actions button,.receiver-export button,.lab-actions button):not(:disabled):not([aria-disabled=true]):hover{
+  box-shadow:-5px 0 18px -5px color-mix(in srgb,var(--button-edge-start) 65%,transparent),5px 0 18px -5px color-mix(in srgb,var(--button-edge-end) 65%,transparent),inset 1px 0 0 color-mix(in srgb,var(--button-edge-start) 75%,transparent),inset -1px 0 0 color-mix(in srgb,var(--button-edge-end) 75%,transparent);
+ }
+ @media(prefers-reduced-motion:no-preference){
+  :where(.nav-enter,.mobile-menu,.liquid-button,.outline-button,.cream-button,.receive-button,.save-clip,.new-chat,.contact-actions button,.suggestions button,.resume-row,#send-button,#unlock-ai,#test-voice,.receiver-form-actions button,.receiver-export button,.lab-actions button):not(.material-control):not(:disabled):not([aria-disabled=true]):hover{transform:translateY(-2px)}
+ }
+}
+@media(prefers-reduced-motion:no-preference){
+ :where(.nav-enter,.mobile-menu,.liquid-button,.outline-button,.cream-button,.receive-button,.save-clip,.new-chat,.contact-actions button,.suggestions button,.resume-row,#send-button,#unlock-ai,#test-voice,.receiver-form-actions button,.receiver-export button,.lab-actions button):not(.material-control):not(:disabled):not([aria-disabled=true]):active{transform:translateY(0) scale(.98)}
+}
 @media(prefers-reduced-motion:reduce){button,a{transition:none!important}}

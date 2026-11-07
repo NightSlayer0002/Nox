@@ -188,7 +188,8 @@ body.landing{background:var(--bg);font-family:var(--font-ui)}
 .landing .contact-world::after{content:"";position:absolute;inset:0;background:var(--bg);opacity:calc(var(--playground-shade,0)*.72)}
 :root[data-theme=light] .landing{--landing-navy:#dce5ed;--landing-teal:#c6e2dc;--landing-violet:#e0d5ec}
 /* The landing palette belongs to the persistent world behind the animated terrain. */
-.landing .contact-water{opacity:calc(.42 - var(--playground-shade,0)*.30)}
+.landing .contact-water{opacity:calc(.42 - var(--playground-shade,0)*.30);mix-blend-mode:screen}
+:root[data-theme=light] .landing .contact-water{mix-blend-mode:multiply}
 .landing .contact-water::after{content:none}
 .landing .contact-water .source-fallback{background:none}
 .landing .source-scene-spring{opacity:0;transition:opacity 520ms ease-out}
@@ -207,7 +208,6 @@ body.landing{background:var(--bg);font-family:var(--font-ui)}
 .liquid-button:not(.material-control)>canvas{display:none}
 .hero-instruction{font-size:14px;margin-top:24px;opacity:1}
 .hero-explore{display:inline-flex;align-items:center;gap:10px;min-height:44px;color:var(--text);font-size:16px}
-.hero-explore:hover{text-decoration:underline;text-underline-offset:4px}
 .hero-explore span{color:var(--muted)}
 .contact-actions{gap:12px}.contact-actions button,.contact-actions .nav-enter{font-size:16px;font-weight:600;min-height:48px;border-radius:3px;padding:13px 24px;border:0;background:var(--surface);color:var(--text)}
 .contact-copy .material-control{background:var(--surface);color:var(--text);padding:14px 20px;border:1px solid var(--line);min-height:76px}
