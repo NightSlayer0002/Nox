@@ -55,11 +55,26 @@
   stroke-linecap:round;
   stroke-linejoin:round;
 }
+.landing .hero-explore{text-decoration:none}
+.landing .explore-arrow{
+  display:grid;place-items:center;width:28px;height:28px;flex:none;
+  border:1px solid color-mix(in srgb,var(--secondary-accent) 45%,transparent);
+  border-radius:50%;color:var(--text);
+  transition:background 160ms ease,border-color 160ms ease,box-shadow 160ms ease;
+}
+.landing .explore-arrow svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+.landing .hero-explore:is(:focus-visible,:active) .explore-arrow{
+  background:var(--secondary-accent);border-color:var(--secondary-accent);color:#142423;
+}
 @media(max-width:400px) {
   .landing .hero-actions {column-gap:14px}
   .landing .hero-actions .liquid-button:has(.launch-arrow) {padding-inline:17px}
 }
 @media (hover:hover) and (pointer:fine) {
+  .landing .hero-explore:hover .explore-arrow{
+    background:var(--secondary-accent);border-color:var(--secondary-accent);color:#142423;
+    box-shadow:0 3px 16px -5px color-mix(in srgb,var(--secondary-accent) 85%,transparent);
+  }
   .landing :is(.liquid-button:not(.material-control),.nav-enter,.contact-actions button,.mobile-menu):not(:disabled):not([aria-disabled=true]):hover {
     color:#142423;
   }
@@ -76,11 +91,11 @@
     .landing :is(.liquid-button,.nav-enter,.contact-actions button,.mobile-menu):not(:disabled):not([aria-disabled=true]):hover::after {
       animation:landing-reflection 460ms cubic-bezier(.33,0,.2,1) both;
     }
-    .landing :is(.launch-arrow,.hero-explore span,.start-list svg) {
+    .landing :is(.launch-arrow,.explore-arrow svg,.start-list svg) {
       transition:transform 220ms cubic-bezier(.22,1,.36,1);
     }
     .landing :is(.liquid-button,.nav-enter):hover .launch-arrow {transform:translateX(6px)}
-    .landing .hero-explore:hover span {transform:translateY(5px)}
+    .landing .hero-explore:hover .explore-arrow svg {transform:translateY(2px)}
     .landing .start-list a:hover svg {transform:translateX(7px)}
   }
 }
