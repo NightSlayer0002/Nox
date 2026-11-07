@@ -188,7 +188,8 @@ body.landing{background:var(--bg);font-family:var(--font-ui)}
 .landing .contact-world::after{content:"";position:absolute;inset:0;background:var(--bg);opacity:calc(var(--playground-shade,0)*.72)}
 :root[data-theme=light] .landing{--landing-navy:#dce5ed;--landing-teal:#c6e2dc;--landing-violet:#e0d5ec}
 /* The landing palette belongs to the persistent world behind the animated terrain. */
-.landing .contact-water{opacity:calc(.42 - var(--playground-shade,0)*.30)}
+.landing .contact-water{opacity:calc(.42 - var(--playground-shade,0)*.30);mix-blend-mode:screen}
+:root[data-theme=light] .landing .contact-water{mix-blend-mode:multiply}
 .landing .contact-water::after{content:none}
 .landing .contact-water .source-fallback{background:none}
 .landing .source-scene-spring{opacity:0;transition:opacity 520ms ease-out}
