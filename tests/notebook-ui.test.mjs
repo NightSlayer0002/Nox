@@ -6,6 +6,7 @@ import {createRequire} from 'node:module';
 import vm from 'node:vm';
 import path from 'node:path';
 import {createKnowledge} from '../public/js/knowledge.js';
+import * as calmCat from '../public/js/calm-cat.js';
 
 const root=path.resolve(import.meta.dirname,'..'),nativeRequire=createRequire(import.meta.url);
 // Expose the existing component in the test bundle; its production mount stays unchanged.
@@ -21,6 +22,9 @@ function notebook({owner=false,enabled=true,initialRaw}={}) {
   const slots=[];let cursor=0,tree;
   const react={createElement:(type,props,...children)=>({type,props:{...props,children}}),Suspense:'suspense',lazy:()=> 'lazy',useCallback:fn=>fn,useRef:value=>({current:value}),useEffect(){},useState(initial){const index=cursor++;if(!slots[index])slots[index]={value:typeof initial==='function'?initial():initial};return [slots[index].value,value=>{slots[index].value=typeof value==='function'?value(slots[index].value):value;}];}};
   const mocks={'react':react,'react-dom':{createPortal:children=>children},'react-dom/client':{},'motion/react':{AnimatePresence:'presence',motion:{article:'article'},useReducedMotion:()=>false},'/js/workbench.js':{knowledge,knowledgeChanged(){},downloadText:(...args)=>downloads.push(args)},'/js/visit-scope.js':{visit:{owner,storage}},'/js/preferences.js':{readTheme:()=> 'dark',applyTheme(){}},'/js/source-background.js':{},'./source-boundary.jsx':{},'./companion-hub.jsx':{mountCompanionHub(){}}};
+  // This harness renders Notebook only; Calm mode's mounted behavior is
+  // covered by calm-mode.spec.mjs, rather than inferred from notebook tests.
+  mocks['/js/calm-cat.js']=calmCat;
   const module={exports:{}};
   vm.runInNewContext(bundle.outputFiles[0].text,{module,exports:module.exports,require:id=>mocks[id]??nativeRequire(id),document:{getElementById:()=>null},console});
   function render(){cursor=0;tree=module.exports.Notebook();return tree;}

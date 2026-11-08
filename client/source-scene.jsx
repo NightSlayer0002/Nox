@@ -88,7 +88,7 @@ function Budget({onCanvas,pose}){
     if(mesh){
       revealTerrain(mesh.material,Boolean(pose));
       const input=signals.current;
-      terrain.current=advanceTerrain(terrain.current,{...input,activity:document.body.dataset.activity,voice:document.body.dataset.voiceState,typing:now<input.typingUntil?1:0},delta);
+      terrain.current=advanceTerrain(terrain.current,{...input,calm:document.body.dataset.calm==='true',activity:document.body.dataset.activity,voice:document.body.dataset.voiceState,typing:now<input.typingUntil?1:0},delta);
       input.scrollImpulse=0;
       const water=terrain.current,uniforms=mesh.material.userData;
       // These are the incumbent water shader's actual deformation uniforms.

@@ -16,7 +16,7 @@ export function advanceTerrain(previous,input={},delta=0){
   const travel=reduced?scroll:approach(previous.scroll,scroll,dt,.75);
   const impulse=reduced?0:bounded(previous.impulse*Math.exp(-dt/.4)+bounded(input.scrollImpulse,-1,1),-1,1);
   // Cap elapsed time so a tab becoming visible cannot fast-forward the terrain.
-  const time=previous.time+(reduced?0:dt*(1+energy*.45+Math.abs(impulse)*.15));
+  const time=previous.time+(reduced?0:dt*(input.calm?.35:1)*(1+energy*.45+Math.abs(impulse)*.15));
   return {
     time,pointerX:px,pointerY:py,scroll:travel,impulse,energy,
     // Broad, overlapping currents cross a visible distance in an eight-second

@@ -16,6 +16,7 @@ import {createLanding} from '/js/landing.js';
 import {emblemPose} from '/js/home-choreography.js';
 import {sourceWorldScroll} from './home-scroll.js';
 import {readTheme,applyTheme} from '/js/preferences.js';
+import {CalmMode} from './calm-mode.jsx';
 const SourceScene=lazy(()=>import('./source-scene.jsx'));
 const SourceLogo=lazy(()=>import('./source-logo.jsx'));
 const CinematicScene=lazy(()=>import('./cinematic-scene.jsx'));
@@ -72,6 +73,7 @@ function Home(){
     <div className="contact-emblem"><SourceBoundary fallback={<div className="logo-static"><img src="/icon.svg" alt=""/></div>}><Suspense fallback={<div className="logo-static"><img src="/icon.svg" alt=""/></div>}><SourceLogo pose={logoPose.current} matter={matter.current} onPoke={greet}/></Suspense></SourceBoundary></div>
     <header className="contact-nav">
       <a className="brand" href="/" aria-label="NOX home"><img src="/icon.svg" alt=""/><span>NOX</span></a>
+      <CalmMode home/>
       <nav className="home-links" aria-label="Main navigation"><a href="#features">Explore</a><a className="nav-enter" href="/guest#conversation">Try NOX<LaunchArrow/></a></nav>
       <button className="mobile-menu" onClick={()=>setMenu(!menu)} aria-expanded={menu} aria-controls="home-menu" aria-label="Toggle navigation">Menu</button>
       <AnimatePresence>{menu&&<motion.nav id="home-menu" className="mobile-nav" initial={{opacity:0,y:-6}} animate={{opacity:1,y:0}} exit={{opacity:0,y:-6}} onKeyDown={event=>{if(event.key==='Escape'){setMenu(false);root.current.querySelector('.mobile-menu')?.focus();}}}><a href="#features" onClick={()=>setMenu(false)}>Explore</a><a href="#inside" onClick={()=>setMenu(false)}>Liquid metal</a><a href="#about" onClick={()=>setMenu(false)}>Play</a><a href="/guest#conversation">Try NOX</a></motion.nav>}</AnimatePresence>
