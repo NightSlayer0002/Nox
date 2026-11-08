@@ -22,7 +22,7 @@ async function buildOfflineWorker(){
   const publicFiles=(await readdir(publicRoot,{recursive:true,withFileTypes:true}))
     .filter(entry=>entry.isFile())
     .map(entry=>path.relative(publicRoot,path.join(entry.parentPath,entry.name)).replaceAll(path.sep,'/'))
-    .filter(file=>file!=='sw.js'&&(/^(?:js|dist|assets|vendor)\/.*\.(?:js|mjs|css|svg|png|jpe?g|webp|woff2?|glb|bin|gltf|glsl|vert|frag)$/i.test(file)||/^[^/]+\.(?:css|html|svg|webmanifest)$/.test(file)));
+    .filter(file=>file!=='sw.js'&&(/^(?:js|dist|assets|vendor)\/.*\.(?:js|mjs|css|svg|png|jpe?g|webp|wav|woff2?|glb|bin|gltf|glsl|vert|frag)$/i.test(file)||/^[^/]+\.(?:css|html|svg|webmanifest)$/.test(file)));
   const hash=bytes=>createHash('sha256').update(bytes).digest('hex');
   const files=await Promise.all([...publicFiles.map(file=>[file,path.join(publicRoot,file)]),
     ...['character.js','afterimage.js','interface-state.js','rehearsal.js'].map(file=>[`shared/${file}`,path.join(root,'shared',file)])]

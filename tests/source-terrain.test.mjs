@@ -76,3 +76,13 @@ test('extreme input and a long hidden interval cannot create a terrain jump',()=
   const invalid=advanceTerrain(initial,{pointerX:NaN,pointerY:Infinity,scroll:NaN},NaN);
   for(const value of Object.values(invalid))assert.ok(Number.isFinite(value));
 });
+
+// Question: does Calm mode slow the fluid clock without freezing the surface
+// or leaving its deformation bounds? Limits: no GPU or perceived-FPS claim.
+test('calm mode slows material time while retaining bounded surface motion',()=>{
+  const start=createTerrainMotion(),normal=advanceTerrain(start,{},1/30),calm=advanceTerrain(start,{calm:true},1/30);
+  assert.ok(Math.abs(calm.time-normal.time*.35)<1e-12);
+  assert.ok(calm.time>0&&calm.x!==0);
+  assert.ok(calm.strength>=3.4&&calm.strength<=3.8);
+  assert.ok(calm.density>=1.04&&calm.density<=1.2);
+});
