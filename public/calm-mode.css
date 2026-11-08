@@ -9,6 +9,10 @@
 .calm-toggle svg{width:20px;height:20px;stroke-width:1.7}.calm-toggle svg ellipse{fill:currentColor;stroke:none}
 .contact-nav .calm-toggle[aria-pressed=true]{color:var(--secondary-accent);border-color:var(--secondary-accent);background:color-mix(in srgb,var(--secondary-accent) 16%,transparent)}
 .settings-workspace-tools .calm-controls{gap:6px}.settings-workspace-tools .calm-controls button{width:auto}
+#calm-header{display:flex;align-items:center;flex:none}
+#calm-header .calm-toggle{width:36px;height:36px;min-height:36px;padding:7px;border-color:color-mix(in srgb,var(--secondary-accent) 45%,transparent);color:var(--secondary-accent);background:color-mix(in srgb,var(--secondary-accent) 8%,transparent)}
+#calm-header .calm-toggle span,#calm-header .calm-sound,#calm-header [role=status]{display:none}
+#calm-header .calm-toggle[aria-pressed=true]{border-color:var(--secondary-accent);background:color-mix(in srgb,var(--secondary-accent) 19%,transparent)}
 .calm-cat{position:fixed;z-index:39;width:calc(32px*var(--cat-scale));height:calc(22px*var(--cat-scale));pointer-events:none;contain:layout style}
 .calm-cat-walk{width:100%;height:100%;transition:transform 3s linear}
 .calm-cat-pet{position:relative;display:block;width:100%;height:100%;padding:0!important;border:0!important;border-radius:12px;background:none!important;box-shadow:none!important;overflow:hidden;pointer-events:auto;cursor:pointer;touch-action:manipulation;-webkit-tap-highlight-color:transparent}

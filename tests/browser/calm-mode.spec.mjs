@@ -18,9 +18,14 @@ test('Calm mode adds one pet and preserves the preference across navigation',asy
   await expect(page.locator('.calm-cat')).toHaveAttribute('data-pose','meow');
   await expect(page.locator('.calm-cat')).toHaveAttribute('data-pose','idle',{timeout:4000});
   await page.goto('/guest#conversation');await expect(page.locator('.calm-cat')).toHaveCount(1);
+  const header=page.locator('#calm-header .calm-toggle');await expect(header).toBeVisible();
+  await expect(header).toHaveAttribute('aria-pressed','true');
+  await header.click();await expect(page.locator('.calm-cat')).toHaveCount(0);
   await page.getByRole('button',{name:'Settings',exact:true}).click();
-  await expect(page.locator('.calm-toggle')).toHaveAttribute('aria-pressed','true');
-  await page.locator('.calm-toggle').click();await expect(page.locator('.calm-cat')).toHaveCount(0);
+  const settings=page.locator('#inside-dialog');
+  await expect(settings.locator('.calm-toggle')).toHaveAttribute('aria-pressed','false');
+  await settings.locator('.calm-toggle').click();await expect(page.locator('.calm-cat')).toHaveCount(1);
+  await expect(header).toHaveAttribute('aria-pressed','true');
   await page.locator('#close-inside').click();await expect(page.locator('#message')).toBeVisible();
 });
 
@@ -30,7 +35,7 @@ test('Calm mode adds one pet and preserves the preference across navigation',asy
 test('mobile cat stays on its rail and yields audio to NOX',async({page})=>{
   await page.setViewportSize({width:390,height:844});await page.addInitScript(mediaDouble);
   await page.goto('/guest#conversation');await page.getByRole('button',{name:'Settings',exact:true}).click();
-  await page.locator('.calm-toggle').click();await page.locator('.calm-sound').click();await page.locator('#close-inside').click();
+  await page.locator('#inside-dialog .calm-toggle').click();await page.locator('#inside-dialog .calm-sound').click();await page.locator('#close-inside').click();
   await page.locator('#message').fill('Keep this unfinished thought.');
   const frame=await page.locator('.calm-cat').boundingBox(),composer=await page.locator('#chat-form').boundingBox();
   expect(Math.abs(frame.y+36-composer.y)).toBeLessThan(2);expect(frame.x+frame.width).toBeLessThanOrEqual(390);
@@ -44,6 +49,20 @@ test('mobile cat stays on its rail and yields audio to NOX',async({page})=>{
   await expect.poll(async()=>{const c=await page.locator('.calm-cat').boundingBox(),r=await page.locator('#chat-form').boundingBox();return Math.abs(c.y+36-r.y);}).toBeLessThan(2);
   await expect(page.locator('#message')).toHaveValue('Keep this unfinished thought.');
   await expect(page.locator('#chat-form')).toBeInViewport();
+});
+
+// Question: can a narrow-screen user find and toggle Calm mode directly from
+// the header, without opening Settings or losing a draft? Limits: Chromium
+// viewport layout, not physical touch ergonomics or browser update delivery.
+test('chat header paw is directly accessible at 320px',async({page})=>{
+  await page.setViewportSize({width:320,height:760});await page.goto('/guest#conversation');
+  await page.locator('#message').fill('An unfinished message.');
+  const paw=page.locator('#calm-header .calm-toggle');await expect(paw).toBeVisible();
+  const rect=await paw.boundingBox();expect(rect.x).toBeGreaterThanOrEqual(0);expect(rect.x+rect.width).toBeLessThanOrEqual(320);
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth)).toBe(false);
+  await paw.click();await expect(page.locator('.calm-cat')).toHaveCount(1);
+  await paw.click();await expect(page.locator('.calm-cat')).toHaveCount(0);
+  await expect(page.locator('#message')).toHaveValue('An unfinished message.');
 });
 
 // Question: are the actual recorded files served as decodable WAVs and an

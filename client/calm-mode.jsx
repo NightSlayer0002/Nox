@@ -8,7 +8,7 @@ function Speaker({on}){return <svg viewBox="0 0 24 24" aria-hidden="true"><path 
 
 // One controller per page. Only the small cat hit area receives pointer events;
 // it never follows the cursor, opens a chat, or reads conversation content.
-export function CalmMode({home=false}){
+export function CalmMode({home=false,headerHost=null}){
   const [enabled,setEnabled]=useState(readCalmMode),[sounds,setSounds]=useState(false),[notice,setNotice]=useState('');
   const [pose,setPose]=useState('idle'),[travel,setTravel]=useState(0),[position,setPosition]=useState(null),[paused,setPaused]=useState(document.hidden);
   const sound=useRef(null),petUntil=useRef(0),petAt=useRef(-Infinity),petTimer=useRef(null),cat=useRef(null);
@@ -70,7 +70,8 @@ export function CalmMode({home=false}){
     if(!matchMedia('(prefers-reduced-motion:reduce)').matches)cat.current?.animate([{transform:'translateY(0)'},{transform:'translateY(-3px)'},{transform:'translateY(0)'}],{duration:500,easing:'ease-out'});
   }
   const [frames,duration]=poses[pose];
-  return <><div className="calm-controls"><button className="calm-toggle" type="button" onClick={toggle} aria-label="Calm mode" aria-pressed={enabled} title={enabled?'Leave Calm mode':'Calm mode · a little cat company'}><Paw/><span>Calm mode</span></button>{enabled&&<button className="calm-sound" type="button" onClick={()=>{setNotice('');void sound.current?.enable(!sounds);}} aria-pressed={sounds} aria-label={sounds?'Mute cat sounds':'Turn on cat sounds'} title={sounds?'Mute cat sounds':'Cat sounds are off'}><Speaker on={sounds}/></button>}<span className="sr-only" role="status">{notice}</span></div>
+  const controls=<div className="calm-controls"><button className="calm-toggle" type="button" onClick={toggle} aria-label="Calm mode" aria-pressed={enabled} title={enabled?'Leave Calm mode':'Calm mode · a little cat company'}><Paw/><span>Calm mode</span></button>{enabled&&<button className="calm-sound" type="button" onClick={()=>{setNotice('');void sound.current?.enable(!sounds);}} aria-pressed={sounds} aria-label={sounds?'Mute cat sounds':'Turn on cat sounds'} title={sounds?'Mute cat sounds':'Cat sounds are off'}><Speaker on={sounds}/></button>}<span className="sr-only" role="status">{notice}</span></div>;
+  return <>{controls}{headerHost&&createPortal(controls,headerHost)}
     {enabled&&position&&createPortal(<div className="calm-cat" data-pose={pose} data-paused={paused} style={{left:position.x,top:position.y,'--cat-scale':position.scale,'--cat-frames':frames,'--cat-duration':`${duration}s`,'--cat-sheet':`url('/assets/calm/cat-${pose}.png')`}}><div className="calm-cat-walk" style={{transform:`translateX(${position.offset}px)`}}><button ref={cat} type="button" className="calm-cat-pet" aria-label="Pet the cat" title={sounds?'Pet the cat':'Pet the cat · sounds are off'} onClick={pet}><span key={pose} className="calm-cat-sprite" aria-hidden="true"/></button></div></div>,document.body)}
   </>;
 }
