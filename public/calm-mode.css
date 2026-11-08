@@ -5,6 +5,9 @@
 .calm-controls button[aria-pressed=true]{color:var(--accent);border-color:color-mix(in srgb,var(--accent) 24%,transparent);background:color-mix(in srgb,var(--accent) 5%,transparent)}
 .calm-controls button:focus-visible,.calm-cat-pet:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
 .contact-nav .calm-controls{margin-left:auto;font-size:14px}.contact-nav .calm-controls~.home-links{margin-left:0}
+.contact-nav .calm-toggle{color:var(--text);border-color:color-mix(in srgb,var(--secondary-accent) 45%,transparent);background:color-mix(in srgb,var(--secondary-accent) 9%,transparent)}
+.calm-toggle svg{width:20px;height:20px;stroke-width:1.7}.calm-toggle svg ellipse{fill:currentColor;stroke:none}
+.contact-nav .calm-toggle[aria-pressed=true]{color:var(--secondary-accent);border-color:var(--secondary-accent);background:color-mix(in srgb,var(--secondary-accent) 16%,transparent)}
 .settings-workspace-tools .calm-controls{gap:6px}.settings-workspace-tools .calm-controls button{width:auto}
 .calm-cat{position:fixed;z-index:39;width:calc(32px*var(--cat-scale));height:calc(22px*var(--cat-scale));pointer-events:none;contain:layout style}
 .calm-cat-walk{width:100%;height:100%;transition:transform 3s linear}
@@ -17,5 +20,5 @@
 body[data-calm=true] .contact-hud .hud-presence{padding-left:128px}
 body.workspace[data-calm=true][data-view=conversation] .conversation-dock{padding-top:54px}
 body:has(.cinematic-room[data-active=true])>.calm-cat{visibility:hidden}
-@media(max-width:700px){.contact-nav .calm-controls button{padding:6px 8px}.contact-nav .calm-toggle span{display:none}.contact-nav{gap:12px}.calm-controls{gap:0}body[data-calm=true] .contact-hud .hud-presence{padding-left:88px}body.workspace[data-calm=true][data-view=conversation] .conversation-dock{padding-top:38px}}
+@media(max-width:700px){.contact-nav .calm-controls button{padding:6px 8px}.contact-nav .calm-toggle{width:40px;height:40px;padding:8px}.contact-nav .calm-sound{width:32px;padding:6px}.contact-nav .calm-toggle span{display:none}.contact-nav{gap:8px}.calm-controls{gap:0}body[data-calm=true] .contact-hud .hud-presence{padding-left:88px}body.workspace[data-calm=true][data-view=conversation] .conversation-dock{padding-top:38px}}
 @media(prefers-reduced-motion:reduce){.calm-cat-walk{transition:none}.calm-cat-sprite{animation:none}}
