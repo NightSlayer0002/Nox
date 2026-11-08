@@ -37,8 +37,10 @@ test('mobile cat stays on its rail and yields audio to NOX',async({page})=>{
   await page.goto('/guest#conversation');await page.getByRole('button',{name:'Settings',exact:true}).click();
   await page.locator('#inside-dialog .calm-toggle').click();await page.locator('#inside-dialog .calm-sound').click();await page.locator('#close-inside').click();
   await page.locator('#message').fill('Keep this unfinished thought.');
-  const frame=await page.locator('.calm-cat').boundingBox(),composer=await page.locator('#chat-form').boundingBox();
-  expect(Math.abs(frame.y+36-composer.y)).toBeLessThan(2);expect(frame.x+frame.width).toBeLessThanOrEqual(390);
+  // Autosizing the textarea schedules a ResizeObserver and a render frame.
+  // Assert the same precise alignment after that observed layout has settled.
+  await expect.poll(async()=>{const c=await page.locator('.calm-cat').boundingBox(),r=await page.locator('#chat-form').boundingBox();return Math.abs(c.y+36-r.y);}).toBeLessThan(2);
+  const frame=await page.locator('.calm-cat').boundingBox();expect(frame.x+frame.width).toBeLessThanOrEqual(390);
   await page.evaluate(()=>document.body.dataset.voiceState='speaking');
   await expect.poll(()=>page.evaluate(()=>window.catMedia.every(a=>a.paused))).toBe(true);
   await page.evaluate(()=>document.body.dataset.voiceState='idle');
