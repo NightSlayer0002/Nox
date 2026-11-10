@@ -3,7 +3,7 @@ import {createPortal} from 'react-dom';
 import {catPerch,createCatSound,readCalmMode,saveCalmMode} from '/js/calm-cat.js';
 
 // Each strip is rendered at 24 frames per second on a 64px pixel grid.
-const framesByPose={idle:96,stretching:48,walk:72,laying:30,sleeping1:96,waking:42,meow:58};
+const framesByPose={idle:144,stretching:48,walk:72,laying:36,sleeping1:144,waking:48,meow:58,nuzzle:72,grooming:96,curious:60};
 const routine=[['idle',8000],['stretching',2000],['walk',3000],['idle',8000],['laying',1250],['sleeping1',16000],['waking',1750]];
 function Paw(){return <svg viewBox="0 0 24 24" aria-hidden="true"><ellipse cx="5" cy="9" rx="2" ry="2.8" transform="rotate(-25 5 9)"/><ellipse cx="10" cy="5.5" rx="2" ry="2.8"/><ellipse cx="16" cy="6" rx="2" ry="2.8" transform="rotate(15 16 6)"/><ellipse cx="20" cy="11" rx="1.8" ry="2.5" transform="rotate(30 20 11)"/><path d="M6.5 17c0-2 3-5.5 5.5-5.5s5.5 3.5 5.5 5.5c0 3-3 2-5.5 2s-5.5 1-5.5-2Z"/></svg>;}
 function Speaker({on}){return <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M11 4 6 8H3v8h3l5 4Z"/>{on?<path d="M15 8a6 6 0 0 1 0 8m3-11a10 10 0 0 1 0 14"/>:<path d="m16 9 5 6m0-6-5 6"/>}</svg>;}

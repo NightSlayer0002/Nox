@@ -27,7 +27,8 @@ PALETTE = {
     "pink": "eb9292", "ear": "aa545d", "eye": "26343d", "iris": "66b9af",
     "irisshade": "3a827d", "glint": "f5fff0",
 }
-CLIPS = {"idle": 96, "stretching": 48, "walk": 72, "laying": 30, "sleeping1": 96, "waking": 42, "meow": 58}
+CLIPS = {"idle": 144, "stretching": 48, "walk": 72, "laying": 36, "sleeping1": 144,
+         "waking": 48, "meow": 58, "nuzzle": 72, "grooming": 96, "curious": 60}
 
 
 def color(hex_code):
@@ -179,10 +180,18 @@ def draw_tabby(rig):
     oval('Tongue', 'pink', 21.5, 34.7, 1.65, .95, mouth)
     shape('Far whiskers', 'creamshade', 'M10 31 L5 30 L5 31 L10 32 Z', head)
     shape('Near whiskers', 'creamshade', 'M33 32 L40 31 L40 32 L34 33 Z', head)
+    wash_paw = rig.pivot('Washing forepaw', 20, 54)
+    shape('Washing paw outline', 'ink', 'M17 44 Q20 42 23 45 L24 51 Q25 57 21 59 L17 59 Q14 56 15 51 L15 47 Q15 45 17 44 Z', wash_paw)
+    shape('Washing paw fur', 'orange', 'M18 45 Q20 44 22 46 L23 51 L22 56 L17 56 L16 51 L16 47 Z', wash_paw)
+    shape('Washing paw sock', 'cream', 'M16 52 L23 52 L23 56 Q22 58 20 58 L17 58 Q15 57 16 52 Z', wash_paw)
     dreams = rig.pivot('Sleep marks', 48, 28)
     shape('Small Z', 'creamshade', 'M43 30 L47 30 L47 31 L44.5 33 L47 33 L47 34 L43 34 L43 33 L45.5 31 L43 31 Z', dreams)
     shape('Large Z', 'cream', 'M49 22 L54 22 L54 23 L51 26 L54 26 L54 27 L49 27 L49 26 L52 23 L49 23 Z', dreams)
-    return body, head, feet, eyes, eyelids, smile, mouth, tail, dreams
+    # The face is drawn in layers. Move the same ear vertices in every layer
+    # so the inner ear and outline remain registered during a small twitch.
+    ears = [(obj, [vertex.co.copy() for vertex in obj.data.vertices])
+            for obj in head.children if obj.type == 'MESH']
+    return body, head, feet, eyes, eyelids, smile, mouth, tail, dreams, ears, wash_paw
 
 
 def ease(t):
@@ -215,31 +224,51 @@ def stroke(start, end, center, width):
 
 
 def pose_tabby(rig, model, clip, frame):
-    body, head, feet, eyes, eyelids, smile, mouth, tail, dreams = model
-    progress = frame / CLIPS[clip]
+    body, head, feet, eyes, eyelids, smile, mouth, tail, dreams, ears, wash_paw = model
+    progress = frame / (CLIPS[clip] if clip in ('idle', 'sleeping1') else CLIPS[clip]-1)
     phase = progress * math.tau
     breath = math.sin(phase)
     rest = {'laying': ease(progress), 'sleeping1': 1, 'waking': 1-ease(progress*1.55)}.get(clip, 0)
     stretch = math.sin(math.pi*progress)**2 if clip in ('stretching', 'waking') else 0
     stride = math.sin(math.pi*progress)**2 if clip == 'walk' else 0
     gait = math.sin(phase*3)
-    place(body, x=2.3*rest, sx=1+.18*rest+.13*stride, sy=1-.48*rest-.16*stretch-.16*stride+.026*breath)
-    place(head, x=-1.2*rest-3*stretch-2*stride, y=20*rest+11*stretch+6*stride+.55*breath, sx=1+.06*rest,
-          sy=1-.17*rest-.04*stretch, tilt=.03*breath+.095*rest-.08*stretch)
+    envelope = math.sin(math.pi*progress)**2
+    affection = envelope if clip == 'nuzzle' else 0
+    wash = envelope if clip == 'grooming' else 0
+    curiosity = envelope if clip == 'curious' else 0
+    place(body, x=2.3*rest, sx=1+.18*rest+.13*stride, sy=1-.48*rest-.16*stretch-.16*stride+.018*breath)
+    place(head, x=-1.2*rest-3*stretch-2*stride-2*affection, y=20*rest+11*stretch+6*stride+.4*breath+2*wash,
+          sx=1+.06*rest, sy=1-.17*rest-.04*stretch,
+          tilt=.025*breath+.095*rest-.08*stretch-.12*affection+.14*curiosity-.07*wash*math.sin(phase*3))
     for index, paw in enumerate(feet):
         step = gait*(-1 if index else 1)*stride
-        place(paw, x=step*3-4*stretch-1.8*rest, y=-max(0,step)*2, sy=1-.60*rest-.24*stretch-.15*stride)
-    blink = max(0, 1-abs(progress-.56)/.055)**2 if clip == 'idle' else 0
-    closed = max(rest, blink)
-    for eye, eyelid in zip(eyes, eyelids):
-        place(eye, sy=1-.88*closed)
+        knead = max(0, math.sin(phase*3+index*math.pi))*affection
+        place(paw, x=step*3-4*stretch-1.8*rest+(2*wash if index else 0),
+              y=-max(0,step)*2-1.7*knead-(18*wash if index else 0),
+              sy=1-.60*rest-.24*stretch-.15*stride, tilt=-.12*wash if index else 0)
+        for feature in paw.children:
+            feature.hide_render = index == 1 and wash > .18
+    place(wash_paw, x=wash, y=-23*wash-1.2*wash*math.sin(phase*3), tilt=-.06*wash)
+    for feature in wash_paw.children:
+        feature.hide_render = wash <= .18
+    for index, (eye, eyelid) in enumerate(zip(eyes, eyelids)):
+        blink = ease(max(0, 1-abs(progress-(.56+.012*index))/.075)) if clip == 'idle' else 0
+        closed = max(rest, blink, min(1, affection*2.8), wash*.9)
+        place(eye, x=-.5*curiosity, sy=1-.88*closed)
         eyelid.hide_render = closed < .83
         for detail in eye.children:
             detail.hide_render = not eyelid.hide_render
+    twitch = .12*math.sin(phase*9)*math.exp(-((progress-.78)/.07)**2) if clip in ('idle', 'curious') else 0
+    for obj, original in ears:
+        for vertex, co in zip(obj.data.vertices, original):
+            x, y = co.x+23, 30-co.y
+            weight = ease((18-y)/11) if x < 22 else 0
+            vertex.co = co+Vector((twitch*weight*(18-y), twitch*weight*(x-15), 0))
     place(dreams, y=-.75*breath)
     for mark in dreams.children:
         mark.hide_render = clip != 'sleeping1'
     meow = math.sin(math.pi*min(1, progress*1.9))**1.5 if clip == 'meow' else 0
+    meow = max(meow, max(0, math.sin(phase*3))*.52*wash)
     smile.hide_render = meow > .24
     mouth.hide_render = meow <= .24
     for feature in mouth.children:
