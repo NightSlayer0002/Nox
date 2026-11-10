@@ -1,10 +1,14 @@
 const key='nox.calm.v1';
 export function readCalmMode(storage){try{return (storage||globalThis.localStorage).getItem(key)==='true';}catch{return false;}}
 export function saveCalmMode(value,storage){try{(storage||globalThis.localStorage).setItem(key,String(Boolean(value)));}catch{}return Boolean(value);}
-export function catPerch({support,width,height,scale,travel=0}){
-  const clamp=(n,min,max)=>Math.max(min,Math.min(max,n));
-  return {x:clamp(support.left+12+travel,Math.max(8,support.left+8),Math.min(width-32*scale-8,support.right-32*scale-8)),
-    y:clamp(support.top-18*scale,8,height-22*scale-8)};
+export function catPerch({support,width,height,size,travel=0}){
+  const clamp=(value,min,max)=>Math.max(min,Math.min(max,value));
+  // The Blender camera leaves four transparent pixels below the paw line.
+  const feet=size*60/64;
+  return {
+    x:clamp(support.left+12+travel,Math.max(8,support.left+8),Math.min(width-size-8,support.right-size-8)),
+    y:clamp(support.top-feet,8,height-size-8)
+  };
 }
 
 // Each playback owns a fresh media element. A late play promise can only stop

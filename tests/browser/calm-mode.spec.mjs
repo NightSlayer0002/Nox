@@ -39,7 +39,12 @@ test('mobile cat stays on its rail and yields audio to NOX',async({page})=>{
   await page.locator('#message').fill('Keep this unfinished thought.');
   // Autosizing the textarea schedules a ResizeObserver and a render frame.
   // Assert the same precise alignment after that observed layout has settled.
-  await expect.poll(async()=>{const c=await page.locator('.calm-cat').boundingBox(),r=await page.locator('#chat-form').boundingBox();return Math.abs(c.y+36-r.y);}).toBeLessThan(2);
+  const pawLineOffset=async()=>{
+    const button=await page.locator('.calm-cat-pet').boundingBox();
+    const composer=await page.locator('#chat-form').boundingBox();
+    return Math.abs(button.y+button.height-composer.y);
+  };
+  await expect.poll(pawLineOffset).toBeLessThan(2);
   const frame=await page.locator('.calm-cat').boundingBox();expect(frame.x+frame.width).toBeLessThanOrEqual(390);
   await page.evaluate(()=>document.body.dataset.voiceState='speaking');
   await expect.poll(()=>page.evaluate(()=>window.catMedia.every(a=>a.paused))).toBe(true);
@@ -48,7 +53,7 @@ test('mobile cat stays on its rail and yields audio to NOX',async({page})=>{
   await page.evaluate(()=>document.body.dataset.callOpen='true');
   await expect.poll(()=>page.evaluate(()=>window.catMedia.every(a=>a.paused))).toBe(true);
   await page.setViewportSize({width:390,height:520});
-  await expect.poll(async()=>{const c=await page.locator('.calm-cat').boundingBox(),r=await page.locator('#chat-form').boundingBox();return Math.abs(c.y+36-r.y);}).toBeLessThan(2);
+  await expect.poll(pawLineOffset).toBeLessThan(2);
   await expect(page.locator('#message')).toHaveValue('Keep this unfinished thought.');
   await expect(page.locator('#chat-form')).toBeInViewport();
 });

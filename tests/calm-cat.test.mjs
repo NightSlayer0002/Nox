@@ -6,10 +6,10 @@ import {catPerch,createCatSound,readCalmMode,saveCalmMode} from '../public/js/ca
 // Limits: geometry only; actual mobile keyboards and visual overlap need browser checks.
 test('cat perch bounds travel and keeps its feet on the supplied interface edge',()=>{
   const support={left:20,right:370,top:650};
-  const cat=catPerch({support,width:390,height:740,scale:2,travel:500});
-  assert.ok(cat.x>=28&&cat.x+64<=362);assert.equal(cat.y+36,650);
-  const small=catPerch({support:{left:0,right:200,top:10},width:200,height:100,scale:3,travel:-500});
-  assert.ok(small.x>=8&&small.y>=8);assert.ok(small.y+66<=100);
+  const cat=catPerch({support,width:390,height:740,size:80,travel:500});
+  assert.ok(cat.x>=28&&cat.x+80<=362);assert.equal(cat.y+75,650);
+  const small=catPerch({support:{left:0,right:200,top:10},width:200,height:114,size:96,travel:-500});
+  assert.ok(small.x>=8&&small.y>=8);assert.ok(small.y+96<=114);
 });
 
 // Question: does unavailable browser storage break this optional appearance control?

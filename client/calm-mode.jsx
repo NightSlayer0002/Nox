@@ -2,7 +2,9 @@ import React,{useEffect,useRef,useState} from 'react';
 import {createPortal} from 'react-dom';
 import {catPerch,createCatSound,readCalmMode,saveCalmMode} from '/js/calm-cat.js';
 
-const poses={idle:[10,1.8],walk:[8,.9],meow:[4,.7],laying:[8,1.2],sleeping1:[1,1],stretching:[13,1.6]};
+// Each strip is rendered at 24 frames per second on a 64px pixel grid.
+const framesByPose={idle:96,stretching:48,walk:72,laying:30,sleeping1:96,waking:42,meow:58};
+const routine=[['idle',8000],['stretching',2000],['walk',3000],['idle',8000],['laying',1250],['sleeping1',16000],['waking',1750]];
 function Paw(){return <svg viewBox="0 0 24 24" aria-hidden="true"><ellipse cx="5" cy="9" rx="2" ry="2.8" transform="rotate(-25 5 9)"/><ellipse cx="10" cy="5.5" rx="2" ry="2.8"/><ellipse cx="16" cy="6" rx="2" ry="2.8" transform="rotate(15 16 6)"/><ellipse cx="20" cy="11" rx="1.8" ry="2.5" transform="rotate(30 20 11)"/><path d="M6.5 17c0-2 3-5.5 5.5-5.5s5.5 3.5 5.5 5.5c0 3-3 2-5.5 2s-5.5 1-5.5-2Z"/></svg>;}
 function Speaker({on}){return <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M11 4 6 8H3v8h3l5 4Z"/>{on?<path d="M15 8a6 6 0 0 1 0 8m3-11a10 10 0 0 1 0 14"/>:<path d="m16 9 5 6m0-6-5 6"/>}</svg>;}
 
@@ -30,15 +32,15 @@ export function CalmMode({home=false,headerHost=null}){
     let frame=0;
     const measure=()=>{
       cancelAnimationFrame(frame);frame=requestAnimationFrame(()=>{
-        const scale=innerWidth<=700?2:3,viewport=window.visualViewport;
+        const size=innerWidth<=700?80:96,viewport=window.visualViewport;
         const support=home?document.querySelector('.contact-hud'):document.getElementById('chat-form');
         const showing=home||document.body.dataset.view==='conversation';
         if(!showing||!support||!support.getClientRects().length){setPosition(null);return;}
         const rect=support.getBoundingClientRect();
         const rail=home?{left:rect.left,right:Math.min(rect.left+150,innerWidth-12),top:rect.bottom-4}:rect;
-        const bounds={support:rail,width:innerWidth,height:(viewport?.height||innerHeight)+(viewport?.offsetTop||0),scale};
+        const bounds={support:rail,width:innerWidth,height:(viewport?.height||innerHeight)+(viewport?.offsetTop||0),size};
         const base=catPerch(bounds),walk=catPerch({...bounds,travel});
-        setPosition({...base,scale,offset:walk.x-base.x});
+        setPosition({...base,size,offset:walk.x-base.x});
       });
     };
     const hush=()=>{
@@ -54,10 +56,10 @@ export function CalmMode({home=false,headerHost=null}){
   },[enabled,home,travel]);
   useEffect(()=>{
     if(!enabled||paused)return;
-    let step=0;const sequence=[['idle',9000],['stretching',1600],['walk',3000],['idle',7000],['laying',1200],['sleeping1',18000],['stretching',1600]];let timer;
+    let step=0,timer;
     const next=()=>{
       if(performance.now()<petUntil.current){timer=setTimeout(next,700);return;}
-      const [action,duration]=sequence[step++%sequence.length];setPose(action);
+      const [action,duration]=routine[step++%routine.length];setPose(action);
       if(action==='walk'&&!matchMedia('(prefers-reduced-motion:reduce)').matches)setTravel(value=>value===0?(home?(innerWidth<=700?12:24):48):0);
       timer=setTimeout(next,duration);
     };
@@ -69,9 +71,21 @@ export function CalmMode({home=false,headerHost=null}){
     clearTimeout(petTimer.current);petTimer.current=setTimeout(()=>setPose('idle'),2400);
     if(!matchMedia('(prefers-reduced-motion:reduce)').matches)cat.current?.animate([{transform:'translateY(0)'},{transform:'translateY(-3px)'},{transform:'translateY(0)'}],{duration:500,easing:'ease-out'});
   }
-  const [frames,duration]=poses[pose];
+  const frames=framesByPose[pose];
   const controls=<div className="calm-controls"><button className="calm-toggle" type="button" onClick={toggle} aria-label="Calm mode" aria-pressed={enabled} title={enabled?'Leave Calm mode':'Calm mode · a little cat company'}><Paw/><span>Calm mode</span></button>{enabled&&<button className="calm-sound" type="button" onClick={()=>{setNotice('');void sound.current?.enable(!sounds);}} aria-pressed={sounds} aria-label={sounds?'Mute cat sounds':'Turn on cat sounds'} title={sounds?'Mute cat sounds':'Cat sounds are off'}><Speaker on={sounds}/></button>}<span className="sr-only" role="status">{notice}</span></div>;
   return <>{controls}{headerHost&&createPortal(controls,headerHost)}
-    {enabled&&position&&createPortal(<div className="calm-cat" data-pose={pose} data-paused={paused} style={{left:position.x,top:position.y,'--cat-scale':position.scale,'--cat-frames':frames,'--cat-duration':`${duration}s`,'--cat-sheet':`url('/assets/calm/cat-${pose}.png')`}}><div className="calm-cat-walk" style={{transform:`translateX(${position.offset}px)`}}><button ref={cat} type="button" className="calm-cat-pet" aria-label="Pet the cat" title={sounds?'Pet the cat':'Pet the cat · sounds are off'} onClick={pet}><span key={pose} className="calm-cat-sprite" aria-hidden="true"/></button></div></div>,document.body)}
+    {enabled&&position&&createPortal(
+      <div className="calm-cat" data-pose={pose} data-paused={paused} style={{
+        left:position.x,top:position.y,'--cat-size':`${position.size}px`,
+        '--cat-facing':position.offset>0?-1:1,'--cat-frames':frames,
+        '--cat-duration':`${frames/24}s`,'--cat-sheet':`url('/assets/calm/tabby-${pose}.png')`
+      }}>
+        <div className="calm-cat-walk" style={{transform:`translateX(${position.offset}px)`}}>
+          <button ref={cat} type="button" className="calm-cat-pet" aria-label="Pet the cat"
+            title={sounds?'Pet the cat':'Pet the cat · sounds are off'} onClick={pet}>
+            <span key={pose} className="calm-cat-sprite" aria-hidden="true"/>
+          </button>
+        </div>
+      </div>,document.body)}
   </>;
 }
