@@ -13,16 +13,16 @@
 #calm-header .calm-toggle{width:36px;height:36px;min-height:36px;padding:7px;border-color:color-mix(in srgb,var(--secondary-accent) 45%,transparent);color:var(--secondary-accent);background:color-mix(in srgb,var(--secondary-accent) 8%,transparent)}
 #calm-header .calm-toggle span,#calm-header .calm-sound,#calm-header [role=status]{display:none}
 #calm-header .calm-toggle[aria-pressed=true]{border-color:var(--secondary-accent);background:color-mix(in srgb,var(--secondary-accent) 19%,transparent)}
-.calm-cat{position:fixed;z-index:39;width:calc(32px*var(--cat-scale));height:calc(22px*var(--cat-scale));pointer-events:none;contain:layout style}
+.calm-cat{position:fixed;z-index:39;width:var(--cat-size);height:var(--cat-size);pointer-events:none;contain:layout style}
 .calm-cat-walk{width:100%;height:100%;transition:transform 3s linear}
-.calm-cat-pet{position:relative;display:block;width:100%;height:100%;padding:0!important;border:0!important;border-radius:12px;background:none!important;box-shadow:none!important;overflow:hidden;pointer-events:auto;cursor:pointer;touch-action:manipulation;-webkit-tap-highlight-color:transparent}
-.calm-cat-sprite{position:absolute;left:calc(-10px*var(--cat-scale));top:calc(-13px*var(--cat-scale));width:calc(50px*var(--cat-scale));height:calc(50px*var(--cat-scale));background-image:var(--cat-sheet);background-size:auto calc(50px*var(--cat-scale));background-repeat:no-repeat;image-rendering:pixelated;animation:cat-frames var(--cat-duration) steps(var(--cat-frames)) infinite;filter:drop-shadow(0 2px 1px #0003)}
+.calm-cat-pet{position:relative;display:block;width:100%;height:93.75%;padding:0!important;border:0!important;border-radius:12px;background:none!important;box-shadow:none!important;overflow:hidden;pointer-events:auto;cursor:pointer;touch-action:manipulation;-webkit-tap-highlight-color:transparent}
+.calm-cat-sprite{position:absolute;inset:0;width:var(--cat-size);height:var(--cat-size);background-image:var(--cat-sheet);background-size:auto var(--cat-size);background-repeat:no-repeat;image-rendering:pixelated;transform:scaleX(var(--cat-facing));animation:cat-frames var(--cat-duration) steps(var(--cat-frames)) infinite;filter:drop-shadow(0 2px 1px #0003)}
 .calm-cat[data-paused=true] .calm-cat-sprite{animation-play-state:paused}
-.calm-cat[data-pose=laying] .calm-cat-sprite,.calm-cat[data-pose=stretching] .calm-cat-sprite{animation-name:cat-frames-once;animation-timing-function:steps(calc(var(--cat-frames) - 1));animation-iteration-count:1;animation-fill-mode:forwards}
-@keyframes cat-frames{to{background-position-x:calc(-50px*var(--cat-scale)*var(--cat-frames))}}
-@keyframes cat-frames-once{to{background-position-x:calc(-50px*var(--cat-scale)*(var(--cat-frames) - 1))}}
-body[data-calm=true] .contact-hud .hud-presence{padding-left:128px}
-body.workspace[data-calm=true][data-view=conversation] .conversation-dock{padding-top:54px}
+.calm-cat:is([data-pose=laying],[data-pose=stretching],[data-pose=walk],[data-pose=waking],[data-pose=meow]) .calm-cat-sprite{animation-name:cat-frames-once;animation-timing-function:steps(calc(var(--cat-frames) - 1));animation-iteration-count:1;animation-fill-mode:forwards}
+@keyframes cat-frames{to{background-position-x:calc(-1*var(--cat-size)*var(--cat-frames))}}
+@keyframes cat-frames-once{to{background-position-x:calc(-1*var(--cat-size)*(var(--cat-frames) - 1))}}
+body[data-calm=true] .contact-hud .hud-presence{padding-left:136px}
+body.workspace[data-calm=true][data-view=conversation] .conversation-dock{padding-top:90px}
 body:has(.cinematic-room[data-active=true])>.calm-cat{visibility:hidden}
-@media(max-width:700px){.contact-nav .calm-controls button{padding:6px 8px}.contact-nav .calm-toggle{width:40px;height:40px;padding:8px}.contact-nav .calm-sound{width:32px;padding:6px}.contact-nav .calm-toggle span{display:none}.contact-nav{gap:8px}.calm-controls{gap:0}body[data-calm=true] .contact-hud .hud-presence{padding-left:88px}body.workspace[data-calm=true][data-view=conversation] .conversation-dock{padding-top:38px}}
+@media(max-width:700px){.contact-nav .calm-controls button{padding:6px 8px}.contact-nav .calm-toggle{width:40px;height:40px;padding:8px}.contact-nav .calm-sound{width:32px;padding:6px}.contact-nav .calm-toggle span{display:none}.contact-nav{gap:8px}.calm-controls{gap:0}body[data-calm=true] .contact-hud .hud-presence{padding-left:108px}body.workspace[data-calm=true][data-view=conversation] .conversation-dock{padding-top:75px}}
 @media(prefers-reduced-motion:reduce){.calm-cat-walk{transition:none}.calm-cat-sprite{animation:none}}
