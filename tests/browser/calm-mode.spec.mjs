@@ -76,7 +76,7 @@ test('chat header paw is directly accessible at 320px',async({page})=>{
 // autoplay rejection recoverable? Limits: HTTP bytes and substituted rejection,
 // not subjective sound quality or acoustic hardware.
 test('cat sounds have a real media route and failures leave the control muted',async({page,request})=>{
-  for(const sound of ['purr','meow']){
+  for(const sound of ['purr-soft','mew-hello','mew-soft']){
     const response=await request.get(`/assets/calm/${sound}.wav`);expect(response.status()).toBe(200);
     expect(response.headers()['content-type']).toContain('audio/wav');expect((await response.body()).subarray(0,4).toString()).toBe('RIFF');
   }

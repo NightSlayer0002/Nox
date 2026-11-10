@@ -37,8 +37,10 @@ test('sound requires explicit enabling and quiet periods release all media',asyn
   await w.controller.enable(true);assert.equal(w.nodes.length,1);assert.equal(w.nodes[0].loop,true);
   w.controller.quiet(true);assert.equal(w.nodes[0].paused,true);assert.equal(w.nodes[0].src,'');
   w.controller.quiet(false);assert.equal(w.nodes.length,2);
-  await w.controller.pet();assert.ok(w.nodes.at(-1).src.endsWith('/meow.wav'));
-  w.nodes.at(-1).onended();assert.ok(w.nodes.at(-1).src.endsWith('/purr.wav'));
+  const bed=w.nodes.at(-1);
+  await w.controller.pet();assert.ok(w.nodes.at(-1).src.endsWith('/mew-hello.wav'));
+  assert.equal(bed.paused,false,'The purr continues underneath the meow');
+  w.nodes.at(-1).onended();assert.equal(w.nodes.length,3,'Ending a meow does not restart the purr');
   w.controller.dispose();assert.equal(w.nodes.at(-1).paused,true);
 });
 
@@ -61,4 +63,35 @@ test('playback rejection reports failure without enabling or looping failed audi
   class Blocked {play(){return Promise.reject(Error('denied'));}pause(){}removeAttribute(){}load(){}}
   const changes=[],errors=[],sound=createCatSound({Audio:Blocked,onChange:x=>changes.push(x),onError:()=>errors.push(true)});
   await sound.enable(true);assert.equal(changes.at(-1),false);assert.equal(errors.length,1);sound.dispose();
+});
+
+// Question: can rapid petting stack sounds, and can a late cue restart a muted purr?
+// Limits: fake media establishes lifecycle ownership, not perceived sound quality.
+test('pet sounds alternate without stacking and mute owns pending cues',async()=>{
+  const w=soundWorld();await w.controller.enable(true);
+  await w.controller.pet();const cue=w.nodes.at(-1);
+  await w.controller.pet();assert.equal(w.nodes.length,2);
+  cue.onended();await w.controller.pet();assert.ok(w.nodes.at(-1).src.endsWith('/mew-soft.wav'));
+  const obsoleteEnd=w.nodes.at(-1).onended;
+  w.controller.enable(false);obsoleteEnd();
+  assert.equal(w.nodes.length,3);assert.ok(w.nodes.every(node=>node.paused));
+  w.controller.dispose();
+});
+
+// Question: do purr gain changes ease in, duck under a cue, and settle lower for sleep?
+// Limits: deterministic volume envelopes; cannot establish actual speaker loudness.
+test('purr fades from silence and changes with the cats pose',async(t)=>{
+  t.mock.timers.enable({apis:['setTimeout']});
+  const w=soundWorld();await w.controller.enable(true);const purr=w.nodes[0];
+  assert.equal(purr.volume,0);
+  for(let i=0;i<20;i++)t.mock.timers.tick(50);
+  assert.ok(purr.volume>.08&&purr.volume<.16);
+  const awake=purr.volume;w.controller.mood('sleeping1');
+  for(let i=0;i<20;i++)t.mock.timers.tick(50);
+  assert.ok(purr.volume<awake);
+  await w.controller.pet();
+  for(let i=0;i<20;i++)t.mock.timers.tick(50);
+  assert.ok(purr.volume<.05);
+  w.controller.quiet(true);for(let i=0;i<30;i++)t.mock.timers.tick(50);
+  assert.ok(w.nodes.every(node=>node.paused));w.controller.dispose();
 });
