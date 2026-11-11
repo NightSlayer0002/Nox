@@ -15,7 +15,8 @@ test('Calm mode adds one pet and preserves the preference across navigation',asy
   await expect(toggle).toHaveAttribute('aria-pressed','false');await expect(page.locator('.calm-cat')).toHaveCount(0);
   await toggle.click();await expect(page.locator('.calm-cat')).toHaveCount(1);
   await page.getByRole('button',{name:'Pet the cat',exact:true}).click();
-  await expect(page.locator('.calm-cat')).toHaveAttribute('data-pose','meow');
+  await expect(page.locator('.calm-cat')).toHaveAttribute('data-pose','nuzzle');
+  await expect(page.locator('.calm-cat-heart')).toBeVisible();
   await expect(page.locator('.calm-cat')).toHaveAttribute('data-pose','idle',{timeout:4000});
   await page.goto('/guest#conversation');await expect(page.locator('.calm-cat')).toHaveCount(1);
   const header=page.locator('#calm-header .calm-toggle');await expect(header).toBeVisible();
@@ -27,6 +28,34 @@ test('Calm mode adds one pet and preserves the preference across navigation',asy
   await settings.locator('.calm-toggle').click();await expect(page.locator('.calm-cat')).toHaveCount(1);
   await expect(header).toHaveAttribute('aria-pressed','true');
   await page.locator('#close-inside').click();await expect(page.locator('#message')).toBeVisible();
+});
+
+// Question: can petting a sleeping cat jump directly to sitting, or can an old
+// routine timer override the reaction? Limits: accelerated browser time and
+// sprite state; does not establish physical-device animation smoothness.
+test('a sleeping cat wakes before nuzzling and a new visit has no old reaction timer',async({page})=>{
+  await page.goto('/');await page.clock.install();await page.locator('.calm-toggle').click();
+  const cat=page.locator('.calm-cat');
+  for(const [duration,pose] of [[12000,'grooming'],[4000,'idle'],[10000,'curious'],[2500,'idle'],[14000,'stretching'],[2000,'walk'],[3000,'idle'],[12000,'laying'],[1500,'sleeping1']]){
+    await page.clock.fastForward(duration);await expect(cat).toHaveAttribute('data-pose',pose);
+  }
+  await page.getByRole('button',{name:'Pet the cat',exact:true}).click();
+  await expect(cat).toHaveAttribute('data-pose','waking');
+  await page.clock.fastForward(2000);await expect(cat).toHaveAttribute('data-pose','nuzzle');
+  await page.clock.fastForward(3000);await expect(cat).toHaveAttribute('data-pose','idle');
+  await page.getByRole('button',{name:'Pet the cat',exact:true}).click();
+  await page.locator('.calm-toggle').click();await page.locator('.calm-toggle').click();
+  await page.clock.fastForward(4000);await expect(cat).toHaveAttribute('data-pose','idle');
+});
+
+// Question: does reduced motion keep the cat still but preserve visible pet
+// feedback and controls? Limits: media preference emulation, not user comfort.
+test('reduced motion keeps a still cat with gentle affection feedback',async({page})=>{
+  await page.emulateMedia({reducedMotion:'reduce'});await page.goto('/');
+  await page.locator('.calm-toggle').click();await page.getByRole('button',{name:'Pet the cat',exact:true}).click();
+  await expect(page.locator('.calm-cat-heart')).toBeVisible();
+  expect(await page.locator('.calm-cat-sprite').evaluate(node=>getComputedStyle(node).animationName)).toBe('none');
+  expect(await page.locator('.calm-cat-walk').evaluate(node=>getComputedStyle(node).transitionDuration)).toBe('0s');
 });
 
 // Question: does the cat stay on the composer without consuming a draft, and
