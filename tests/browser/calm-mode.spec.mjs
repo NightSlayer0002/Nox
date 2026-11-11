@@ -15,7 +15,8 @@ test('Calm mode adds one pet and preserves the preference across navigation',asy
   await expect(toggle).toHaveAttribute('aria-pressed','false');await expect(page.locator('.calm-cat')).toHaveCount(0);
   await toggle.click();await expect(page.locator('.calm-cat')).toHaveCount(1);
   await page.getByRole('button',{name:'Pet the cat',exact:true}).click();
-  await expect(page.locator('.calm-cat')).toHaveAttribute('data-pose','meow');
+  await expect(page.locator('.calm-cat')).toHaveAttribute('data-pose','nuzzle');
+  await expect(page.locator('.calm-cat-heart')).toBeVisible();
   await expect(page.locator('.calm-cat')).toHaveAttribute('data-pose','idle',{timeout:4000});
   await page.goto('/guest#conversation');await expect(page.locator('.calm-cat')).toHaveCount(1);
   const header=page.locator('#calm-header .calm-toggle');await expect(header).toBeVisible();
@@ -28,6 +29,54 @@ test('Calm mode adds one pet and preserves the preference across navigation',asy
   await expect(header).toHaveAttribute('aria-pressed','true');
   await page.locator('#close-inside').click();await expect(page.locator('#message')).toBeVisible();
 });
+
+// Question: can petting a sleeping cat jump directly to sitting, or can an old
+// routine timer override the reaction? Limits: accelerated browser time and
+// sprite state; does not establish physical-device animation smoothness.
+test('a sleeping cat wakes before nuzzling and a new visit has no old reaction timer',async({page})=>{
+  await page.goto('/');await page.clock.install();await page.locator('.calm-toggle').click();
+  const cat=page.locator('.calm-cat');
+  for(const [duration,pose] of [[2500,'walk'],[3000,'idle'],[6000,'grooming'],[4000,'walk'],[3000,'idle'],[8000,'curious'],[2500,'idle'],[5000,'stretching'],[2000,'laying'],[1500,'sleeping1']]){
+    await page.clock.fastForward(duration);await expect(cat).toHaveAttribute('data-pose',pose);
+  }
+  await page.getByRole('button',{name:'Pet the cat',exact:true}).click();
+  await expect(cat).toHaveAttribute('data-pose','waking');
+  await page.clock.fastForward(2000);await expect(cat).toHaveAttribute('data-pose','nuzzle');
+  await page.clock.fastForward(3000);await expect(cat).toHaveAttribute('data-pose','idle');
+  await page.getByRole('button',{name:'Pet the cat',exact:true}).click();
+  await page.locator('.calm-toggle').click();await page.locator('.calm-toggle').click();
+  await page.clock.fastForward(1500);await expect(cat).toHaveAttribute('data-pose','idle');
+});
+
+// Question: does reduced motion keep the cat still but preserve visible pet
+// feedback and controls? Limits: media preference emulation, not user comfort.
+test('reduced motion keeps a still cat with gentle affection feedback',async({page})=>{
+  await page.emulateMedia({reducedMotion:'reduce'});await page.goto('/');
+  await page.locator('.calm-toggle').click();await page.getByRole('button',{name:'Pet the cat',exact:true}).click();
+  await expect(page.locator('.calm-cat-heart')).toBeVisible();
+  expect(await page.locator('.calm-cat-sprite').evaluate(node=>getComputedStyle(node).animationName)).toBe('none');
+  expect(await page.locator('.calm-cat-walk').evaluate(node=>getComputedStyle(node).transitionDuration)).toBe('0s');
+});
+
+// Question: do sprites advance in real time, and does the cat visibly walk in
+// both directions on its interface perch? Limits: Chromium rendering without
+// a physical phone, GPU benchmark, or assumptions about the user's OS settings.
+for(const [label,width,path] of [['landing',390,'/'],['chat',1440,'/guest#conversation']]){
+  test(`cat walks, turns and animates on the ${label} perch`,async({page})=>{
+    await page.setViewportSize({width,height:900});await page.emulateMedia({reducedMotion:'no-preference'});
+    await page.goto(path);const paw=page.locator(path==='/'?'.calm-toggle':'#calm-header .calm-toggle');
+    await expect(paw).toHaveAccessibleName('Cat companion');expect((await paw.textContent()).trim()).toBe('');
+    await paw.click();const cat=page.locator('.calm-cat'),walker=cat.locator('.calm-cat-walk'),sprite=cat.locator('.calm-cat-sprite');
+    const firstFrame=await sprite.evaluate(node=>getComputedStyle(node).backgroundPositionX);
+    await expect.poll(()=>sprite.evaluate(node=>getComputedStyle(node).backgroundPositionX)).not.toBe(firstFrame);
+    const start=await walker.boundingBox();
+    await expect.poll(async()=>(await walker.boundingBox()).x,{timeout:6500}).toBeGreaterThan(start.x+45);
+    await expect.poll(()=>cat.evaluate(node=>node.style.getPropertyValue('--cat-facing'))).toBe('-1');
+    await expect.poll(()=>cat.evaluate(node=>node.style.getPropertyValue('--cat-facing')),{timeout:15000}).toBe('1');
+    await expect.poll(async()=>(await walker.boundingBox()).x,{timeout:4500}).toBeLessThan(start.x+2);
+    const end=await walker.boundingBox();expect(end.x).toBeGreaterThanOrEqual(0);expect(end.x+end.width).toBeLessThanOrEqual(width);
+  });
+}
 
 // Question: does the cat stay on the composer without consuming a draft, and
 // do voice/call states mute its audio? Limits: media and keyboard height are
@@ -76,7 +125,7 @@ test('chat header paw is directly accessible at 320px',async({page})=>{
 // autoplay rejection recoverable? Limits: HTTP bytes and substituted rejection,
 // not subjective sound quality or acoustic hardware.
 test('cat sounds have a real media route and failures leave the control muted',async({page,request})=>{
-  for(const sound of ['purr','meow']){
+  for(const sound of ['purr-soft','mew-hello','mew-soft']){
     const response=await request.get(`/assets/calm/${sound}.wav`);expect(response.status()).toBe(200);
     expect(response.headers()['content-type']).toContain('audio/wav');expect((await response.body()).subarray(0,4).toString()).toBe('RIFF');
   }

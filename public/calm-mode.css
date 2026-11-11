@@ -4,6 +4,7 @@
 .calm-controls button:hover{color:var(--text);background:color-mix(in srgb,var(--accent) 7%,transparent)}
 .calm-controls button[aria-pressed=true]{color:var(--accent);border-color:color-mix(in srgb,var(--accent) 24%,transparent);background:color-mix(in srgb,var(--accent) 5%,transparent)}
 .calm-controls button:focus-visible,.calm-cat-pet:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
+.calm-controls .calm-toggle{width:40px;height:40px;padding:8px}
 .contact-nav .calm-controls{margin-left:auto;font-size:14px}.contact-nav .calm-controls~.home-links{margin-left:0}
 .contact-nav .calm-toggle{color:var(--text);border-color:color-mix(in srgb,var(--secondary-accent) 45%,transparent);background:color-mix(in srgb,var(--secondary-accent) 9%,transparent)}
 .calm-toggle svg{width:20px;height:20px;stroke-width:1.7}.calm-toggle svg ellipse{fill:currentColor;stroke:none}
@@ -11,18 +12,22 @@
 .settings-workspace-tools .calm-controls{gap:6px}.settings-workspace-tools .calm-controls button{width:auto}
 #calm-header{display:flex;align-items:center;flex:none}
 #calm-header .calm-toggle{width:36px;height:36px;min-height:36px;padding:7px;border-color:color-mix(in srgb,var(--secondary-accent) 45%,transparent);color:var(--secondary-accent);background:color-mix(in srgb,var(--secondary-accent) 8%,transparent)}
-#calm-header .calm-toggle span,#calm-header .calm-sound,#calm-header [role=status]{display:none}
+#calm-header .calm-sound,#calm-header [role=status]{display:none}
 #calm-header .calm-toggle[aria-pressed=true]{border-color:var(--secondary-accent);background:color-mix(in srgb,var(--secondary-accent) 19%,transparent)}
 .calm-cat{position:fixed;z-index:39;width:var(--cat-size);height:var(--cat-size);pointer-events:none;contain:layout style}
-.calm-cat-walk{width:100%;height:100%;transition:transform 3s linear}
+.calm-cat-walk{width:100%;height:100%;transition:none}
+.calm-cat[data-pose=walk] .calm-cat-walk{transition:transform 3s linear}
 .calm-cat-pet{position:relative;display:block;width:100%;height:93.75%;padding:0!important;border:0!important;border-radius:12px;background:none!important;box-shadow:none!important;overflow:hidden;pointer-events:auto;cursor:pointer;touch-action:manipulation;-webkit-tap-highlight-color:transparent}
 .calm-cat-sprite{position:absolute;inset:0;width:var(--cat-size);height:var(--cat-size);background-image:var(--cat-sheet);background-size:auto var(--cat-size);background-repeat:no-repeat;image-rendering:pixelated;transform:scaleX(var(--cat-facing));animation:cat-frames var(--cat-duration) steps(var(--cat-frames)) infinite;filter:drop-shadow(0 2px 1px #0003)}
 .calm-cat[data-paused=true] .calm-cat-sprite{animation-play-state:paused}
-.calm-cat:is([data-pose=laying],[data-pose=stretching],[data-pose=walk],[data-pose=waking],[data-pose=meow]) .calm-cat-sprite{animation-name:cat-frames-once;animation-timing-function:steps(calc(var(--cat-frames) - 1));animation-iteration-count:1;animation-fill-mode:forwards}
+.calm-cat:is([data-pose=laying],[data-pose=stretching],[data-pose=walk],[data-pose=waking],[data-pose=meow],[data-pose=nuzzle],[data-pose=grooming],[data-pose=curious]) .calm-cat-sprite{animation-name:cat-frames-once;animation-timing-function:steps(calc(var(--cat-frames) - 1));animation-iteration-count:1;animation-fill-mode:forwards}
+.calm-cat-heart{position:absolute;right:16%;top:12%;width:10px;height:9px;color:#efad9c;pointer-events:none;animation:cat-affection 2.8s cubic-bezier(.2,.65,.3,1) both;filter:drop-shadow(0 0 4px #f4b59b40)}
+.calm-cat-heart svg{display:block;width:100%;height:100%;fill:currentColor;shape-rendering:crispEdges}
+@keyframes cat-affection{0%{opacity:0;transform:translateY(5px) scale(.8)}20%,65%{opacity:1}100%{opacity:0;transform:translateY(-5px) scale(1)}}
 @keyframes cat-frames{to{background-position-x:calc(-1*var(--cat-size)*var(--cat-frames))}}
 @keyframes cat-frames-once{to{background-position-x:calc(-1*var(--cat-size)*(var(--cat-frames) - 1))}}
-body[data-calm=true] .contact-hud .hud-presence{padding-left:136px}
 body.workspace[data-calm=true][data-view=conversation] .conversation-dock{padding-top:90px}
 body:has(.cinematic-room[data-active=true])>.calm-cat{visibility:hidden}
-@media(max-width:700px){.contact-nav .calm-controls button{padding:6px 8px}.contact-nav .calm-toggle{width:40px;height:40px;padding:8px}.contact-nav .calm-sound{width:32px;padding:6px}.contact-nav .calm-toggle span{display:none}.contact-nav{gap:8px}.calm-controls{gap:0}body[data-calm=true] .contact-hud .hud-presence{padding-left:108px}body.workspace[data-calm=true][data-view=conversation] .conversation-dock{padding-top:75px}}
-@media(prefers-reduced-motion:reduce){.calm-cat-walk{transition:none}.calm-cat-sprite{animation:none}}
+@media(max-width:700px){.contact-nav .calm-controls button{padding:6px 8px}.contact-nav .calm-toggle{width:40px;height:40px;padding:8px}.contact-nav .calm-sound{width:32px;padding:6px}.contact-nav{gap:8px}.calm-controls{gap:0}body.workspace[data-calm=true][data-view=conversation] .conversation-dock{padding-top:75px}}
+@media(prefers-reduced-motion:reduce){.calm-cat .calm-cat-walk{transition:none}.calm-cat[data-pose] .calm-cat-sprite{animation:none}.calm-cat[data-pose=nuzzle] .calm-cat-sprite{background-position-x:calc(-30*var(--cat-size))}.calm-cat-heart{animation-name:cat-affection-still}}
+@keyframes cat-affection-still{0%,100%{opacity:0}20%,70%{opacity:1}}

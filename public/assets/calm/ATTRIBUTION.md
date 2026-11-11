@@ -14,5 +14,10 @@ License: CC0 1.0 (https://creativecommons.org/publicdomain/zero/1.0/).
 `meow.wav` is the unchanged `cat_softmew.wav`; `purr.wav` is the unchanged
 `cat_purrsleepy_loop.wav`. Playback volume is controlled by the application.
 
+`purr-soft.wav`, `mew-hello.wav`, and `mew-soft.wav` are NOX playback edits of
+those same recordings. `scripts/art/prepare-calm-audio.py` applies gentle
+filtering, trimmed meow cuts, edge fades, and an overlapping purr loop seam,
+then writes 22.05 kHz mono WAVs. The CC0 source files remain unchanged.
+
 All assets are hosted locally. No external asset server or AI request is used
 when Calm mode runs.
