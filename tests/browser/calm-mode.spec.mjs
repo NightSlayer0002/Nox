@@ -36,7 +36,7 @@ test('Calm mode adds one pet and preserves the preference across navigation',asy
 test('a sleeping cat wakes before nuzzling and a new visit has no old reaction timer',async({page})=>{
   await page.goto('/');await page.clock.install();await page.locator('.calm-toggle').click();
   const cat=page.locator('.calm-cat');
-  for(const [duration,pose] of [[12000,'grooming'],[4000,'idle'],[10000,'curious'],[2500,'idle'],[14000,'stretching'],[2000,'walk'],[3000,'idle'],[12000,'laying'],[1500,'sleeping1']]){
+  for(const [duration,pose] of [[2500,'walk'],[3000,'idle'],[6000,'grooming'],[4000,'walk'],[3000,'idle'],[8000,'curious'],[2500,'idle'],[5000,'stretching'],[2000,'laying'],[1500,'sleeping1']]){
     await page.clock.fastForward(duration);await expect(cat).toHaveAttribute('data-pose',pose);
   }
   await page.getByRole('button',{name:'Pet the cat',exact:true}).click();
@@ -45,7 +45,7 @@ test('a sleeping cat wakes before nuzzling and a new visit has no old reaction t
   await page.clock.fastForward(3000);await expect(cat).toHaveAttribute('data-pose','idle');
   await page.getByRole('button',{name:'Pet the cat',exact:true}).click();
   await page.locator('.calm-toggle').click();await page.locator('.calm-toggle').click();
-  await page.clock.fastForward(4000);await expect(cat).toHaveAttribute('data-pose','idle');
+  await page.clock.fastForward(1500);await expect(cat).toHaveAttribute('data-pose','idle');
 });
 
 // Question: does reduced motion keep the cat still but preserve visible pet
@@ -57,6 +57,26 @@ test('reduced motion keeps a still cat with gentle affection feedback',async({pa
   expect(await page.locator('.calm-cat-sprite').evaluate(node=>getComputedStyle(node).animationName)).toBe('none');
   expect(await page.locator('.calm-cat-walk').evaluate(node=>getComputedStyle(node).transitionDuration)).toBe('0s');
 });
+
+// Question: do sprites advance in real time, and does the cat visibly walk in
+// both directions on its interface perch? Limits: Chromium rendering without
+// a physical phone, GPU benchmark, or assumptions about the user's OS settings.
+for(const [label,width,path] of [['landing',390,'/'],['chat',1440,'/guest#conversation']]){
+  test(`cat walks, turns and animates on the ${label} perch`,async({page})=>{
+    await page.setViewportSize({width,height:900});await page.emulateMedia({reducedMotion:'no-preference'});
+    await page.goto(path);const paw=page.locator(path==='/'?'.calm-toggle':'#calm-header .calm-toggle');
+    await expect(paw).toHaveAccessibleName('Cat companion');expect((await paw.textContent()).trim()).toBe('');
+    await paw.click();const cat=page.locator('.calm-cat'),walker=cat.locator('.calm-cat-walk'),sprite=cat.locator('.calm-cat-sprite');
+    const firstFrame=await sprite.evaluate(node=>getComputedStyle(node).backgroundPositionX);
+    await expect.poll(()=>sprite.evaluate(node=>getComputedStyle(node).backgroundPositionX)).not.toBe(firstFrame);
+    const start=await walker.boundingBox();
+    await expect.poll(async()=>(await walker.boundingBox()).x,{timeout:6500}).toBeGreaterThan(start.x+45);
+    await expect.poll(()=>cat.evaluate(node=>node.style.getPropertyValue('--cat-facing'))).toBe('-1');
+    await expect.poll(()=>cat.evaluate(node=>node.style.getPropertyValue('--cat-facing')),{timeout:15000}).toBe('1');
+    await expect.poll(async()=>(await walker.boundingBox()).x,{timeout:4500}).toBeLessThan(start.x+2);
+    const end=await walker.boundingBox();expect(end.x).toBeGreaterThanOrEqual(0);expect(end.x+end.width).toBeLessThanOrEqual(width);
+  });
+}
 
 // Question: does the cat stay on the composer without consuming a draft, and
 // do voice/call states mute its audio? Limits: media and keyboard height are

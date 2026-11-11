@@ -4,7 +4,7 @@ import {catPerch,createCatSound,readCalmMode,saveCalmMode} from '/js/calm-cat.js
 
 // Each strip is rendered at 24 frames per second on a 64px pixel grid.
 const framesByPose={idle:144,stretching:48,walk:72,laying:36,sleeping1:144,waking:48,meow:58,nuzzle:72,grooming:96,curious:60};
-const routine=[['idle',12000],['grooming',4000],['idle',10000],['curious',2500],['idle',14000],['stretching',2000],['walk',3000],['idle',12000],['laying',1500],['sleeping1',30000],['waking',2000]];
+const routine=[['idle',2500],['walk',3000],['idle',6000],['grooming',4000],['walk',3000],['idle',8000],['curious',2500],['idle',5000],['stretching',2000],['laying',1500],['sleeping1',18000],['waking',2000]];
 function Paw(){return <svg viewBox="0 0 24 24" aria-hidden="true"><ellipse cx="5" cy="9" rx="2" ry="2.8" transform="rotate(-25 5 9)"/><ellipse cx="10" cy="5.5" rx="2" ry="2.8"/><ellipse cx="16" cy="6" rx="2" ry="2.8" transform="rotate(15 16 6)"/><ellipse cx="20" cy="11" rx="1.8" ry="2.5" transform="rotate(30 20 11)"/><path d="M6.5 17c0-2 3-5.5 5.5-5.5s5.5 3.5 5.5 5.5c0 3-3 2-5.5 2s-5.5 1-5.5-2Z"/></svg>;}
 function Speaker({on}){return <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M11 4 6 8H3v8h3l5 4Z"/>{on?<path d="M15 8a6 6 0 0 1 0 8m3-11a10 10 0 0 1 0 14"/>:<path d="m16 9 5 6m0-6-5 6"/>}</svg>;}
 
@@ -13,8 +13,8 @@ function Speaker({on}){return <svg viewBox="0 0 24 24" aria-hidden="true"><path 
 export function CalmMode({home=false,headerHost=null}){
   const [enabled,setEnabled]=useState(readCalmMode),[sounds,setSounds]=useState(false),[notice,setNotice]=useState('');
   const [pose,setPose]=useState('idle'),[travel,setTravel]=useState(0),[position,setPosition]=useState(null),[paused,setPaused]=useState(document.hidden);
-  const [affection,setAffection]=useState(0),[reduced,setReduced]=useState(()=>matchMedia('(prefers-reduced-motion:reduce)').matches);
-  const sound=useRef(null),react=useRef(null),petAt=useRef(-Infinity),curiousAt=useRef(-Infinity),walker=useRef(null),poseNow=useRef('idle');
+  const [affection,setAffection]=useState(0),[facing,setFacing]=useState(1),[reduced,setReduced]=useState(()=>matchMedia('(prefers-reduced-motion:reduce)').matches);
+  const sound=useRef(null),react=useRef(null),petAt=useRef(-Infinity),curiousAt=useRef(-Infinity),walker=useRef(null),poseNow=useRef('idle'),walkRight=useRef(true);
   useEffect(()=>{
     const controller=createCatSound({onChange:setSounds,onError:()=>setNotice('Cat sounds could not play. You can try turning them on again.')});sound.current=controller;
     return()=>{controller.dispose();sound.current=null;};
@@ -49,7 +49,7 @@ export function CalmMode({home=false,headerHost=null}){
         const showing=home||document.body.dataset.view==='conversation';
         if(!showing||!support||!support.getClientRects().length){setPosition(null);return;}
         const rect=support.getBoundingClientRect();
-        const rail=home?{left:rect.left,right:Math.min(rect.left+150,innerWidth-12),top:rect.bottom-4}:rect;
+        const rail=home?{left:rect.left,right:Math.min(rect.left+(innerWidth<=700?190:240),innerWidth-12),top:rect.top-6}:rect;
         const bounds={support:rail,width:innerWidth,height:(viewport?.height||innerHeight)+(viewport?.offsetTop||0),size};
         const base=catPerch(bounds),walk=catPerch({...bounds,travel});
         setPosition({...base,size,offset:walk.x-base.x});
@@ -73,7 +73,11 @@ export function CalmMode({home=false,headerHost=null}){
     const settle=()=>{show('idle');if(!reduced)timer=setTimeout(next,12000);};
     const next=()=>{
       const [action,duration]=routine[step++%routine.length];show(action);
-      if(action==='walk')setTravel(value=>value===0?(home?(innerWidth<=700?12:24):48):0);
+      if(action==='walk'){
+        setFacing(walkRight.current?-1:1);
+        setTravel(walkRight.current?(innerWidth<=700?64:88):0);
+        walkRight.current=!walkRight.current;
+      }
       timer=setTimeout(next,duration);
     };
     react.current=kind=>{
@@ -108,7 +112,7 @@ export function CalmMode({home=false,headerHost=null}){
     {enabled&&position&&createPortal(
       <div className="calm-cat" data-pose={pose} data-paused={paused} style={{
         left:position.x,top:position.y,'--cat-size':`${position.size}px`,
-        '--cat-facing':position.offset>0?-1:1,'--cat-frames':frames,
+        '--cat-facing':facing,'--cat-frames':frames,
         '--cat-duration':`${frames/24}s`,'--cat-sheet':`url('/assets/calm/tabby-${pose}.png')`
       }}>
         <div ref={walker} className="calm-cat-walk" style={{transform:`translateX(${position.offset}px)`}}>

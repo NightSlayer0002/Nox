@@ -26,9 +26,8 @@
 @keyframes cat-affection{0%{opacity:0;transform:translateY(5px) scale(.8)}20%,65%{opacity:1}100%{opacity:0;transform:translateY(-5px) scale(1)}}
 @keyframes cat-frames{to{background-position-x:calc(-1*var(--cat-size)*var(--cat-frames))}}
 @keyframes cat-frames-once{to{background-position-x:calc(-1*var(--cat-size)*(var(--cat-frames) - 1))}}
-body[data-calm=true] .contact-hud .hud-presence{padding-left:136px}
 body.workspace[data-calm=true][data-view=conversation] .conversation-dock{padding-top:90px}
 body:has(.cinematic-room[data-active=true])>.calm-cat{visibility:hidden}
-@media(max-width:700px){.contact-nav .calm-controls button{padding:6px 8px}.contact-nav .calm-toggle{width:40px;height:40px;padding:8px}.contact-nav .calm-sound{width:32px;padding:6px}.contact-nav .calm-toggle span{display:none}.contact-nav{gap:8px}.calm-controls{gap:0}body[data-calm=true] .contact-hud .hud-presence{padding-left:108px}body.workspace[data-calm=true][data-view=conversation] .conversation-dock{padding-top:75px}}
+@media(max-width:700px){.contact-nav .calm-controls button{padding:6px 8px}.contact-nav .calm-toggle{width:40px;height:40px;padding:8px}.contact-nav .calm-sound{width:32px;padding:6px}.contact-nav{gap:8px}.calm-controls{gap:0}body.workspace[data-calm=true][data-view=conversation] .conversation-dock{padding-top:75px}}
 @media(prefers-reduced-motion:reduce){.calm-cat .calm-cat-walk{transition:none}.calm-cat[data-pose] .calm-cat-sprite{animation:none}.calm-cat[data-pose=nuzzle] .calm-cat-sprite{background-position-x:calc(-30*var(--cat-size))}.calm-cat-heart{animation-name:cat-affection-still}}
 @keyframes cat-affection-still{0%,100%{opacity:0}20%,70%{opacity:1}}
