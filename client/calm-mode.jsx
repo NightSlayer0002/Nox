@@ -103,7 +103,7 @@ export function CalmMode({home=false,headerHost=null}){
     const now=performance.now();if(now-curiousAt.current<12000)return;curiousAt.current=now;react.current?.('curious');
   }
   const frames=framesByPose[pose];
-  const controls=<div className="calm-controls"><button className="calm-toggle" type="button" onClick={toggle} aria-label="Calm mode" aria-pressed={enabled} title={enabled?'Leave Calm mode':'Calm mode · a little cat company'}><Paw/><span>Calm mode</span></button>{enabled&&<button className="calm-sound" type="button" onClick={()=>{setNotice('');void sound.current?.enable(!sounds);}} aria-pressed={sounds} aria-label={sounds?'Mute cat sounds':'Turn on cat sounds'} title={sounds?'Mute cat sounds':'Cat sounds are off'}><Speaker on={sounds}/></button>}<span className="sr-only" role="status">{notice}</span></div>;
+  const controls=<div className="calm-controls"><button className="calm-toggle" type="button" onClick={toggle} aria-label="Cat companion" aria-pressed={enabled} title={enabled?'Hide cat':'Bring out the cat'}><Paw/></button>{enabled&&<button className="calm-sound" type="button" onClick={()=>{setNotice('');void sound.current?.enable(!sounds);}} aria-pressed={sounds} aria-label={sounds?'Mute cat sounds':'Turn on cat sounds'} title={sounds?'Mute cat sounds':'Cat sounds are off'}><Speaker on={sounds}/></button>}<span className="sr-only" role="status">{notice}</span></div>;
   return <>{controls}{headerHost&&createPortal(controls,headerHost)}
     {enabled&&position&&createPortal(
       <div className="calm-cat" data-pose={pose} data-paused={paused} style={{
