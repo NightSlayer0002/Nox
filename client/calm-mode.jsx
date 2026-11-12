@@ -16,6 +16,7 @@ export function CalmMode({home=false,headerHost=null}){
   const [affection,setAffection]=useState(0),[facing,setFacing]=useState(1),[reduced,setReduced]=useState(()=>matchMedia('(prefers-reduced-motion:reduce)').matches);
   const [motionOverride,setMotionOverride]=useState(false);
   const animate=!reduced||motionOverride;
+  const playground=Boolean(position?.playground);
   const sound=useRef(null),react=useRef(null),petAt=useRef(-Infinity),curiousAt=useRef(-Infinity),walker=useRef(null),poseNow=useRef('idle'),walkRight=useRef(true);
   useEffect(()=>{
     const controller=createCatSound({onChange:setSounds,onError:()=>setNotice('Cat sounds could not play. You can try turning them on again.')});sound.current=controller;
@@ -46,15 +47,23 @@ export function CalmMode({home=false,headerHost=null}){
     let frame=0;
     const measure=()=>{
       cancelAnimationFrame(frame);frame=requestAnimationFrame(()=>{
-        const size=innerWidth<=700?80:96,viewport=window.visualViewport;
+        const small=innerWidth<=700,viewport=window.visualViewport;
+        const height=(viewport?.height||innerHeight)+(viewport?.offsetTop||0);
+        const room=home?document.querySelector('.cinematic-viewport'):null;
+        const roomRect=room?.getBoundingClientRect();
+        // Transfer only when the floor is visible. Once inside, the portal
+        // scrolls with the room rather than chasing viewport coordinates.
+        const inRoom=Boolean(roomRect&&roomRect.bottom<=height+16&&roomRect.bottom>120&&roomRect.top<height);
+        const size=inRoom?(small?56:64):(small?72:80);
         const support=home?document.querySelector('.contact-hud'):document.getElementById('chat-form');
         const showing=home||document.body.dataset.view==='conversation';
         if(!showing||!support||!support.getClientRects().length){setPosition(null);return;}
         const rect=support.getBoundingClientRect();
-        const rail=home?{left:rect.left,right:Math.min(rect.left+(innerWidth<=700?190:240),innerWidth-12),top:rect.top-6}:rect;
-        const bounds={support:rail,width:innerWidth,height:(viewport?.height||innerHeight)+(viewport?.offsetTop||0),size};
+        const rail=inRoom?{left:18,right:Math.min(roomRect.width-18,small?240:360),top:roomRect.height-10}:home?{left:rect.left,right:Math.min(rect.left+(small?190:240),innerWidth-12),top:rect.top-6}:rect;
+        const bounds={support:rail,width:inRoom?roomRect.width:innerWidth,height:inRoom?roomRect.height:height,size};
         const base=catPerch(bounds),walk=catPerch({...bounds,travel});
-        setPosition({...base,size,offset:walk.x-base.x});
+        const next={...base,size,offset:walk.x-base.x,playground:inRoom};
+        setPosition(previous=>previous&&Object.keys(next).every(key=>previous[key]===next[key])?previous:next);
       });
     };
     const hush=()=>{
@@ -64,20 +73,22 @@ export function CalmMode({home=false,headerHost=null}){
     };
     const observer=new MutationObserver(hush);observer.observe(document.body,{attributes:true,attributeFilter:['data-view','data-call-open','data-voice-state','data-activity']});
     const resize=new ResizeObserver(measure);const support=home?document.querySelector('.contact-hud'):document.getElementById('chat-form');if(support)resize.observe(support);
+    const homeRoot=home&&document.getElementById('home-root');if(homeRoot)resize.observe(homeRoot);
+    if(home)window.addEventListener('scroll',measure,{passive:true});
     document.addEventListener('visibilitychange',hush);window.addEventListener('resize',measure);window.visualViewport?.addEventListener('resize',measure);window.visualViewport?.addEventListener('scroll',measure);
     hush();
-    return()=>{cancelAnimationFrame(frame);observer.disconnect();resize.disconnect();document.removeEventListener('visibilitychange',hush);window.removeEventListener('resize',measure);window.visualViewport?.removeEventListener('resize',measure);window.visualViewport?.removeEventListener('scroll',measure);};
+    return()=>{cancelAnimationFrame(frame);observer.disconnect();resize.disconnect();document.removeEventListener('visibilitychange',hush);window.removeEventListener('resize',measure);window.removeEventListener('scroll',measure);window.visualViewport?.removeEventListener('resize',measure);window.visualViewport?.removeEventListener('scroll',measure);};
   },[enabled,home,travel]);
   useEffect(()=>{
     if(!enabled||paused)return;
-    let step=0,timer;
+    let step=playground?1:0,timer;
     const show=action=>{poseNow.current=action;setPose(action);};
     const settle=()=>{show('idle');if(animate)timer=setTimeout(next,3500);};
     const next=()=>{
       const [action,duration]=routine[step++%routine.length];show(action);
       if(action==='walk'){
         setFacing(walkRight.current?-1:1);
-        setTravel(walkRight.current?(innerWidth<=700?64:88):0);
+        setTravel(walkRight.current?(playground?(innerWidth<=700?120:200):(innerWidth<=700?64:88)):0);
         walkRight.current=!walkRight.current;
       }
       timer=setTimeout(next,duration);
@@ -97,9 +108,11 @@ export function CalmMode({home=false,headerHost=null}){
       else nuzzle();
     };
     setAffection(0);
-    if(!animate)show('idle');else next();
+    if(!animate)show('idle');
+    else if(playground){show('idle');setTravel(0);walkRight.current=true;timer=setTimeout(next,150);}
+    else next();
     return()=>{clearTimeout(timer);react.current=null;};
-  },[enabled,paused,home,animate]);
+  },[enabled,paused,home,animate,playground]);
   function toggle(){setEnabled(value=>saveCalmMode(!value));}
   function pet(){
     const now=performance.now();if(now-petAt.current<900)return;petAt.current=now;react.current?.('pet');
@@ -112,7 +125,7 @@ export function CalmMode({home=false,headerHost=null}){
   const controls=<div className="calm-controls"><button className="calm-toggle" type="button" onClick={toggle} aria-label="Cat companion" aria-pressed={enabled} title={enabled?'Hide cat':'Bring out the cat'}><Paw/></button>{enabled&&reduced&&<button className="calm-motion" type="button" onClick={()=>setMotionOverride(value=>!value)} aria-label={animate?'Pause cat animation':'Animate cat'} title={animate?'Pause cat animation':'Reduced motion is on · animate this cat'}><svg viewBox="0 0 24 24" aria-hidden="true">{animate?<path d="M8 5v14M16 5v14"/>:<path d="m8 5 11 7-11 7Z"/>}</svg></button>}{enabled&&<button className="calm-sound" type="button" onClick={()=>{setNotice('');void sound.current?.enable(!sounds);}} aria-pressed={sounds} aria-label={sounds?'Mute cat sounds':'Turn on cat sounds'} title={sounds?'Mute cat sounds':'Cat sounds are off'}><Speaker on={sounds}/></button>}<span className="sr-only" role="status">{notice}</span></div>;
   return <>{controls}{headerHost&&createPortal(controls,headerHost)}
     {enabled&&position&&createPortal(
-      <div className="calm-cat" data-pose={pose} data-paused={paused} data-motion={animate} style={{
+      <div className="calm-cat" data-pose={pose} data-paused={paused} data-motion={animate} data-perch={playground?'playground':'interface'} style={{
         left:position.x,top:position.y,'--cat-size':`${position.size}px`,
         '--cat-facing':facing,'--cat-frames':frames,
         '--cat-duration':`${frames/24}s`,'--cat-sheet':`url('/assets/calm/tabby-${pose}.png')`
@@ -124,6 +137,6 @@ export function CalmMode({home=false,headerHost=null}){
           </button>
           {pose==='nuzzle'&&<span key={affection} className="calm-cat-heart" aria-hidden="true"><svg viewBox="0 0 9 8"><path d="M1 0h2v1h1v1h1V1h1V0h2v1h1v3H8v1H7v1H6v1H5v1H4V7H3V6H2V5H1V4H0V1h1Z"/></svg></span>}
         </div>
-      </div>,document.body)}
+      </div>,playground?document.querySelector('.cinematic-viewport'):document.body)}
   </>;
 }
