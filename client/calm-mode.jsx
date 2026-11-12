@@ -14,6 +14,8 @@ export function CalmMode({home=false,headerHost=null}){
   const [enabled,setEnabled]=useState(readCalmMode),[sounds,setSounds]=useState(false),[notice,setNotice]=useState('');
   const [pose,setPose]=useState('idle'),[travel,setTravel]=useState(0),[position,setPosition]=useState(null),[paused,setPaused]=useState(document.hidden);
   const [affection,setAffection]=useState(0),[facing,setFacing]=useState(1),[reduced,setReduced]=useState(()=>matchMedia('(prefers-reduced-motion:reduce)').matches);
+  const [motionOverride,setMotionOverride]=useState(false);
+  const animate=!reduced||motionOverride;
   const sound=useRef(null),react=useRef(null),petAt=useRef(-Infinity),curiousAt=useRef(-Infinity),walker=useRef(null),poseNow=useRef('idle'),walkRight=useRef(true);
   useEffect(()=>{
     const controller=createCatSound({onChange:setSounds,onError:()=>setNotice('Cat sounds could not play. You can try turning them on again.')});sound.current=controller;
@@ -70,7 +72,7 @@ export function CalmMode({home=false,headerHost=null}){
     if(!enabled||paused)return;
     let step=0,timer;
     const show=action=>{poseNow.current=action;setPose(action);};
-    const settle=()=>{show('idle');if(!reduced)timer=setTimeout(next,12000);};
+    const settle=()=>{show('idle');if(animate)timer=setTimeout(next,3500);};
     const next=()=>{
       const [action,duration]=routine[step++%routine.length];show(action);
       if(action==='walk'){
@@ -91,26 +93,26 @@ export function CalmMode({home=false,headerHost=null}){
       }
       const nuzzle=()=>{show('nuzzle');setAffection(value=>value+1);void sound.current?.pet();timer=setTimeout(settle,3000);};
       if(kind==='curious'){show('curious');timer=setTimeout(settle,2500);}
-      else if(sleeping&&!reduced){show('waking');timer=setTimeout(nuzzle,2000);}
+      else if(sleeping&&animate){show('waking');timer=setTimeout(nuzzle,2000);}
       else nuzzle();
     };
     setAffection(0);
-    if(reduced)show('idle');else next();
+    if(!animate)show('idle');else next();
     return()=>{clearTimeout(timer);react.current=null;};
-  },[enabled,paused,home,reduced]);
+  },[enabled,paused,home,animate]);
   function toggle(){setEnabled(value=>saveCalmMode(!value));}
   function pet(){
     const now=performance.now();if(now-petAt.current<900)return;petAt.current=now;react.current?.('pet');
   }
   function greet(event){
-    if(event.pointerType!=='mouse'||reduced)return;
+    if(event.pointerType!=='mouse'||!animate)return;
     const now=performance.now();if(now-curiousAt.current<12000)return;curiousAt.current=now;react.current?.('curious');
   }
   const frames=framesByPose[pose];
-  const controls=<div className="calm-controls"><button className="calm-toggle" type="button" onClick={toggle} aria-label="Cat companion" aria-pressed={enabled} title={enabled?'Hide cat':'Bring out the cat'}><Paw/></button>{enabled&&<button className="calm-sound" type="button" onClick={()=>{setNotice('');void sound.current?.enable(!sounds);}} aria-pressed={sounds} aria-label={sounds?'Mute cat sounds':'Turn on cat sounds'} title={sounds?'Mute cat sounds':'Cat sounds are off'}><Speaker on={sounds}/></button>}<span className="sr-only" role="status">{notice}</span></div>;
+  const controls=<div className="calm-controls"><button className="calm-toggle" type="button" onClick={toggle} aria-label="Cat companion" aria-pressed={enabled} title={enabled?'Hide cat':'Bring out the cat'}><Paw/></button>{enabled&&reduced&&<button className="calm-motion" type="button" onClick={()=>setMotionOverride(value=>!value)} aria-label={animate?'Pause cat animation':'Animate cat'} title={animate?'Pause cat animation':'Reduced motion is on · animate this cat'}><svg viewBox="0 0 24 24" aria-hidden="true">{animate?<path d="M8 5v14M16 5v14"/>:<path d="m8 5 11 7-11 7Z"/>}</svg></button>}{enabled&&<button className="calm-sound" type="button" onClick={()=>{setNotice('');void sound.current?.enable(!sounds);}} aria-pressed={sounds} aria-label={sounds?'Mute cat sounds':'Turn on cat sounds'} title={sounds?'Mute cat sounds':'Cat sounds are off'}><Speaker on={sounds}/></button>}<span className="sr-only" role="status">{notice}</span></div>;
   return <>{controls}{headerHost&&createPortal(controls,headerHost)}
     {enabled&&position&&createPortal(
-      <div className="calm-cat" data-pose={pose} data-paused={paused} style={{
+      <div className="calm-cat" data-pose={pose} data-paused={paused} data-motion={animate} style={{
         left:position.x,top:position.y,'--cat-size':`${position.size}px`,
         '--cat-facing':facing,'--cat-frames':frames,
         '--cat-duration':`${frames/24}s`,'--cat-sheet':`url('/assets/calm/tabby-${pose}.png')`

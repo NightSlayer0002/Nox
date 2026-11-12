@@ -29,5 +29,5 @@
 body.workspace[data-calm=true][data-view=conversation] .conversation-dock{padding-top:90px}
 body:has(.cinematic-room[data-active=true])>.calm-cat{visibility:hidden}
 @media(max-width:700px){.contact-nav .calm-controls button{padding:6px 8px}.contact-nav .calm-toggle{width:40px;height:40px;padding:8px}.contact-nav .calm-sound{width:32px;padding:6px}.contact-nav{gap:8px}.calm-controls{gap:0}body.workspace[data-calm=true][data-view=conversation] .conversation-dock{padding-top:75px}}
-@media(prefers-reduced-motion:reduce){.calm-cat .calm-cat-walk{transition:none}.calm-cat[data-pose] .calm-cat-sprite{animation:none}.calm-cat[data-pose=nuzzle] .calm-cat-sprite{background-position-x:calc(-30*var(--cat-size))}.calm-cat-heart{animation-name:cat-affection-still}}
+.calm-cat[data-motion=false] .calm-cat-walk{transition:none}.calm-cat[data-motion=false] .calm-cat-sprite{animation:none}.calm-cat[data-motion=false][data-pose=nuzzle] .calm-cat-sprite{background-position-x:calc(-30*var(--cat-size))}.calm-cat[data-motion=false] .calm-cat-heart{animation-name:cat-affection-still}
 @keyframes cat-affection-still{0%,100%{opacity:0}20%,70%{opacity:1}}

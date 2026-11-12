@@ -56,6 +56,15 @@ test('reduced motion keeps a still cat with gentle affection feedback',async({pa
   await expect(page.locator('.calm-cat-heart')).toBeVisible();
   expect(await page.locator('.calm-cat-sprite').evaluate(node=>getComputedStyle(node).animationName)).toBe('none');
   expect(await page.locator('.calm-cat-walk').evaluate(node=>getComputedStyle(node).transitionDuration)).toBe('0s');
+  // Explicit opt-in should animate just the cat without changing the OS media
+  // preference or other page effects. This cannot establish user comfort.
+  await page.getByRole('button',{name:'Animate cat',exact:true}).click();
+  const sprite=page.locator('.calm-cat-sprite');
+  const first=await sprite.evaluate(node=>getComputedStyle(node).backgroundPositionX);
+  await expect.poll(()=>sprite.evaluate(node=>getComputedStyle(node).backgroundPositionX)).not.toBe(first);
+  expect(await page.evaluate(()=>matchMedia('(prefers-reduced-motion: reduce)').matches)).toBe(true);
+  await page.getByRole('button',{name:'Pause cat animation',exact:true}).click();
+  expect(await sprite.evaluate(node=>getComputedStyle(node).animationName)).toBe('none');
 });
 
 // Question: do sprites advance in real time, and does the cat visibly walk in

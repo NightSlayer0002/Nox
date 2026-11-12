@@ -118,6 +118,22 @@ def draw_tabby(rig):
     shape = rig.shape
     oval = rig.ellipse
     tail = [rig.mesh('Tail ' + swatch, swatch) for swatch in ('ink', 'orange', 'gold', 'shade', 'shade', 'cream')]
+    # A walking cat has a horizontal spine and four planted paws. The sitting
+    # haunch is not stretched sideways to fake locomotion.
+    walking = rig.pivot('Walking spine', 32, FLOOR)
+    walk_legs = []
+    for index, x in enumerate((27, 46, 19, 39)):
+        leg = rig.pivot('Walking leg ' + str(index), x, FLOOR)
+        shape('Walking leg outline', 'ink', f'M{x-3} 42 L{x+3} 42 L{x+2} 55 Q{x+5} 60 {x} 60 L{x-4} 60 Q{x-6} 58 {x-3} 54 Z', leg)
+        shape('Walking leg fur', 'shade' if index < 2 else 'orange', f'M{x-2} 43 L{x+2} 43 L{x+1} 55 L{x-3} 56 Z', leg)
+        shape('Walking sock', 'creamshade' if index < 2 else 'cream', f'M{x-3} 54 L{x+1} 54 L{x+1} 57 Q{x+3} 59 {x} 59 L{x-4} 59 L{x-4} 57 Z', leg)
+        walk_legs.append(leg)
+    shape('Walking outline', 'ink', 'M14 36 Q21 32 29 35 L43 35 Q51 36 52 43 Q52 50 45 51 L24 49 Q15 48 14 42 Z', walking)
+    shape('Walking coat', 'orange', 'M16 37 Q22 34 29 37 L43 37 Q49 38 50 43 Q50 48 44 49 L24 47 Q17 46 16 42 Z', walking)
+    shape('Walking back light', 'gold', 'M20 36 L43 37 Q48 38 49 41 L30 40 L21 42 Z', walking)
+    shape('Walking belly', 'creamshade', 'M18 42 L27 43 L31 47 L24 47 Q18 46 18 42 Z', walking)
+    for x in (32, 39, 46):
+        shape('Walking stripes', 'shade', f'M{x} 37 L{x+3} 38 L{x+1} 43 L{x-2} 44 Z', walking)
     feet = [rig.pivot('Far paw', 30, FLOOR), rig.pivot('Near paw', 21, FLOOR)]
     shape('Far front leg', 'ink', 'M28 42 Q35 41 35 47 L34 56 Q36 60 30 60 L26 60 Q23 59 25 55 L25 47 Q25 43 28 42 Z', feet[0])
     shape('Far front sock', 'creamshade', 'M27 53 L33 53 L32 57 Q34 59 29 59 L26 58 Z', feet[0])
@@ -183,7 +199,7 @@ def draw_tabby(rig):
     wash_paw = rig.pivot('Washing forepaw', 20, 54)
     shape('Washing paw outline', 'ink', 'M17 44 Q20 42 23 45 L24 51 Q25 57 21 59 L17 59 Q14 56 15 51 L15 47 Q15 45 17 44 Z', wash_paw)
     shape('Washing paw fur', 'orange', 'M18 45 Q20 44 22 46 L23 51 L22 56 L17 56 L16 51 L16 47 Z', wash_paw)
-    shape('Washing paw sock', 'cream', 'M16 52 L23 52 L23 56 Q22 58 20 58 L17 58 Q15 57 16 52 Z', wash_paw)
+    shape('Washing paw sock', 'cream', 'M17 44 Q20 42 23 45 L23 49 L16 49 L15 47 Q15 45 17 44 Z', wash_paw)
     dreams = rig.pivot('Sleep marks', 48, 28)
     shape('Small Z', 'creamshade', 'M43 30 L47 30 L47 31 L44.5 33 L47 33 L47 34 L43 34 L43 33 L45.5 31 L43 31 Z', dreams)
     shape('Large Z', 'cream', 'M49 22 L54 22 L54 23 L51 26 L54 26 L54 27 L49 27 L49 26 L52 23 L49 23 Z', dreams)
@@ -191,7 +207,7 @@ def draw_tabby(rig):
     # so the inner ear and outline remain registered during a small twitch.
     ears = [(obj, [vertex.co.copy() for vertex in obj.data.vertices])
             for obj in head.children if obj.type == 'MESH']
-    return body, head, feet, eyes, eyelids, smile, mouth, tail, dreams, ears, wash_paw
+    return body, head, feet, eyes, eyelids, smile, mouth, tail, dreams, ears, wash_paw, walking, walk_legs
 
 
 def ease(t):
@@ -224,18 +240,30 @@ def stroke(start, end, center, width):
 
 
 def pose_tabby(rig, model, clip, frame):
-    body, head, feet, eyes, eyelids, smile, mouth, tail, dreams, ears, wash_paw = model
+    body, head, feet, eyes, eyelids, smile, mouth, tail, dreams, ears, wash_paw, walking, walk_legs = model
     progress = frame / (CLIPS[clip] if clip in ('idle', 'sleeping1') else CLIPS[clip]-1)
     phase = progress * math.tau
     breath = math.sin(phase)
     rest = {'laying': ease(progress), 'sleeping1': 1, 'waking': 1-ease(progress*1.55)}.get(clip, 0)
     stretch = math.sin(math.pi*progress)**2 if clip in ('stretching', 'waking') else 0
-    stride = math.sin(math.pi*progress)**2 if clip == 'walk' else 0
+    stride = 1 if clip == 'walk' else 0
     gait = math.sin(phase*3)
     envelope = math.sin(math.pi*progress)**2
     affection = envelope if clip == 'nuzzle' else 0
     wash = envelope if clip == 'grooming' else 0
     curiosity = envelope if clip == 'curious' else 0
+    for feature in body.children:
+        feature.hide_render = bool(stride)
+    for feature in walking.children:
+        feature.hide_render = not stride
+    place(walking, y=-.7*abs(math.sin(phase*4)))
+    for index, leg in enumerate(walk_legs):
+        # Diagonal pairs alternate support; lifted feet swing forward while
+        # planted feet travel backward relative to the moving body.
+        cycle = phase*4 + (math.pi if index in (0, 3) else 0)
+        place(leg, x=3.2*math.cos(cycle), y=-3.5*max(0, math.sin(cycle)))
+        for feature in leg.children:
+            feature.hide_render = not stride
     place(body, x=2.3*rest, sx=1+.18*rest+.13*stride, sy=1-.48*rest-.16*stretch-.16*stride+.018*breath)
     place(head, x=-1.2*rest-3*stretch-2*stride-2*affection, y=20*rest+11*stretch+6*stride+.4*breath+2*wash,
           sx=1+.06*rest, sy=1-.17*rest-.04*stretch,
@@ -247,8 +275,8 @@ def pose_tabby(rig, model, clip, frame):
               y=-max(0,step)*2-1.7*knead-(18*wash if index else 0),
               sy=1-.60*rest-.24*stretch-.15*stride, tilt=-.12*wash if index else 0)
         for feature in paw.children:
-            feature.hide_render = index == 1 and wash > .18
-    place(wash_paw, x=wash, y=-23*wash-1.2*wash*math.sin(phase*3), tilt=-.06*wash)
+            feature.hide_render = bool(stride) or index == 1 and wash > .18
+    place(wash_paw, x=wash, y=-10*wash-1.2*wash*math.sin(phase*3), tilt=-.06*wash)
     for feature in wash_paw.children:
         feature.hide_render = wash <= .18
     for index, (eye, eyelid) in enumerate(zip(eyes, eyelids)):
@@ -275,9 +303,9 @@ def pose_tabby(rig, model, clip, frame):
         feature.hide_render = mouth.hide_render
     place(mouth, sy=max(.01, meow), sx=.76+.24*meow)
 
-    sway = math.sin(phase)
-    curl = math.sin(phase-.72)
-    raised = [Vector((41, 52)), Vector((59+1.8*sway, 55)), Vector((61+2*curl, 28+2*sway)), Vector((53+4.5*curl, 22+2*sway))]
+    sway = math.sin(phase*2)
+    curl = math.sin(phase*2-.72)
+    raised = [Vector((41+6*stride, 52-9*stride)), Vector((55+2.5*sway, 51)), Vector((56+3*curl, 28+3*sway)), Vector((48+7*curl, 20+3*sway))]
     curled = [Vector((42, 54)), Vector((57, 59)), Vector((61, 47)), Vector((52+.95*curl, 45+.9*sway))]
     bends = [a.lerp(b, rest) for a, b in zip(raised, curled)]
     center = lambda t: bezier(*bends, t)
@@ -346,7 +374,12 @@ def main():
     with tempfile.TemporaryDirectory(prefix='tabby-', dir=scratch_root) as scratch:
         frame_path = Path(scratch) / 'frame.png'
         scene.render.filepath = str(frame_path)
+        selected = sys.argv[sys.argv.index('--clip')+1] if '--clip' in sys.argv else None
+        if selected and selected not in CLIPS:
+            raise ValueError('Unknown cat clip: ' + selected)
         for clip, count in CLIPS.items():
+            if selected and clip != selected:
+                continue
             strip = np.zeros((SIZE, SIZE*count, 4), dtype=np.uint8)
             for index in range(count):
                 pose_tabby(rig, model, clip, index)
