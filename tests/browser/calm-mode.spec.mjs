@@ -56,6 +56,15 @@ test('reduced motion keeps a still cat with gentle affection feedback',async({pa
   await expect(page.locator('.calm-cat-heart')).toBeVisible();
   expect(await page.locator('.calm-cat-sprite').evaluate(node=>getComputedStyle(node).animationName)).toBe('none');
   expect(await page.locator('.calm-cat-walk').evaluate(node=>getComputedStyle(node).transitionDuration)).toBe('0s');
+  // Explicit opt-in should animate just the cat without changing the OS media
+  // preference or other page effects. This cannot establish user comfort.
+  await page.getByRole('button',{name:'Animate cat',exact:true}).click();
+  const sprite=page.locator('.calm-cat-sprite');
+  const first=await sprite.evaluate(node=>getComputedStyle(node).backgroundPositionX);
+  await expect.poll(()=>sprite.evaluate(node=>getComputedStyle(node).backgroundPositionX)).not.toBe(first);
+  expect(await page.evaluate(()=>matchMedia('(prefers-reduced-motion: reduce)').matches)).toBe(true);
+  await page.getByRole('button',{name:'Pause cat animation',exact:true}).click();
+  expect(await sprite.evaluate(node=>getComputedStyle(node).animationName)).toBe('none');
 });
 
 // Question: do sprites advance in real time, and does the cat visibly walk in
@@ -75,6 +84,33 @@ for(const [label,width,path] of [['landing',390,'/'],['chat',1440,'/guest#conver
     await expect.poll(()=>cat.evaluate(node=>node.style.getPropertyValue('--cat-facing')),{timeout:15000}).toBe('1');
     await expect.poll(async()=>(await walker.boundingBox()).x,{timeout:4500}).toBeLessThan(start.x+2);
     const end=await walker.boundingBox();expect(end.x).toBeGreaterThanOrEqual(0);expect(end.x+end.width).toBeLessThanOrEqual(width);
+  });
+}
+
+// Question: does the real page transfer one smaller cat onto the playground
+// floor, animate it, and keep the instructions clear on desktop and mobile?
+// Limits: Chromium with the WebGL fallback; no physical-phone/GPU guarantee.
+for(const width of [390,1440]){
+  test(`cat joins the playground floor at ${width}px and returns on leaving`,async({page})=>{
+    await page.setViewportSize({width,height:900});await page.emulateMedia({reducedMotion:'no-preference'});
+    await page.goto('/');await page.locator('.calm-toggle').click();
+    const cat=page.locator('.calm-cat');const initial=await cat.boundingBox();
+    const room=page.locator('.cinematic-viewport');await expect(room).toBeAttached();
+    await room.evaluate(node=>node.scrollIntoView({block:'end',behavior:'instant'}));
+    await expect(cat).toHaveAttribute('data-perch','playground');await expect(cat).toBeVisible();
+    await expect(page.locator('.calm-cat')).toHaveCount(1);
+    const walker=cat.locator('.calm-cat-walk'),start=await walker.boundingBox();
+    expect(start.width).toBeLessThan(initial.width);
+    await expect.poll(async()=>(await walker.boundingBox()).x,{timeout:4500}).toBeGreaterThan(start.x+50);
+    const bounds=await room.boundingBox(),pet=await page.getByRole('button',{name:'Pet the cat',exact:true}).boundingBox();
+    const footer=await page.locator('.cinematic-foot').boundingBox();
+    expect(pet.x).toBeGreaterThan(bounds.x);expect(pet.x+pet.width).toBeLessThan(bounds.x+bounds.width);
+    expect(pet.y).toBeGreaterThan(footer.y+footer.height);
+    expect(Math.abs(bounds.y+bounds.height-(pet.y+pet.height))).toBeLessThan(18);
+    await expect(cat).toHaveAttribute('data-pose','grooming',{timeout:12000});
+    await page.locator('#home').evaluate(node=>node.scrollIntoView({block:'start',behavior:'instant'}));
+    await expect(cat).toHaveAttribute('data-perch','interface');
+    await expect(cat).toBeVisible();await expect(cat).toHaveCount(1);
   });
 }
 
