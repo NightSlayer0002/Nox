@@ -176,7 +176,7 @@ class Canvas:
         h, w = self.h, self.w
         out = self.grid.copy()
         ink_col = PALETTE[outline_color]
-        
+
         for y in range(min(h, 60)):
             for x in range(w):
                 if not alpha[y, x]:
@@ -204,9 +204,9 @@ def write_png(path, arr):
     def chunk(name, data):
         return struct.pack('>I', len(data)) + name + data + struct.pack('>I', zlib.crc32(name + data))
     rows = b''.join(b'\0' + row.tobytes() for row in arr)
-    png_data = (b'\x89PNG\r\n\x1a\n' + 
-                chunk(b'IHDR', struct.pack('>IIBBBBB', w, h, 8, 6, 0, 0, 0)) + 
-                chunk(b'IDAT', zlib.compress(rows, 9)) + 
+    png_data = (b'\x89PNG\r\n\x1a\n' +
+                chunk(b'IHDR', struct.pack('>IIBBBBB', w, h, 8, 6, 0, 0, 0)) +
+                chunk(b'IDAT', zlib.compress(rows, 9)) +
                 chunk(b'IEND', b''))
     Path(path).write_bytes(png_data)
 
@@ -265,11 +265,11 @@ def render_sitting_tabby(
     # 2. FAR EAR
     fe_tip_x = 18 - ear_twitch_l * 2.0
     fe_tip_y = 9 + ear_twitch_l * 3.0
-    c.fill_polygon([(14 + head_offset[0], 22 + head_offset[1]), 
-                    (fe_tip_x + head_offset[0], fe_tip_y + head_offset[1]), 
+    c.fill_polygon([(14 + head_offset[0], 22 + head_offset[1]),
+                    (fe_tip_x + head_offset[0], fe_tip_y + head_offset[1]),
                     (23 + head_offset[0], 22 + head_offset[1])], 'shade')
-    c.fill_polygon([(16 + head_offset[0], 20 + head_offset[1]), 
-                    (fe_tip_x + 1 + head_offset[0], fe_tip_y + 3 + head_offset[1]), 
+    c.fill_polygon([(16 + head_offset[0], 20 + head_offset[1]),
+                    (fe_tip_x + 1 + head_offset[0], fe_tip_y + 3 + head_offset[1]),
                     (21 + head_offset[0], 20 + head_offset[1])], 'ear')
 
     # 3. HAUNCH & BACK
@@ -325,14 +325,14 @@ def render_sitting_tabby(
     # 9. NEAR EAR
     ne_tip_x = 35 + ear_twitch_r * 2.0
     ne_tip_y = 9 + ear_twitch_r * 3.0
-    c.fill_polygon([(29 + head_offset[0], 21 + head_offset[1]), 
-                    (ne_tip_x + head_offset[0], ne_tip_y + head_offset[1]), 
+    c.fill_polygon([(29 + head_offset[0], 21 + head_offset[1]),
+                    (ne_tip_x + head_offset[0], ne_tip_y + head_offset[1]),
                     (39 + head_offset[0], 22 + head_offset[1])], 'orange')
-    c.fill_polygon([(31 + head_offset[0], 20 + head_offset[1]), 
-                    (ne_tip_x + head_offset[0], ne_tip_y + 3 + head_offset[1]), 
+    c.fill_polygon([(31 + head_offset[0], 20 + head_offset[1]),
+                    (ne_tip_x + head_offset[0], ne_tip_y + 3 + head_offset[1]),
                     (37 + head_offset[0], 21 + head_offset[1])], 'pink')
-    c.fill_polygon([(32 + head_offset[0], 20 + head_offset[1]), 
-                    (ne_tip_x + head_offset[0], ne_tip_y + 5 + head_offset[1]), 
+    c.fill_polygon([(32 + head_offset[0], 20 + head_offset[1]),
+                    (ne_tip_x + head_offset[0], ne_tip_y + 5 + head_offset[1]),
                     (35 + head_offset[0], 21 + head_offset[1])], 'ear')
 
     # 10. TABBY MARKINGS (M on forehead, temple stripes)
@@ -552,13 +552,13 @@ def render_stretching_tabby(t, frame_idx=0):
 
     # 2. HAUNCH & SPINE
     c.fill_ellipse(hip_x - 3, hip_y + 4, 8, 9, 'orange')
-    c.fill_polygon([(hip_x - 5, hip_y), (head_x + 6, chest_y - 3), 
+    c.fill_polygon([(hip_x - 5, hip_y), (head_x + 6, chest_y - 3),
                     (head_x + 4, chest_y + 4), (hip_x - 7, hip_y + 8)], 'orange')
     c.fill_ellipse(head_x + 5, chest_y, 6, 5, 'cream')
 
     # 3. EXTENDED FRONT PAWS
     paw_front_x = 18 - stretch * 4.0
-    c.fill_polygon([(head_x + 2, chest_y + 2), (paw_front_x + 6, 57), 
+    c.fill_polygon([(head_x + 2, chest_y + 2), (paw_front_x + 6, 57),
                     (paw_front_x, 57), (head_x - 2, chest_y + 2)], 'orange')
     c.fill_rect(paw_front_x - 2, 56, 8, 3, 'cream')
 
@@ -859,13 +859,13 @@ def render_turning_tabby(step):
 
     fh_hip_x1 = 43.0 * (1.0 - rot) + 33.0 * rot
     fh_hip_x2 = 47.0 * (1.0 - rot) + 37.0 * rot
-    c.fill_polygon([(fh_hip_x1, body_y - 2), (fh_hip_x2, body_y - 2), 
+    c.fill_polygon([(fh_hip_x1, body_y - 2), (fh_hip_x2, body_y - 2),
                     (fh_paw_x + 3, fh_paw_y - 3), (fh_paw_x, fh_paw_y - 3)], 'dark')
     c.fill_rect(fh_paw_x, fh_paw_y - 2, 4, 3, 'creamshade')
 
     ff_hip_x1 = 27.0 * (1.0 - rot) + 35.0 * rot
     ff_hip_x2 = 31.0 * (1.0 - rot) + 39.0 * rot
-    c.fill_polygon([(ff_hip_x1, body_y - 1), (ff_hip_x2, body_y - 1), 
+    c.fill_polygon([(ff_hip_x1, body_y - 1), (ff_hip_x2, body_y - 1),
                     (ff_paw_x + 3, ff_paw_y - 3), (ff_paw_x, ff_paw_y - 3)], 'dark')
     c.fill_rect(ff_paw_x, ff_paw_y - 2, 4, 3, 'creamshade')
 
@@ -893,14 +893,14 @@ def render_turning_tabby(step):
 
     nh_hip_x1 = 41.0 * (1.0 - rot) + 27.0 * rot
     nh_hip_x2 = 46.0 * (1.0 - rot) + 31.0 * rot
-    c.fill_polygon([(nh_hip_x1, body_y - 3), (nh_hip_x2, body_y - 3), 
+    c.fill_polygon([(nh_hip_x1, body_y - 3), (nh_hip_x2, body_y - 3),
                     (nh_paw_x + 4, nh_paw_y - 3), (nh_paw_x, nh_paw_y - 3)], 'orange')
     c.fill_rect(nh_paw_x, nh_paw_y - 2, 4, 3, 'cream')
     c.set(nh_paw_x + 2, nh_paw_y, 'creamshade')
 
     nf_hip_x1 = 24.0 * (1.0 - rot) + 25.0 * rot
     nf_hip_x2 = 28.0 * (1.0 - rot) + 29.0 * rot
-    c.fill_polygon([(nf_hip_x1, body_y - 2), (nf_hip_x2, body_y - 2), 
+    c.fill_polygon([(nf_hip_x1, body_y - 2), (nf_hip_x2, body_y - 2),
                     (nf_paw_x + 4, nf_paw_y - 3), (nf_paw_x, nf_paw_y - 3)], 'orange')
     c.fill_rect(nf_paw_x, nf_paw_y - 2, 4, 3, 'cream')
     c.set(nf_paw_x + 2, nf_paw_y, 'creamshade')
@@ -1096,11 +1096,11 @@ def build_clip_grooming(count=96):
         elif t < 0.60:
             lick_t = ((t - 0.20) / 0.40 * 3.0) % 1.0
             mouth = 'tongue_lick' if lick_t < 0.6 else 'smile'
-            c = render_sitting_tabby(front_paw_mode='raise_lick', paw_lick_phase=1.0, 
+            c = render_sitting_tabby(front_paw_mode='raise_lick', paw_lick_phase=1.0,
                                      mouth_state=mouth, head_offset=(-1, 1), eye_state='half', tail_wave_phase=tail_wave)
         elif t < 0.85:
             wipe_t = (t - 0.60) / 0.25
-            c = render_sitting_tabby(front_paw_mode='wipe_face', paw_lick_phase=wipe_t, 
+            c = render_sitting_tabby(front_paw_mode='wipe_face', paw_lick_phase=wipe_t,
                                      head_offset=(0, 0), eye_state='blink', tail_wave_phase=tail_wave)
         else:
             p = 1.0 - (t - 0.85) / 0.15
