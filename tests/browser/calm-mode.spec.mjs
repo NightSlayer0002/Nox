@@ -115,8 +115,8 @@ for(const [label,width,path] of [['landing',390,'/'],['chat',1440,'/guest#conver
 }
 
 // Question: does the real page transfer one smaller cat onto the playground
-// floor, animate it, and keep the instructions clear on desktop and mobile?
-// Limits: Chromium with the WebGL fallback; no physical-phone/GPU guarantee.
+// floor and match travel to the three-stride sprite at each size? Limits:
+// Chromium fallback checks placement and distance, not perceived gait quality.
 for(const width of [390,1440]){
   test(`cat joins the playground floor at ${width}px and returns on leaving`,async({page})=>{
     await page.setViewportSize({width,height:900});await page.emulateMedia({reducedMotion:'no-preference'});
@@ -135,6 +135,9 @@ for(const width of [390,1440]){
     expect(pet.y).toBeGreaterThan(footer.y+footer.height);
     expect(Math.abs(bounds.y+bounds.height-(pet.y+pet.height))).toBeLessThan(18);
     await expect(cat).toHaveAttribute('data-pose','grooming',{timeout:12000});
+    const walked=await walker.boundingBox();
+    const perch=await cat.boundingBox();
+    expect(walked.x-perch.x).toBeCloseTo(perch.width*66/64,0);
     await page.locator('#home').evaluate(node=>node.scrollIntoView({block:'start',behavior:'instant'}));
     await expect(cat).toHaveAttribute('data-perch','interface');
     await expect(cat).toBeVisible();await expect(cat).toHaveCount(1);
