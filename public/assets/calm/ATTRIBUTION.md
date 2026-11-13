@@ -1,7 +1,7 @@
 # Calm cat assets
 
-The 64 × 64 `tabby-*.png` animation strips are original NOX artwork rendered
-from the layered Blender rig in `scripts/art/render-calm-cat.py`.
+The 64 × 64 `tabby-*.png` animation strips are NOX artwork authored with Antigravity and generated
+from the deterministic pixel-art motion curves in `scripts/art/render-calm-cat.py`.
 
 Legacy `cat-*.png` strips are from **Pet Cats Pack**, Cat 5, by LuizMelo.
 Source: https://luizmelo.itch.io/pet-cat-pack

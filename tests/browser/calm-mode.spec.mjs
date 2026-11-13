@@ -36,7 +36,7 @@ test('Calm mode adds one pet and preserves the preference across navigation',asy
 test('a sleeping cat wakes before nuzzling and a new visit has no old reaction timer',async({page})=>{
   await page.goto('/');await page.clock.install();await page.locator('.calm-toggle').click();
   const cat=page.locator('.calm-cat');
-  for(const [duration,pose] of [[2500,'walk'],[3000,'idle'],[6000,'grooming'],[4000,'walk'],[3000,'idle'],[8000,'curious'],[2500,'idle'],[5000,'stretching'],[2000,'laying'],[1500,'sleeping1']]){
+  for(const [duration,pose] of [[2500,'turn'],[500,'walk'],[3000,'idle'],[6000,'grooming'],[4000,'turn'],[500,'walk'],[3000,'idle'],[8000,'curious'],[2500,'idle'],[5000,'stretching'],[2000,'laying'],[1500,'sleeping1']]){
     await page.clock.fastForward(duration);await expect(cat).toHaveAttribute('data-pose',pose);
   }
   await page.getByRole('button',{name:'Pet the cat',exact:true}).click();
@@ -46,6 +46,29 @@ test('a sleeping cat wakes before nuzzling and a new visit has no old reaction t
   await page.getByRole('button',{name:'Pet the cat',exact:true}).click();
   await page.locator('.calm-toggle').click();await page.locator('.calm-toggle').click();
   await page.clock.fastForward(1500);await expect(cat).toHaveAttribute('data-pose','idle');
+});
+
+// Question: does a reversal play the standing turn before changing direction,
+// and can petting cancel that pending walk? Limits: simulated time
+// checks state ownership; it does not establish animation quality or real FPS.
+test('cat turns before reversing and reactions cancel the pending walk',async({page})=>{
+  await page.clock.install();await page.goto('/');await page.clock.pauseAt(new Date(Date.now()+1000));await page.locator('.calm-toggle').click();
+  const cat=page.locator('.calm-cat'),sprite=cat.locator('.calm-cat-sprite');
+  const facing=()=>cat.evaluate(node=>node.style.getPropertyValue('--cat-facing'));
+  // Advance one small slice at a time so the placement animation frame and
+  // React's effects can run before we inspect the half-second pivot.
+  const advanceTo=pose=>expect.poll(async()=>{
+    await page.clock.runFor(100);
+    return page.evaluate(()=>document.querySelector('.calm-cat')?.dataset.pose);
+  },{intervals:[10],timeout:8000}).toBe(pose);
+  await page.clock.runFor(2000);await advanceTo('turn');
+  expect(await facing()).toBe('1');
+  expect(await sprite.evaluate(node=>getComputedStyle(node).backgroundImage)).toContain('tabby-turn.png');
+  expect(await sprite.evaluate(node=>getComputedStyle(node).animationIterationCount)).toBe('1');
+  await page.getByRole('button',{name:'Pet the cat',exact:true}).click();
+  await page.clock.runFor(500);await expect(cat).toHaveAttribute('data-pose','nuzzle');expect(await facing()).toBe('1');
+  await page.locator('.calm-toggle').click();await page.clock.fastForward(5000);
+  await expect(cat).toHaveCount(0);
 });
 
 // Question: does reduced motion keep the cat still but preserve visible pet
