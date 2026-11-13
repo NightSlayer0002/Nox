@@ -124,7 +124,12 @@ export function CalmMode({home=false,headerHost=null}){
     else next();
     return()=>{clearTimeout(timer);react.current=null;};
   },[enabled,paused,home,animate,playground]);
-  function toggle(){setEnabled(value=>saveCalmMode(!value));}
+  function toggle(){
+    const next=!enabled;
+    // Opening the cat explicitly starts its motion, even in reduced motion.
+    setMotionOverride(next&&reduced);
+    setEnabled(saveCalmMode(next));
+  }
   function pet(){
     const now=performance.now();if(now-petAt.current<900)return;petAt.current=now;react.current?.('pet');
   }
