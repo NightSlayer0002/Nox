@@ -1,8 +1,7 @@
 async function watchReleaseUpdates() {
-  const workspace = document.body.classList.contains('workspace');
-  let registration = await navigator.serviceWorker.getRegistration();
-  // A landing visit alone does not need the offline workspace.
-  if (!registration && workspace) registration = await navigator.serviceWorker.register('/sw.js');
+  // Update instructions are for the workspace, where a visit can hold a draft.
+  if (!document.body.classList.contains('workspace')) return;
+  const registration = await navigator.serviceWorker.getRegistration() || await navigator.serviceWorker.register('/sw.js');
   if (!registration) return;
 
   let noticed, notice;

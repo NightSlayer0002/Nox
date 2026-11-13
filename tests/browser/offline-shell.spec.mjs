@@ -30,7 +30,9 @@ test('an installed release starts after a real offline reload and keeps local le
   expect(await page.evaluate(async()=>{const names=await caches.keys();for(const name of names.filter(name=>name.startsWith('nox-shell-')))if((await (await caches.open(name)).keys()).some(request=>new URL(request.url).pathname.startsWith('/api/')))return true;return false;})).toBe(false);
 });
 
-test('returning tabs show a waiting release without resetting the open guest visit',async({page,context})=>{
+// Question: does a waiting release leave a fresh landing page quiet while
+// protecting an open draft? Limits: local two-release fixture, not Vercel CDN behavior.
+test('a waiting release prompts in the workspace and leaves a fresh landing page quiet',async({page,context})=>{
   const [worker,watcher]=await Promise.all(['sw.js','js/release-update.js'].map(file=>readFile(new URL('../../public/'+file,import.meta.url),'utf8')));
   let release='old';
   const server=createServer((request,response)=>{
@@ -65,8 +67,10 @@ test('returning tabs show a waiting release without resetting the open guest vis
     const landing=await context.newPage();
     await landing.goto(origin);
     await expect(landing.getByRole('heading')).toHaveText('old shell');
-    await expect(notice(landing)).toBeVisible();
-    await notice(landing).getByRole('button',{name:'Later'}).click();
+    await landing.evaluate(async()=>{
+      await import('/js/release-update.js');
+      if (!(await navigator.serviceWorker.getRegistration()).waiting) throw new Error('Expected a waiting release');
+    });
     await expect(notice(landing)).toHaveCount(0);
     await expect(notice(page)).toBeVisible();
     await Promise.all([landing.close(),page.close()]);
