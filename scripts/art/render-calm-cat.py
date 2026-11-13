@@ -420,22 +420,22 @@ def render_sitting_tabby(
     c.outline('ink')
     return c
 
+# The browser advances the cat by the same 22 sprite pixels per stride.
+def walking_paw(phase):
+    phase %= 1.0
+    stance = 0.60
+    reach = 22 * stance / 2
+    if phase < stance:
+        # Facing left: move the planted paw right relative to the body.
+        return -reach + 22 * phase, 0.0
+    swing = (phase - stance) / (1.0 - stance)
+    return reach * math.cos(math.pi * swing), -4.2 * math.sin(math.pi * swing)
+
+
 def render_walking_tabby(stride_phase, tail_wave_phase, frame_idx=0):
     """Render quadruped lateral sequence feline walk with planted feet and safe tail margins."""
     c = Canvas(64, 64)
     phi = stride_phase * math.tau
-
-    phase_nh = phi
-    phase_nf = phi + 0.25 * math.tau
-    phase_fh = phi + 0.50 * math.tau
-    phase_ff = phi + 0.75 * math.tau
-
-    def leg_motion(phase, base_x):
-        s = math.sin(phase)
-        c_val = math.cos(phase)
-        x_travel = -base_x + c_val * 4.8
-        y_lift = -abs(s) * 4.2 if s < 0 else 0.0
-        return x_travel, y_lift
 
     body_y = 44 + abs(math.sin(phi * 2.0)) * 1.0
     head_y = 31 + math.sin(phi * 2.0) * 0.8
@@ -445,13 +445,13 @@ def render_walking_tabby(stride_phase, tail_wave_phase, frame_idx=0):
     ear_sway = math.sin(frame_idx / 72.0 * math.tau * 2.0) * 0.4
 
     # 1. FAR LEGS
-    fh_dx, fh_dy = leg_motion(phase_fh, 0)
+    fh_dx, fh_dy = walking_paw(stride_phase + 0.50)
     fh_paw_x = 44 + fh_dx
     fh_paw_y = 58 + fh_dy
     c.fill_polygon([(43, body_y - 2), (47, body_y - 2), (fh_paw_x + 3, fh_paw_y - 3), (fh_paw_x, fh_paw_y - 3)], 'dark')
     c.fill_rect(fh_paw_x, fh_paw_y - 2, 4, 3, 'creamshade')
 
-    ff_dx, ff_dy = leg_motion(phase_ff, 0)
+    ff_dx, ff_dy = walking_paw(stride_phase + 0.75)
     ff_paw_x = 27 + ff_dx
     ff_paw_y = 58 + ff_dy
     c.fill_polygon([(27, body_y - 1), (31, body_y - 1), (ff_paw_x + 3, ff_paw_y - 3), (ff_paw_x, ff_paw_y - 3)], 'dark')
@@ -480,14 +480,14 @@ def render_walking_tabby(stride_phase, tail_wave_phase, frame_idx=0):
         c.fill_polygon([(sx, body_y - 6), (sx + 3, body_y - 6), (sx + 1, body_y + 3), (sx - 2, body_y + 3)], 'shade')
 
     # 4. NEAR LEGS
-    nh_dx, nh_dy = leg_motion(phase_nh, 0)
+    nh_dx, nh_dy = walking_paw(stride_phase)
     nh_paw_x = 42 + nh_dx
     nh_paw_y = 58 + nh_dy
     c.fill_polygon([(41, body_y - 3), (46, body_y - 3), (nh_paw_x + 4, nh_paw_y - 3), (nh_paw_x, nh_paw_y - 3)], 'orange')
     c.fill_rect(nh_paw_x, nh_paw_y - 2, 4, 3, 'cream')
     c.set(nh_paw_x + 2, nh_paw_y, 'creamshade')
 
-    nf_dx, nf_dy = leg_motion(phase_nf, 0)
+    nf_dx, nf_dy = walking_paw(stride_phase + 0.25)
     nf_paw_x = 24 + nf_dx
     nf_paw_y = 58 + nf_dy
     c.fill_polygon([(24, body_y - 2), (28, body_y - 2), (nf_paw_x + 4, nf_paw_y - 3), (nf_paw_x, nf_paw_y - 3)], 'orange')
@@ -852,10 +852,12 @@ def render_turning_tabby(step):
     c.draw_tail(tail_pts, tail_widths, tail_cols)
 
     # 2. FAR LEGS (Far hind, far front)
-    fh_paw_x = 39.2 * (1.0 - rot) + 35.0 * rot
-    fh_paw_y = 58.0
-    ff_paw_x = 27.0 * (1.0 - rot) + 37.0 * rot
-    ff_paw_y = 53.8 * (1.0 - rot) + 58.0 * rot
+    fh_dx, fh_dy = walking_paw(0.50)
+    ff_dx, ff_dy = walking_paw(0.75)
+    fh_paw_x = (44.0 + fh_dx) * (1.0 - rot) + 35.0 * rot
+    fh_paw_y = 58.0 + fh_dy * (1.0 - rot)
+    ff_paw_x = (27.0 + ff_dx) * (1.0 - rot) + 37.0 * rot
+    ff_paw_y = 58.0 + ff_dy * (1.0 - rot)
 
     fh_hip_x1 = 43.0 * (1.0 - rot) + 33.0 * rot
     fh_hip_x2 = 47.0 * (1.0 - rot) + 37.0 * rot
@@ -886,9 +888,9 @@ def render_turning_tabby(step):
     c.fill_ellipse(bib_x, body_y + 1.0, 6.0, 6.0 + 1.0 * rot, 'cream')
 
     # 4. NEAR LEGS (Near hind, near front)
-    nh_paw_x = 46.8 * (1.0 - rot) + 29.0 * rot
+    nh_paw_x = (42.0 + walking_paw(0.0)[0]) * (1.0 - rot) + 29.0 * rot
     nh_paw_y = 58.0
-    nf_paw_x = 24.0 * (1.0 - rot) + 27.0 * rot
+    nf_paw_x = (24.0 + walking_paw(0.25)[0]) * (1.0 - rot) + 27.0 * rot
     nf_paw_y = 58.0
 
     nh_hip_x1 = 41.0 * (1.0 - rot) + 27.0 * rot

@@ -4,6 +4,8 @@ import {catPerch,createCatSound,readCalmMode,saveCalmMode} from '/js/calm-cat.js
 
 // Each strip is rendered at 24 frames per second on a 64px pixel grid.
 const framesByPose={idle:144,stretching:48,walk:72,turn:12,laying:36,sleeping1:144,waking:48,meow:58,nuzzle:72,grooming:96,curious:60};
+// Three strides at 22 source pixels each, matching render-calm-cat.py.
+const walkDistance=66;
 const routine=[['idle',2500],['walk',3000],['idle',6000],['grooming',4000],['walk',3000],['idle',8000],['curious',2500],['idle',5000],['stretching',2000],['laying',1500],['sleeping1',18000],['waking',2000]];
 function Paw(){return <svg viewBox="0 0 24 24" aria-hidden="true"><ellipse cx="5" cy="9" rx="2" ry="2.8" transform="rotate(-25 5 9)"/><ellipse cx="10" cy="5.5" rx="2" ry="2.8"/><ellipse cx="16" cy="6" rx="2" ry="2.8" transform="rotate(15 16 6)"/><ellipse cx="20" cy="11" rx="1.8" ry="2.5" transform="rotate(30 20 11)"/><path d="M6.5 17c0-2 3-5.5 5.5-5.5s5.5 3.5 5.5 5.5c0 3-3 2-5.5 2s-5.5 1-5.5-2Z"/></svg>;}
 function Speaker({on}){return <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M11 4 6 8H3v8h3l5 4Z"/>{on?<path d="M15 8a6 6 0 0 1 0 8m3-11a10 10 0 0 1 0 14"/>:<path d="m16 9 5 6m0-6-5 6"/>}</svg>;}
@@ -61,7 +63,7 @@ export function CalmMode({home=false,headerHost=null}){
         const rect=support.getBoundingClientRect();
         const rail=inRoom?{left:18,right:Math.min(roomRect.width-18,small?240:360),top:roomRect.height-10}:home?{left:rect.left,right:Math.min(rect.left+(small?190:240),innerWidth-12),top:rect.top-6}:rect;
         const bounds={support:rail,width:inRoom?roomRect.width:innerWidth,height:inRoom?roomRect.height:height,size};
-        const base=catPerch(bounds),walk=catPerch({...bounds,travel});
+        const base=catPerch(bounds),walk=catPerch({...bounds,travel:travel*size/64});
         const next={...base,size,offset:walk.x-base.x,playground:inRoom};
         setPosition(previous=>previous&&Object.keys(next).every(key=>previous[key]===next[key])?previous:next);
       });
@@ -90,7 +92,7 @@ export function CalmMode({home=false,headerHost=null}){
         const direction=walkRight.current?-1:1;
         const walk=()=>{
           facingNow.current=direction;setFacing(direction);show('walk');
-          setTravel(walkRight.current?(playground?(innerWidth<=700?120:200):(innerWidth<=700?64:88)):0);
+          setTravel(walkRight.current?walkDistance:0);
           walkRight.current=!walkRight.current;
           timer=setTimeout(next,duration);
         };
@@ -111,7 +113,7 @@ export function CalmMode({home=false,headerHost=null}){
       if(poseNow.current==='walk'&&walker.current){
         const frame=walker.current.parentElement.getBoundingClientRect();
         const offset=walker.current.getBoundingClientRect().left-frame.left;
-        setTravel(offset);setPosition(value=>value?{...value,offset}:value);
+        setTravel(offset*64/frame.width);setPosition(value=>value?{...value,offset}:value);
       }
       const nuzzle=()=>{show('nuzzle');setAffection(value=>value+1);void sound.current?.pet();timer=setTimeout(settle,3000);};
       if(kind==='curious'){show('curious');timer=setTimeout(settle,2500);}
