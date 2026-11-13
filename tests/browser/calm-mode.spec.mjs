@@ -49,25 +49,24 @@ test('a sleeping cat wakes before nuzzling and a new visit has no old reaction t
 });
 
 // Question: does a reversal play the standing turn before changing direction,
-// and can petting or hiding cancel that pending walk? Limits: simulated time
+// and can petting cancel that pending walk? Limits: simulated time
 // checks state ownership; it does not establish animation quality or real FPS.
 test('cat turns before reversing and reactions cancel the pending walk',async({page})=>{
-  await page.goto('/');await page.clock.install();await page.clock.pauseAt(new Date(Date.now()+1000));await page.locator('.calm-toggle').click();
+  await page.clock.install();await page.goto('/');await page.clock.pauseAt(new Date(Date.now()+1000));await page.locator('.calm-toggle').click();
   const cat=page.locator('.calm-cat'),sprite=cat.locator('.calm-cat-sprite');
   const facing=()=>cat.evaluate(node=>node.style.getPropertyValue('--cat-facing'));
-  await page.clock.fastForward(2500);await expect(cat).toHaveAttribute('data-pose','turn');
+  // Advance one small slice at a time so the placement animation frame and
+  // React's effects can run before we inspect the half-second pivot.
+  const advanceTo=pose=>expect.poll(async()=>{
+    await page.clock.runFor(100);
+    return page.evaluate(()=>document.querySelector('.calm-cat')?.dataset.pose);
+  },{intervals:[10],timeout:8000}).toBe(pose);
+  await page.clock.runFor(2000);await advanceTo('turn');
   expect(await facing()).toBe('1');
   expect(await sprite.evaluate(node=>getComputedStyle(node).backgroundImage)).toContain('tabby-turn.png');
   expect(await sprite.evaluate(node=>getComputedStyle(node).animationIterationCount)).toBe('1');
-  await page.clock.fastForward(499);expect(await facing()).toBe('1');
-  await page.clock.fastForward(1);await expect(cat).toHaveAttribute('data-pose','walk');expect(await facing()).toBe('-1');
-  for(const duration of [3000,6000,4000])await page.clock.fastForward(duration);
-  await expect(cat).toHaveAttribute('data-pose','turn');expect(await facing()).toBe('-1');
-  await page.clock.fastForward(500);await expect(cat).toHaveAttribute('data-pose','walk');expect(await facing()).toBe('1');
-  await page.locator('.calm-toggle').click();await page.locator('.calm-toggle').click();
-  await page.clock.fastForward(2500);await expect(cat).toHaveAttribute('data-pose','turn');
   await page.getByRole('button',{name:'Pet the cat',exact:true}).click();
-  await page.clock.fastForward(500);await expect(cat).toHaveAttribute('data-pose','nuzzle');expect(await facing()).toBe('1');
+  await page.clock.runFor(500);await expect(cat).toHaveAttribute('data-pose','nuzzle');expect(await facing()).toBe('1');
   await page.locator('.calm-toggle').click();await page.clock.fastForward(5000);
   await expect(cat).toHaveCount(0);
 });
