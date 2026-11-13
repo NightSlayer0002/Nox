@@ -71,23 +71,27 @@ test('cat turns before reversing and reactions cancel the pending walk',async({p
   await expect(cat).toHaveCount(0);
 });
 
-// Question: does reduced motion keep the cat still but preserve visible pet
-// feedback and controls? Limits: media preference emulation, not user comfort.
-test('reduced motion keeps a still cat with gentle affection feedback',async({page})=>{
+// Question: does the paw start the cat immediately with reduced motion enabled,
+// and can the cat still be paused? Limits: emulated preference and sprite
+// behavior do not establish user comfort or performance on a physical device.
+test('the paw starts the cat without a second click in reduced motion',async({page})=>{
   await page.emulateMedia({reducedMotion:'reduce'});await page.goto('/');
-  await page.locator('.calm-toggle').click();await page.getByRole('button',{name:'Pet the cat',exact:true}).click();
-  await expect(page.locator('.calm-cat-heart')).toBeVisible();
-  expect(await page.locator('.calm-cat-sprite').evaluate(node=>getComputedStyle(node).animationName)).toBe('none');
-  expect(await page.locator('.calm-cat-walk').evaluate(node=>getComputedStyle(node).transitionDuration)).toBe('0s');
-  // Explicit opt-in should animate just the cat without changing the OS media
-  // preference or other page effects. This cannot establish user comfort.
-  await page.getByRole('button',{name:'Animate cat',exact:true}).click();
+  const paw=page.getByRole('button',{name:'Cat companion',exact:true});
+  await paw.click();
+  const pause=page.getByRole('button',{name:'Pause cat animation',exact:true});
+  await expect(pause).toBeVisible({timeout:2500});
   const sprite=page.locator('.calm-cat-sprite');
   const first=await sprite.evaluate(node=>getComputedStyle(node).backgroundPositionX);
   await expect.poll(()=>sprite.evaluate(node=>getComputedStyle(node).backgroundPositionX)).not.toBe(first);
   expect(await page.evaluate(()=>matchMedia('(prefers-reduced-motion: reduce)').matches)).toBe(true);
-  await page.getByRole('button',{name:'Pause cat animation',exact:true}).click();
-  expect(await sprite.evaluate(node=>getComputedStyle(node).animationName)).toBe('none');
+  await pause.click();
+  await page.getByRole('button',{name:'Pet the cat',exact:true}).click();
+  await expect(page.locator('.calm-cat-heart')).toBeVisible();
+  await expect(sprite).toHaveCSS('animation-name','none');
+  await expect(page.locator('.calm-cat-walk')).toHaveCSS('transition-duration','0s');
+  await paw.click();await expect(sprite).toHaveCount(0);
+  await paw.click();await expect(pause).toBeVisible();
+  await expect(sprite).not.toHaveCSS('animation-name','none');
 });
 
 // Question: do sprites advance in real time, and does the cat visibly walk in
